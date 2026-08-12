@@ -59,7 +59,28 @@ export async function generateCompanyAnalysis(
   // If OpenAI/Gemini API key is provided, use LLM
   if (apiKey && apiKey.trim().length > 10) {
     try {
-      if (provider === "openai") {
+      if (provider === "gemini") {
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        const prompt = `Sen 'Orakul' adında bilge bir finansal değerleme yapay zekasısın. Şirket verilerini ve geçmiş analiz geri bildirimlerini inceleyerek JSON formatında analiz üret.\nFormat: { "valuationScore": "X.X / 10", "whyMoved": "string", "pros": ["string"], "risks": ["string"], "verdict": "GÜÇLÜ AL" | "AL" | "TUT" | "SAT", "pastFeedbackSummary": "string" }\n\nŞirket: ${company.symbol} (${company.name}), Fiyat: ${company.price} ${company.currency || "₺"}, Günlük Değişim: %${company.dailyChange}, Sektör: ${company.sector}, F/K: ${company.peRatio || "N/A"}, PD/DD: ${company.pbRatio || "N/A"}, Temettü Verimi: %${company.dividendYield || 0}.${feedbackContext}`;
+
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: "application/json", temperature: 0.2 },
+          }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (rawText) {
+            const parsed = JSON.parse(rawText);
+            return { symbol: company.symbol, ...parsed };
+          }
+        }
+      } else if (provider === "openai") {
         const res = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -205,7 +226,27 @@ export async function generateOrakulRecipe(
 ) {
   if (apiKey && apiKey.trim().length > 10) {
     try {
-      if (provider === "openai") {
+      if (provider === "gemini") {
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        const prompt = `Sen 'Orakul' adında elit bir Türk finans ve portföy optimizasyon yapay zekasısın. JSON formatında yanıt ver.\nFormat: { "title": string, "summary": string, "healthScore": number, "expectedYield": string, "allocation": [{ "symbol": string, "name": string, "weight": number, "note": string }] }\n\nHedef: ${req.goal}, Risk: ${req.risk}, Bütçe: ${req.budget} TL, Evren: ${req.universe}. Bana 4 hisselik optimize sepet JSON reçetesi üret.`;
+
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: "application/json", temperature: 0.2 },
+          }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (rawText) {
+            return JSON.parse(rawText);
+          }
+        }
+      } else if (provider === "openai") {
         const res = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -291,7 +332,33 @@ export async function askOrakulChat(
 
   if (apiKey && apiKey.trim().length > 10) {
     try {
-      if (provider === "openai") {
+      if (provider === "gemini") {
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        const systemPrompt = `Sen Defter yatırım platformunun yapay zeka analisti 'Orakul'sun. Kullanıcının mevcut portföy ve geçmiş analiz başarı karnesi bağlamı:\n${JSON.stringify(
+          contextData
+        )}\nKullanıcıya samimi, bilge, finansal terimleri anlaşılır kılan ve Fraunces/Mürekkep & Pirinç estetiğine uygun bilgece Türkçe yanıtlar ver. Geçmiş analizlerindeki isabet oranını ve kararlarını hatırlayarak konuş.`;
+
+        const geminiContents = messages.map((m) => ({
+          role: m.role === "assistant" ? "model" : "user",
+          parts: [{ text: m.content }],
+        }));
+
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: systemPrompt }] },
+            contents: geminiContents,
+            generationConfig: { temperature: 0.7 },
+          }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (replyText) return replyText;
+        }
+      } else if (provider === "openai") {
         const res = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
           headers: {

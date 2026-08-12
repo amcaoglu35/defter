@@ -143,9 +143,9 @@ export default function AyarlarPage() {
                 onChange={(e) => setSelectedProvider(e.target.value)}
                 className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 text-xs text-[var(--paper)] font-mono focus:border-[var(--brass)] outline-none"
               >
-                <option value="gemini">Google Gemini (Gemini 1.5 Pro / Flash)</option>
+                <option value="gemini">Google Gemini (Önerilen — Ücretsiz Google AI Studio)</option>
                 <option value="openai">OpenAI (GPT-4o / GPT-4o-mini)</option>
-                <option value="anthropic">Anthropic (Claude 3.5 Sonnet)</option>
+                <option value="local">Yerel Finansal Motor (API Anahtarsız Çevrimdışı Mod)</option>
               </select>
             </div>
 
@@ -158,14 +158,14 @@ export default function AyarlarPage() {
                 type="password"
                 value={keyInput}
                 onChange={(e) => setKeyInput(e.target.value)}
-                placeholder="sk-... veya AIzaSy..."
+                placeholder="AIzaSy... (Gemini) veya sk-... (OpenAI)"
                 className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 text-xs text-[var(--paper)] font-mono focus:border-[var(--brass)] outline-none"
               />
             </div>
           </div>
 
           <p className="text-[11px] text-[var(--mist)] leading-relaxed font-sans">
-            * Kendi API anahtarınızı girerseniz Orakul doğrudan seçtiğiniz modelle analiz üretir. Boş bırakırsanız Defter&apos;in yerel akıllı kural motoru devreye girer.
+            * <strong>Google Gemini:</strong> <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-[var(--brass)] underline hover:text-[var(--paper)]">Google AI Studio&apos;dan ücretsiz API anahtarı</a> alarak gerçek zamanlı yapay zeka analizlerini etkinleştirebilirsiniz. Boş bırakırsanız Defter&apos;in yerel kural motoru devreye girer.
           </p>
 
           <div className="pt-2 flex items-center justify-between">
