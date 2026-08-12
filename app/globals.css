@@ -1,0 +1,188 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --ink: #12151C;
+    --ink-2: #1A1E28;
+    --ink-3: #20242F;
+    --paper: #EDE6D3;
+    --paper-dim: #D9D0B8;
+    --brass: #C9A24B;
+    --brass-dim: #8C7638;
+    --brass-glow: rgba(201, 162, 75, 0.16);
+    --verdigris: #5B8C7B;
+    --wine: #7A2E3A;
+    --loss: #C97C7C;
+    --mist: #8A93A6;
+    --line: rgba(237, 230, 211, 0.12);
+    --line-strong: rgba(237, 230, 211, 0.24);
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    background-color: var(--ink);
+    color: var(--paper);
+    font-family: var(--font-space), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    min-height: 100vh;
+  }
+
+  ::selection {
+    background: var(--brass);
+    color: var(--ink);
+  }
+}
+
+/* Custom Typography Utility Classes */
+.font-serif {
+  font-family: var(--font-fraunces), Georgia, serif;
+}
+
+.font-mono {
+  font-family: var(--font-mono), "Courier New", monospace;
+}
+
+.font-sans {
+  font-family: var(--font-space), -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Ticker Animation */
+@keyframes ticker-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-ticker {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: ticker-scroll 35s linear infinite;
+}
+
+.animate-ticker:hover {
+  animation-play-state: paused;
+}
+
+/* Stamp Badges */
+.stamp {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 4px 10px;
+  border-radius: 2px;
+  transform: rotate(-2.5deg);
+  display: inline-block;
+  border: 1.5px solid currentColor;
+  text-transform: uppercase;
+  transition: transform 0.15s ease;
+}
+
+.stamp:hover {
+  transform: rotate(0deg) scale(1.05);
+}
+
+.stamp-al {
+  color: var(--verdigris);
+  background-color: rgba(91, 140, 123, 0.12);
+}
+
+.stamp-sat {
+  color: var(--loss);
+  background-color: rgba(122, 46, 58, 0.18);
+}
+
+.stamp-tut {
+  color: var(--brass);
+  background-color: rgba(201, 162, 75, 0.12);
+}
+
+.stamp-notr {
+  color: var(--mist);
+  background-color: rgba(138, 147, 166, 0.12);
+}
+
+/* Ticket Cards with Perforated Notches */
+.ticket-card {
+  background-color: var(--paper);
+  color: var(--ink);
+  border-radius: 6px;
+  position: relative;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ticket-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.45);
+}
+
+.ticket-card::before,
+.ticket-card::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  background-color: var(--ink);
+  border-radius: 50%;
+  transform: translateY(-50%);
+  z-index: 5;
+}
+
+.ticket-card::before {
+  left: -9px;
+}
+
+.ticket-card::after {
+  right: -9px;
+}
+
+/* Oracle Seal */
+.oracle-pulse {
+  animation: seal-pulse 3s infinite ease-in-out;
+}
+
+@keyframes seal-pulse {
+  0%, 100% {
+    box-shadow: 0 0 25px rgba(201, 162, 75, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 50px rgba(201, 162, 75, 0.45);
+  }
+}
+
+/* Custom Dashed Separators */
+.border-dashed-line {
+  border-color: var(--line);
+  border-style: dashed;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--ink);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--ink-3);
+  border-radius: 4px;
+  border: 1px solid var(--line);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--brass-dim);
+}
