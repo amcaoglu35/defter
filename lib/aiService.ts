@@ -28,6 +28,25 @@ export interface ChatMessage {
 }
 
 export const GEMINI_MODEL = "gemini-1.5-flash";
+const GEMINI_CANDIDATES = ["gemini-1.5-flash", "gemini-1.5-pro"];
+
+async function fetchGeminiWithFallback(
+  apiKey: string,
+  bodyObj: Record<string, unknown>
+): Promise<Response | null> {
+  for (const modelCandidate of GEMINI_CANDIDATES) {
+    try {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelCandidate}:generateContent?key=${apiKey}`;
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(bodyObj),
+      });
+      if (res.ok) return res;
+    } catch {}
+  }
+  return null;
+}
 
 export function stripJsonFences(text: string): string {
   if (!text) return "";
@@ -269,19 +288,14 @@ export async function generateOrakulRecipe(
   if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
     try {
       if (provider === "gemini") {
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${resolvedApiKey}`;
         const prompt = `Sen 'Orakul' adında elit bir Türk finans ve portföy optimizasyon yapay zekasısın. JSON formatında yanıt ver.\nFormat: { "title": string, "summary": string, "healthScore": number, "expectedYield": string, "allocation": [{ "symbol": string, "name": string, "weight": number, "note": string }] }\n\nHedef: ${req.goal}, Risk: ${req.risk}, Bütçe: ${req.budget} TL, Evren: ${req.universe}. Bana 4 hisselik optimize sepet JSON reçetesi üret.`;
 
-        const res = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: { responseMimeType: "application/json", temperature: 0.2 },
-          }),
+        const res = await fetchGeminiWithFallback(resolvedApiKey, {
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: "application/json", temperature: 0.2 },
         });
 
-        if (res.ok) {
+        if (res && res.ok) {
           const data = await res.json();
           const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
           if (rawText) {
@@ -393,7 +407,6 @@ export async function askOrakulChat(
   if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
     try {
       if (provider === "gemini") {
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${resolvedApiKey}`;
         const systemPrompt = `Sen Defter yatırım platformunun yapay zeka analisti 'Orakul'sun. Kullanıcının mevcut portföy ve geçmiş analiz başarı karnesi bağlamı:\n${JSON.stringify(
           contextData
         )}\nKullanıcıya samimi, bilge, finansal terimleri anlaşılır kılan ve Fraunces/Mürekkep & Pirinç estetiğine uygun bilgece Türkçe yanıtlar ver. Geçmiş analizlerindeki isabet oranını ve kararlarını hatırlayarak konuş.`;
@@ -403,17 +416,13 @@ export async function askOrakulChat(
           parts: [{ text: m.content }],
         }));
 
-        const res = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            system_instruction: { parts: [{ text: systemPrompt }] },
-            contents: geminiContents,
-            generationConfig: { temperature: 0.7 },
-          }),
+        const res = await fetchGeminiWithFallback(resolvedApiKey, {
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents: geminiContents,
+          generationConfig: { temperature: 0.7 },
         });
 
-        if (res.ok) {
+        if (res && res.ok) {
           const data = await res.json();
           const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text;
           if (replyText) return replyText;
