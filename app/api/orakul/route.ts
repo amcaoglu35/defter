@@ -45,31 +45,45 @@ export async function POST(req: Request) {
         });
       }
 
-      // Live Ping Test
+      // Live Ping Test with Automatic Model Fallback
       try {
         if (selectedProvider === "gemini") {
-          const testEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${effectiveKey}`;
-          const testRes = await fetch(testEndpoint, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ role: "user", parts: [{ text: "ping" }] }],
-            }),
-          });
-          if (testRes.ok) {
+          const modelsToTry = [GEMINI_MODEL, "gemini-1.5-flash", "gemini-2.0-flash"];
+          let lastError = "";
+          let successModel = "";
+
+          for (const modelCandidate of Array.from(new Set(modelsToTry))) {
+            const testEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelCandidate}:generateContent?key=${effectiveKey}`;
+            const testRes = await fetch(testEndpoint, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ role: "user", parts: [{ text: "ping" }] }],
+              }),
+            });
+
+            if (testRes.ok) {
+              successModel = modelCandidate;
+              break;
+            } else {
+              const errData = await testRes.json().catch(() => ({}));
+              lastError = errData.error?.message || testRes.statusText || "Geçersiz API Anahtarı";
+            }
+          }
+
+          if (successModel) {
             return NextResponse.json({
               success: true,
               provider: selectedProvider,
               isConfigured: true,
-              message: "Google Gemini API anahtarı ve bağlantısı başarıyla doğrulandı ✓ (Gerçek AI Aktif)",
+              message: `Google Gemini API anahtarı ve ${successModel} bağlantısı başarıyla doğrulandı ✓ (Gerçek AI Aktif)`,
             });
           } else {
-            const errData = await testRes.json().catch(() => ({}));
             return NextResponse.json({
               success: true,
               provider: selectedProvider,
               isConfigured: false,
-              message: `Gemini API bağlantısı başarısız: ${errData.error?.message || testRes.statusText || "Geçersiz API Anahtarı"}`,
+              message: `Gemini API bağlantısı başarısız: ${lastError}`,
             });
           }
         } else if (selectedProvider === "openai") {

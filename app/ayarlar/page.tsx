@@ -238,7 +238,7 @@ export default function AyarlarPage() {
                 }}
                 className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 text-xs text-[var(--paper)] font-mono focus:border-[var(--brass)] outline-none"
               >
-                <option value="gemini">Google Gemini (Önerilen — Gemini 2.5 Flash Lite)</option>
+                <option value="gemini">Google Gemini (Önerilen — Gemini 1.5 / 2.0 Flash)</option>
                 <option value="openai">OpenAI (GPT-4o Mini)</option>
                 <option value="local">Yerel Finansal Motor (API Anahtarsız Çevrimdışı Mod)</option>
               </select>
