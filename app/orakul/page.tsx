@@ -177,7 +177,7 @@ interface CompanyAnalysisResult {
             risk,
             universe,
             budget: parseFloat(budget.replace(/\./g, "")) || 100000,
-            allCompanies: companies.slice(0, 60),
+            allCompanies: companies,
           },
           provider: aiProvider,
           apiKey: aiApiKey || undefined,

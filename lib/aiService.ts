@@ -399,7 +399,7 @@ export async function generateOrakulRecipe(
 
   if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
     try {
-      const candidatesSample = pool.slice(0, 20).map((c) => `${c.symbol} (${c.name}, ${c.sector}, Fiyat: ${c.price} ₺, F/K: ${c.peRatio || "-"}, Temettü: %${c.dividendYield || 0})`).join("; ");
+      const candidatesSample = pool.slice(0, 35).map((c) => `${c.symbol} (${c.name}, ${c.sector}, Fiyat: ${c.price} ₺, F/K: ${c.peRatio || "-"}, Temettü: %${c.dividendYield || 0})`).join("; ");
 
       if (provider === "gemini") {
         const prompt = `Sen 'Orakul' adında elit bir Türk finans ve portföy optimizasyon yapay zekasısın. 
