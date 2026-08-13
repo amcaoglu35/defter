@@ -27,7 +27,7 @@ export interface ChatMessage {
   content: string;
 }
 
-export const GEMINI_MODEL = "gemini-1.5-flash";
+export const GEMINI_MODEL = "gemini-2.5-flash-lite";
 
 export function stripJsonFences(text: string): string {
   if (!text) return "";

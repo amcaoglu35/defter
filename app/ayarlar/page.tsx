@@ -141,8 +141,12 @@ export default function AyarlarPage() {
       const data = await res.json();
       if (res.ok && data.success) {
         setPassSaved(true);
-        setPassMessage(data.message || "Şifre doğrulandı.");
-        showToast("Şifre Doğrulandı", "Mevcut kasa şifresi doğrulandı.", "success");
+        setPassMessage(data.message || "Mevcut şifreniz başarıyla doğrulandı.");
+        showToast(
+          data.isPermanent ? "Şifre Güncellendi" : "Mevcut Şifre Doğrulandı",
+          data.message,
+          "success"
+        );
         setCurrentPass("");
         setNewPass("");
       } else {
@@ -223,7 +227,7 @@ export default function AyarlarPage() {
                 }}
                 className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 text-xs text-[var(--paper)] font-mono focus:border-[var(--brass)] outline-none"
               >
-                <option value="gemini">Google Gemini (Önerilen — Gemini 1.5 Flash)</option>
+                <option value="gemini">Google Gemini (Önerilen — Gemini 2.5 Flash Lite)</option>
                 <option value="openai">OpenAI (GPT-4o Mini)</option>
                 <option value="local">Yerel Finansal Motor (API Anahtarsız Çevrimdışı Mod)</option>
               </select>
@@ -259,6 +263,12 @@ export default function AyarlarPage() {
                     <Eye className="w-4 h-4" />
                   </button>
                 </div>
+                {!isCloudConnected && inputApiKey.length > 0 && (
+                  <p className="mt-1.5 text-[11px] font-mono text-[var(--brass)] flex items-center gap-1.5 bg-[var(--brass-glow)] p-2 rounded border border-[var(--brass-dim)]">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-[var(--brass)]" />
+                    <span>Yerel Mod: API anahtarınız bu cihazın tarayıcı hafızasında saklanmaktadır. Paylaşımlı cihazlarda kullanmayın.</span>
+                  </p>
+                )}
               </div>
             )}
 
@@ -504,11 +514,11 @@ export default function AyarlarPage() {
               disabled={passSaving}
               className="bg-[var(--brass)] text-[var(--ink)] font-bold text-xs px-4 py-2 rounded hover:bg-[#d9b35a] transition-all cursor-pointer disabled:opacity-50"
             >
-              {passSaving ? "Doğrulanıyor..." : "Şifreyi Güncelle & Doğrula"}
+              {passSaving ? "Doğrulanıyor..." : isCloudConnected ? "Şifreyi Güncelle" : "Şifreyi Doğrula"}
             </button>
             {passSaved && (
               <span className="text-xs font-mono text-[var(--verdigris)]">
-                Şifre güncellendi ✓
+                Mevcut şifre doğrulandı ✓
               </span>
             )}
           </div>

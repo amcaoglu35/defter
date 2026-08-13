@@ -39,7 +39,7 @@ export function checkRateLimit(
   const record = ipRequestMap.get(identifier);
 
   // Clean up expired entries periodically
-  if (ipRequestMap.size > 5000) {
+  if (ipRequestMap.size > 1000) {
     for (const [key, entry] of ipRequestMap.entries()) {
       if (now > entry.resetTime) {
         ipRequestMap.delete(key);

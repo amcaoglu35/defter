@@ -7,7 +7,18 @@ export async function middleware(req: NextRequest) {
 
   // Protect all /api routes except /api/auth
   if (pathname.startsWith("/api/") && !pathname.startsWith("/api/auth")) {
-    const masterPassword = getMasterPassword();
+    let masterPassword = "";
+    try {
+      masterPassword = getMasterPassword();
+    } catch {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Sunucu yapılandırma hatası: erişim şifresi tanımlı değil",
+        },
+        { status: 500 }
+      );
+    }
 
     const sessionCookie = req.cookies.get(SESSION_COOKIE_NAME)?.value;
 

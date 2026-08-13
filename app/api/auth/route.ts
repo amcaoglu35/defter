@@ -17,7 +17,15 @@ import {
  * Checks if current user has a valid httpOnly session cookie.
  */
 export async function GET(req: Request) {
-  const masterPassword = getMasterPassword();
+  let masterPassword = "";
+  try {
+    masterPassword = getMasterPassword();
+  } catch {
+    return NextResponse.json(
+      { success: false, error: "Sunucu yapılandırma hatası: erişim şifresi tanımlı değil" },
+      { status: 500 }
+    );
+  }
 
   const cookieHeader = req.headers.get("cookie") || "";
   const match = cookieHeader.match(new RegExp(`(?:^|; )\\s*${SESSION_COOKIE_NAME}\\s*=\\s*([^;]+)`));
@@ -46,7 +54,15 @@ export async function POST(req: Request) {
     return createRateLimitResponse(rateLimit.resetInSeconds);
   }
 
-  const masterPassword = getMasterPassword();
+  let masterPassword = "";
+  try {
+    masterPassword = getMasterPassword();
+  } catch {
+    return NextResponse.json(
+      { success: false, error: "Sunucu yapılandırma hatası: erişim şifresi tanımlı değil" },
+      { status: 500 }
+    );
+  }
 
   try {
     const body = await req.json();
@@ -92,7 +108,8 @@ export async function POST(req: Request) {
 
       return NextResponse.json({
         success: true,
-        message: "Mevcut şifreniz doğrulandı. Sunucu seviyesinde kalıcı değişim için Vercel panelinizden DEFTER_ACCESS_PASSWORD ortam değişkenini güncelleyin.",
+        isPermanent: false,
+        message: "Mevcut şifre doğrulandı. Ancak Supabase bulut veritabanı bağlı olmadığı için şifre sunucuda güncellenemedi. Kalıcı değişim için Vercel panelinizden DEFTER_ACCESS_PASSWORD ortam değişkenini güncelleyin.",
       });
     }
 

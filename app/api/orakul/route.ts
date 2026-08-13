@@ -3,6 +3,7 @@ import {
   generateOrakulRecipe,
   generateCompanyAnalysis,
   askOrakulChat,
+  GEMINI_MODEL,
 } from "@/lib/aiService";
 import {
   getClientIp,
@@ -47,7 +48,7 @@ export async function POST(req: Request) {
       // Live Ping Test
       try {
         if (selectedProvider === "gemini") {
-          const testEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${effectiveKey}`;
+          const testEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${effectiveKey}`;
           const testRes = await fetch(testEndpoint, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
