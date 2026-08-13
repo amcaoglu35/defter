@@ -18,12 +18,6 @@ import {
  */
 export async function GET(req: Request) {
   const masterPassword = getMasterPassword();
-  if (!masterPassword) {
-    return NextResponse.json(
-      { success: false, authenticated: false, error: "Sunucu yapılandırma hatası: DEFTER_ACCESS_PASSWORD ortam değişkeni tanımlı değil." },
-      { status: 500 }
-    );
-  }
 
   const cookieHeader = req.headers.get("cookie") || "";
   const match = cookieHeader.match(new RegExp(`(?:^|; )\\s*${SESSION_COOKIE_NAME}\\s*=\\s*([^;]+)`));
@@ -53,12 +47,6 @@ export async function POST(req: Request) {
   }
 
   const masterPassword = getMasterPassword();
-  if (!masterPassword) {
-    return NextResponse.json(
-      { success: false, error: "Sunucu yapılandırma hatası: DEFTER_ACCESS_PASSWORD ortam değişkeni tanımlı değil." },
-      { status: 500 }
-    );
-  }
 
   try {
     const body = await req.json();

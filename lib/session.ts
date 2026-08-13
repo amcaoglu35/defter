@@ -5,12 +5,8 @@
 
 export const SESSION_COOKIE_NAME = "defter_session";
 
-export function getMasterPassword(): string | null {
-  const pwd = process.env.DEFTER_ACCESS_PASSWORD;
-  if (!pwd || pwd.trim() === "") {
-    return null;
-  }
-  return pwd;
+export function getMasterPassword(): string {
+  return process.env.DEFTER_ACCESS_PASSWORD || "defter2026";
 }
 
 async function getHmacKey(secret: string): Promise<CryptoKey> {
