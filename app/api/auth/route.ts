@@ -8,6 +8,7 @@ import {
 import {
   createSessionToken,
   verifySessionToken,
+  getMasterPassword,
   SESSION_COOKIE_NAME,
 } from "@/lib/session";
 
@@ -16,7 +17,13 @@ import {
  * Checks if current user has a valid httpOnly session cookie.
  */
 export async function GET(req: Request) {
-  const masterPassword = process.env.DEFTER_ACCESS_PASSWORD || "defter2026";
+  const masterPassword = getMasterPassword();
+  if (!masterPassword) {
+    return NextResponse.json(
+      { success: false, authenticated: false, error: "Sunucu yapılandırma hatası: DEFTER_ACCESS_PASSWORD ortam değişkeni tanımlı değil." },
+      { status: 500 }
+    );
+  }
 
   const cookieHeader = req.headers.get("cookie") || "";
   const match = cookieHeader.match(new RegExp(`(?:^|; )\\s*${SESSION_COOKIE_NAME}\\s*=\\s*([^;]+)`));
@@ -45,7 +52,13 @@ export async function POST(req: Request) {
     return createRateLimitResponse(rateLimit.resetInSeconds);
   }
 
-  const masterPassword = process.env.DEFTER_ACCESS_PASSWORD || "defter2026";
+  const masterPassword = getMasterPassword();
+  if (!masterPassword) {
+    return NextResponse.json(
+      { success: false, error: "Sunucu yapılandırma hatası: DEFTER_ACCESS_PASSWORD ortam değişkeni tanımlı değil." },
+      { status: 500 }
+    );
+  }
 
   try {
     const body = await req.json();

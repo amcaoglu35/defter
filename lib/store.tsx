@@ -23,7 +23,7 @@ import {
   MOCK_AI_HISTORY,
   MOCK_DIVIDENDS,
 } from "./mockData";
-import { isSupabaseConfigured } from "./supabaseClient";
+import { isSupabaseConfigured } from "./supabase";
 
 export interface Transaction {
   id: string;
@@ -768,12 +768,32 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const updateBasket = (id: string, partial: Partial<Basket>) => {
     setBaskets((prev) =>
-      prev.map((b) => (b.id === id ? { ...b, ...partial } : b))
+      prev.map((b) => {
+        if (b.id !== id) return b;
+        const updated = { ...b, ...partial };
+        fetch("/api/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "update_basket",
+            payload: { basket: updated },
+          }),
+        }).catch((err) => console.warn("[Sync] update basket error:", err));
+        return updated;
+      })
     );
   };
 
   const deleteBasket = (id: string) => {
     setBaskets((prev) => prev.filter((b) => b.id !== id));
+    fetch("/api/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "delete_basket",
+        payload: { id },
+      }),
+    }).catch((err) => console.warn("[Sync] delete basket error:", err));
   };
 
   const addHoldingToBasket = (basketId: string, holding: BasketHolding) => {
@@ -785,18 +805,57 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         );
         let newHoldings: BasketHolding[];
         if (exists) {
+          const newQty = exists.quantity + holding.quantity;
+          const newAvgCost =
+            newQty > 0
+              ? parseFloat(
+                  (
+                    (exists.quantity * exists.avgCost + holding.quantity * holding.avgCost) /
+                    newQty
+                  ).toFixed(2)
+                )
+              : holding.avgCost;
+
           newHoldings = b.holdings.map((h) =>
             h.companySymbol === holding.companySymbol
               ? {
                   ...h,
-                  quantity: h.quantity + holding.quantity,
+                  quantity: newQty,
+                  avgCost: newAvgCost,
                 }
               : h
           );
         } else {
           newHoldings = [...b.holdings, holding];
         }
-        return recalculateBasket({ ...b, holdings: newHoldings }, companies);
+        const updatedB = recalculateBasket({ ...b, holdings: newHoldings }, companies);
+
+        const targetH = updatedB.holdings.find((h) => h.companySymbol === holding.companySymbol);
+        fetch("/api/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "upsert_holding",
+            payload: {
+              basketId: b.id,
+              companySymbol: holding.companySymbol,
+              weightPercent: targetH?.weightPercent || 0,
+              quantity: targetH ? targetH.quantity : 0,
+              avgCost: targetH ? targetH.avgCost : holding.avgCost,
+            },
+          }),
+        }).catch((err) => console.warn("[Sync] upsert holding error:", err));
+
+        fetch("/api/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "update_basket",
+            payload: { basket: updatedB },
+          }),
+        }).catch((err) => console.warn("[Sync] update basket error:", err));
+
+        return updatedB;
       })
     );
   };
@@ -806,7 +865,27 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       prev.map((b) => {
         if (b.id !== basketId) return b;
         const newHoldings = b.holdings.filter((h) => h.companySymbol !== symbol);
-        return recalculateBasket({ ...b, holdings: newHoldings }, companies);
+        const updatedB = recalculateBasket({ ...b, holdings: newHoldings }, companies);
+
+        fetch("/api/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "delete_holding",
+            payload: { basketId, companySymbol: symbol },
+          }),
+        }).catch((err) => console.warn("[Sync] delete holding error:", err));
+
+        fetch("/api/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "update_basket",
+            payload: { basket: updatedB },
+          }),
+        }).catch((err) => console.warn("[Sync] update basket error:", err));
+
+        return updatedB;
       })
     );
   };
@@ -822,7 +901,36 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const newHoldings = b.holdings.map((h) =>
           h.companySymbol === symbol ? { ...h, ...updates } : h
         );
-        return recalculateBasket({ ...b, holdings: newHoldings }, companies);
+        const updatedB = recalculateBasket({ ...b, holdings: newHoldings }, companies);
+
+        const updatedH = updatedB.holdings.find((h) => h.companySymbol === symbol);
+        if (updatedH) {
+          fetch("/api/sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "upsert_holding",
+              payload: {
+                basketId,
+                companySymbol: symbol,
+                weightPercent: updatedH.weightPercent,
+                quantity: updatedH.quantity,
+                avgCost: updatedH.avgCost,
+              },
+            }),
+          }).catch((err) => console.warn("[Sync] upsert holding error:", err));
+        }
+
+        fetch("/api/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "update_basket",
+            payload: { basket: updatedB },
+          }),
+        }).catch((err) => console.warn("[Sync] update basket error:", err));
+
+        return updatedB;
       })
     );
   };
@@ -897,7 +1005,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         } else if (tx.type === "SELL" && existingHolding) {
           const newQty = Math.max(0, existingHolding.quantity - tx.quantity);
           if (newQty === 0) {
-            // Remove holding completely when sold out (Item 4)
             newHoldings = b.holdings.filter((h) => h.companySymbol !== tx.companySymbol);
           } else {
             newHoldings = b.holdings.map((h) =>
@@ -908,7 +1015,34 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        return recalculateBasket({ ...b, holdings: newHoldings }, companies);
+        const updatedB = recalculateBasket({ ...b, holdings: newHoldings }, companies);
+
+        const targetH = updatedB.holdings.find((h) => h.companySymbol === tx.companySymbol);
+        fetch("/api/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "update_basket_holding",
+            payload: {
+              basketId: b.id,
+              companySymbol: tx.companySymbol,
+              weightPercent: targetH ? targetH.weightPercent : 0,
+              quantity: targetH ? targetH.quantity : 0,
+              avgCost: targetH ? targetH.avgCost : tx.price,
+            },
+          }),
+        }).catch((err) => console.warn("[Sync] transaction holding sync error:", err));
+
+        fetch("/api/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "update_basket",
+            payload: { basket: updatedB },
+          }),
+        }).catch((err) => console.warn("[Sync] transaction basket sync error:", err));
+
+        return updatedB;
       })
     );
   };

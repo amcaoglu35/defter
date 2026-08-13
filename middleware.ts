@@ -1,13 +1,22 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { verifySessionToken, SESSION_COOKIE_NAME } from "@/lib/session";
+import { verifySessionToken, getMasterPassword, SESSION_COOKIE_NAME } from "@/lib/session";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Protect all /api routes except /api/auth
   if (pathname.startsWith("/api/") && !pathname.startsWith("/api/auth")) {
-    const masterPassword = process.env.DEFTER_ACCESS_PASSWORD || "defter2026";
+    const masterPassword = getMasterPassword();
+    if (!masterPassword) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Sunucu yapılandırma hatası: DEFTER_ACCESS_PASSWORD ortam değişkeni tanımlı değil.",
+        },
+        { status: 500 }
+      );
+    }
 
     const sessionCookie = req.cookies.get(SESSION_COOKIE_NAME)?.value;
 

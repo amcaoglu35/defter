@@ -144,6 +144,66 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true });
     }
 
+    if (action === "update_basket") {
+      const { basket } = payload;
+      const { error } = await supabaseAdmin.from("baskets").upsert({
+        id: basket.id,
+        name: basket.name,
+        subtitle: basket.subtitle,
+        risk_level: basket.riskLevel,
+        risk_color: basket.riskColor,
+        total_value: basket.totalValue,
+        total_cost: basket.totalCost,
+        daily_change: basket.dailyChange,
+        total_profit_percent: basket.totalProfitPercent,
+        description: basket.description,
+        ai_note: basket.aiNote,
+      }, { onConflict: "id" });
+
+      if (error) throw error;
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === "delete_basket") {
+      const { id } = payload;
+      const { error } = await supabaseAdmin.from("baskets").delete().eq("id", id);
+      if (error) throw error;
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === "upsert_holding" || action === "update_basket_holding") {
+      const { basketId, companySymbol, weightPercent, quantity, avgCost } = payload;
+      if (quantity <= 0) {
+        const { error } = await supabaseAdmin
+          .from("basket_holdings")
+          .delete()
+          .eq("basket_id", basketId)
+          .eq("company_symbol", companySymbol);
+        if (error) throw error;
+      } else {
+        const { error } = await supabaseAdmin.from("basket_holdings").upsert({
+          basket_id: basketId,
+          company_symbol: companySymbol,
+          weight_percent: weightPercent || 0,
+          quantity: quantity,
+          avg_cost: avgCost,
+        }, { onConflict: "basket_id,company_symbol" });
+        if (error) throw error;
+      }
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === "delete_holding") {
+      const { basketId, companySymbol } = payload;
+      const { error } = await supabaseAdmin
+        .from("basket_holdings")
+        .delete()
+        .eq("basket_id", basketId)
+        .eq("company_symbol", companySymbol);
+      if (error) throw error;
+      return NextResponse.json({ success: true });
+    }
+
     if (action === "add_transaction") {
       const { error } = await supabaseAdmin.from("transactions").insert({
         id: payload.id,

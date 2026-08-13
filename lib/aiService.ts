@@ -27,6 +27,22 @@ export interface ChatMessage {
   content: string;
 }
 
+export const GEMINI_MODEL = "gemini-1.5-flash";
+
+export function stripJsonFences(text: string): string {
+  if (!text) return "";
+  let clean = text.trim();
+  if (clean.startsWith("```json")) {
+    clean = clean.slice(7);
+  } else if (clean.startsWith("```")) {
+    clean = clean.slice(3);
+  }
+  if (clean.endsWith("```")) {
+    clean = clean.slice(0, -3);
+  }
+  return clean.trim();
+}
+
 /**
  * Intelligent Orakul AI Engine with Historical Feedback Loop
  * Supports OpenAI, Anthropic, Gemini API Keys or sophisticated domain-specific algorithmic synthesis
@@ -68,7 +84,7 @@ export async function generateCompanyAnalysis(
   if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
     try {
       if (provider === "gemini") {
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${resolvedApiKey}`;
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${resolvedApiKey}`;
         const prompt = `Sen 'Orakul' adında bilge bir finansal değerleme yapay zekasısın. Şirket verilerini ve geçmiş analiz geri bildirimlerini inceleyerek JSON formatında analiz üret.\nFormat: { "valuationScore": "X.X / 10", "whyMoved": "string", "pros": ["string"], "risks": ["string"], "verdict": "GÜÇLÜ AL" | "AL" | "TUT" | "SAT", "pastFeedbackSummary": "string" }\n\nŞirket: ${company.symbol} (${company.name}), Fiyat: ${company.price} ${company.currency || "₺"}, Günlük Değişim: %${company.dailyChange}, Sektör: ${company.sector}, F/K: ${company.peRatio || "N/A"}, PD/DD: ${company.pbRatio || "N/A"}, Temettü Verimi: %${company.dividendYield || 0}.${feedbackContext}`;
 
         const res = await fetch(endpoint, {
@@ -84,8 +100,12 @@ export async function generateCompanyAnalysis(
           const data = await res.json();
           const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
           if (rawText) {
-            const parsed = JSON.parse(rawText);
-            return { symbol: company.symbol, ...parsed };
+            try {
+              const parsed = JSON.parse(stripJsonFences(rawText));
+              return { symbol: company.symbol, ...parsed };
+            } catch (pErr) {
+              console.warn(`[AI Service] JSON parse error in company_analysis (Gemini, len ${rawText.length}):`, pErr);
+            }
           }
         }
       } else if (provider === "openai") {
@@ -114,11 +134,18 @@ export async function generateCompanyAnalysis(
 
         if (res.ok) {
           const data = await res.json();
-          const parsed = JSON.parse(data.choices[0].message.content);
-          return {
-            symbol: company.symbol,
-            ...parsed,
-          };
+          const rawContent = data.choices?.[0]?.message?.content;
+          if (rawContent) {
+            try {
+              const parsed = JSON.parse(stripJsonFences(rawContent));
+              return {
+                symbol: company.symbol,
+                ...parsed,
+              };
+            } catch (pErr) {
+              console.warn(`[AI Service] JSON parse error in company_analysis (OpenAI, len ${rawContent.length}):`, pErr);
+            }
+          }
         }
       }
     } catch (e) {
@@ -242,7 +269,7 @@ export async function generateOrakulRecipe(
   if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
     try {
       if (provider === "gemini") {
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${resolvedApiKey}`;
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${resolvedApiKey}`;
         const prompt = `Sen 'Orakul' adında elit bir Türk finans ve portföy optimizasyon yapay zekasısın. JSON formatında yanıt ver.\nFormat: { "title": string, "summary": string, "healthScore": number, "expectedYield": string, "allocation": [{ "symbol": string, "name": string, "weight": number, "note": string }] }\n\nHedef: ${req.goal}, Risk: ${req.risk}, Bütçe: ${req.budget} TL, Evren: ${req.universe}. Bana 4 hisselik optimize sepet JSON reçetesi üret.`;
 
         const res = await fetch(endpoint, {
@@ -258,7 +285,11 @@ export async function generateOrakulRecipe(
           const data = await res.json();
           const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
           if (rawText) {
-            return JSON.parse(rawText);
+            try {
+              return JSON.parse(stripJsonFences(rawText));
+            } catch (pErr) {
+              console.warn(`[AI Service] JSON parse error in recipe (Gemini, len ${rawText.length}):`, pErr);
+            }
           }
         }
       } else if (provider === "openai") {
@@ -287,7 +318,14 @@ export async function generateOrakulRecipe(
 
         if (res.ok) {
           const data = await res.json();
-          return JSON.parse(data.choices[0].message.content);
+          const rawContent = data.choices?.[0]?.message?.content;
+          if (rawContent) {
+            try {
+              return JSON.parse(stripJsonFences(rawContent));
+            } catch (pErr) {
+              console.warn(`[AI Service] JSON parse error in recipe (OpenAI, len ${rawContent.length}):`, pErr);
+            }
+          }
         }
       }
     } catch (e) {
@@ -355,7 +393,7 @@ export async function askOrakulChat(
   if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
     try {
       if (provider === "gemini") {
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${resolvedApiKey}`;
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${resolvedApiKey}`;
         const systemPrompt = `Sen Defter yatırım platformunun yapay zeka analisti 'Orakul'sun. Kullanıcının mevcut portföy ve geçmiş analiz başarı karnesi bağlamı:\n${JSON.stringify(
           contextData
         )}\nKullanıcıya samimi, bilge, finansal terimleri anlaşılır kılan ve Fraunces/Mürekkep & Pirinç estetiğine uygun bilgece Türkçe yanıtlar ver. Geçmiş analizlerindeki isabet oranını ve kararlarını hatırlayarak konuş.`;
