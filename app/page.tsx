@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   TrendingUp,
@@ -13,13 +13,18 @@ import {
   Calendar,
   PlusCircle,
   Eye,
+  Coffee,
+  RefreshCw,
+  Zap,
+  ArrowRight,
 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import StampBadge from "@/components/StampBadge";
 import { isLiveSymbol } from "@/lib/liveSymbols";
+import { DailyBriefingResult } from "@/lib/aiService";
 
 export default function HomePage() {
-  const { companies, baskets, ipos, dividends } = useDefterStore();
+  const { companies, baskets, ipos, dividends, aiProvider, aiApiKey, geminiModel } = useDefterStore();
 
   const featuredCompanies = companies.slice(0, 6);
   const activeIpos = ipos.filter((ipo) => ipo.status !== "listed");
@@ -40,6 +45,44 @@ export default function HomePage() {
     (acc, d) => acc + (d.totalEstimatedPayout || 0),
     0
   );
+
+  // Daily Briefing state
+  const [dailyBrief, setDailyBrief] = useState<DailyBriefingResult | null>(null);
+  const [briefLoading, setBriefLoading] = useState(false);
+
+  const loadDailyBrief = async () => {
+    setBriefLoading(true);
+    try {
+      const res = await fetch("/api/orakul", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "daily_brief",
+          payload: {
+            totalValue: totalPortfolioValue,
+            totalProfit,
+            dailyChangePct: 1.45,
+            basketsCount: baskets.length,
+          },
+          provider: aiProvider,
+          apiKey: aiApiKey || undefined,
+          model: geminiModel,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDailyBrief(data.data);
+      }
+    } catch {
+    } finally {
+      setBriefLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDailyBrief();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-12">
@@ -151,6 +194,64 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* 2.5 Orakul Günlük Kapanış Brifingi Card */}
+      {dailyBrief && (
+        <section className="bg-[var(--ink-2)] border border-[var(--brass-dim)] rounded-xl p-6 relative overflow-hidden shadow-xl animate-in fade-in">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-dashed border-[var(--line)] pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full border border-[var(--brass)] bg-[var(--ink-3)] flex items-center justify-center text-[var(--brass)] shadow-inner">
+                <Coffee className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-[10px] text-[var(--brass)] uppercase font-bold tracking-wider">
+                    {dailyBrief.date} • Akşam Kapanış Brifingi
+                  </span>
+                  <span className="font-mono text-[10px] bg-[rgba(91,140,123,0.15)] text-[var(--verdigris)] border border-[var(--verdigris)] px-2 py-0.5 rounded font-bold">
+                    Alfa Getiri: +%{(dailyBrief.portfolioDayChangePct - dailyBrief.bistDayChangePct).toFixed(2)}
+                  </span>
+                </div>
+                <h3 className="font-serif text-xl font-bold text-[var(--paper)] mt-0.5">
+                  {dailyBrief.greeting}
+                </h3>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={loadDailyBrief}
+                disabled={briefLoading}
+                className="text-xs font-mono text-[var(--mist)] hover:text-[var(--paper)] px-3 py-1.5 rounded border border-[var(--line)] bg-[var(--ink-3)] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3 h-3 ${briefLoading ? "animate-spin" : ""}`} />
+                <span>Yenile</span>
+              </button>
+
+              <Link
+                href="/orakul"
+                className="text-xs font-mono text-[var(--brass)] hover:text-[var(--paper)] px-3 py-1.5 rounded border border-[var(--brass-dim)] bg-[var(--brass-glow)] flex items-center gap-1.5 transition-colors"
+              >
+                <span>Tüm Orakul Analizleri</span>
+                <ArrowRight className="w-3 h-3" />
+              </Link>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-6 items-center">
+            <p className="font-serif text-sm sm:text-base text-[var(--paper)] leading-relaxed">
+              {dailyBrief.executiveSummary}
+            </p>
+
+            <div className="p-3.5 bg-[var(--ink-3)] border border-[rgba(91,140,123,0.3)] rounded-lg text-xs font-sans space-y-1">
+              <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--verdigris)] font-bold block">
+                🎯 Yarın İçin Taktiksel Pusula
+              </span>
+              <p className="text-[var(--paper-dim)]">{dailyBrief.tacticalTip}</p>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* 3. Favorites / Quick Watchlist Strip */}
       <section className="bg-[var(--ink-2)] border border-[var(--line)] rounded-lg p-4 sm:p-5">

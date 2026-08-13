@@ -3,6 +3,11 @@ import {
   generateOrakulRecipe,
   generateCompanyAnalysis,
   askOrakulChat,
+  generateEarningsFlash,
+  detectValueTraps,
+  runBacktestSimulation,
+  screenStocksWithAI,
+  generateDailyBriefing,
   GEMINI_MODEL,
 } from "@/lib/aiService";
 import {
@@ -205,6 +210,57 @@ export async function POST(req: Request) {
         success: true,
         data: analysis,
       });
+    }
+
+    if (type === "earnings_flash") {
+      const flash = await generateEarningsFlash(
+        payload,
+        apiKey,
+        selectedProvider,
+        reqModel
+      );
+      return NextResponse.json({ success: true, data: flash });
+    }
+
+    if (type === "value_trap") {
+      const trap = await detectValueTraps(
+        payload,
+        apiKey,
+        selectedProvider,
+        reqModel
+      );
+      return NextResponse.json({ success: true, data: trap });
+    }
+
+    if (type === "backtest") {
+      const simulation = await runBacktestSimulation(
+        payload,
+        apiKey,
+        selectedProvider,
+        reqModel
+      );
+      return NextResponse.json({ success: true, data: simulation });
+    }
+
+    if (type === "screener") {
+      const screenerResult = await screenStocksWithAI(
+        payload.query,
+        payload.companies || [],
+        apiKey,
+        selectedProvider,
+        reqModel
+      );
+      return NextResponse.json({ success: true, data: screenerResult });
+    }
+
+    if (type === "daily_brief") {
+      const briefing = await generateDailyBriefing(
+        payload || {},
+        apiKey,
+        selectedProvider,
+        reqModel
+      );
+      return NextResponse.json({ success: true, data: briefing });
     }
 
     return NextResponse.json(

@@ -26,12 +26,25 @@ import {
   Award,
   Target,
   BarChart3,
+  FileText,
+  AlertOctagon,
+  Hourglass,
+  Coffee,
+  Sliders,
+  Zap,
 } from "lucide-react";
 import OracleSeal from "@/components/OracleSeal";
 import StampBadge from "@/components/StampBadge";
 import { useDefterStore } from "@/lib/store";
 import { AiHistoryItem, Basket } from "@/lib/mockData";
 import { useToast } from "@/components/ToastProvider";
+import {
+  EarningsFlashResult,
+  ValueTrapResult,
+  BacktestResult,
+  StockScreenerResult,
+  DailyBriefingResult,
+} from "@/lib/aiService";
 
 export default function OrakulPage() {
   const {
@@ -48,9 +61,19 @@ export default function OrakulPage() {
   } = useDefterStore();
   const { showToast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<"wizard" | "company" | "sentiment" | "anomaly" | "portfolio">("wizard");
+  const [activeTab, setActiveTab] = useState<
+    | "wizard"
+    | "company"
+    | "earnings"
+    | "trap"
+    | "backtest"
+    | "screener"
+    | "daily_brief"
+    | "sentiment"
+    | "anomaly"
+  >("wizard");
 
-  // Wizard state
+  // 1. Wizard state
   const [goal, setGoal] = useState("Temettü Odaklı Nakit Akışı");
   const [risk, setRisk] = useState("Dengeli (Orta Risk)");
   const [universe, setUniverse] = useState("BIST 30 & Emtia");
@@ -93,10 +116,36 @@ interface CompanyAnalysisResult {
   const [result, setResult] = useState<OrakulRecipeResult | null>(null);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  // Company Deep-Dive state
+  // 2. Company Deep-Dive state
   const [selectedCoSymbol, setSelectedCoSymbol] = useState(companies[0]?.symbol || "THYAO");
   const [companyAnalysis, setCompanyAnalysis] = useState<CompanyAnalysisResult | null>(null);
   const [companyLoading, setCompanyLoading] = useState(false);
+
+  // 3. 📑 Earnings Flash state
+  const [earningsSymbol, setEarningsSymbol] = useState(companies[0]?.symbol || "THYAO");
+  const [earningsResult, setEarningsResult] = useState<EarningsFlashResult | null>(null);
+  const [earningsLoading, setEarningsLoading] = useState(false);
+
+  // 4. ⚠️ Value Trap state
+  const [trapSymbol, setTrapSymbol] = useState(companies[0]?.symbol || "EREGL");
+  const [trapResult, setTrapResult] = useState<ValueTrapResult | null>(null);
+  const [trapLoading, setTrapLoading] = useState(false);
+
+  // 5. ⏳ Backtesting Lab state
+  const [backtestMonths, setBacktestMonths] = useState<number>(6);
+  const [backtestBudget, setBacktestBudget] = useState<string>("100.000");
+  const [backtestStrategy, setBacktestStrategy] = useState<string>("Temettü Kalesi Reçetesi");
+  const [backtestResult, setBacktestResult] = useState<BacktestResult | null>(null);
+  const [backtestLoading, setBacktestLoading] = useState(false);
+
+  // 6. 🔍 Stock Screener state
+  const [screenerQuery, setScreenerQuery] = useState<string>("F/K'sı 8'in altında yüksek temettü veren sanayi hisseleri");
+  const [screenerResult, setScreenerResult] = useState<StockScreenerResult | null>(null);
+  const [screenerLoading, setScreenerLoading] = useState(false);
+
+  // 7. ☕ Daily Briefing state
+  const [briefingResult, setBriefingResult] = useState<DailyBriefingResult | null>(null);
+  const [briefingLoading, setBriefingLoading] = useState(false);
 
   // History Filter state
   const [historyFilter, setHistoryFilter] = useState<"all" | "correct" | "incorrect" | "pending">("all");
@@ -137,6 +186,154 @@ interface CompanyAnalysisResult {
       showToast("Bağlantı Hatası", "Sunucu ile iletişim kurulamadı.", "error");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Handlers for the 5 new AI features
+  const handleEarningsFlash = async () => {
+    const co = companies.find((c) => c.symbol === earningsSymbol);
+    if (!co) return;
+    setEarningsLoading(true);
+    try {
+      const res = await fetch("/api/orakul", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "earnings_flash",
+          payload: co,
+          provider: aiProvider,
+          apiKey: aiApiKey || undefined,
+          model: geminiModel,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setEarningsResult(data.data);
+        showToast("Bilanço Karnesi Hazır", `${earningsSymbol} için 30 saniyelik bilanço özeti çıkarıldı.`, "success");
+      }
+    } catch (e) {
+      showToast("Hata", "Bilanço analizi üretilemedi.", "error");
+    } finally {
+      setEarningsLoading(false);
+    }
+  };
+
+  const handleValueTrapCheck = async () => {
+    const co = companies.find((c) => c.symbol === trapSymbol);
+    if (!co) return;
+    setTrapLoading(true);
+    try {
+      const res = await fetch("/api/orakul", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "value_trap",
+          payload: co,
+          provider: aiProvider,
+          apiKey: aiApiKey || undefined,
+          model: geminiModel,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTrapResult(data.data);
+        showToast("Tuzak Analizi Tamamlandı", `${trapSymbol} değer tuzağı risk puanı hesaplandı.`, "success");
+      }
+    } catch (e) {
+      showToast("Hata", "Tuzak analizi çalıştırılamadı.", "error");
+    } finally {
+      setTrapLoading(false);
+    }
+  };
+
+  const handleRunBacktest = async () => {
+    setBacktestLoading(true);
+    try {
+      const res = await fetch("/api/orakul", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "backtest",
+          payload: {
+            recipeTitle: backtestStrategy,
+            durationMonths: backtestMonths,
+            budget: parseFloat(backtestBudget.replace(/\./g, "")) || 100000,
+          },
+          provider: aiProvider,
+          apiKey: aiApiKey || undefined,
+          model: geminiModel,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBacktestResult(data.data);
+        showToast("Simülasyon Tamamlandı", `${backtestMonths} aylık geçmiş getiri laboratuvarı sonuçlandı.`, "success");
+      }
+    } catch (e) {
+      showToast("Hata", "Zaman makinesi simülasyonu yapılamadı.", "error");
+    } finally {
+      setBacktestLoading(false);
+    }
+  };
+
+  const handleRunScreener = async (overrideQuery?: string) => {
+    const q = overrideQuery || screenerQuery.trim();
+    if (!q) return;
+    setScreenerLoading(true);
+    try {
+      const res = await fetch("/api/orakul", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "screener",
+          payload: { query: q, companies },
+          provider: aiProvider,
+          apiKey: aiApiKey || undefined,
+          model: geminiModel,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setScreenerResult(data.data);
+        showToast("Tarama Tamamlandı", `Kriterlere uyan şirketler listelendi.`, "success");
+      }
+    } catch (e) {
+      showToast("Hata", "Hisse taraması yapılamadı.", "error");
+    } finally {
+      setScreenerLoading(false);
+    }
+  };
+
+  const handleGenerateDailyBrief = async () => {
+    setBriefingLoading(true);
+    const totalVal = baskets.reduce((sum, b) => sum + b.totalValue, 0);
+    const totalCost = baskets.reduce((sum, b) => sum + b.totalCost, 0);
+    try {
+      const res = await fetch("/api/orakul", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "daily_brief",
+          payload: {
+            totalValue: totalVal,
+            totalProfit: totalVal - totalCost,
+            dailyChangePct: 1.45,
+            basketsCount: baskets.length,
+          },
+          provider: aiProvider,
+          apiKey: aiApiKey || undefined,
+          model: geminiModel,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setBriefingResult(data.data);
+        showToast("Kapanış Brifingi Hazır", "Günlük yönetici özeti oluşturuldu.", "success");
+      }
+    } catch (e) {
+      showToast("Hata", "Kapanış brifingi oluşturulamadı.", "error");
+    } finally {
+      setBriefingLoading(false);
     }
   };
 
@@ -308,22 +505,27 @@ interface CompanyAnalysisResult {
         </p>
 
         {/* Feature Tabs */}
-        <div className="flex flex-wrap gap-2 mt-8 p-1 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg">
+        <div className="flex flex-wrap gap-2 mt-8 p-1.5 bg-[var(--ink-2)] border border-[var(--line)] rounded-xl justify-center">
           {[
             { id: "wizard", label: "Sepet Sihirbazı", icon: Compass },
-            { id: "company", label: "Derin Şirket Analizi", icon: Activity },
-            { id: "sentiment", label: "Haber & Duygu Skoru", icon: Newspaper },
-            { id: "anomaly", label: "Anomali & Risk Tespiti", icon: AlertTriangle },
+            { id: "company", label: "Şirket Teşhisi", icon: Activity },
+            { id: "earnings", label: "30 Sn Bilanço Tercümanı", icon: FileText },
+            { id: "trap", label: "Tuzak & Anomali Radarı", icon: AlertOctagon },
+            { id: "backtest", label: "Zaman Makinesi (Backtest)", icon: Hourglass },
+            { id: "screener", label: "Akıllı Hisse Tarayıcısı", icon: Search },
+            { id: "daily_brief", label: "Kapanış Brifingi", icon: Coffee },
+            { id: "sentiment", label: "Haber & Duygu", icon: Newspaper },
+            { id: "anomaly", label: "Risk & Anomali", icon: AlertTriangle },
           ].map((tab) => {
             const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as "portfolio" | "company" | "sentiment" | "anomaly")}
-                className={`flex items-center gap-2 px-4 py-2 rounded-md text-xs font-mono font-medium transition-all cursor-pointer ${
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-mono font-medium transition-all cursor-pointer ${
                   activeTab === tab.id
-                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow"
-                    : "text-[var(--mist)] hover:text-[var(--paper)]"
+                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-md scale-105"
+                    : "text-[var(--mist)] hover:text-[var(--paper)] hover:bg-[var(--ink-3)]"
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -362,10 +564,10 @@ interface CompanyAnalysisResult {
                     key={opt}
                     type="button"
                     onClick={() => setGoal(opt)}
-                    className={`text-xs px-4 py-2 rounded-full border transition-all cursor-pointer font-medium ${
+                    className={`px-4 py-2.5 rounded text-xs font-mono border transition-all cursor-pointer ${
                       goal === opt
-                        ? "bg-[var(--brass)] text-[var(--ink)] border-[var(--brass)] font-semibold shadow-md"
-                        : "border-[var(--line)] text-[var(--mist)] hover:text-[var(--paper)] bg-[var(--ink-3)]"
+                        ? "bg-[var(--brass-glow)] border-[var(--brass)] text-[var(--brass)] font-semibold shadow-inner"
+                        : "bg-[var(--ink-3)] border-[var(--line)] text-[var(--mist)] hover:text-[var(--paper)]"
                     }`}
                   >
                     {opt}
@@ -374,59 +576,47 @@ interface CompanyAnalysisResult {
               </div>
             </div>
 
-            <div>
-              <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)] mb-2.5">
-                2. Risk Toleransı
-              </label>
-              <div className="flex flex-wrap gap-2.5">
-                {[
-                  "Düşük (Muhafazakar)",
-                  "Dengeli (Orta Risk)",
-                  "Yüksek Getiri (Volatil)",
-                ].map((opt) => (
-                  <button
-                    key={opt}
-                    type="button"
-                    onClick={() => setRisk(opt)}
-                    className={`text-xs px-4 py-2 rounded-full border transition-all cursor-pointer font-medium ${
-                      risk === opt
-                        ? "bg-[var(--brass)] text-[var(--ink)] border-[var(--brass)] font-semibold shadow-md"
-                        : "border-[var(--line)] text-[var(--mist)] hover:text-[var(--paper)] bg-[var(--ink-3)]"
-                    }`}
-                  >
-                    {opt}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)] mb-1.5">
-                  3. Yatırım Evreni
+                <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)] mb-2">
+                  2. Risk Toleransı
                 </label>
                 <select
-                  value={universe}
-                  onChange={(e) => setUniverse(e.target.value)}
-                  className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 text-xs text-[var(--paper)] font-mono focus:border-[var(--brass)] outline-none"
+                  value={risk}
+                  onChange={(e) => setRisk(e.target.value)}
+                  className="w-full bg-[var(--ink-3)] border border-[var(--line)] text-xs text-[var(--paper)] rounded p-2.5 font-mono outline-none focus:border-[var(--brass)]"
                 >
-                  <option value="BIST 30 & Emtia">BIST 30 &amp; Kıymetli Madenler</option>
-                  <option value="BIST 100 Tüm Hisseler">BIST 100 Tüm Şirketler</option>
-                  <option value="Küresel Teknoloji (ABD/NASDAQ)">Küresel Teknoloji (ABD/NASDAQ)</option>
-                  <option value="Karma (BIST + ABD + Maden)">Karma Evren (BIST + ABD + Emtia)</option>
+                  <option>Düşük Risk (Defansif Sermaye)</option>
+                  <option>Dengeli (Orta Risk)</option>
+                  <option>Yüksek Büyüme (Agresif Getiri)</option>
                 </select>
               </div>
 
               <div>
-                <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)] mb-1.5">
+                <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)] mb-2">
+                  3. Varlık Evreni
+                </label>
+                <select
+                  value={universe}
+                  onChange={(e) => setUniverse(e.target.value)}
+                  className="w-full bg-[var(--ink-3)] border border-[var(--line)] text-xs text-[var(--paper)] rounded p-2.5 font-mono outline-none focus:border-[var(--brass)]"
+                >
+                  <option>BIST 30 &amp; Emtia</option>
+                  <option>Tüm BIST Şirketleri</option>
+                  <option>Yalnızca Temettü Şampiyonları</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)] mb-2">
                   4. Başlangıç Bütçesi (₺)
                 </label>
                 <input
                   type="text"
                   value={budget}
                   onChange={(e) => setBudget(e.target.value)}
+                  className="w-full bg-[var(--ink-3)] border border-[var(--line)] text-xs text-[var(--paper)] rounded p-2.5 font-mono outline-none focus:border-[var(--brass)]"
                   placeholder="100.000"
-                  className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 text-xs text-[var(--paper)] font-mono focus:border-[var(--brass)] outline-none"
                 />
               </div>
             </div>
@@ -434,102 +624,82 @@ interface CompanyAnalysisResult {
             <button
               onClick={handleGenerateRecipe}
               disabled={loading}
-              className="w-full bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-semibold text-sm py-3 px-4 rounded-md flex items-center justify-center gap-2 transition-transform active:scale-[0.99] cursor-pointer shadow-lg disabled:opacity-50"
+              className="w-full bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold text-sm py-3.5 rounded shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
             >
-              {loading ? (
-                <>
-                  <Sparkles className="w-4 h-4 animate-spin" />
-                  <span className="font-mono text-xs">Orakul Reçeteyi Hazırlıyor...</span>
-                </>
-              ) : (
-                <>
-                  <Brain className="w-4 h-4" />
-                  <span>Optimizasyon Reçetesi Üret</span>
-                </>
-              )}
+              <Sparkles className="w-4 h-4" />
+              <span>{loading ? "Orakul Reçeteyi Hesaplanıyor..." : "Orakul Reçetesini Üret"}</span>
             </button>
           </div>
 
           {result && (
-            <div className="mt-8 pt-8 border-t border-[var(--line)] space-y-6 animate-in fade-in duration-300">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-[var(--ink-3)] p-4 rounded-lg border border-[var(--brass-dim)]">
+            <div className="mt-8 pt-6 border-t border-[var(--line)] space-y-6 animate-in fade-in">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-[var(--ink-3)] p-5 rounded-lg border border-[var(--brass-dim)]">
                 <div>
-                  <h3 className="font-serif font-bold text-lg text-[var(--paper)]">
-                    {result.title}
+                  <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--brass)]">
+                    Üretilen Strateji
+                  </span>
+                  <h3 className="font-serif text-xl sm:text-2xl font-bold text-[var(--paper)] mt-0.5">
+                    {result.recipeTitle || result.title}
                   </h3>
-                  <p className="text-xs text-[var(--mist)] mt-1">{result.summary}</p>
+                  <p className="text-xs text-[var(--mist)] mt-1 font-sans max-w-xl">
+                    {result.summary}
+                  </p>
                 </div>
 
-                <div className="flex items-center gap-3 shrink-0">
+                <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <span className="block font-mono text-[10px] text-[var(--mist)] uppercase">
-                      Portföy Sağlığı
+                    <span className="block font-mono text-[10px] text-[var(--mist)]">
+                      Portföy Sağlık Skoru
                     </span>
-                    <span className="font-mono text-sm font-bold text-[var(--verdigris)]">
-                      {result.healthScore} / 100
-                    </span>
-                  </div>
-
-                  <div className="text-right pl-3 border-l border-[var(--line)]">
-                    <span className="block font-mono text-[10px] text-[var(--mist)] uppercase">
-                      Beklenen Verim
-                    </span>
-                    <span className="font-mono text-sm font-bold text-[var(--brass)]">
-                      {result.expectedYield}
+                    <span className="font-serif text-xl font-bold text-[var(--verdigris)]">
+                      {result.healthScore || "92"}/100
                     </span>
                   </div>
+                  <StampBadge verdict="GÜÇLÜ AL" />
                 </div>
               </div>
 
               {/* Allocation List */}
               <div className="space-y-3">
-                <h4 className="font-mono text-xs uppercase tracking-wider text-[var(--mist)]">
-                  Varlık Dağılım Matrisi
+                <h4 className="font-mono text-xs text-[var(--mist)] uppercase tracking-wider">
+                  Önerilen Varlık ve Ağırlık Dağılımı
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {(result.allocation || []).map((item, idx: number) => (
+                  {result.allocation?.map((item: any) => (
                     <div
-                      key={idx}
-                      className="p-3 bg-[var(--ink-3)] border border-[var(--line)] rounded-md flex items-center justify-between gap-3"
+                      key={item.symbol}
+                      className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-lg flex items-start justify-between gap-3"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded bg-[var(--ink-2)] border border-[var(--brass-dim)] flex items-center justify-center font-mono font-bold text-xs text-[var(--brass)]">
-                          {item.symbol}
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-sm text-[var(--paper)]">
+                            {item.symbol}
+                          </span>
+                          <span className="text-xs text-[var(--mist)] font-sans">
+                            {item.companyName || item.name}
+                          </span>
                         </div>
-                        <div>
-                          <div className="font-semibold text-xs text-[var(--paper)]">
-                            {item.companyName || item.name || item.symbol}
-                          </div>
-                          <div className="text-[11px] text-[var(--mist)] line-clamp-1">
-                            {item.rationale || item.note || ""}
-                          </div>
-                        </div>
+                        <p className="text-xs text-[var(--paper-dim)] font-sans mt-1.5 leading-relaxed">
+                          {item.rationale || item.note}
+                        </p>
                       </div>
-                      <span className="font-mono text-sm font-bold text-[var(--verdigris)]">
+                      <div className="font-mono font-bold text-sm text-[var(--brass)] shrink-0 bg-[var(--brass-glow)] px-2.5 py-1 rounded border border-[var(--brass-dim)]">
                         %{item.weight}
-                      </span>
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="pt-4 flex items-center justify-end gap-3">
+              {/* Action: Save to Baskets */}
+              <div className="flex items-center justify-end gap-3 pt-2">
                 <button
                   onClick={handleSaveToBaskets}
                   disabled={savedSuccess}
-                  className="bg-[var(--ink-3)] hover:bg-[var(--ink)] border border-[var(--brass)] text-[var(--brass)] px-4 py-2 rounded text-xs font-mono font-medium flex items-center gap-2 transition-all cursor-pointer"
+                  className="bg-[var(--ink-3)] hover:bg-[var(--ink)] border border-[var(--brass)] text-[var(--brass)] hover:text-[var(--paper)] font-mono text-xs px-5 py-2.5 rounded flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
                 >
-                  {savedSuccess ? (
-                    <>
-                      <Check className="w-4 h-4 text-[var(--verdigris)]" />
-                      <span>Sepetlerime Kaydedildi!</span>
-                    </>
-                  ) : (
-                    <>
-                      <BookmarkPlus className="w-4 h-4" />
-                      <span>Bu Reçeteyi Sepet Yap</span>
-                    </>
-                  )}
+                  <BookmarkPlus className="w-4 h-4" />
+                  <span>{savedSuccess ? "Sepetlerime Kaydedildi ✓" : "Bu Reçeteyi Sepetime Aktar"}</span>
                 </button>
               </div>
             </div>
@@ -537,7 +707,7 @@ interface CompanyAnalysisResult {
         </section>
       )}
 
-      {/* 3. TAB 2: Derin Şirket Analizi */}
+      {/* 3. TAB 2: Şirket Teşhisi */}
       {activeTab === "company" && (
         <section className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 sm:p-8 space-y-6 shadow-xl">
           <div className="border-b border-[var(--line)] pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -643,7 +813,670 @@ interface CompanyAnalysisResult {
         </section>
       )}
 
-      {/* 4. TAB 3: Haber & KAP Duygu Analizi */}
+      {/* 4. TAB 3: 📑 30 Saniyede Bilanço & KAP Tercümanı (Earnings Flash) */}
+      {activeTab === "earnings" && (
+        <section className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 sm:p-8 space-y-6 shadow-xl">
+          <div className="border-b border-[var(--line)] pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center gap-2 font-mono text-[10px] text-[var(--brass)] uppercase bg-[var(--brass-glow)] px-2.5 py-0.5 rounded border border-[var(--brass-dim)] mb-1">
+                <FileText className="w-3 h-3" />
+                <span>Earnings Flash Engine</span>
+              </div>
+              <h2 className="font-serif text-2xl text-[var(--paper)] font-medium">
+                30 Saniyede Bilanço &amp; KAP Tercümanı
+              </h2>
+              <p className="text-xs font-mono text-[var(--mist)] mt-1">
+                Karmaşık çeyreklik finansal tabloları okumadan 3 cümlelik yönetici özeti ve 10 üzerinden bilanço sağlık puanı alın.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <select
+                value={earningsSymbol}
+                onChange={(e) => setEarningsSymbol(e.target.value)}
+                className="bg-[var(--ink-3)] border border-[var(--line)] text-xs text-[var(--paper)] rounded p-2.5 font-mono outline-none"
+              >
+                {companies.map((c) => (
+                  <option key={c.symbol} value={c.symbol}>
+                    {c.symbol} — {c.name}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                onClick={handleEarningsFlash}
+                disabled={earningsLoading}
+                className="bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold text-xs px-5 py-2.5 rounded shadow flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <Zap className="w-3.5 h-3.5" />
+                <span>{earningsLoading ? "Taranıyor..." : "Bilançoyu Orakul ile Tara"}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Quick symbol chips */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-mono text-xs text-[var(--mist)]">Hızlı Seçim:</span>
+            {["THYAO", "FROTO", "EREGL", "TUPRS", "BIMAS", "ASELS", "KCHOL"].map((sym) => (
+              <button
+                key={sym}
+                onClick={() => {
+                  setEarningsSymbol(sym);
+                }}
+                className={`px-2.5 py-1 rounded text-xs font-mono border transition-all cursor-pointer ${
+                  earningsSymbol === sym
+                    ? "bg-[var(--brass-glow)] border-[var(--brass)] text-[var(--brass)] font-bold"
+                    : "bg-[var(--ink-3)] border-[var(--line)] text-[var(--mist)] hover:text-[var(--paper)]"
+                }`}
+              >
+                {sym}
+              </button>
+            ))}
+          </div>
+
+          {earningsResult && (
+            <div className="bg-[var(--ink-3)] border border-[var(--brass-dim)] rounded-xl p-6 space-y-6 animate-in fade-in">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-dashed border-[var(--line)] pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-lg border border-[var(--brass)] bg-[var(--ink-2)] flex items-center justify-center font-mono font-bold text-base text-[var(--brass)]">
+                    {earningsResult.symbol}
+                  </div>
+                  <div>
+                    <span className="font-mono text-[10px] uppercase text-[var(--brass)] tracking-widest">
+                      {earningsResult.quarter}
+                    </span>
+                    <h3 className="font-serif font-bold text-xl text-[var(--paper)]">
+                      {earningsResult.symbol} Bilanço Sağlık Karnesi
+                    </h3>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <span className="block font-mono text-[10px] text-[var(--mist)] uppercase">
+                      Bilanço Puanı
+                    </span>
+                    <span className="font-serif text-3xl font-bold text-[var(--verdigris)]">
+                      {earningsResult.healthScore} <span className="text-sm font-mono text-[var(--mist)]">/10</span>
+                    </span>
+                  </div>
+                  <StampBadge verdict={earningsResult.verdict === "ÇOK GÜÇLÜ" || earningsResult.verdict === "GÜÇLÜ" ? "GÜÇLÜ AL" : earningsResult.verdict === "ZAYIF" || earningsResult.verdict === "RİSKLİ" ? "SAT" : "DENGELİ"} />
+                </div>
+              </div>
+
+              {/* 3-Sentence Executive Summary */}
+              <div className="p-4 bg-[var(--ink-2)] border border-[var(--brass-dim)] rounded-lg">
+                <span className="font-mono text-[11px] uppercase tracking-wider text-[var(--brass)] block font-bold mb-1.5">
+                  📌 3 Cümlelik Yönetici &amp; Yatırımcı Özeti
+                </span>
+                <p className="text-sm text-[var(--paper)] leading-relaxed font-serif">
+                  {earningsResult.summary}
+                </p>
+              </div>
+
+              {/* Metrics Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono">
+                <div className="p-3 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg">
+                  <span className="text-[10px] uppercase text-[var(--mist)] block">Net Kâr Büyümesi</span>
+                  <span className="text-base font-bold text-[var(--verdigris)]">{earningsResult.netProfitGrowth}</span>
+                </div>
+                <div className="p-3 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg">
+                  <span className="text-[10px] uppercase text-[var(--mist)] block">FAVÖK Marjı</span>
+                  <span className="text-base font-bold text-[var(--brass)]">{earningsResult.ebitdaMargin}</span>
+                </div>
+                <div className="p-3 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg">
+                  <span className="text-[10px] uppercase text-[var(--mist)] block">Borçluluk Durumu</span>
+                  <span className="text-xs font-semibold text-[var(--paper)]">{earningsResult.debtStatus}</span>
+                </div>
+              </div>
+
+              {/* Catalysts & Risks */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-sans">
+                <div className="p-3.5 bg-[var(--ink-2)] rounded border border-[rgba(91,140,123,0.3)]">
+                  <h5 className="font-mono text-xs text-[var(--verdigris)] font-bold mb-1">
+                    🚀 Temel Katalizör &amp; Fırsat
+                  </h5>
+                  <p className="text-[var(--paper-dim)]">{earningsResult.keyCatalyst}</p>
+                </div>
+                <div className="p-3.5 bg-[var(--ink-2)] rounded border border-[rgba(122,46,58,0.3)]">
+                  <h5 className="font-mono text-xs text-[var(--loss)] font-bold mb-1">
+                    ⚠️ Temel Risk Faktörü
+                  </h5>
+                  <p className="text-[var(--paper-dim)]">{earningsResult.keyRisk}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* 5. TAB 4: ⚠️ Orakul "Tuzak & Anomali Radarı" (Value Trap Detector) */}
+      {activeTab === "trap" && (
+        <section className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 sm:p-8 space-y-6 shadow-xl">
+          <div className="border-b border-[var(--line)] pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center gap-2 font-mono text-[10px] text-[var(--brass)] uppercase bg-[var(--brass-glow)] px-2.5 py-0.5 rounded border border-[var(--brass-dim)] mb-1">
+                <AlertOctagon className="w-3 h-3" />
+                <span>Value Trap &amp; Forensic Radar</span>
+              </div>
+              <h2 className="font-serif text-2xl text-[var(--paper)] font-medium">
+                Değer Tuzağı &amp; Anomali Radarı
+              </h2>
+              <p className="text-xs font-mono text-[var(--mist)] mt-1">
+                Kağıt üzerinde ucuz görünen (düşük F/K) hisselerin arkasındaki tek seferlik arsa satışlarını ve borç tuzaklarını deşifre edin.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <select
+                value={trapSymbol}
+                onChange={(e) => setTrapSymbol(e.target.value)}
+                className="bg-[var(--ink-3)] border border-[var(--line)] text-xs text-[var(--paper)] rounded p-2.5 font-mono outline-none"
+              >
+                {companies.map((c) => (
+                  <option key={c.symbol} value={c.symbol}>
+                    {c.symbol} — {c.name}
+                  </option>
+                ))}
+              </select>
+
+              <button
+                onClick={handleValueTrapCheck}
+                disabled={trapLoading}
+                className="bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold text-xs px-5 py-2.5 rounded shadow flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span>{trapLoading ? "Taranıyor..." : "Tuzak Riskini Tara"}</span>
+              </button>
+            </div>
+          </div>
+
+          {trapResult && (
+            <div className="bg-[var(--ink-3)] border border-[var(--brass-dim)] rounded-xl p-6 space-y-6 animate-in fade-in">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-dashed border-[var(--line)] pb-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-base font-bold text-[var(--paper)]">{trapResult.symbol}</span>
+                    <span
+                      className={`font-mono text-xs px-2.5 py-0.5 rounded border font-bold ${
+                        trapResult.trapRiskLevel.includes("DÜŞÜK")
+                          ? "bg-[rgba(91,140,123,0.15)] text-[var(--verdigris)] border-[var(--verdigris)]"
+                          : trapResult.trapRiskLevel.includes("ORTA")
+                          ? "bg-[rgba(201,162,75,0.15)] text-[var(--brass)] border-[var(--brass-dim)]"
+                          : "bg-[rgba(122,46,58,0.2)] text-[var(--loss)] border-[var(--loss)]"
+                      }`}
+                    >
+                      {trapResult.trapRiskLevel}
+                    </span>
+                  </div>
+                  <h3 className="font-serif text-xl font-bold text-[var(--paper)] mt-1">
+                    {trapResult.verdictTitle}
+                  </h3>
+                </div>
+
+                <div className="text-right">
+                  <span className="block font-mono text-[10px] text-[var(--mist)] uppercase">
+                    Tuzak Risk Skoru
+                  </span>
+                  <span
+                    className={`font-serif text-3xl font-bold ${
+                      trapResult.trapRiskScore < 30
+                        ? "text-[var(--verdigris)]"
+                        : trapResult.trapRiskScore < 60
+                        ? "text-[var(--brass)]"
+                        : "text-[var(--loss)]"
+                    }`}
+                  >
+                    %{trapResult.trapRiskScore}
+                  </span>
+                </div>
+              </div>
+
+              {/* Forensic Findings */}
+              <div className="space-y-3">
+                <span className="font-mono text-xs uppercase tracking-wider text-[var(--brass)] font-semibold">
+                  🔎 Adli Bilanço Bulguları &amp; Değerleme Analizi
+                </span>
+                <div className="space-y-2">
+                  {trapResult.findings.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="p-3 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg text-xs font-sans text-[var(--paper-dim)] flex items-start gap-2.5"
+                    >
+                      <span className="font-mono font-bold text-[var(--brass)]">•</span>
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Warning Alert Banner */}
+              <div className="p-4 bg-[var(--ink-2)] border border-[rgba(201,162,75,0.3)] rounded-lg flex items-start gap-3 text-xs">
+                <AlertTriangle className="w-4 h-4 text-[var(--brass)] shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-mono text-[11px] uppercase tracking-wider text-[var(--brass)] font-bold block mb-0.5">
+                    Orakul İkaz Notu
+                  </span>
+                  <span className="text-[var(--paper)] font-sans">{trapResult.warningNote}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* 6. TAB 5: ⏳ Orakul "Zaman Makinesi" (Backtesting Laboratuvarı) */}
+      {activeTab === "backtest" && (
+        <section className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 sm:p-8 space-y-6 shadow-xl">
+          <div className="border-b border-[var(--line)] pb-4">
+            <div className="inline-flex items-center gap-2 font-mono text-[10px] text-[var(--brass)] uppercase bg-[var(--brass-glow)] px-2.5 py-0.5 rounded border border-[var(--brass-dim)] mb-1">
+              <Hourglass className="w-3 h-3" />
+              <span>Backtest &amp; Time Machine Simulation</span>
+            </div>
+            <h2 className="font-serif text-2xl text-[var(--paper)] font-medium">
+              Orakul Zaman Makinesi &amp; Backtesting
+            </h2>
+            <p className="text-xs font-mono text-[var(--mist)] mt-1">
+              Geçmişe dönüp Orakul stratejilerini test edin: &quot;Eğer 6 ay önce bu sepete 100.000 ₺ koysaydım bugün param ne kadar olurdu?&quot;
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)] mb-2">
+                Strateji / Sepet Reçetesi
+              </label>
+              <select
+                value={backtestStrategy}
+                onChange={(e) => setBacktestStrategy(e.target.value)}
+                className="w-full bg-[var(--ink-3)] border border-[var(--line)] text-xs text-[var(--paper)] rounded p-2.5 font-mono outline-none"
+              >
+                <option>Temettü Kalesi Reçetesi (FROTO, TUPRS, EREGL, BIMAS)</option>
+                <option>Enflasyon &amp; Kur Kalkanı (Gram Altın, THYAO, ASELS, KCHOL)</option>
+                <option>Büyüme &amp; İhracat Şampiyonları (THYAO, FROTO, ASELS, PGSUS)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)] mb-2">
+                Test Süresi
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {[3, 6, 12].map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setBacktestMonths(m)}
+                    className={`py-2 rounded text-xs font-mono border transition-all cursor-pointer ${
+                      backtestMonths === m
+                        ? "bg-[var(--brass-glow)] border-[var(--brass)] text-[var(--brass)] font-bold"
+                        : "bg-[var(--ink-3)] border-[var(--line)] text-[var(--mist)] hover:text-[var(--paper)]"
+                    }`}
+                  >
+                    {m} Ay
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)] mb-2">
+                Başlangıç Sermayesi (₺)
+              </label>
+              <input
+                type="text"
+                value={backtestBudget}
+                onChange={(e) => setBacktestBudget(e.target.value)}
+                className="w-full bg-[var(--ink-3)] border border-[var(--line)] text-xs text-[var(--paper)] rounded p-2.5 font-mono outline-none"
+                placeholder="100.000"
+              />
+            </div>
+          </div>
+
+          <button
+            onClick={handleRunBacktest}
+            disabled={backtestLoading}
+            className="w-full bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold text-sm py-3.5 rounded shadow flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+          >
+            <Hourglass className="w-4 h-4" />
+            <span>{backtestLoading ? "Zaman Makinesi Çalışıyor..." : "Simülasyonu Başlat & Kıyasla"}</span>
+          </button>
+
+          {backtestResult && (
+            <div className="mt-8 pt-6 border-t border-[var(--line)] space-y-6 animate-in fade-in">
+              {/* 3 Outcome Comparison Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="p-5 bg-[var(--ink-3)] border border-[var(--brass)] rounded-xl relative overflow-hidden">
+                  <span className="font-mono text-[10px] uppercase text-[var(--brass)] tracking-wider">
+                    Orakul Portföyü
+                  </span>
+                  <div className="font-serif text-3xl font-bold text-[var(--paper)] mt-1">
+                    {backtestResult.finalPortfolioValue.toLocaleString("tr-TR")} ₺
+                  </div>
+                  <div className="font-mono text-xs text-[var(--verdigris)] font-bold mt-1">
+                    +%{backtestResult.portfolioReturnPct} Getiri
+                  </div>
+                </div>
+
+                <div className="p-5 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl">
+                  <span className="font-mono text-[10px] uppercase text-[var(--mist)] tracking-wider">
+                    BIST 100 Endeksi
+                  </span>
+                  <div className="font-serif text-3xl font-bold text-[var(--paper-dim)] mt-1">
+                    {backtestResult.finalBist100Value.toLocaleString("tr-TR")} ₺
+                  </div>
+                  <div className="font-mono text-xs text-[var(--mist)] mt-1">
+                    +%{backtestResult.bist100ReturnPct} Getiri
+                  </div>
+                </div>
+
+                <div className="p-5 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl">
+                  <span className="font-mono text-[10px] uppercase text-[var(--mist)] tracking-wider">
+                    Gram Altın Kıyası
+                  </span>
+                  <div className="font-serif text-3xl font-bold text-[var(--paper-dim)] mt-1">
+                    {backtestResult.finalGoldValue.toLocaleString("tr-TR")} ₺
+                  </div>
+                  <div className="font-mono text-xs text-[var(--mist)] mt-1">
+                    +%{backtestResult.goldReturnPct} Getiri
+                  </div>
+                </div>
+              </div>
+
+              {/* Alpha & Risk Metrics */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 font-mono text-xs">
+                <div className="p-3.5 bg-[var(--ink-3)] border border-[rgba(91,140,123,0.3)] rounded-lg">
+                  <span className="text-[10px] text-[var(--mist)] uppercase block">BIST Üzeri Alfa</span>
+                  <span className="text-base font-bold text-[var(--verdigris)]">
+                    +%{backtestResult.alphaOverBist}
+                  </span>
+                </div>
+                <div className="p-3.5 bg-[var(--ink-3)] border border-[var(--line)] rounded-lg">
+                  <span className="text-[10px] text-[var(--mist)] uppercase block">Maksimum Değer Kaybı</span>
+                  <span className="text-base font-bold text-[var(--paper)]">
+                    %{backtestResult.maxDrawdownPct}
+                  </span>
+                </div>
+                <div className="p-3.5 bg-[var(--ink-3)] border border-[var(--line)] rounded-lg col-span-2 sm:col-span-1">
+                  <span className="text-[10px] text-[var(--mist)] uppercase block">Sharpe Rasyosu</span>
+                  <span className="text-base font-bold text-[var(--brass)]">
+                    {backtestResult.sharpeRatio}
+                  </span>
+                </div>
+              </div>
+
+              {/* Month-by-month Table */}
+              <div className="bg-[var(--ink-3)] border border-[var(--line)] rounded-lg overflow-hidden">
+                <div className="grid grid-cols-4 px-4 py-2.5 bg-[var(--ink)] font-mono text-[11px] text-[var(--mist)] uppercase border-b border-[var(--line)]">
+                  <span>Dönem</span>
+                  <span className="text-right">Portföy (₺)</span>
+                  <span className="text-right">BIST 100 (₺)</span>
+                  <span className="text-right">Gram Altın (₺)</span>
+                </div>
+                <div className="divide-y divide-dashed divide-[var(--line)] font-mono text-xs">
+                  {backtestResult.timeline.map((point: any, idx: number) => (
+                    <div key={idx} className="grid grid-cols-4 px-4 py-2.5 items-center">
+                      <span className="text-[var(--paper)]">{point.date}</span>
+                      <span className="text-right font-bold text-[var(--brass)]">
+                        {point.portfolioValue.toLocaleString("tr-TR")} ₺
+                      </span>
+                      <span className="text-right text-[var(--mist)]">
+                        {point.bist100Value.toLocaleString("tr-TR")} ₺
+                      </span>
+                      <span className="text-right text-[var(--mist)]">
+                        {point.goldValue.toLocaleString("tr-TR")} ₺
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* AI Verdict */}
+              <div className="p-4 bg-[var(--ink-2)] border border-[var(--brass-dim)] rounded-lg">
+                <span className="font-mono text-[11px] uppercase tracking-wider text-[var(--brass)] font-bold block mb-1">
+                  📜 Orakul Tarihsel Simülasyon Kararı
+                </span>
+                <p className="text-xs text-[var(--paper-dim)] leading-relaxed font-serif">
+                  {backtestResult.aiAnalysisVerdict}
+                </p>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* 7. TAB 6: 🔍 Doğal Dil ile Akıllı Hisse Tarayıcısı (AI Stock Screener) */}
+      {activeTab === "screener" && (
+        <section className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 sm:p-8 space-y-6 shadow-xl">
+          <div className="border-b border-[var(--line)] pb-4">
+            <div className="inline-flex items-center gap-2 font-mono text-[10px] text-[var(--brass)] uppercase bg-[var(--brass-glow)] px-2.5 py-0.5 rounded border border-[var(--brass-dim)] mb-1">
+              <Search className="w-3 h-3" />
+              <span>Natural Language AI Stock Screener</span>
+            </div>
+            <h2 className="font-serif text-2xl text-[var(--paper)] font-medium">
+              Doğal Dil ile Akıllı Hisse Tarayıcısı
+            </h2>
+            <p className="text-xs font-mono text-[var(--mist)] mt-1">
+              Karmaşık filtrelerle uğraşmadan aklınızdaki yatırım fikrini Türkçe yazın, Orakul 420+ varlık kütüğünden en uygun adayları bulsun.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-[var(--mist)] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={screenerQuery}
+                  onChange={(e) => setScreenerQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") handleRunScreener();
+                  }}
+                  className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded-lg pl-10 pr-4 py-3 text-xs text-[var(--paper)] font-mono outline-none focus:border-[var(--brass)] shadow-inner"
+                  placeholder="Örn: F/K'sı 8'in altında yüksek temettü veren sanayi hisseleri..."
+                />
+              </div>
+
+              <button
+                onClick={() => handleRunScreener()}
+                disabled={screenerLoading}
+                className="bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold text-xs px-6 py-3 rounded-lg shadow flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>{screenerLoading ? "Taranıyor..." : "Kütüğü Tara"}</span>
+              </button>
+            </div>
+
+            {/* Quick Prompt Chips */}
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <span className="font-mono text-[11px] text-[var(--mist)]">Örnek Aramalar:</span>
+              {[
+                "F/K'sı 8'in altında yüksek temettü veren sanayi hisseleri",
+                "İhracat odaklı döviz kazancı olan büyüme hisseleri",
+                "Düşük borçlu defansif BIST 30 şirketleri",
+                "Temettü verimi %6 üzeri kârlı şirketler",
+              ].map((chip) => (
+                <button
+                  key={chip}
+                  onClick={() => {
+                    setScreenerQuery(chip);
+                    handleRunScreener(chip);
+                  }}
+                  className="px-2.5 py-1 rounded bg-[var(--ink-3)] border border-[var(--line)] text-[11px] font-mono text-[var(--paper-dim)] hover:border-[var(--brass-dim)] hover:text-[var(--paper)] transition-all cursor-pointer"
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {screenerResult && (
+            <div className="mt-8 pt-6 border-t border-[var(--line)] space-y-5 animate-in fade-in">
+              <div className="p-3.5 bg-[var(--ink-3)] border border-[var(--line)] rounded-lg text-xs font-mono text-[var(--brass)]">
+                💡 {screenerResult.interpretation}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {screenerResult.picks.map((pick: any) => (
+                  <div
+                    key={pick.symbol}
+                    className="p-5 bg-[var(--ink-3)] border border-[var(--brass-dim)] rounded-xl flex flex-col justify-between space-y-4 hover:border-[var(--brass)] transition-colors"
+                  >
+                    <div>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-base font-bold text-[var(--brass)]">
+                              {pick.symbol}
+                            </span>
+                            <span className="font-mono text-[10px] bg-[rgba(91,140,123,0.15)] text-[var(--verdigris)] border border-[var(--verdigris)] px-2 py-0.5 rounded font-bold">
+                              %{pick.matchScore} Uyum
+                            </span>
+                          </div>
+                          <h4 className="font-serif font-bold text-sm text-[var(--paper)] mt-1">
+                            {pick.name}
+                          </h4>
+                          <span className="text-[11px] font-mono text-[var(--mist)]">{pick.sector}</span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 my-3 py-2 border-y border-dashed border-[var(--line)] font-mono text-[11px]">
+                        <div>
+                          <span className="text-[9px] text-[var(--mist)] uppercase block">Fiyat</span>
+                          <span className="font-bold text-[var(--paper)]">{pick.price.toFixed(2)} ₺</span>
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-[var(--mist)] uppercase block">F/K</span>
+                          <span className="font-bold text-[var(--brass)]">{pick.peRatio || "—"}</span>
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-[var(--mist)] uppercase block">Temettü</span>
+                          <span className="font-bold text-[var(--verdigris)]">
+                            {pick.dividendYield ? `%${pick.dividendYield}` : "—"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-[var(--paper-dim)] font-sans leading-relaxed">
+                        {pick.aiRationale}
+                      </p>
+                    </div>
+
+                    <a
+                      href={`/sirketler/${pick.symbol}`}
+                      className="text-xs font-mono text-[var(--brass)] hover:text-[var(--paper)] flex items-center gap-1.5 transition-colors pt-2 border-t border-[var(--line)]"
+                    >
+                      <span>Şirket Kütüğünü Aç</span>
+                    </a>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* 8. TAB 7: ☕ Orakul "Akşam Kapanış Brifingi" (Daily Executive Brief) */}
+      {activeTab === "daily_brief" && (
+        <section className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 sm:p-8 space-y-6 shadow-xl">
+          <div className="border-b border-[var(--line)] pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <div className="inline-flex items-center gap-2 font-mono text-[10px] text-[var(--brass)] uppercase bg-[var(--brass-glow)] px-2.5 py-0.5 rounded border border-[var(--brass-dim)] mb-1">
+                <Coffee className="w-3 h-3" />
+                <span>Executive Daily Briefing</span>
+              </div>
+              <h2 className="font-serif text-2xl text-[var(--paper)] font-medium">
+                Orakul Günlük Kapanış Brifingi
+              </h2>
+              <p className="text-xs font-mono text-[var(--mist)] mt-1">
+                Borsa kapanışında portföyünüzün günlük hareketini, BIST 100 kıyaslamasını ve en çok kazandıran varlıklarınızı tek sayfada özetler.
+              </p>
+            </div>
+
+            <button
+              onClick={handleGenerateDailyBrief}
+              disabled={briefingLoading}
+              className="bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold text-xs px-5 py-2.5 rounded shadow flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${briefingLoading ? "animate-spin" : ""}`} />
+              <span>{briefingLoading ? "Brifing Hazırlanıyor..." : "Brifingi Şimdi Güncelle"}</span>
+            </button>
+          </div>
+
+          {/* If not generated yet, show prompt banner */}
+          {!briefingResult && !briefingLoading && (
+            <div className="p-8 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl text-center space-y-3">
+              <Coffee className="w-8 h-8 text-[var(--brass)] mx-auto" />
+              <h3 className="font-serif text-lg text-[var(--paper)] font-bold">
+                Günün Kapanış Raporunu Almaya Hazır mısınız?
+              </h3>
+              <p className="text-xs text-[var(--mist)] font-mono max-w-md mx-auto">
+                &quot;Brifingi Şimdi Güncelle&quot; butonuna basarak Orakul&apos;un sepetleriniz ve Borsa İstanbul kapanış verileriyle hazırladığı kişisel yönetici özetini çıkarabilirsiniz.
+              </p>
+            </div>
+          )}
+
+          {briefingResult && (
+            <div className="bg-[var(--ink-3)] border border-[var(--brass-dim)] rounded-xl p-6 space-y-6 animate-in fade-in">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-dashed border-[var(--line)] pb-4">
+                <div>
+                  <span className="font-mono text-xs text-[var(--brass)]">{briefingResult.date}</span>
+                  <h3 className="font-serif text-2xl font-bold text-[var(--paper)] mt-0.5">
+                    {briefingResult.greeting}
+                  </h3>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-[var(--ink-2)] border border-[rgba(91,140,123,0.3)] rounded-lg text-right">
+                    <span className="block font-mono text-[9px] text-[var(--mist)] uppercase">
+                      Portföy Günlük
+                    </span>
+                    <span className="font-mono text-base font-bold text-[var(--verdigris)]">
+                      +%{briefingResult.portfolioDayChangePct}
+                    </span>
+                  </div>
+                  <div className="p-2.5 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg text-right">
+                    <span className="block font-mono text-[9px] text-[var(--mist)] uppercase">
+                      BIST 100
+                    </span>
+                    <span className="font-mono text-base font-bold text-[var(--paper-dim)]">
+                      +%{briefingResult.bistDayChangePct}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Performance Tag */}
+              <div className="p-3 bg-[var(--brass-glow)] border border-[var(--brass-dim)] rounded-lg text-xs font-mono text-[var(--brass)] font-semibold flex items-center gap-2">
+                <Sparkles className="w-4 h-4 shrink-0" />
+                <span>{briefingResult.outperformanceText}</span>
+              </div>
+
+              {/* Executive Summary */}
+              <div className="p-5 bg-[var(--ink-2)] border border-[var(--line)] rounded-xl">
+                <span className="font-mono text-[11px] uppercase tracking-wider text-[var(--brass)] font-bold block mb-2">
+                  ☕ Yönetici Özeti (Executive Summary)
+                </span>
+                <p className="text-sm text-[var(--paper)] leading-relaxed font-serif">
+                  {briefingResult.executiveSummary}
+                </p>
+              </div>
+
+              {/* Tactical Tip for Tomorrow */}
+              <div className="p-4 bg-[var(--ink-2)] border border-[rgba(91,140,123,0.3)] rounded-lg flex items-start gap-3 text-xs">
+                <Target className="w-4 h-4 text-[var(--verdigris)] shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-mono text-[11px] uppercase tracking-wider text-[var(--verdigris)] font-bold block mb-0.5">
+                    Yarın İçin Taktiksel Pusula
+                  </span>
+                  <span className="text-[var(--paper-dim)] font-sans">{briefingResult.tacticalTip}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* 9. TAB 8: Haber & KAP Duygu Analizi */}
       {activeTab === "sentiment" && (
         <section className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 sm:p-8 space-y-6 shadow-xl">
           <div className="border-b border-[var(--line)] pb-4">
@@ -710,7 +1543,7 @@ interface CompanyAnalysisResult {
         </section>
       )}
 
-      {/* 5. TAB 4: Anomali & Risk Tespiti */}
+      {/* 10. TAB 9: Anomali & Risk Tespiti */}
       {activeTab === "anomaly" && (
         <section className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 sm:p-8 space-y-6 shadow-xl">
           <div className="border-b border-[var(--line)] pb-4">
