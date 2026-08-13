@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { X, Plus, Trash2, Sliders, Check } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import { Basket } from "@/lib/mockData";
@@ -31,6 +31,14 @@ export default function EditBasketModal({
   );
   const [addQty, setAddQty] = useState("10");
   const [addWeight, setAddWeight] = useState("15");
+
+  useEffect(() => {
+    if (companies.length > 0) {
+      if (!selectedAddSymbol || !companies.some((c) => c.symbol === selectedAddSymbol)) {
+        setSelectedAddSymbol(companies[0].symbol);
+      }
+    }
+  }, [companies, selectedAddSymbol]);
 
   if (!isOpen) return null;
 

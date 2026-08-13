@@ -19,6 +19,8 @@ import {
 import { useDefterStore } from "@/lib/store";
 import EditBasketModal from "@/components/EditBasketModal";
 import ShareCardModal from "@/components/ShareCardModal";
+import DataStatusBadge from "@/components/DataStatusBadge";
+import { isLiveSymbol } from "@/lib/liveSymbols";
 
 export default function SepetDetayPage() {
   const params = useParams();
@@ -289,12 +291,15 @@ export default function SepetDetayPage() {
                       className="grid grid-cols-1 md:grid-cols-[1.5fr_100px_100px_100px_100px_110px_40px] gap-3 md:gap-4 p-4 md:px-6 md:py-4 items-center hover:bg-[rgba(201,162,75,0.03)]"
                     >
                       <div>
-                        <Link
-                          href={`/sirketler/${h.companySymbol}`}
-                          className="font-bold text-sm text-[var(--paper)] hover:text-[var(--brass)] transition-colors font-mono"
-                        >
-                          {h.companySymbol}
-                        </Link>
+                        <div className="flex items-center gap-2">
+                          <Link
+                            href={`/sirketler/${h.companySymbol}`}
+                            className="font-bold text-sm text-[var(--paper)] hover:text-[var(--brass)] transition-colors font-mono"
+                          >
+                            {h.companySymbol}
+                          </Link>
+                          <DataStatusBadge symbol={h.companySymbol} isLive={isLiveSymbol(h.companySymbol)} />
+                        </div>
                         <div className="w-full bg-[var(--ink-3)] h-1.5 rounded-full overflow-hidden mt-1.5 max-w-xs">
                           <div
                             className="bg-[var(--brass)] h-full rounded-full"

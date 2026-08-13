@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import StampBadge from "@/components/StampBadge";
+import { isLiveSymbol } from "@/lib/liveSymbols";
 
 export default function HomePage() {
   const { companies, baskets, ipos, dividends } = useDefterStore();
@@ -28,6 +29,12 @@ export default function HomePage() {
   const totalCost = baskets.reduce((sum, b) => sum + b.totalCost, 0);
   const totalProfit = totalPortfolioValue - totalCost;
   const profitPercent = totalCost > 0 ? ((totalProfit / totalCost) * 100).toFixed(1) : "0.0";
+
+  const allHoldingsSymbols = baskets.flatMap((b) => b.holdings.map((h) => h.companySymbol));
+  const totalHoldingsCount = allHoldingsSymbols.length;
+  const liveHoldingsCount = allHoldingsSymbols.filter(isLiveSymbol).length;
+  const liveRatioPct = totalHoldingsCount > 0 ? Math.round((liveHoldingsCount / totalHoldingsCount) * 100) : 100;
+  const staticRatioPct = 100 - liveRatioPct;
 
   const totalAnnualDividends = dividends.reduce(
     (acc, d) => acc + (d.totalEstimatedPayout || 0),
@@ -89,6 +96,14 @@ export default function HomePage() {
             <ArrowUpRight className="w-3.5 h-3.5" />
             <span>+{totalProfit.toLocaleString("tr-TR")} ₺ (%{profitPercent}) Net Kâr</span>
           </div>
+          {totalHoldingsCount > 0 && (
+            <div className="mt-3.5 flex items-center justify-between text-[11px] font-mono border-t border-dashed border-[var(--line)] pt-2">
+              <span className="text-[var(--verdigris)]">⚡ %{liveRatioPct} Canlı Fiyat</span>
+              {staticRatioPct > 0 && (
+                <span className="text-[var(--mist)]">📌 %{staticRatioPct} Statik</span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Card 2: Portföy Sağlık Skoru */}

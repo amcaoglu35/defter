@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { X, ArrowDownRight, ArrowUpRight, DollarSign, Layers } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import { useToast } from "@/components/ToastProvider";
@@ -30,6 +30,14 @@ export default function TransactionModal({
     baskets[0]?.id || ""
   );
   const [note, setNote] = useState("");
+
+  useEffect(() => {
+    if (baskets.length > 0) {
+      if (!targetBasketId || !baskets.some((b) => b.id === targetBasketId)) {
+        setTargetBasketId(baskets[0].id);
+      }
+    }
+  }, [baskets, targetBasketId]);
 
   if (!isOpen) return null;
 

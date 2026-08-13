@@ -278,6 +278,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [usdRate, setUsdRate] = useState<number>(36.45);
   const [aiProvider, setAiProvider] = useState<string>("gemini");
+  const [isServerCloudConnected, setIsServerCloudConnected] = useState<boolean>(false);
   const [updateInterval, setUpdateIntervalState] = useState<string>("manual");
 
   const updateUserSettings = useCallback((partial: Partial<UserSettings>) => {
@@ -298,6 +299,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch("/api/sync");
       if (res.ok) {
         const json = await res.json();
+        if (json.configured === true) {
+          setIsServerCloudConnected(true);
+        } else {
+          setIsServerCloudConnected(false);
+        }
         if (json.success && json.data) {
           const { companies: dbCompanies, baskets: dbBaskets, transactions: dbTx, ipos: dbIpos, aiHistory: dbAi } = json.data;
 
@@ -576,7 +582,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [aiHistory]);
 
   // Outcome Verification Engine (evaluates past AI predictions vs market movements)
-  const evaluateAiOutcomes = useCallback(() => {
+  const evaluateAiOutcomes = useCallback((freshCompanies?: Company[]) => {
+    const listToUse = freshCompanies || companies;
     setAiHistory((prev) =>
       prev.map((item) => {
         if (!item.symbol || !item.priceAtVerdict || item.outcomeCorrect !== null && item.outcomeCorrect !== undefined) {
@@ -596,7 +603,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        const co = companies.find((c) => c.symbol === item.symbol);
+        const co = listToUse.find((c) => c.symbol === item.symbol);
         if (!co) return item;
 
         const curPrice = co.price;
@@ -651,6 +658,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch("/api/prices");
       if (res.ok) {
         const data = await res.json();
+        let freshList: Company[] | null = null;
+
         if (data.prices) {
           setCompanies((prev) => {
             const updated = prev.map((c) => {
@@ -664,11 +673,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               }
               return c;
             });
-            setBaskets((prevBaskets) =>
-              prevBaskets.map((b) => recalculateBasket(b, updated))
-            );
+            freshList = updated;
             return updated;
           });
+
+          if (freshList) {
+            const updatedComps = freshList as Company[];
+            setBaskets((prevBaskets) =>
+              prevBaskets.map((b) => recalculateBasket(b, updatedComps))
+            );
+            evaluateAiOutcomes(updatedComps);
+          }
         }
 
         if (data.indices) {
@@ -680,9 +695,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }
 
         setLastSyncTime(data.formattedTime || "Şimdi");
-
-        // Run outcome evaluation after prices are refreshed
-        evaluateAiOutcomes();
       }
     } catch (e) {
       console.warn("Price sync failed:", e);
@@ -1266,7 +1278,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         usdRate,
         notifications,
         markAllNotificationsRead,
-        isCloudConnected: isSupabaseConfigured,
+        isCloudConnected: isSupabaseConfigured && isServerCloudConnected,
         syncWithSupabase,
         resetToDefaultData,
         exportStoreAsJson,

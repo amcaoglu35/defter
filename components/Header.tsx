@@ -122,13 +122,20 @@ export default function Header() {
             </button>
 
             {/* Cloud Sync Status Indicator */}
-            {isCloudConnected && (
+            {isCloudConnected ? (
               <div
                 className="hidden md:flex items-center gap-1 text-[10px] font-mono text-[var(--brass)] bg-[var(--brass-glow)] border border-[var(--brass-dim)] px-2 py-1 rounded"
                 title="Supabase Bulut Senkronizasyonu Aktif"
               >
                 <CloudCheck className="w-3.5 h-3.5 text-[var(--brass)]" />
                 <span className="hidden lg:inline font-semibold">Bulut</span>
+              </div>
+            ) : (
+              <div
+                className="hidden md:flex items-center gap-1 text-[10px] font-mono text-[var(--mist)] bg-[var(--ink-2)] border border-[var(--line)] px-2 py-1 rounded"
+                title="Supabase servis anahtarı bağlı değil. Veriler yalnızca bu cihazda (localStorage) tutuluyor."
+              >
+                <span className="hidden lg:inline font-semibold">📌 Yerel Mod</span>
               </div>
             )}
 
