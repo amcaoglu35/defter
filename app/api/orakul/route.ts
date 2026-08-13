@@ -21,30 +21,96 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { type, payload, messages, context, history, provider } = body;
+    const { type, payload, messages, context, history, provider, apiKey } = body;
+    const selectedProvider = provider || "gemini";
 
-    // 2. Server-side Connection Test endpoint
+    // 2. Connection Test endpoint with live API ping
     if (type === "test_connection") {
-      const selectedProvider = provider || "gemini";
       const envKey =
         selectedProvider === "openai"
           ? process.env.OPENAI_API_KEY
           : process.env.GEMINI_API_KEY;
 
-      const isConfigured = Boolean(envKey && envKey.trim().length > 10);
+      const effectiveKey = (apiKey && typeof apiKey === "string" && apiKey.trim().length > 10)
+        ? apiKey.trim()
+        : envKey;
+
+      if (!effectiveKey || effectiveKey.length <= 10) {
+        return NextResponse.json({
+          success: true,
+          provider: selectedProvider,
+          isConfigured: false,
+          message: `${selectedProvider.toUpperCase()} API anahtarı girilmedi veya sunucu ortamında bulunamadı. Yerel çevrimdışı motor aktif.`,
+        });
+      }
+
+      // Live Ping Test
+      try {
+        if (selectedProvider === "gemini") {
+          const testEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${effectiveKey}`;
+          const testRes = await fetch(testEndpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ role: "user", parts: [{ text: "ping" }] }],
+            }),
+          });
+          if (testRes.ok) {
+            return NextResponse.json({
+              success: true,
+              provider: selectedProvider,
+              isConfigured: true,
+              message: "Google Gemini API anahtarı ve bağlantısı başarıyla doğrulandı ✓ (Gerçek AI Aktif)",
+            });
+          } else {
+            const errData = await testRes.json().catch(() => ({}));
+            return NextResponse.json({
+              success: true,
+              provider: selectedProvider,
+              isConfigured: false,
+              message: `Gemini API bağlantısı başarısız: ${errData.error?.message || testRes.statusText || "Geçersiz API Anahtarı"}`,
+            });
+          }
+        } else if (selectedProvider === "openai") {
+          const testRes = await fetch("https://api.openai.com/v1/models", {
+            headers: { Authorization: `Bearer ${effectiveKey}` },
+          });
+          if (testRes.ok) {
+            return NextResponse.json({
+              success: true,
+              provider: selectedProvider,
+              isConfigured: true,
+              message: "OpenAI API anahtarı ve bağlantısı başarıyla doğrulandı ✓ (Gerçek AI Aktif)",
+            });
+          } else {
+            return NextResponse.json({
+              success: true,
+              provider: selectedProvider,
+              isConfigured: false,
+              message: "OpenAI API anahtarı geçersiz veya yetkisiz.",
+            });
+          }
+        }
+      } catch (err: unknown) {
+        return NextResponse.json({
+          success: true,
+          provider: selectedProvider,
+          isConfigured: false,
+          message: `API sunucu bağlantı hatası: ${String(err)}`,
+        });
+      }
+
       return NextResponse.json({
         success: true,
         provider: selectedProvider,
-        isConfigured,
-        message: isConfigured
-          ? `${selectedProvider.toUpperCase()} API anahtarı sunucu ortam değişkenlerinde tanımlı ve aktif.`
-          : `${selectedProvider.toUpperCase()} API anahtarı sunucu ortam değişkenlerinde bulunamadı. Yerel kural motoru aktif.`,
+        isConfigured: true,
+        message: `${selectedProvider.toUpperCase()} API anahtarı aktif.`,
       });
     }
 
-    // 3. AI Service calls without client apiKey
+    // 3. AI Service calls with optional custom user apiKey
     if (type === "recipe") {
-      const recipe = await generateOrakulRecipe(payload, undefined, provider);
+      const recipe = await generateOrakulRecipe(payload, apiKey, selectedProvider);
       return NextResponse.json({ success: true, data: recipe });
     }
 
@@ -52,8 +118,8 @@ export async function POST(req: Request) {
       const reply = await askOrakulChat(
         messages || [],
         context || {},
-        undefined,
-        provider
+        apiKey,
+        selectedProvider
       );
       return NextResponse.json({ success: true, reply });
     }
@@ -62,8 +128,8 @@ export async function POST(req: Request) {
       const analysis = await generateCompanyAnalysis(
         payload,
         history || [],
-        undefined,
-        provider
+        apiKey,
+        selectedProvider
       );
       return NextResponse.json({
         success: true,

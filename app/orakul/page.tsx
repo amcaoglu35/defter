@@ -35,14 +35,15 @@ import { useToast } from "@/components/ToastProvider";
 
 export default function OrakulPage() {
   const {
+    companies,
+    baskets,
     aiHistory,
     addAiHistory,
     evaluateAiOutcomes,
     aiAccuracyStats,
-    createBasket,
-    companies,
-    baskets,
     aiProvider,
+    aiApiKey,
+    createBasket,
   } = useDefterStore();
   const { showToast } = useToast();
 
@@ -118,6 +119,7 @@ interface CompanyAnalysisResult {
             budget: parseFloat(budget.replace(/\./g, "")) || 100000,
           },
           provider: aiProvider,
+          apiKey: aiApiKey || undefined,
         }),
       });
 
@@ -152,6 +154,7 @@ interface CompanyAnalysisResult {
           payload: co,
           history: aiHistory,
           provider: aiProvider,
+          apiKey: aiApiKey || undefined,
         }),
       });
 

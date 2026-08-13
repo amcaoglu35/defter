@@ -115,7 +115,8 @@ interface DefterStoreContextType {
   evaluateAiOutcomes: () => void;
   aiAccuracyStats: AiAccuracyStats;
   aiProvider: string;
-  setAiSettings: (provider: string) => void;
+  aiApiKey: string;
+  setAiSettings: (provider: string, apiKey?: string) => void;
 
   // Live Market Sync & Indices
   indices: Record<string, MarketIndexData>;
@@ -278,6 +279,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [usdRate, setUsdRate] = useState<number>(36.45);
   const [aiProvider, setAiProvider] = useState<string>("gemini");
+  const [aiApiKey, setAiApiKey] = useState<string>("");
   const [isServerCloudConnected, setIsServerCloudConnected] = useState<boolean>(false);
   const [updateInterval, setUpdateIntervalState] = useState<string>("manual");
 
@@ -456,6 +458,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (storedAi) setAiHistory(JSON.parse(storedAi));
         if (storedNotif) setNotifications(JSON.parse(storedNotif));
         if (storedProvider) setAiProvider(storedProvider);
+        const storedApiKey = localStorage.getItem("defter_ai_api_key");
+        if (storedApiKey) setAiApiKey(storedApiKey);
         if (storedInterval) setUpdateIntervalState(storedInterval);
         if (storedIndices) setIndices(JSON.parse(storedIndices));
         if (storedUserSettings) setUserSettings(JSON.parse(storedUserSettings));
@@ -1184,8 +1188,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return addedCount;
   }, [ipos, companies, syncIpoToLedger]);
 
-  const setAiSettings = (provider: string) => {
+  const setAiSettings = (provider: string, apiKey?: string) => {
     setAiProvider(provider);
+    if (apiKey !== undefined) {
+      setAiApiKey(apiKey);
+      try {
+        localStorage.setItem("defter_ai_api_key", apiKey);
+      } catch {}
+    }
   };
 
   const setUpdateInterval = (interval: string) => {
@@ -1268,6 +1278,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         evaluateAiOutcomes,
         aiAccuracyStats,
         aiProvider,
+        aiApiKey,
         setAiSettings,
         indices,
         lastSyncTime,

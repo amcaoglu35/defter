@@ -28,19 +28,21 @@ interface OrakulChatModalProps {
   onClose: () => void;
 }
 
+const INITIAL_MESSAGES: ChatMessage[] = [
+  {
+    role: "assistant",
+    content:
+      "Merhaba, ben **Orakul**. Portföyündeki şirketler, temettü projeksiyonların, risk dağılımın ve piyasa senaryoları hakkında aklına takılan her şeyi bana sorabilirsin.",
+  },
+];
+
 export default function OrakulChatModal({
   isOpen,
   onClose,
 }: OrakulChatModalProps) {
-  const { companies, baskets, dividends, aiProvider, aiAccuracyStats, aiHistory, addAiHistory } = useDefterStore();
+  const { baskets, companies, aiAccuracyStats, aiHistory, addAiHistory, aiProvider, aiApiKey } = useDefterStore();
 
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      role: "assistant",
-      content:
-        "Merhaba, ben **Orakul**. Portföyündeki şirketler, temettü projeksiyonların, risk dağılımın ve piyasa senaryoları hakkında aklına takılan her şeyi bana sorabilirsin.",
-    },
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -70,6 +72,8 @@ export default function OrakulChatModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "chat",
+          provider: aiProvider,
+          apiKey: aiApiKey || undefined,
           messages: newMessages,
           context: {
             totalBaskets: baskets.length,
@@ -89,7 +93,6 @@ export default function OrakulChatModal({
             })),
           },
           history: aiHistory,
-          provider: aiProvider,
         }),
       });
 

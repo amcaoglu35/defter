@@ -51,6 +51,7 @@ export default function SirketDetayPage() {
     deleteNote,
     transactions,
     aiProvider,
+    aiApiKey,
   } = useDefterStore();
 
   const company =
@@ -104,6 +105,7 @@ export default function SirketDetayPage() {
           type: "company_analysis",
           payload: company,
           provider: aiProvider,
+          apiKey: aiApiKey || undefined,
         }),
       });
 

@@ -35,6 +35,7 @@ export default function AyarlarPage() {
     baskets,
     transactions,
     aiProvider,
+    aiApiKey,
     setAiSettings,
     updateInterval,
     setUpdateInterval,
@@ -55,6 +56,8 @@ export default function AyarlarPage() {
 
   // AI states
   const [selectedProvider, setSelectedProvider] = useState(aiProvider || "gemini");
+  const [inputApiKey, setInputApiKey] = useState(aiApiKey || "");
+  const [showApiKey, setShowApiKey] = useState(false);
   const [aiSavedSuccess, setAiSavedSuccess] = useState(false);
   const [testResult, setTestResult] = useState<{ isConfigured: boolean; message: string } | null>(null);
   const [testingKey, setTestingKey] = useState(false);
@@ -80,9 +83,9 @@ export default function AyarlarPage() {
 
   const handleSaveAiSettings = (e: React.FormEvent) => {
     e.preventDefault();
-    setAiSettings(selectedProvider);
+    setAiSettings(selectedProvider, inputApiKey.trim());
     setAiSavedSuccess(true);
-    showToast("AI Motoru Güncellendi", `Yapay zeka sağlayıcı tercihi '${selectedProvider}' olarak ayarlandı.`, "success");
+    showToast("AI Ayarları Güncellendi", `Yapay zeka tercihi '${selectedProvider}' olarak kaydedildi.`, "success");
     setTimeout(() => setAiSavedSuccess(false), 3000);
   };
 
@@ -96,6 +99,7 @@ export default function AyarlarPage() {
         body: JSON.stringify({
           type: "test_connection",
           provider: selectedProvider,
+          apiKey: inputApiKey.trim() || undefined,
         }),
       });
       if (res.ok) {
@@ -206,7 +210,7 @@ export default function AyarlarPage() {
         </div>
 
         <form onSubmit={handleSaveAiSettings} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-4">
             <div>
               <label className="block text-xs font-mono text-[var(--mist)] uppercase mb-1.5">
                 Yapay Zeka Sağlayıcısı
@@ -219,33 +223,58 @@ export default function AyarlarPage() {
                 }}
                 className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 text-xs text-[var(--paper)] font-mono focus:border-[var(--brass)] outline-none"
               >
-                <option value="gemini">Google Gemini (Önerilen — GEMINI_API_KEY)</option>
-                <option value="openai">OpenAI (GPT-4o — OPENAI_API_KEY)</option>
+                <option value="gemini">Google Gemini (Önerilen — Gemini 1.5 Flash)</option>
+                <option value="openai">OpenAI (GPT-4o Mini)</option>
                 <option value="local">Yerel Finansal Motor (API Anahtarsız Çevrimdışı Mod)</option>
               </select>
             </div>
 
-            <div className="bg-[var(--ink-3)] p-3 rounded border border-[var(--line)] flex flex-col justify-between">
+            {selectedProvider !== "local" && (
               <div>
-                <span className="text-xs font-mono text-[var(--paper)] font-semibold flex items-center gap-1.5">
-                  <Shield className="w-3.5 h-3.5 text-[var(--brass)]" />
-                  Sunucu Ortam Değişkeni Modu
-                </span>
-                <p className="text-[11px] text-[var(--mist)] mt-1 font-mono">
-                  Güvenlik gereği API anahtarları artık tarayıcıda saklanmaz. Değiştirmek için sunucunuzdaki <code>.env.local</code> veya Vercel ayarlarınızı kullanın.
-                </p>
+                <label className="block text-xs font-mono text-[var(--mist)] uppercase mb-1.5 flex items-center justify-between">
+                  <span>Özel {selectedProvider.toUpperCase()} API Anahtarı (Opsiyonel)</span>
+                  <span className="text-[11px] text-[var(--brass)] font-normal">Boş bırakılırsa sunucu ortam değişkeni kullanılır</span>
+                </label>
+                <div className="relative flex items-center">
+                  <input
+                    type={showApiKey ? "text" : "password"}
+                    value={inputApiKey}
+                    onChange={(e) => {
+                      setInputApiKey(e.target.value);
+                      setTestResult(null);
+                    }}
+                    placeholder={
+                      selectedProvider === "openai"
+                        ? "sk-proj-..."
+                        : "AIzaSy..."
+                    }
+                    className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 pr-10 text-xs text-[var(--paper)] font-mono focus:border-[var(--brass)] outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className="absolute right-3 text-[var(--mist)] hover:text-[var(--paper)] p-1 transition-colors cursor-pointer"
+                    title={showApiKey ? "Gizle" : "Göster"}
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
+            )}
 
-              <div className="pt-2 flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={handleTestServerKey}
-                  disabled={testingKey || selectedProvider === "local"}
-                  className="bg-[var(--ink)] border border-[var(--brass-dim)] hover:border-[var(--brass)] text-[var(--brass)] text-[11px] font-mono px-3 py-1.5 rounded transition-all cursor-pointer disabled:opacity-40"
-                >
-                  {testingKey ? "Test Ediliyor..." : "Sunucu Bağlantısını Test Et"}
-                </button>
+            <div className="bg-[var(--ink-3)] p-3 rounded border border-[var(--line)] flex items-center justify-between">
+              <div className="text-[11px] text-[var(--mist)] font-mono">
+                API bağlantısını ve girdiğiniz özel anahtarı canlı test edin:
               </div>
+              <button
+                type="button"
+                onClick={handleTestServerKey}
+                disabled={testingKey || selectedProvider === "local"}
+                className="bg-[var(--ink)] border border-[var(--brass-dim)] hover:border-[var(--brass)] text-[var(--brass)] text-[11px] font-mono px-3.5 py-1.5 rounded transition-all cursor-pointer disabled:opacity-40 flex items-center gap-1.5"
+              >
+                <Key className="w-3.5 h-3.5" />
+                <span>{testingKey ? "Test Ediliyor..." : "API Bağlantısını Test Et"}</span>
+              </button>
             </div>
           </div>
 
