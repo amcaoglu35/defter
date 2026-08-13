@@ -28,7 +28,14 @@ export interface ChatMessage {
 }
 
 export const GEMINI_MODEL = "gemini-1.5-flash";
-const GEMINI_CANDIDATES = ["gemini-1.5-flash", "gemini-1.5-pro"];
+const GEMINI_CANDIDATES = [
+  "gemini-1.5-flash-latest",
+  "gemini-1.5-flash",
+  "gemini-1.5-pro-latest",
+  "gemini-1.5-pro",
+  "gemini-2.0-flash-exp",
+  "gemini-1.0-pro",
+];
 
 async function fetchGeminiWithFallback(
   apiKey: string,
@@ -39,16 +46,20 @@ async function fetchGeminiWithFallback(
     ? [customModel, ...GEMINI_CANDIDATES.filter((m) => m !== customModel)]
     : GEMINI_CANDIDATES;
 
-  for (const modelCandidate of Array.from(new Set(candidates))) {
-    try {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelCandidate}:generateContent?key=${apiKey}`;
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(bodyObj),
-      });
-      if (res.ok) return res;
-    } catch {}
+  const versions = ["v1beta", "v1"];
+
+  for (const version of versions) {
+    for (const modelCandidate of Array.from(new Set(candidates))) {
+      try {
+        const endpoint = `https://generativelanguage.googleapis.com/${version}/models/${modelCandidate}:generateContent?key=${apiKey}`;
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(bodyObj),
+        });
+        if (res.ok) return res;
+      } catch {}
+    }
   }
   return null;
 }

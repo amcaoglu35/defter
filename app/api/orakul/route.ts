@@ -45,48 +45,83 @@ export async function POST(req: Request) {
         });
       }
 
-      // Live Ping Test with Detailed Error Diagnostics
+      // Live Ping Test with Dynamic ListModels Discovery & Fallback
       try {
         if (selectedProvider === "gemini") {
-          const modelsToTry = [reqModel, "gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-exp"];
+          let discoveredModels: string[] = [];
           let rawGoogleError = "";
-          let successModel = "";
 
-          for (const modelCandidate of Array.from(new Set(modelsToTry))) {
-            const testEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelCandidate}:generateContent?key=${effectiveKey}`;
-            const testRes = await fetch(testEndpoint, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                contents: [{ role: "user", parts: [{ text: "ping" }] }],
-              }),
-            });
-
-            if (testRes.ok) {
-              successModel = modelCandidate;
-              break;
+          // 1. Query official ListModels endpoint (GET /v1beta/models?key=...)
+          try {
+            const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${effectiveKey}`);
+            if (listRes.ok) {
+              const listData = await listRes.json();
+              if (Array.isArray(listData.models)) {
+                discoveredModels = listData.models
+                  .filter((m: { supportedGenerationMethods?: string[] }) =>
+                    m.supportedGenerationMethods?.includes("generateContent")
+                  )
+                  .map((m: { name: string }) => m.name.replace(/^models\//, ""));
+              }
             } else {
-              const errData = await testRes.json().catch(() => ({}));
-              const msg = errData.error?.message || testRes.statusText || "Geçersiz API Anahtarı";
-              if (!rawGoogleError) rawGoogleError = msg;
+              const errData = await listRes.json().catch(() => ({}));
+              rawGoogleError = errData.error?.message || listRes.statusText || "";
+            }
+          } catch (listErr) {
+            console.warn("[Orakul Route] ListModels fetch warning:", listErr);
+          }
 
-              if (msg.includes("API key not valid") || msg.includes("API_KEY_INVALID")) {
-                rawGoogleError = `Google API Anahtarı Geçersiz (API_KEY_INVALID). Anahtarın başındaki 'AIzaSy...' ifadesinin tam yazıldığından emin olun.`;
+          const defaultCandidates = [
+            reqModel,
+            "gemini-1.5-flash-latest",
+            "gemini-1.5-flash",
+            "gemini-1.5-pro-latest",
+            "gemini-1.5-pro",
+            "gemini-2.0-flash-exp",
+            "gemini-1.0-pro",
+          ];
+
+          const modelsToTry = Array.from(new Set([...(discoveredModels.length > 0 ? discoveredModels : []), ...defaultCandidates]));
+          let successModel = "";
+          let successVersion = "";
+
+          const apiVersions = ["v1beta", "v1"];
+
+          for (const version of apiVersions) {
+            for (const modelCandidate of modelsToTry) {
+              const testEndpoint = `https://generativelanguage.googleapis.com/${version}/models/${modelCandidate}:generateContent?key=${effectiveKey}`;
+              const testRes = await fetch(testEndpoint, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  contents: [{ role: "user", parts: [{ text: "ping" }] }],
+                }),
+              });
+
+              if (testRes.ok) {
+                successModel = modelCandidate;
+                successVersion = version;
                 break;
-              }
-              if (msg.includes("RESOURCE_EXHAUSTED") || msg.includes("Quota")) {
-                rawGoogleError = `Kota Aşımı (RESOURCE_EXHAUSTED): Anahtarın ücretsiz kullanım limiti veya dakikalık çağrı sınırı dolmuş.`;
-                break;
-              }
-              if (msg.includes("PERMISSION_DENIED") || msg.includes("API has not been used")) {
-                rawGoogleError = `Erişim Engellendi (PERMISSION_DENIED): Google Cloud konsolunuzda 'Generative Language API' servisi aktif değil.`;
-                break;
-              }
-              if (msg.includes("USER_LOCATION_NOT_SUPPORTED")) {
-                rawGoogleError = `Bölge Desteklenmiyor (USER_LOCATION_NOT_SUPPORTED): Gemini API bulunduğunuz IP/ülke bölgesinde doğrudan desteklenmiyor olabilir.`;
-                break;
+              } else {
+                const errData = await testRes.json().catch(() => ({}));
+                const msg = errData.error?.message || testRes.statusText || "Geçersiz API Anahtarı";
+                if (!rawGoogleError) rawGoogleError = msg;
+
+                if (msg.includes("API key not valid") || msg.includes("API_KEY_INVALID")) {
+                  rawGoogleError = `Google API Anahtarı Geçersiz (API_KEY_INVALID). Lütfen aistudio.google.com adresinden yeni bir API Key alıp yapıştırın.`;
+                  break;
+                }
+                if (msg.includes("RESOURCE_EXHAUSTED") || msg.includes("Quota")) {
+                  rawGoogleError = `Kota Aşımı (RESOURCE_EXHAUSTED): Anahtarın ücretsiz kullanım limiti veya dakikalık çağrı sınırı dolmuş.`;
+                  break;
+                }
+                if (msg.includes("PERMISSION_DENIED") || msg.includes("API has not been used")) {
+                  rawGoogleError = `Erişim Engellendi (PERMISSION_DENIED): Google Cloud konsolunuzda 'Generative Language API' servisi aktif değil.`;
+                  break;
+                }
               }
             }
+            if (successModel) break;
           }
 
           if (successModel) {
@@ -94,7 +129,7 @@ export async function POST(req: Request) {
               success: true,
               provider: selectedProvider,
               isConfigured: true,
-              message: `Google Gemini API anahtarı ve ${successModel} bağlantısı başarıyla doğrulandı ✓ (Gerçek AI Aktif)`,
+              message: `Google Gemini API anahtarı doğrulandı ✓ (${successModel} @ ${successVersion} aktif)`,
             });
           } else {
             return NextResponse.json({
