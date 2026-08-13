@@ -183,7 +183,8 @@ export async function POST(req: Request) {
 
     // 3. AI Service calls with optional custom user apiKey & model
     if (type === "recipe") {
-      const recipe = await generateOrakulRecipe(payload, apiKey, selectedProvider, reqModel);
+      const companiesList = payload?.allCompanies || body.companies || [];
+      const recipe = await generateOrakulRecipe(payload, companiesList, apiKey, selectedProvider, reqModel);
       return NextResponse.json({ success: true, data: recipe });
     }
 

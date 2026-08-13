@@ -38,6 +38,7 @@ import StampBadge from "@/components/StampBadge";
 import { useDefterStore } from "@/lib/store";
 import { AiHistoryItem, Basket } from "@/lib/mockData";
 import { useToast } from "@/components/ToastProvider";
+import CompanyCombobox from "@/components/CompanyCombobox";
 import {
   EarningsFlashResult,
   ValueTrapResult,
@@ -167,6 +168,7 @@ interface CompanyAnalysisResult {
             risk,
             universe,
             budget: parseFloat(budget.replace(/\./g, "")) || 100000,
+            allCompanies: companies.slice(0, 60),
           },
           provider: aiProvider,
           apiKey: aiApiKey || undefined,
@@ -576,49 +578,87 @@ interface CompanyAnalysisResult {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)] mb-2">
-                  2. Risk Toleransı
-                </label>
-                <select
-                  value={risk}
-                  onChange={(e) => setRisk(e.target.value)}
-                  className="w-full bg-[var(--ink-3)] border border-[var(--line)] text-xs text-[var(--paper)] rounded p-2.5 font-mono outline-none focus:border-[var(--brass)]"
-                >
-                  <option>Düşük Risk (Defansif Sermaye)</option>
-                  <option>Dengeli (Orta Risk)</option>
-                  <option>Yüksek Büyüme (Agresif Getiri)</option>
-                </select>
+            {/* 2. Risk Toleransı */}
+            <div>
+              <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)] mb-2">
+                2. Risk Toleransı
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {[
+                  "Düşük Risk (Defansif)",
+                  "Dengeli (Orta Risk)",
+                  "Yüksek Risk (Agresif)",
+                ].map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setRisk(r)}
+                    className={`p-2.5 rounded-lg text-xs font-mono border transition-all cursor-pointer ${
+                      risk === r
+                        ? "border-[var(--brass)] bg-[var(--brass-glow)] text-[var(--brass)] font-bold shadow-sm"
+                        : "border-[var(--line)] bg-[var(--ink-3)] text-[var(--mist)] hover:text-[var(--paper)]"
+                    }`}
+                  >
+                    {r}
+                  </button>
+                ))}
               </div>
+            </div>
 
-              <div>
-                <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)] mb-2">
-                  3. Varlık Evreni
-                </label>
-                <select
-                  value={universe}
-                  onChange={(e) => setUniverse(e.target.value)}
-                  className="w-full bg-[var(--ink-3)] border border-[var(--line)] text-xs text-[var(--paper)] rounded p-2.5 font-mono outline-none focus:border-[var(--brass)]"
-                >
-                  <option>BIST 30 &amp; Emtia</option>
-                  <option>Tüm BIST Şirketleri</option>
-                  <option>Yalnızca Temettü Şampiyonları</option>
-                </select>
+            {/* 3. Varlık Evreni */}
+            <div>
+              <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)] mb-2">
+                3. Yatırım Evreni
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  "BIST 30 & Emtia",
+                  "Tüm BIST 100",
+                  "Kıymetli Maden & Döviz",
+                  "Küresel Piyasalar (ABD & BIST)",
+                ].map((u) => (
+                  <button
+                    key={u}
+                    type="button"
+                    onClick={() => setUniverse(u)}
+                    className={`p-2.5 rounded-lg text-xs font-mono border transition-all cursor-pointer ${
+                      universe === u
+                        ? "border-[var(--brass)] bg-[var(--brass-glow)] text-[var(--brass)] font-bold shadow-sm"
+                        : "border-[var(--line)] bg-[var(--ink-3)] text-[var(--mist)] hover:text-[var(--paper)]"
+                    }`}
+                  >
+                    {u}
+                  </button>
+                ))}
               </div>
+            </div>
 
-              <div>
-                <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)] mb-2">
+            {/* 4. Başlangıç Bütçesi */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="font-mono text-xs uppercase tracking-wider text-[var(--mist)]">
                   4. Başlangıç Bütçesi (₺)
                 </label>
-                <input
-                  type="text"
-                  value={budget}
-                  onChange={(e) => setBudget(e.target.value)}
-                  className="w-full bg-[var(--ink-3)] border border-[var(--line)] text-xs text-[var(--paper)] rounded p-2.5 font-mono outline-none focus:border-[var(--brass)]"
-                  placeholder="100.000"
-                />
+                <div className="flex items-center gap-1.5">
+                  {["25.000", "50.000", "100.000", "250.000", "500.000"].map((bVal) => (
+                    <button
+                      key={bVal}
+                      type="button"
+                      onClick={() => setBudget(bVal)}
+                      className="text-[10px] font-mono px-2 py-0.5 rounded bg-[var(--ink-3)] hover:bg-[var(--ink)] border border-[var(--line)] text-[var(--mist)] hover:text-[var(--brass)] cursor-pointer"
+                    >
+                      {bVal} ₺
+                    </button>
+                  ))}
+                </div>
               </div>
+              <input
+                type="text"
+                value={budget}
+                onChange={(e) => setBudget(e.target.value)}
+                className="w-full bg-[var(--ink-3)] border border-[var(--line)] text-sm text-[var(--paper)] rounded-lg p-3 font-mono outline-none focus:border-[var(--brass)] shadow-inner"
+                placeholder="100.000"
+              />
             </div>
 
             <button
@@ -720,25 +760,19 @@ interface CompanyAnalysisResult {
               </p>
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <select
-                value={selectedCoSymbol}
-                onChange={(e) => setSelectedCoSymbol(e.target.value)}
-                className="bg-[var(--ink-3)] border border-[var(--line)] text-xs text-[var(--paper)] rounded p-2 font-mono outline-none"
-              >
-                {companies.map((c) => (
-                  <option key={c.symbol} value={c.symbol}>
-                    {c.symbol} — {c.name}
-                  </option>
-                ))}
-              </select>
-
+            <div className="w-full sm:w-80">
+              <CompanyCombobox
+                companies={companies}
+                selectedSymbol={selectedCoSymbol}
+                onSelect={(co) => setSelectedCoSymbol(co.symbol)}
+                label="İncelenecek Şirket / Varlık"
+              />
               <button
                 onClick={handleCompanyAnalyze}
                 disabled={companyLoading}
-                className="bg-[var(--brass)] text-[var(--ink)] font-bold text-xs px-4 py-2 rounded cursor-pointer disabled:opacity-50"
+                className="w-full mt-2 bg-[var(--brass)] text-[var(--ink)] font-bold text-xs py-2.5 rounded-lg cursor-pointer disabled:opacity-50 shadow transition-all active:scale-95"
               >
-                {companyLoading ? "Teşhis Ediliyor..." : "Teşhis Et"}
+                {companyLoading ? "Teşhis Ediliyor..." : `${selectedCoSymbol} İçin Teşhis Üret`}
               </button>
             </div>
           </div>
@@ -760,53 +794,51 @@ interface CompanyAnalysisResult {
                   </div>
                 </div>
 
-                <StampBadge verdict={(companyAnalysis as Record<string, unknown>).verdict as "AL" | "SAT" | "TUT" | "NÖTR" | "YÜKSEK RİSK" | "DENGELİ"} />
+                <StampBadge verdict={companyAnalysis.verdict || "AL"} />
               </div>
 
-              {/* Feedback Loop Context Banner */}
-              {companyAnalysis.pastFeedbackSummary && (
-                <div className="p-3 bg-[var(--ink-2)] border border-[var(--brass-dim)] rounded-lg flex items-start gap-2.5 text-xs text-[var(--paper-dim)]">
-                  <Brain className="w-4 h-4 text-[var(--brass)] shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-mono text-[11px] uppercase tracking-wider text-[var(--brass)] block font-bold mb-0.5">
-                      Geri Besleme Modeli (Feedback Loop)
+              <div className="space-y-3">
+                <div className="p-4 bg-[var(--ink-2)] rounded-lg border border-[var(--line)] space-y-1">
+                  <span className="font-mono text-xs text-[var(--brass)] font-semibold uppercase">
+                    Fiyatı Hareket Ettiren Temel Faktör
+                  </span>
+                  <p className="text-xs text-[var(--paper)] leading-relaxed">
+                    {companyAnalysis.whyMoved}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="p-4 bg-[rgba(91,140,123,0.05)] border border-[rgba(91,140,123,0.3)] rounded-lg space-y-2">
+                    <span className="font-mono text-xs text-[var(--verdigris)] font-bold uppercase flex items-center gap-1.5">
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Güçlü Yönler &amp; Katalizörler</span>
                     </span>
-                    <span>{companyAnalysis.pastFeedbackSummary}</span>
+                    <ul className="text-xs text-[var(--paper-dim)] space-y-1 font-mono list-disc list-inside">
+                      {companyAnalysis.pros?.map((p: string, idx: number) => (
+                        <li key={idx}>{p}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="p-4 bg-[rgba(201,124,124,0.05)] border border-[rgba(201,124,124,0.3)] rounded-lg space-y-2">
+                    <span className="font-mono text-xs text-[var(--loss)] font-bold uppercase flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      <span>Temel Risk Faktörleri</span>
+                    </span>
+                    <ul className="text-xs text-[var(--paper-dim)] space-y-1 font-mono list-disc list-inside">
+                      {companyAnalysis.risks?.map((r: string, idx: number) => (
+                        <li key={idx}>{r}</li>
+                      ))}
+                    </ul>
                   </div>
                 </div>
-              )}
 
-              <div>
-                <h4 className="font-mono text-xs text-[var(--brass)] uppercase mb-1">
-                  Son Fiyat Hareketi ve Dinamikler
-                </h4>
-                <p className="text-xs text-[var(--paper-dim)] leading-relaxed font-sans">
-                  {companyAnalysis.whyMoved}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-3 bg-[var(--ink-2)] rounded border border-[rgba(91,140,123,0.3)]">
-                  <h5 className="font-mono text-xs text-[var(--verdigris)] font-semibold mb-2">
-                    Güçlü Yönler (Pros)
-                  </h5>
-                  <ul className="text-xs space-y-1 text-[var(--paper-dim)]">
-                    {(companyAnalysis.pros || []).map((p: string, i: number) => (
-                      <li key={i}>✓ {p}</li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="p-3 bg-[var(--ink-2)] rounded border border-[rgba(122,46,58,0.3)]">
-                  <h5 className="font-mono text-xs text-[var(--loss)] font-semibold mb-2">
-                    Risk Faktörleri (Risks)
-                  </h5>
-                  <ul className="text-xs space-y-1 text-[var(--paper-dim)]">
-                    {(companyAnalysis.risks || []).map((r: string, i: number) => (
-                      <li key={i}>✕ {r}</li>
-                    ))}
-                  </ul>
-                </div>
+                {companyAnalysis.pastFeedbackSummary && (
+                  <div className="p-3 bg-[var(--brass-glow)] border border-[var(--brass-dim)] rounded-lg text-xs font-mono text-[var(--paper)]">
+                    <span className="text-[var(--brass)] font-bold">Kasa Hafızası: </span>
+                    {companyAnalysis.pastFeedbackSummary}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -818,9 +850,9 @@ interface CompanyAnalysisResult {
         <section className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 sm:p-8 space-y-6 shadow-xl">
           <div className="border-b border-[var(--line)] pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <div className="inline-flex items-center gap-2 font-mono text-[10px] text-[var(--brass)] uppercase bg-[var(--brass-glow)] px-2.5 py-0.5 rounded border border-[var(--brass-dim)] mb-1">
-                <FileText className="w-3 h-3" />
-                <span>Earnings Flash Engine</span>
+              <div className="flex items-center gap-2 font-mono text-xs text-[var(--brass)] uppercase font-semibold mb-1">
+                <FileText className="w-4 h-4" />
+                <span>30-Second Earnings Flash</span>
               </div>
               <h2 className="font-serif text-2xl text-[var(--paper)] font-medium">
                 30 Saniyede Bilanço &amp; KAP Tercümanı
@@ -830,26 +862,20 @@ interface CompanyAnalysisResult {
               </p>
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <select
-                value={earningsSymbol}
-                onChange={(e) => setEarningsSymbol(e.target.value)}
-                className="bg-[var(--ink-3)] border border-[var(--line)] text-xs text-[var(--paper)] rounded p-2.5 font-mono outline-none"
-              >
-                {companies.map((c) => (
-                  <option key={c.symbol} value={c.symbol}>
-                    {c.symbol} — {c.name}
-                  </option>
-                ))}
-              </select>
-
+            <div className="w-full sm:w-80">
+              <CompanyCombobox
+                companies={companies}
+                selectedSymbol={earningsSymbol}
+                onSelect={(co) => setEarningsSymbol(co.symbol)}
+                label="Bilanço Şirketi"
+              />
               <button
                 onClick={handleEarningsFlash}
                 disabled={earningsLoading}
-                className="bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold text-xs px-5 py-2.5 rounded shadow flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                className="w-full mt-2 bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold text-xs py-2.5 rounded-lg shadow flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 transition-all active:scale-95"
               >
                 <Zap className="w-3.5 h-3.5" />
-                <span>{earningsLoading ? "Taranıyor..." : "Bilançoyu Orakul ile Tara"}</span>
+                <span>{earningsLoading ? "Taranıyor..." : `${earningsSymbol} Bilançosunu Tara`}</span>
               </button>
             </div>
           </div>
@@ -877,71 +903,57 @@ interface CompanyAnalysisResult {
           {earningsResult && (
             <div className="bg-[var(--ink-3)] border border-[var(--brass-dim)] rounded-xl p-6 space-y-6 animate-in fade-in">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-dashed border-[var(--line)] pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-lg border border-[var(--brass)] bg-[var(--ink-2)] flex items-center justify-center font-mono font-bold text-base text-[var(--brass)]">
-                    {earningsResult.symbol}
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-base font-bold text-[var(--paper)]">{earningsResult.symbol}</span>
+                    <span className="text-xs font-mono text-[var(--mist)]">• {earningsResult.quarter} Çeyreklik Bilanço</span>
                   </div>
-                  <div>
-                    <span className="font-mono text-[10px] uppercase text-[var(--brass)] tracking-widest">
-                      {earningsResult.quarter}
-                    </span>
-                    <h3 className="font-serif font-bold text-xl text-[var(--paper)]">
-                      {earningsResult.symbol} Bilanço Sağlık Karnesi
-                    </h3>
-                  </div>
+                  <h3 className="font-serif font-bold text-xl text-[var(--paper)] mt-1">
+                    {earningsResult.verdict === "ÇOK GÜÇLÜ" || earningsResult.verdict === "GÜÇLÜ" ? "Kâr Beklentilerin Üzerinde, Nakit Akışı Güçlü" : "Operasyonel Kârlılık ve Marjlar Dengeli"}
+                  </h3>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4">
                   <div className="text-right">
-                    <span className="block font-mono text-[10px] text-[var(--mist)] uppercase">
-                      Bilanço Puanı
-                    </span>
-                    <span className="font-serif text-3xl font-bold text-[var(--verdigris)]">
-                      {earningsResult.healthScore} <span className="text-sm font-mono text-[var(--mist)]">/10</span>
-                    </span>
+                    <span className="font-mono text-[10px] uppercase text-[var(--mist)] block">Bilanço Sağlık Puanı</span>
+                    <span className="font-mono text-xl font-bold text-[var(--brass)]">{earningsResult.healthScore} / 10</span>
                   </div>
                   <StampBadge verdict={earningsResult.verdict === "ÇOK GÜÇLÜ" || earningsResult.verdict === "GÜÇLÜ" ? "GÜÇLÜ AL" : earningsResult.verdict === "ZAYIF" || earningsResult.verdict === "RİSKLİ" ? "SAT" : "DENGELİ"} />
                 </div>
               </div>
 
-              {/* 3-Sentence Executive Summary */}
-              <div className="p-4 bg-[var(--ink-2)] border border-[var(--brass-dim)] rounded-lg">
-                <span className="font-mono text-[11px] uppercase tracking-wider text-[var(--brass)] block font-bold mb-1.5">
-                  📌 3 Cümlelik Yönetici &amp; Yatırımcı Özeti
-                </span>
-                <p className="text-sm text-[var(--paper)] leading-relaxed font-serif">
+              {/* 3 Metrics KPI Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-3.5 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg font-mono">
+                  <span className="text-[11px] text-[var(--mist)] uppercase block">Net Kâr Büyümesi</span>
+                  <span className="text-base font-bold text-[var(--verdigris)] mt-0.5 block">{earningsResult.netProfitGrowth}</span>
+                </div>
+                <div className="p-3.5 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg font-mono">
+                  <span className="text-[11px] text-[var(--mist)] uppercase block">FAVÖK Marjı</span>
+                  <span className="text-base font-bold text-[var(--paper)] mt-0.5 block">{earningsResult.ebitdaMargin}</span>
+                </div>
+                <div className="p-3.5 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg font-mono">
+                  <span className="text-[11px] text-[var(--mist)] uppercase block">Borçluluk Durumu</span>
+                  <span className="text-base font-bold text-[var(--brass)] mt-0.5 block">{earningsResult.debtStatus}</span>
+                </div>
+              </div>
+
+              {/* 3-Sentence Summary */}
+              <div className="p-4 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg space-y-1">
+                <span className="font-mono text-xs text-[var(--brass)] font-semibold uppercase">3 Cümlelik Yönetici Özeti</span>
+                <p className="text-xs text-[var(--paper)] leading-relaxed font-sans">
                   {earningsResult.summary}
                 </p>
               </div>
 
-              {/* Metrics Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono">
-                <div className="p-3 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg">
-                  <span className="text-[10px] uppercase text-[var(--mist)] block">Net Kâr Büyümesi</span>
-                  <span className="text-base font-bold text-[var(--verdigris)]">{earningsResult.netProfitGrowth}</span>
-                </div>
-                <div className="p-3 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg">
-                  <span className="text-[10px] uppercase text-[var(--mist)] block">FAVÖK Marjı</span>
-                  <span className="text-base font-bold text-[var(--brass)]">{earningsResult.ebitdaMargin}</span>
-                </div>
-                <div className="p-3 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg">
-                  <span className="text-[10px] uppercase text-[var(--mist)] block">Borçluluk Durumu</span>
-                  <span className="text-xs font-semibold text-[var(--paper)]">{earningsResult.debtStatus}</span>
-                </div>
-              </div>
-
               {/* Catalysts & Risks */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-sans">
-                <div className="p-3.5 bg-[var(--ink-2)] rounded border border-[rgba(91,140,123,0.3)]">
-                  <h5 className="font-mono text-xs text-[var(--verdigris)] font-bold mb-1">
-                    🚀 Temel Katalizör &amp; Fırsat
-                  </h5>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+                <div className="p-3.5 bg-[rgba(91,140,123,0.08)] border border-[rgba(91,140,123,0.3)] rounded-lg space-y-1.5">
+                  <span className="font-bold text-[var(--verdigris)] uppercase">✓ Öne Çıkan Katalizör</span>
                   <p className="text-[var(--paper-dim)]">{earningsResult.keyCatalyst}</p>
                 </div>
-                <div className="p-3.5 bg-[var(--ink-2)] rounded border border-[rgba(122,46,58,0.3)]">
-                  <h5 className="font-mono text-xs text-[var(--loss)] font-bold mb-1">
-                    ⚠️ Temel Risk Faktörü
-                  </h5>
+                <div className="p-3.5 bg-[rgba(201,124,124,0.08)] border border-[rgba(201,124,124,0.3)] rounded-lg space-y-1.5">
+                  <span className="font-bold text-[var(--loss)] uppercase">⚠️ Temel Risk &amp; Baskı</span>
                   <p className="text-[var(--paper-dim)]">{earningsResult.keyRisk}</p>
                 </div>
               </div>
@@ -955,8 +967,8 @@ interface CompanyAnalysisResult {
         <section className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 sm:p-8 space-y-6 shadow-xl">
           <div className="border-b border-[var(--line)] pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <div className="inline-flex items-center gap-2 font-mono text-[10px] text-[var(--brass)] uppercase bg-[var(--brass-glow)] px-2.5 py-0.5 rounded border border-[var(--brass-dim)] mb-1">
-                <AlertOctagon className="w-3 h-3" />
+              <div className="flex items-center gap-2 font-mono text-xs text-[var(--loss)] uppercase font-semibold mb-1">
+                <AlertOctagon className="w-4 h-4" />
                 <span>Value Trap &amp; Forensic Radar</span>
               </div>
               <h2 className="font-serif text-2xl text-[var(--paper)] font-medium">
@@ -967,26 +979,20 @@ interface CompanyAnalysisResult {
               </p>
             </div>
 
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <select
-                value={trapSymbol}
-                onChange={(e) => setTrapSymbol(e.target.value)}
-                className="bg-[var(--ink-3)] border border-[var(--line)] text-xs text-[var(--paper)] rounded p-2.5 font-mono outline-none"
-              >
-                {companies.map((c) => (
-                  <option key={c.symbol} value={c.symbol}>
-                    {c.symbol} — {c.name}
-                  </option>
-                ))}
-              </select>
-
+            <div className="w-full sm:w-80">
+              <CompanyCombobox
+                companies={companies}
+                selectedSymbol={trapSymbol}
+                onSelect={(co) => setTrapSymbol(co.symbol)}
+                label="Tuzak Taraması Yapılacak Şirket"
+              />
               <button
                 onClick={handleValueTrapCheck}
                 disabled={trapLoading}
-                className="bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold text-xs px-5 py-2.5 rounded shadow flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                className="w-full mt-2 bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold text-xs py-2.5 rounded-lg shadow flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 transition-all active:scale-95"
               >
                 <AlertTriangle className="w-3.5 h-3.5" />
-                <span>{trapLoading ? "Taranıyor..." : "Tuzak Riskini Tara"}</span>
+                <span>{trapLoading ? "Taranıyor..." : `${trapSymbol} İçin Tuzak Riskini Tara`}</span>
               </button>
             </div>
           </div>
