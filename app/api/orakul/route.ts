@@ -45,11 +45,11 @@ export async function POST(req: Request) {
         });
       }
 
-      // Live Ping Test with Automatic Model Fallback
+      // Live Ping Test with Active Model Fallback
       try {
         if (selectedProvider === "gemini") {
-          const modelsToTry = [GEMINI_MODEL, "gemini-1.5-flash", "gemini-2.0-flash"];
-          let lastError = "";
+          const modelsToTry = [GEMINI_MODEL, "gemini-1.5-pro"];
+          let firstError = "";
           let successModel = "";
 
           for (const modelCandidate of Array.from(new Set(modelsToTry))) {
@@ -67,7 +67,14 @@ export async function POST(req: Request) {
               break;
             } else {
               const errData = await testRes.json().catch(() => ({}));
-              lastError = errData.error?.message || testRes.statusText || "Geçersiz API Anahtarı";
+              const msg = errData.error?.message || testRes.statusText || "Geçersiz API Anahtarı";
+              if (!firstError) firstError = msg;
+              
+              // If API Key itself is invalid, stop trying other models
+              if (msg.includes("API key not valid") || msg.includes("API_KEY_INVALID")) {
+                firstError = "Girdiğiniz Google Gemini API anahtarı geçersiz. Lütfen Google AI Studio'dan aldığınız doğru anahtarı girin.";
+                break;
+              }
             }
           }
 
@@ -83,7 +90,7 @@ export async function POST(req: Request) {
               success: true,
               provider: selectedProvider,
               isConfigured: false,
-              message: `Gemini API bağlantısı başarısız: ${lastError}`,
+              message: `Gemini API bağlantı hatası: ${firstError}`,
             });
           }
         } else if (selectedProvider === "openai") {
