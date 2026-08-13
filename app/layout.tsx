@@ -7,6 +7,8 @@ import AuthGuard from "@/components/AuthGuard";
 import { StoreProvider } from "@/lib/store";
 import { ToastProvider } from "@/components/ToastProvider";
 import CommandPalette from "@/components/CommandPalette";
+import OnboardingModal from "@/components/OnboardingModal";
+import ShortcutsModal from "@/components/ShortcutsModal";
 
 const fraunces = Fraunces({
   variable: "--font-fraunces",
@@ -68,6 +70,8 @@ export default function RootLayout({
               <Header />
               <main className="flex-1 w-full">{children}</main>
               <CommandPalette />
+              <OnboardingModal />
+              <ShortcutsModal />
               <footer className="border-t border-[var(--line)] py-8 px-4 sm:px-8 bg-[var(--ink-2)] text-center text-xs font-mono text-[var(--mist)]">
                 <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="flex items-center gap-2">

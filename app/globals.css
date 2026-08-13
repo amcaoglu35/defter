@@ -18,6 +18,23 @@
     --line-strong: rgba(237, 230, 211, 0.24);
   }
 
+  [data-theme="light"], .light {
+    --ink: #F8F6F0;
+    --ink-2: #FFFFFF;
+    --ink-3: #EFEAE0;
+    --paper: #12151C;
+    --paper-dim: #2A2E39;
+    --brass: #A8812A;
+    --brass-dim: #7A5F1E;
+    --brass-glow: rgba(168, 129, 42, 0.12);
+    --verdigris: #2E7D63;
+    --wine: #8E2B3D;
+    --loss: #C0392B;
+    --mist: #5C6578;
+    --line: rgba(18, 21, 28, 0.12);
+    --line-strong: rgba(18, 21, 28, 0.24);
+  }
+
   * {
     box-sizing: border-box;
     margin: 0;
@@ -187,4 +204,24 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--brass-dim);
+}
+
+/* Print Optimization for PDF Export */
+@media print {
+  header, .animate-ticker, nav, button, .no-print {
+    display: none !important;
+  }
+  body {
+    background: #ffffff !important;
+    color: #12151c !important;
+  }
+  .ticket-card, .bg-\[var\(--ink-2\)\], .bg-\[var\(--ink-3\)\] {
+    background: #fdfdfd !important;
+    border-color: #cccccc !important;
+    color: #12151c !important;
+    box-shadow: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
 }

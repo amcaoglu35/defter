@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import OrakulChatModal from "@/components/OrakulChatModal";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default function Header() {
   const pathname = usePathname();
@@ -147,6 +148,9 @@ export default function Header() {
               <Sparkles className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Orakul&apos;a Sor</span>
             </button>
+
+            {/* Theme Toggle Button */}
+            <ThemeToggle />
 
             {/* Notification Button */}
             <div className="relative">

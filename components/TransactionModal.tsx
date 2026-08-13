@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { X, ArrowDownRight, ArrowUpRight, DollarSign, Layers } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import { useToast } from "@/components/ToastProvider";
+import Confetti from "@/components/Confetti";
 
 interface TransactionModalProps {
   symbol: string;
@@ -30,6 +31,7 @@ export default function TransactionModal({
     baskets[0]?.id || ""
   );
   const [note, setNote] = useState("");
+  const [confettiActive, setConfettiActive] = useState(false);
 
   useEffect(() => {
     if (baskets.length > 0) {
@@ -62,17 +64,22 @@ export default function TransactionModal({
       targetBasketId
     );
 
+    setConfettiActive(true);
+
     showToast(
       "İşlem Kaydedildi",
       `${symbol} ${type === "BUY" ? "Alış" : "Satış"} işlemi başarıyla eklendi.`,
       "success"
     );
 
-    onClose();
+    setTimeout(() => {
+      onClose();
+    }, 600);
   };
 
   return (
     <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+      <Confetti active={confettiActive} />
       <div className="bg-[var(--ink-2)] border border-[var(--brass-dim)] rounded-xl max-w-md w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
         {/* Head */}
         <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">

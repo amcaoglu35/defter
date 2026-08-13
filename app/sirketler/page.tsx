@@ -18,6 +18,7 @@ import { useDefterStore } from "@/lib/store";
 import { Company } from "@/lib/mockData";
 import StampBadge from "@/components/StampBadge";
 import DataStatusBadge from "@/components/DataStatusBadge";
+import Sparkline, { generateSparklineData } from "@/components/Sparkline";
 import { useToast } from "@/components/ToastProvider";
 import { isLiveSymbol } from "@/lib/liveSymbols";
 
@@ -364,11 +365,12 @@ export default function SirketlerPage() {
 
       {/* 4. Ledger Table */}
       <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-lg overflow-hidden">
-        <div className="hidden md:grid grid-cols-[30px_1.5fr_100px_100px_90px_90px_110px_90px_40px] gap-4 px-6 py-3 border-b border-[var(--line)] bg-[var(--ink-3)] font-mono text-[11px] uppercase tracking-wider text-[var(--mist)]">
+        <div className="hidden md:grid grid-cols-[30px_1.5fr_100px_100px_80px_90px_90px_110px_90px_40px] gap-4 px-6 py-3 border-b border-[var(--line)] bg-[var(--ink-3)] font-mono text-[11px] uppercase tracking-wider text-[var(--mist)]">
           <span>Seç</span>
           <span>Varlık / Şirket</span>
           <span className="text-right">Fiyat</span>
           <span className="text-right">Günlük %</span>
+          <span className="text-center">7G Trend</span>
           <span className="text-right">F/K</span>
           <span className="text-right">Temettü</span>
           <span className="text-center">Karar Mührü</span>
@@ -396,7 +398,7 @@ export default function SirketlerPage() {
               return (
                 <div
                   key={c.id}
-                  className={`grid grid-cols-1 md:grid-cols-[30px_1.5fr_100px_100px_90px_90px_110px_90px_40px] gap-3 md:gap-4 p-4 md:px-6 md:py-3.5 items-center transition-colors ${
+                  className={`grid grid-cols-1 md:grid-cols-[30px_1.5fr_100px_100px_80px_90px_90px_110px_90px_40px] gap-3 md:gap-4 p-4 md:px-6 md:py-3.5 items-center transition-colors ${
                     isSelected
                       ? "bg-[rgba(201,162,75,0.08)]"
                       : "hover:bg-[rgba(201,162,75,0.04)]"
@@ -447,6 +449,11 @@ export default function SirketlerPage() {
                   >
                     {c.dailyChange >= 0 ? "+" : ""}
                     {c.dailyChange}%
+                  </div>
+
+                  {/* Sparkline Mini Chart */}
+                  <div className="flex justify-center">
+                    <Sparkline data={generateSparklineData(c.price, c.dailyChange)} width={72} height={24} />
                   </div>
 
                   {/* F/K */}

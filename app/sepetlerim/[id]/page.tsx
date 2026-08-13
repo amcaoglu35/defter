@@ -19,8 +19,10 @@ import {
 import { useDefterStore } from "@/lib/store";
 import EditBasketModal from "@/components/EditBasketModal";
 import ShareCardModal from "@/components/ShareCardModal";
+import PrintReportModal from "@/components/PrintReportModal";
 import DataStatusBadge from "@/components/DataStatusBadge";
 import { isLiveSymbol } from "@/lib/liveSymbols";
+import { Printer } from "lucide-react";
 
 export default function SepetDetayPage() {
   const params = useParams();
@@ -35,6 +37,7 @@ export default function SepetDetayPage() {
   const [period, setPeriod] = useState<"1A" | "3A" | "6A" | "1Y">("6A");
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [printModalOpen, setPrintModalOpen] = useState(false);
 
   if (!basket) {
     return (
@@ -60,6 +63,15 @@ export default function SepetDetayPage() {
         </button>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setPrintModalOpen(true)}
+            className="border border-[var(--line)] hover:border-[var(--brass)] text-[var(--paper)] bg-[var(--ink-2)] px-3 py-1.5 rounded text-xs font-mono flex items-center gap-1.5 transition-colors cursor-pointer"
+            title="PDF / Yazdır"
+          >
+            <Printer className="w-3.5 h-3.5 text-[var(--brass)]" />
+            <span>PDF Rapor</span>
+          </button>
+
           <button
             onClick={() => setShareModalOpen(true)}
             className="border border-[var(--line)] hover:border-[var(--brass)] text-[var(--paper)] bg-[var(--ink-2)] px-3 py-1.5 rounded text-xs font-mono flex items-center gap-1.5 transition-colors cursor-pointer"
@@ -375,6 +387,13 @@ export default function SepetDetayPage() {
           tags: basket.holdings.map((h) => `${h.companySymbol} (%${h.weightPercent})`),
           note: basket.subtitle,
         }}
+      />
+
+      {/* Print Report PDF Modal */}
+      <PrintReportModal
+        basket={basket}
+        isOpen={printModalOpen}
+        onClose={() => setPrintModalOpen(false)}
       />
     </div>
   );

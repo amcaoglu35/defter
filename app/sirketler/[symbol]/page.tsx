@@ -28,7 +28,10 @@ import StampBadge from "@/components/StampBadge";
 import DataStatusBadge from "@/components/DataStatusBadge";
 import TransactionModal from "@/components/TransactionModal";
 import ShareCardModal from "@/components/ShareCardModal";
+import PriceAlertModal from "@/components/PriceAlertModal";
+import Sparkline, { generateSparklineData } from "@/components/Sparkline";
 import { isLiveSymbol } from "@/lib/liveSymbols";
+import { Bell } from "lucide-react";
 
 interface CompanyDiagnosisReport {
   valuationScore?: number | string;
@@ -61,6 +64,7 @@ export default function SirketDetayPage() {
   const [newNote, setNewNote] = useState("");
   const [txModalOpen, setTxModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [alertModalOpen, setAlertModalOpen] = useState(false);
   const [aiReport, setAiReport] = useState<CompanyDiagnosisReport | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
 
@@ -135,6 +139,16 @@ export default function SirketDetayPage() {
         </button>
 
         <div className="flex items-center gap-3">
+          {/* Price Alert Button */}
+          <button
+            onClick={() => setAlertModalOpen(true)}
+            className="border border-[var(--line)] hover:border-[var(--brass)] text-[var(--paper)] bg-[var(--ink-2)] px-3 py-1.5 rounded text-xs font-mono flex items-center gap-1.5 transition-colors cursor-pointer"
+            title="Fiyat Alarmı Kur"
+          >
+            <Bell className="w-3.5 h-3.5 text-[var(--brass)]" />
+            <span>Alarm Kur</span>
+          </button>
+
           {/* Share Card Button */}
           <button
             onClick={() => setShareModalOpen(true)}
@@ -578,6 +592,14 @@ export default function SirketDetayPage() {
           note: company.description,
           verdict: company.recommendation,
         }}
+      />
+
+      {/* Price Alert Modal */}
+      <PriceAlertModal
+        symbol={company.symbol}
+        currentPrice={company.price}
+        isOpen={alertModalOpen}
+        onClose={() => setAlertModalOpen(false)}
       />
     </div>
   );
