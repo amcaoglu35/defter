@@ -22,8 +22,9 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { type, payload, messages, context, history, provider, apiKey } = body;
+    const { type, payload, messages, context, history, provider, apiKey, model } = body;
     const selectedProvider = provider || "gemini";
+    const reqModel = (model && typeof model === "string" && model.trim().length > 0) ? model.trim() : GEMINI_MODEL;
 
     // 2. Connection Test endpoint with live API ping
     if (type === "test_connection") {
@@ -48,7 +49,7 @@ export async function POST(req: Request) {
       // Live Ping Test with Active Model Fallback
       try {
         if (selectedProvider === "gemini") {
-          const modelsToTry = [GEMINI_MODEL, "gemini-1.5-pro"];
+          const modelsToTry = [reqModel, "gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-exp"];
           let firstError = "";
           let successModel = "";
 
@@ -130,9 +131,9 @@ export async function POST(req: Request) {
       });
     }
 
-    // 3. AI Service calls with optional custom user apiKey
+    // 3. AI Service calls with optional custom user apiKey & model
     if (type === "recipe") {
-      const recipe = await generateOrakulRecipe(payload, apiKey, selectedProvider);
+      const recipe = await generateOrakulRecipe(payload, apiKey, selectedProvider, reqModel);
       return NextResponse.json({ success: true, data: recipe });
     }
 
@@ -141,7 +142,8 @@ export async function POST(req: Request) {
         messages || [],
         context || {},
         apiKey,
-        selectedProvider
+        selectedProvider,
+        reqModel
       );
       return NextResponse.json({ success: true, reply });
     }
@@ -151,7 +153,8 @@ export async function POST(req: Request) {
         payload,
         history || [],
         apiKey,
-        selectedProvider
+        selectedProvider,
+        reqModel
       );
       return NextResponse.json({
         success: true,

@@ -40,7 +40,7 @@ export default function OrakulChatModal({
   isOpen,
   onClose,
 }: OrakulChatModalProps) {
-  const { baskets, companies, aiAccuracyStats, aiHistory, addAiHistory, aiProvider, aiApiKey } = useDefterStore();
+  const { baskets, companies, aiAccuracyStats, aiHistory, addAiHistory, aiProvider, aiApiKey, geminiModel } = useDefterStore();
 
   const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES);
   const [input, setInput] = useState("");
@@ -74,6 +74,7 @@ export default function OrakulChatModal({
           type: "chat",
           provider: aiProvider,
           apiKey: aiApiKey || undefined,
+          model: geminiModel,
           messages: newMessages,
           context: {
             totalBaskets: baskets.length,

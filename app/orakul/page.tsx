@@ -43,6 +43,7 @@ export default function OrakulPage() {
     aiAccuracyStats,
     aiProvider,
     aiApiKey,
+    geminiModel,
     createBasket,
   } = useDefterStore();
   const { showToast } = useToast();
@@ -120,6 +121,7 @@ interface CompanyAnalysisResult {
           },
           provider: aiProvider,
           apiKey: aiApiKey || undefined,
+          model: geminiModel,
         }),
       });
 
@@ -155,6 +157,7 @@ interface CompanyAnalysisResult {
           history: aiHistory,
           provider: aiProvider,
           apiKey: aiApiKey || undefined,
+          model: geminiModel,
         }),
       });
 

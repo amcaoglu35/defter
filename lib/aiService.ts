@@ -32,9 +32,14 @@ const GEMINI_CANDIDATES = ["gemini-1.5-flash", "gemini-1.5-pro"];
 
 async function fetchGeminiWithFallback(
   apiKey: string,
-  bodyObj: Record<string, unknown>
+  bodyObj: Record<string, unknown>,
+  customModel?: string
 ): Promise<Response | null> {
-  for (const modelCandidate of GEMINI_CANDIDATES) {
+  const candidates = customModel
+    ? [customModel, ...GEMINI_CANDIDATES.filter((m) => m !== customModel)]
+    : GEMINI_CANDIDATES;
+
+  for (const modelCandidate of Array.from(new Set(candidates))) {
     try {
       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelCandidate}:generateContent?key=${apiKey}`;
       const res = await fetch(endpoint, {
@@ -70,7 +75,8 @@ export async function generateCompanyAnalysis(
   company: CompanyAnalysisRequest,
   pastHistory: AiHistoryItem[] = [],
   apiKey?: string,
-  provider: string = "gemini"
+  provider: string = "gemini",
+  customModel?: string
 ) {
   // 1. Build feedback context from past predictions on this symbol
   const symbolPastHistory = pastHistory.filter(
@@ -79,7 +85,7 @@ export async function generateCompanyAnalysis(
 
   let feedbackContext = "";
   if (symbolPastHistory.length > 0) {
-    const feedbackItems = symbolPastHistory.map((h) => {
+    const feedbackItems = symbolPastHistory.slice(-3).map((h) => {
       const outcomeStr =
         h.outcomeCorrect === true
           ? "İsabetli (Başarılı Tahmin)"
@@ -103,19 +109,18 @@ export async function generateCompanyAnalysis(
   if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
     try {
       if (provider === "gemini") {
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${resolvedApiKey}`;
         const prompt = `Sen 'Orakul' adında bilge bir finansal değerleme yapay zekasısın. Şirket verilerini ve geçmiş analiz geri bildirimlerini inceleyerek JSON formatında analiz üret.\nFormat: { "valuationScore": "X.X / 10", "whyMoved": "string", "pros": ["string"], "risks": ["string"], "verdict": "GÜÇLÜ AL" | "AL" | "TUT" | "SAT", "pastFeedbackSummary": "string" }\n\nŞirket: ${company.symbol} (${company.name}), Fiyat: ${company.price} ${company.currency || "₺"}, Günlük Değişim: %${company.dailyChange}, Sektör: ${company.sector}, F/K: ${company.peRatio || "N/A"}, PD/DD: ${company.pbRatio || "N/A"}, Temettü Verimi: %${company.dividendYield || 0}.${feedbackContext}`;
 
-        const res = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+        const res = await fetchGeminiWithFallback(
+          resolvedApiKey,
+          {
             contents: [{ role: "user", parts: [{ text: prompt }] }],
             generationConfig: { responseMimeType: "application/json", temperature: 0.2 },
-          }),
-        });
+          },
+          customModel
+        );
 
-        if (res.ok) {
+        if (res && res.ok) {
           const data = await res.json();
           const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
           if (rawText) {
@@ -276,7 +281,8 @@ export async function generateCompanyAnalysis(
 export async function generateOrakulRecipe(
   req: AiRecipeRequest,
   apiKey?: string,
-  provider: string = "gemini"
+  provider: string = "gemini",
+  customModel?: string
 ) {
   const resolvedApiKey =
     (apiKey && apiKey.trim().length > 10)
@@ -290,10 +296,14 @@ export async function generateOrakulRecipe(
       if (provider === "gemini") {
         const prompt = `Sen 'Orakul' adında elit bir Türk finans ve portföy optimizasyon yapay zekasısın. JSON formatında yanıt ver.\nFormat: { "title": string, "summary": string, "healthScore": number, "expectedYield": string, "allocation": [{ "symbol": string, "name": string, "weight": number, "note": string }] }\n\nHedef: ${req.goal}, Risk: ${req.risk}, Bütçe: ${req.budget} TL, Evren: ${req.universe}. Bana 4 hisselik optimize sepet JSON reçetesi üret.`;
 
-        const res = await fetchGeminiWithFallback(resolvedApiKey, {
-          contents: [{ role: "user", parts: [{ text: prompt }] }],
-          generationConfig: { responseMimeType: "application/json", temperature: 0.2 },
-        });
+        const res = await fetchGeminiWithFallback(
+          resolvedApiKey,
+          {
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: "application/json", temperature: 0.2 },
+          },
+          customModel
+        );
 
         if (res && res.ok) {
           const data = await res.json();
@@ -393,7 +403,8 @@ export async function askOrakulChat(
   messages: ChatMessage[],
   contextData: Record<string, unknown>,
   apiKey?: string,
-  provider: string = "gemini"
+  provider: string = "gemini",
+  customModel?: string
 ): Promise<string> {
   const lastUserMessage = messages[messages.length - 1]?.content || "";
 
@@ -416,11 +427,15 @@ export async function askOrakulChat(
           parts: [{ text: m.content }],
         }));
 
-        const res = await fetchGeminiWithFallback(resolvedApiKey, {
-          system_instruction: { parts: [{ text: systemPrompt }] },
-          contents: geminiContents,
-          generationConfig: { temperature: 0.7 },
-        });
+        const res = await fetchGeminiWithFallback(
+          resolvedApiKey,
+          {
+            system_instruction: { parts: [{ text: systemPrompt }] },
+            contents: geminiContents,
+            generationConfig: { temperature: 0.7 },
+          },
+          customModel
+        );
 
         if (res && res.ok) {
           const data = await res.json();

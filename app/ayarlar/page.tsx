@@ -37,6 +37,7 @@ export default function AyarlarPage() {
     transactions,
     aiProvider,
     aiApiKey,
+    geminiModel,
     setAiSettings,
     updateInterval,
     setUpdateInterval,
@@ -58,6 +59,8 @@ export default function AyarlarPage() {
   // AI states
   const [selectedProvider, setSelectedProvider] = useState(aiProvider || "gemini");
   const [inputApiKey, setInputApiKey] = useState(aiApiKey || "");
+  const [selectedModel, setSelectedModel] = useState(geminiModel || "gemini-1.5-flash");
+  const [customModelInput, setCustomModelInput] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
   const [aiSavedSuccess, setAiSavedSuccess] = useState(false);
   const [testResult, setTestResult] = useState<{ isConfigured: boolean; message: string } | null>(null);
@@ -86,11 +89,13 @@ export default function AyarlarPage() {
     setTimeout(() => setSavedSuccess(false), 3000);
   };
 
+  const activeModelStr = selectedModel === "custom" ? (customModelInput.trim() || "gemini-1.5-flash") : selectedModel;
+
   const handleSaveAiSettings = (e: React.FormEvent) => {
     e.preventDefault();
-    setAiSettings(selectedProvider, inputApiKey.trim());
+    setAiSettings(selectedProvider, inputApiKey.trim(), activeModelStr);
     setAiSavedSuccess(true);
-    showToast("AI Ayarları Güncellendi", `Yapay zeka tercihi '${selectedProvider}' olarak kaydedildi.`, "success");
+    showToast("AI Ayarları Güncellendi", `Yapay zeka tercihi '${selectedProvider}' (${activeModelStr}) olarak kaydedildi.`, "success");
     setTimeout(() => setAiSavedSuccess(false), 3000);
   };
 
@@ -105,6 +110,7 @@ export default function AyarlarPage() {
           type: "test_connection",
           provider: selectedProvider,
           apiKey: inputApiKey.trim() || undefined,
+          model: activeModelStr,
         }),
       });
       if (res.ok) {
@@ -238,11 +244,53 @@ export default function AyarlarPage() {
                 }}
                 className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 text-xs text-[var(--paper)] font-mono focus:border-[var(--brass)] outline-none"
               >
-                <option value="gemini">Google Gemini (Önerilen — Gemini 1.5 / 2.0 Flash)</option>
+                <option value="gemini">Google Gemini (Standart / Pro / Özel Model)</option>
                 <option value="openai">OpenAI (GPT-4o Mini)</option>
                 <option value="local">Yerel Finansal Motor (API Anahtarsız Çevrimdışı Mod)</option>
               </select>
             </div>
+
+            {selectedProvider === "gemini" && (
+              <div>
+                <label className="block text-xs font-mono text-[var(--mist)] uppercase mb-1.5 flex items-center justify-between">
+                  <span>Gemini Model Seçimi / Özel Model Sürümü</span>
+                  <span className="text-[11px] text-[var(--brass)] font-normal">Google AI Studio Model Dizesi</span>
+                </label>
+                <select
+                  value={selectedModel}
+                  onChange={(e) => {
+                    setSelectedModel(e.target.value);
+                    setTestResult(null);
+                  }}
+                  className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 text-xs text-[var(--paper)] font-mono focus:border-[var(--brass)] outline-none"
+                >
+                  <option value="gemini-1.5-flash">Gemini 1.5 Flash (Resmi Standart — Hızlı & Yüksek Kota)</option>
+                  <option value="gemini-1.5-pro">Gemini 1.5 Pro (Resmi Pro — Derin Finansal Analiz)</option>
+                  <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                  <option value="gemini-3.1-flash">Gemini 3.1 Flash (Güncel 2026 Sürümü)</option>
+                  <option value="gemini-3-pro">Gemini 3 Pro (Güncel 2026 Elit Model)</option>
+                  <option value="custom">✍️ Özel Model Dizesi Gir (Örn: gemini-3.1-flash-live-preview)</option>
+                </select>
+
+                {selectedModel === "custom" && (
+                  <div className="mt-2.5">
+                    <input
+                      type="text"
+                      value={customModelInput}
+                      onChange={(e) => {
+                        setCustomModelInput(e.target.value);
+                        setTestResult(null);
+                      }}
+                      placeholder="Model dizesi girin (Örn: gemini-3.1-flash, gemini-1.5-flash-8b)"
+                      className="w-full bg-[var(--ink-3)] border border-[var(--brass)] rounded p-2.5 text-xs text-[var(--paper)] font-mono outline-none"
+                    />
+                    <p className="mt-1 text-[11px] text-[var(--mist)] font-mono">
+                      Google AI Studio veya Vertex AI hesabınızdaki özel model dizesini birebir yazabilirsiniz.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {selectedProvider !== "local" && (
               <div>

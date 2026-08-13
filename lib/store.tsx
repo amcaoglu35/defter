@@ -116,7 +116,8 @@ interface DefterStoreContextType {
   aiAccuracyStats: AiAccuracyStats;
   aiProvider: string;
   aiApiKey: string;
-  setAiSettings: (provider: string, apiKey?: string) => void;
+  geminiModel: string;
+  setAiSettings: (provider: string, apiKey?: string, model?: string) => void;
 
   // Live Market Sync & Indices
   indices: Record<string, MarketIndexData>;
@@ -280,6 +281,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [usdRate, setUsdRate] = useState<number>(36.45);
   const [aiProvider, setAiProvider] = useState<string>("gemini");
   const [aiApiKey, setAiApiKey] = useState<string>("");
+  const [geminiModel, setGeminiModel] = useState<string>("gemini-1.5-flash");
   const [isServerCloudConnected, setIsServerCloudConnected] = useState<boolean>(false);
   const [updateInterval, setUpdateIntervalState] = useState<string>("manual");
 
@@ -460,6 +462,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (storedProvider) setAiProvider(storedProvider);
         const storedApiKey = localStorage.getItem("defter_ai_api_key");
         if (storedApiKey) setAiApiKey(storedApiKey);
+        const storedModel = localStorage.getItem("defter_gemini_model");
+        if (storedModel) setGeminiModel(storedModel);
         if (storedInterval) setUpdateIntervalState(storedInterval);
         if (storedIndices) setIndices(JSON.parse(storedIndices));
         if (storedUserSettings) setUserSettings(JSON.parse(storedUserSettings));
@@ -1188,12 +1192,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return addedCount;
   }, [ipos, companies, syncIpoToLedger]);
 
-  const setAiSettings = (provider: string, apiKey?: string) => {
+  const setAiSettings = (provider: string, apiKey?: string, model?: string) => {
     setAiProvider(provider);
     if (apiKey !== undefined) {
       setAiApiKey(apiKey);
       try {
         localStorage.setItem("defter_ai_api_key", apiKey);
+      } catch {}
+    }
+    if (model !== undefined) {
+      setGeminiModel(model);
+      try {
+        localStorage.setItem("defter_gemini_model", model);
       } catch {}
     }
   };
@@ -1279,6 +1289,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         aiAccuracyStats,
         aiProvider,
         aiApiKey,
+        geminiModel,
         setAiSettings,
         indices,
         lastSyncTime,

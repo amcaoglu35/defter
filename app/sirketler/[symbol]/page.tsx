@@ -52,6 +52,7 @@ export default function SirketDetayPage() {
     transactions,
     aiProvider,
     aiApiKey,
+    geminiModel,
   } = useDefterStore();
 
   const company =
@@ -106,6 +107,7 @@ export default function SirketDetayPage() {
           payload: company,
           provider: aiProvider,
           apiKey: aiApiKey || undefined,
+          model: geminiModel,
         }),
       });
 
