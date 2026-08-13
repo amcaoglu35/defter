@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Lock, KeyRound, ArrowRight, ShieldCheck } from "lucide-react";
+import { Lock, KeyRound, ArrowRight, ShieldCheck, Eye, EyeOff } from "lucide-react";
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(false);
 
   useEffect(() => {
@@ -98,7 +99,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
               </label>
               <div className="relative">
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
@@ -109,9 +110,16 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
                   autoFocus
                   className={`w-full bg-[var(--ink-3)] border ${
                     error ? "border-[var(--loss)]" : "border-[var(--line)]"
-                  } rounded-md px-4 py-3 text-sm text-[var(--paper)] placeholder-[var(--mist)] focus:outline-none focus:border-[var(--brass)] font-mono transition-colors disabled:opacity-50`}
+                  } rounded-md px-4 py-3 pr-10 text-sm text-[var(--paper)] placeholder-[var(--mist)] focus:outline-none focus:border-[var(--brass)] font-mono transition-colors disabled:opacity-50`}
                 />
-                <KeyRound className="absolute right-3.5 top-3.5 w-4 h-4 text-[var(--mist)]" />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-3.5 text-[var(--mist)] hover:text-[var(--paper)] p-0.5 transition-colors cursor-pointer"
+                  title={showPassword ? "Şifreyi Gizle" : "Şifreyi Göster"}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
               {error && (
                 <p className="text-[var(--loss)] text-xs mt-1.5 font-mono">

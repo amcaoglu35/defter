@@ -12,6 +12,7 @@ import {
   Check,
   Smartphone,
   Eye,
+  EyeOff,
   Sliders,
   Cloud,
   CheckCircle2,
@@ -65,6 +66,10 @@ export default function AyarlarPage() {
   // Security password state
   const [currentPass, setCurrentPass] = useState("");
   const [newPass, setNewPass] = useState("");
+  const [confirmPass, setConfirmPass] = useState("");
+  const [showCurrentPass, setShowCurrentPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
   const [passSaving, setPassSaving] = useState(false);
   const [passSaved, setPassSaved] = useState(false);
   const [passError, setPassError] = useState<string | null>(null);
@@ -124,6 +129,11 @@ export default function AyarlarPage() {
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentPass || !newPass) return;
+    if (newPass !== confirmPass) {
+      setPassError("Yeni şifre ile yeni şifre tekrarı birbiriyle uyuşmuyor.");
+      showToast("Şifre Uyuşmazlığı", "Girdiğiniz yeni şifreler eşleşmiyor.", "error");
+      return;
+    }
     setPassSaving(true);
     setPassError(null);
     setPassSaved(false);
@@ -149,6 +159,7 @@ export default function AyarlarPage() {
         );
         setCurrentPass("");
         setNewPass("");
+        setConfirmPass("");
       } else {
         setPassError(data.error || "Şifre değiştirilemedi.");
         showToast("Şifre Hatası", data.error || "Mevcut şifre hatalı.", "error");
@@ -486,26 +497,69 @@ export default function AyarlarPage() {
             <label className="block text-xs font-mono text-[var(--mist)] uppercase mb-1.5">
               Mevcut Erişim Şifresi
             </label>
-            <input
-              type="password"
-              value={currentPass}
-              onChange={(e) => setCurrentPass(e.target.value)}
-              placeholder="Mevcut şifrenizi girin..."
-              className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 text-xs text-[var(--paper)] font-mono focus:border-[var(--brass)] outline-none"
-            />
+            <div className="relative flex items-center">
+              <input
+                type={showCurrentPass ? "text" : "password"}
+                value={currentPass}
+                onChange={(e) => setCurrentPass(e.target.value)}
+                placeholder="Mevcut şifrenizi girin..."
+                className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 pr-10 text-xs text-[var(--paper)] font-mono focus:border-[var(--brass)] outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setShowCurrentPass(!showCurrentPass)}
+                className="absolute right-3 text-[var(--mist)] hover:text-[var(--paper)] p-1 transition-colors cursor-pointer"
+                title={showCurrentPass ? "Şifreyi Gizle" : "Şifreyi Göster"}
+              >
+                {showCurrentPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
 
           <div>
             <label className="block text-xs font-mono text-[var(--mist)] uppercase mb-1.5">
               Yeni Erişim Şifresi
             </label>
-            <input
-              type="password"
-              value={newPass}
-              onChange={(e) => setNewPass(e.target.value)}
-              placeholder="Yeni şifrenizi girin..."
-              className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 text-xs text-[var(--paper)] font-mono focus:border-[var(--brass)] outline-none"
-            />
+            <div className="relative flex items-center">
+              <input
+                type={showNewPass ? "text" : "password"}
+                value={newPass}
+                onChange={(e) => setNewPass(e.target.value)}
+                placeholder="Yeni şifrenizi girin..."
+                className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 pr-10 text-xs text-[var(--paper)] font-mono focus:border-[var(--brass)] outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPass(!showNewPass)}
+                className="absolute right-3 text-[var(--mist)] hover:text-[var(--paper)] p-1 transition-colors cursor-pointer"
+                title={showNewPass ? "Şifreyi Gizle" : "Şifreyi Göster"}
+              >
+                {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-mono text-[var(--mist)] uppercase mb-1.5">
+              Yeni Erişim Şifresi (Tekrar Doğrulama)
+            </label>
+            <div className="relative flex items-center">
+              <input
+                type={showConfirmPass ? "text" : "password"}
+                value={confirmPass}
+                onChange={(e) => setConfirmPass(e.target.value)}
+                placeholder="Yeni şifrenizi tekrar girin..."
+                className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 pr-10 text-xs text-[var(--paper)] font-mono focus:border-[var(--brass)] outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPass(!showConfirmPass)}
+                className="absolute right-3 text-[var(--mist)] hover:text-[var(--paper)] p-1 transition-colors cursor-pointer"
+                title={showConfirmPass ? "Şifreyi Gizle" : "Şifreyi Göster"}
+              >
+                {showConfirmPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
