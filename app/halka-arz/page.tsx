@@ -65,23 +65,12 @@ export default function HalkaArzPage() {
   const [newStatus, setNewStatus] = useState<"active" | "upcoming" | "listed">("active");
   const [autoAddCompany, setAutoAddCompany] = useState(true);
 
-  const selectedIpo = ipos.find((i) => i.id === selectedIpoId) || ipos[0] || {
-    id: "default",
-    code: "HOROZ",
-    name: "Horoz Lojistik Kargo Hizmetleri",
-    sector: "Lojistik",
-    status: "active",
-    dateRange: "29 - 31 Mayıs 2026",
-    priceRange: "55.00 ₺",
-    distributionType: "Bireysele Eşit Dağıtım",
-    leadManager: "QNB Finans Yatırım",
-    lotAmount: "24.600.000 Lot",
-    fundSize: "1.35 Mr ₺",
-  };
+  const selectedIpo = ipos.find((i) => i.id === selectedIpoId) || ipos[0];
 
   // Calculations for lot distribution
-  const ipoPriceNum =
-    parseFloat(selectedIpo.priceRange.replace(/[^\d.]/g, "")) || 42.5;
+  const ipoPriceNum = selectedIpo
+    ? parseFloat(selectedIpo.priceRange.replace(/[^\d.]/g, "")) || 42.5
+    : 0;
   const calculatedLot = Math.max(
     1,
     Math.floor(allocationLots / Math.max(1, participants))
@@ -190,10 +179,10 @@ export default function HalkaArzPage() {
             onClick={handleAutoSyncAll}
             disabled={syncingAll}
             className="flex items-center gap-2 bg-[var(--ink-2)] border border-[var(--brass)] text-[var(--brass)] hover:bg-[rgba(201,162,75,0.1)] px-4 py-2.5 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer shadow-sm"
-            title="Tüm halka arzları şirketler kütüğüne otomatik senkronize eder"
+            title="Sadece borsada işlem görmeye başlayan (listelenen) halka arzları şirket kütüğüne aktarır"
           >
             <RefreshCw className={`w-4 h-4 ${syncingAll ? "animate-spin" : ""}`} />
-            <span>Kütükle Otomatik Eşle</span>
+            <span>Listelenenleri Kütüğe Aktar</span>
           </button>
 
           <button
@@ -232,7 +221,7 @@ export default function HalkaArzPage() {
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setStatusFilter(tab.id as any)}
+                onClick={() => setStatusFilter(tab.id as "all" | "active" | "upcoming" | "listed")}
                 className={`font-mono text-xs uppercase tracking-wider px-3 py-1.5 rounded-md cursor-pointer transition-all flex items-center gap-1.5 ${
                   statusFilter === tab.id
                     ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-sm"
@@ -496,6 +485,10 @@ export default function HalkaArzPage() {
           </div>
         </div>
 
+        <div className="p-3 bg-[rgba(201,162,75,0.08)] border border-[var(--brass-dim)] rounded-lg text-xs font-mono text-[var(--brass)] flex items-center gap-2">
+          <span>ℹ️ Bu tablo BIST&apos;in standart %10 günlük tavan/taban kuralına göre hesaplanmaktadır. Özel marj veya mevzuat değişikliklerinde güncel BIST bültenlerini teyit ediniz.</span>
+        </div>
+
         <div className="overflow-x-auto">
           <table className="w-full text-left font-mono text-xs">
             <thead>
@@ -608,7 +601,7 @@ export default function HalkaArzPage() {
                   <label className="block text-[var(--mist)] mb-1">Halka Arz Durumu</label>
                   <select
                     value={newStatus}
-                    onChange={(e) => setNewStatus(e.target.value as any)}
+                    onChange={(e) => setNewStatus(e.target.value as "active" | "upcoming" | "listed")}
                     className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2 text-[var(--paper)] outline-none focus:border-[var(--brass)]"
                   >
                     <option value="active">Talep Toplanıyor (Aktif)</option>

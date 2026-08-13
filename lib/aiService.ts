@@ -56,11 +56,19 @@ export async function generateCompanyAnalysis(
     feedbackContext = `\nBu şirket için geçmiş analizlerin ve sonuçların:\n${feedbackItems.join("\n")}\nBu geçmiş deneyimi göz önüne alarak tutarlı, temellendirilmiş ve kendini doğrulayan bir analiz yap.`;
   }
 
-  // If OpenAI/Gemini API key is provided, use LLM
-  if (apiKey && apiKey.trim().length > 10) {
+  // Resolve API Key from parameters or server-side environment variables
+  const resolvedApiKey =
+    (apiKey && apiKey.trim().length > 10)
+      ? apiKey
+      : provider === "openai"
+      ? process.env.OPENAI_API_KEY
+      : process.env.GEMINI_API_KEY;
+
+  // If OpenAI/Gemini API key is available, use LLM
+  if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
     try {
       if (provider === "gemini") {
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${resolvedApiKey}`;
         const prompt = `Sen 'Orakul' adında bilge bir finansal değerleme yapay zekasısın. Şirket verilerini ve geçmiş analiz geri bildirimlerini inceleyerek JSON formatında analiz üret.\nFormat: { "valuationScore": "X.X / 10", "whyMoved": "string", "pros": ["string"], "risks": ["string"], "verdict": "GÜÇLÜ AL" | "AL" | "TUT" | "SAT", "pastFeedbackSummary": "string" }\n\nŞirket: ${company.symbol} (${company.name}), Fiyat: ${company.price} ${company.currency || "₺"}, Günlük Değişim: %${company.dailyChange}, Sektör: ${company.sector}, F/K: ${company.peRatio || "N/A"}, PD/DD: ${company.pbRatio || "N/A"}, Temettü Verimi: %${company.dividendYield || 0}.${feedbackContext}`;
 
         const res = await fetch(endpoint, {
@@ -85,7 +93,7 @@ export async function generateCompanyAnalysis(
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
+            Authorization: `Bearer ${resolvedApiKey}`,
           },
           body: JSON.stringify({
             model: "gpt-4o-mini",
@@ -224,10 +232,17 @@ export async function generateOrakulRecipe(
   apiKey?: string,
   provider: string = "gemini"
 ) {
-  if (apiKey && apiKey.trim().length > 10) {
+  const resolvedApiKey =
+    (apiKey && apiKey.trim().length > 10)
+      ? apiKey
+      : provider === "openai"
+      ? process.env.OPENAI_API_KEY
+      : process.env.GEMINI_API_KEY;
+
+  if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
     try {
       if (provider === "gemini") {
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${resolvedApiKey}`;
         const prompt = `Sen 'Orakul' adında elit bir Türk finans ve portföy optimizasyon yapay zekasısın. JSON formatında yanıt ver.\nFormat: { "title": string, "summary": string, "healthScore": number, "expectedYield": string, "allocation": [{ "symbol": string, "name": string, "weight": number, "note": string }] }\n\nHedef: ${req.goal}, Risk: ${req.risk}, Bütçe: ${req.budget} TL, Evren: ${req.universe}. Bana 4 hisselik optimize sepet JSON reçetesi üret.`;
 
         const res = await fetch(endpoint, {
@@ -251,7 +266,7 @@ export async function generateOrakulRecipe(
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
+            Authorization: `Bearer ${resolvedApiKey}`,
           },
           body: JSON.stringify({
             model: "gpt-4o-mini",
@@ -324,16 +339,23 @@ export async function generateOrakulRecipe(
 
 export async function askOrakulChat(
   messages: ChatMessage[],
-  contextData: any,
+  contextData: Record<string, unknown>,
   apiKey?: string,
   provider: string = "gemini"
 ): Promise<string> {
   const lastUserMessage = messages[messages.length - 1]?.content || "";
 
-  if (apiKey && apiKey.trim().length > 10) {
+  const resolvedApiKey =
+    (apiKey && apiKey.trim().length > 10)
+      ? apiKey
+      : provider === "openai"
+      ? process.env.OPENAI_API_KEY
+      : process.env.GEMINI_API_KEY;
+
+  if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
     try {
       if (provider === "gemini") {
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${resolvedApiKey}`;
         const systemPrompt = `Sen Defter yatırım platformunun yapay zeka analisti 'Orakul'sun. Kullanıcının mevcut portföy ve geçmiş analiz başarı karnesi bağlamı:\n${JSON.stringify(
           contextData
         )}\nKullanıcıya samimi, bilge, finansal terimleri anlaşılır kılan ve Fraunces/Mürekkep & Pirinç estetiğine uygun bilgece Türkçe yanıtlar ver. Geçmiş analizlerindeki isabet oranını ve kararlarını hatırlayarak konuş.`;
@@ -363,7 +385,7 @@ export async function askOrakulChat(
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
+            Authorization: `Bearer ${resolvedApiKey}`,
           },
           body: JSON.stringify({
             model: "gpt-4o-mini",
@@ -392,8 +414,9 @@ export async function askOrakulChat(
   const query = lastUserMessage.toLowerCase();
 
   if (query.includes("isabet") || query.includes("başarı") || query.includes("karne") || query.includes("tahmin")) {
-    const accuracy = contextData?.accuracyStats?.accuracyRate ?? 75;
-    const total = contextData?.accuracyStats?.total ?? 4;
+    const accuracyStats = contextData?.accuracyStats as { accuracyRate?: number; total?: number } | undefined;
+    const accuracy = accuracyStats?.accuracyRate ?? 75;
+    const total = accuracyStats?.total ?? 4;
     return `Orakul geçmiş kararlar karnesi incelendiğinde; bugüne kadar üretilen **${total} analizin %${accuracy}'i** piyasa fiyatlaması tarafından doğrulanmıştır. Özellikle **THYAO** ve **FROTO** için verilen 'AL' kararları sonraki 30 günde çift haneli reel getiri üreterek isabetli sonuçlanmıştır.`;
   }
 

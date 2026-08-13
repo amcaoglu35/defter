@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
 import YahooFinance from "yahoo-finance2";
+import {
+  getClientIp,
+  checkRateLimit,
+  createRateLimitResponse,
+} from "@/lib/rateLimit";
+import { supabaseAdmin, isSupabaseAdminConfigured } from "@/lib/supabaseAdmin";
 
 // Initialize yahoo-finance2 instance with suppressed notices
-const yf = typeof YahooFinance === "function" ? new (YahooFinance as any)({ suppressNotices: ["yahooSurvey"] }) : YahooFinance;
+const yf = typeof YahooFinance === "function" ? new (YahooFinance as unknown as new (opts: { suppressNotices: string[] }) => typeof YahooFinance)({ suppressNotices: ["yahooSurvey"] }) : YahooFinance;
+
 
 // Mapping internal symbols to Yahoo Finance symbols
 const SYMBOL_MAP: Record<string, string> = {
@@ -176,31 +183,71 @@ let priceCache: PriceCache | null = null;
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 export async function GET(request: Request) {
+  // 1. Rate Limiting (30 requests per minute per IP)
+  const clientIp = getClientIp(request);
+  const rateLimit = checkRateLimit(`prices:${clientIp}`, 30, 60000);
+  if (!rateLimit.allowed) {
+    return createRateLimitResponse(rateLimit.resetInSeconds);
+  }
+
   const { searchParams } = new URL(request.url);
   const forceRefresh = searchParams.get("refresh") === "true";
   const now = Date.now();
 
-  // Return cached result if valid and not force refresh
+  // 2. Persistent Supabase DB Cache Check
+  if (!forceRefresh && isSupabaseAdminConfigured && supabaseAdmin) {
+    try {
+      const { data: dbCache } = await supabaseAdmin
+        .from("price_cache")
+        .select("*")
+        .eq("id", "latest")
+        .maybeSingle();
+
+      if (dbCache && dbCache.updated_at) {
+        const cacheAge = now - new Date(dbCache.updated_at).getTime();
+        if (cacheAge < CACHE_TTL_MS && dbCache.data) {
+          return NextResponse.json({
+            success: true,
+            source: "persistent_cache",
+            cachedAt: dbCache.updated_at,
+            ...(dbCache.data as Record<string, unknown>),
+          });
+        }
+      }
+    } catch (dbErr) {
+      console.warn("[Price API] DB cache fetch warning:", dbErr);
+    }
+  }
+
+  // 3. Fallback In-Memory Cache Check
   if (!forceRefresh && priceCache && now - priceCache.timestamp < CACHE_TTL_MS) {
     return NextResponse.json({
       success: true,
-      source: "cache",
+      source: "memory_cache",
       cachedAt: new Date(priceCache.timestamp).toISOString(),
       ...priceCache.data,
     });
   }
 
+interface YahooQuote {
+  symbol?: string;
+  regularMarketPrice?: number;
+  regularMarketChangePercent?: number;
+  regularMarketPreviousClose?: number;
+  [key: string]: unknown;
+}
+
   try {
-    const rawQuotes: Record<string, any> = {};
+    const rawQuotes: Record<string, YahooQuote> = {};
     const symbolEntries = Object.entries(SYMBOL_MAP);
     const yfSymbols = Array.from(new Set(Object.values(SYMBOL_MAP)));
 
     // 1. High-Performance Batch Request (Single HTTP Request to Yahoo Finance)
     try {
-      const batchQuotes = await yf.quote(yfSymbols);
+      const batchQuotes = (await yf.quote(yfSymbols)) as unknown as YahooQuote[];
       if (Array.isArray(batchQuotes)) {
         // Create lookup map from Yahoo symbol to quote object
-        const yfQuoteMap = new Map<string, any>();
+        const yfQuoteMap = new Map<string, YahooQuote>();
         for (const q of batchQuotes) {
           if (q && q.symbol) {
             yfQuoteMap.set(q.symbol.toUpperCase(), q);
@@ -215,15 +262,15 @@ export async function GET(request: Request) {
           }
         }
       }
-    } catch (batchErr: any) {
-      console.warn("[YahooFinance] Batch fetch error, falling back to parallel requests:", batchErr?.message || batchErr);
+    } catch (batchErr: unknown) {
+      console.warn("[YahooFinance] Batch fetch error, falling back to parallel requests:", (batchErr as Error)?.message || batchErr);
       
       // Fallback: Individual parallel fetch with allSettled
       const fetchPromises = symbolEntries.map(async ([key, yfSymbol]) => {
         try {
-          const quote = await yf.quote(yfSymbol);
+          const quote = (await yf.quote(yfSymbol)) as unknown as YahooQuote;
           return { key, quote };
-        } catch (err: any) {
+        } catch {
           return { key, quote: null };
         }
       });
@@ -345,13 +392,26 @@ export async function GET(request: Request) {
       data: responsePayload,
     };
 
+    // Save to persistent DB cache
+    if (isSupabaseAdminConfigured && supabaseAdmin) {
+      try {
+        await supabaseAdmin.from("price_cache").upsert({
+          id: "latest",
+          data: responsePayload,
+          updated_at: new Date().toISOString(),
+        });
+      } catch (err: unknown) {
+        console.warn("[Price API] DB cache save error:", err);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       source: "yahoo_finance",
       timestamp: new Date().toISOString(),
       ...responsePayload,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[Price API] Error during market sync:", error);
 
     // If cache exists, return it even if expired rather than failing

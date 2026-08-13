@@ -23,7 +23,7 @@ import {
   MOCK_AI_HISTORY,
   MOCK_DIVIDENDS,
 } from "./mockData";
-import { supabase, isSupabaseConfigured } from "./supabaseClient";
+import { isSupabaseConfigured } from "./supabaseClient";
 
 export interface Transaction {
   id: string;
@@ -43,6 +43,15 @@ export interface MarketIndexData {
   isPositive: boolean;
 }
 
+export interface UserSettings {
+  userName: string;
+  currency: string;
+  priceAlerts: boolean;
+  ipoAlerts: boolean;
+  dividendAlerts: boolean;
+  oracleAlerts: boolean;
+}
+
 export interface AiAccuracyStats {
   total: number;
   evaluated: number;
@@ -53,6 +62,10 @@ export interface AiAccuracyStats {
 }
 
 interface DefterStoreContextType {
+  // User Settings
+  userSettings: UserSettings;
+  updateUserSettings: (partial: Partial<UserSettings>) => void;
+
   // Companies
   companies: Company[];
   addCompany: (company: Company) => void;
@@ -102,8 +115,7 @@ interface DefterStoreContextType {
   evaluateAiOutcomes: () => void;
   aiAccuracyStats: AiAccuracyStats;
   aiProvider: string;
-  apiKey: string;
-  setAiSettings: (provider: string, key: string) => void;
+  setAiSettings: (provider: string) => void;
 
   // Live Market Sync & Indices
   indices: Record<string, MarketIndexData>;
@@ -136,9 +148,18 @@ const STORAGE_KEYS = {
   AI_HISTORY: "defter_ai_history_v2",
   NOTIFICATIONS: "defter_notifications_v2",
   AI_PROVIDER: "defter_ai_provider",
-  AI_KEY: "defter_ai_key",
   UPDATE_INTERVAL: "defter_update_interval",
   INDICES: "defter_indices_v2",
+  USER_SETTINGS: "defter_user_settings_v2",
+};
+
+const DEFAULT_USER_SETTINGS: UserSettings = {
+  userName: "Defter Sahibi",
+  currency: "₺ TRY",
+  priceAlerts: true,
+  ipoAlerts: true,
+  dividendAlerts: true,
+  oracleAlerts: true,
 };
 
 const DEFAULT_INDICES: Record<string, MarketIndexData> = {
@@ -148,9 +169,9 @@ const DEFAULT_INDICES: Record<string, MarketIndexData> = {
   "NASDAQ": { price: 17683.9, dailyChange: 0.84, formattedPrice: "17.683,90", isPositive: true },
 };
 
-function normalizeCompany(c: any): Company {
-  const symbol = c.symbol || "";
-  let assetClass: "hisse" | "maden" | "fon" | "doviz" = c.assetClass || c.asset_class;
+function normalizeCompany(c: Record<string, unknown>): Company {
+  const symbol = (c.symbol as string) || "";
+  let assetClass: "hisse" | "maden" | "fon" | "doviz" = (c.assetClass || c.asset_class) as "hisse" | "maden" | "fon" | "doviz";
   if (!assetClass) {
     if (
       c.exchange === "Emtia" ||
@@ -160,12 +181,9 @@ function normalizeCompany(c: any): Company {
       ["CEYREK", "TAM", "ATA", "BRENT", "BAKIR"].includes(symbol)
     ) {
       assetClass = "maden";
-    } else if (c.exchange === "Döviz" || symbol.includes("/TRY") || symbol.includes("/USD")) {
+    } else if (c.exchange === "Serbest Piyasa" || symbol.includes("USD") || symbol.includes("EUR") || symbol.includes("GBP")) {
       assetClass = "doviz";
-    } else if (
-      c.sector?.includes("Fon") ||
-      ["AFT", "TTE", "MAC", "QQQ", "SPY", "GLD"].includes(symbol)
-    ) {
+    } else if (c.exchange === "TEFAS" || symbol.includes("FON") || symbol.includes("PORTFÖY")) {
       assetClass = "fon";
     } else {
       assetClass = "hisse";
@@ -173,293 +191,283 @@ function normalizeCompany(c: any): Company {
   }
 
   return {
-    id: c.id || symbol.toLowerCase(),
-    symbol: symbol,
-    name: c.name || symbol,
-    sector: c.sector || "Genel",
-    exchange: c.exchange || "BIST",
-    assetClass: assetClass,
-    indexTag: c.indexTag || c.index_tag || (c.exchange === "ABD" ? "S&P 500" : "BIST 100"),
+    id: (c.id as string) || symbol.toLowerCase(),
+    symbol,
+    name: (c.name as string) || symbol,
+    sector: (c.sector as string) || "Genel",
+    exchange: (c.exchange as "BIST" | "ABD" | "Avrupa" | "Emtia" | "Döviz") || "BIST",
+    assetClass,
+    indexTag: String(c.indexTag || c.index_tag || "BIST 100"),
     price: Number(c.price || 0),
-    currency: c.currency || (c.exchange === "ABD" ? "$" : "₺"),
+    currency: (c.currency as string) || "₺",
     dailyChange: Number(c.dailyChange ?? c.daily_change ?? 0),
-    peRatio: c.peRatio ?? (c.pe_ratio ? Number(c.pe_ratio) : undefined),
-    pbRatio: c.pbRatio ?? (c.pb_ratio ? Number(c.pb_ratio) : undefined),
+    peRatio: Number(c.peRatio ?? c.pe_ratio ?? 10),
+    pbRatio: Number(c.pbRatio ?? c.pb_ratio ?? 1.5),
     dividendYield: Number(c.dividendYield ?? c.dividend_yield ?? 0),
-    marketCap: c.marketCap || c.market_cap,
-    beta: c.beta ? Number(c.beta) : undefined,
-    recommendation: c.recommendation || "TUT",
-    inWatchlist: Boolean(c.inWatchlist ?? c.in_watchlist),
-    description: c.description || "",
-    metrics: c.metrics || [],
+    marketCap: String(c.marketCap || c.market_cap || "10 Mr ₺"),
+    beta: Number(c.beta ?? 1),
+    recommendation: (c.recommendation as "AL" | "SAT" | "TUT") || "TUT",
+    inWatchlist: Boolean(c.inWatchlist ?? c.in_watchlist ?? false),
+    description: (c.description as string) || "",
+    metrics: Array.isArray(c.metrics) ? (c.metrics as Company["metrics"]) : [],
+  };
+}
+
+export function recalculateBasketHoldings(
+  holdings: BasketHolding[],
+  companiesList: Company[]
+): BasketHolding[] {
+  if (!holdings || holdings.length === 0) return [];
+
+  const totalValue = holdings.reduce((sum, h) => {
+    const co = companiesList.find((c) => c.symbol === h.companySymbol);
+    const price = co ? co.price : (h.currentPrice || h.avgCost || 0);
+    return sum + h.quantity * price;
+  }, 0);
+
+  return holdings.map((h) => {
+    const co = companiesList.find((c) => c.symbol === h.companySymbol);
+    const price = co ? co.price : (h.currentPrice || h.avgCost || 0);
+    const value = h.quantity * price;
+    const computedWeight = totalValue > 0 ? (value / totalValue) * 100 : 0;
+    return {
+      ...h,
+      currentPrice: price,
+      weightPercent: parseFloat(computedWeight.toFixed(1)),
+    };
+  });
+}
+
+export function recalculateBasket(
+  b: Basket,
+  companiesList: Company[]
+): Basket {
+  const updatedHoldings = recalculateBasketHoldings(b.holdings, companiesList);
+  const totalValue = updatedHoldings.reduce(
+    (sum, h) => sum + h.quantity * h.currentPrice,
+    0
+  );
+  const totalCost = updatedHoldings.reduce(
+    (sum, h) => sum + h.quantity * h.avgCost,
+    0
+  );
+  const totalProfitPercent =
+    totalCost > 0 ? ((totalValue - totalCost) / totalCost) * 100 : 0;
+
+  return {
+    ...b,
+    holdings: updatedHoldings,
+    totalValue: parseFloat(totalValue.toFixed(2)),
+    totalCost: parseFloat(totalCost.toFixed(2)),
+    totalProfitPercent: parseFloat(totalProfitPercent.toFixed(2)),
   };
 }
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false);
-
-  // States
-  const [companies, setCompanies] = useState<Company[]>(MOCK_COMPANIES);
-  const [baskets, setBaskets] = useState<Basket[]>(MOCK_BASKETS);
-  const [transactions, setTransactions] = useState<Transaction[]>([
-    {
-      id: "tx-1",
-      companySymbol: "THYAO",
-      type: "BUY",
-      quantity: 150,
-      price: 235.0,
-      totalAmount: 35250,
-      date: "2026-06-15",
-      note: "Portföy ilk giriş",
-    },
-  ]);
-  const [companyNotes, setCompanyNotes] = useState<Record<string, string[]>>({
-    THYAO: [
-      "Kargo birimi büyümesi devam ediyor.",
-      "Yolcu doluluk oranı %84.5 olarak açıklandı.",
-    ],
-    ASELS: ["Savunma Sanayii Başkanlığı ile 450M TL sözleşme imzalandı."],
-  });
-  const [ipos, setIpos] = useState<IpoItem[]>(MOCK_IPOS);
-  const [aiHistory, setAiHistory] = useState<AiHistoryItem[]>(MOCK_AI_HISTORY);
-  const [notifications, setNotifications] =
-    useState<NotificationItem[]>(MOCK_NOTIFICATIONS);
-
-  // Live Sync, Indices & AI Settings
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [baskets, setBaskets] = useState<Basket[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [companyNotes, setCompanyNotes] = useState<Record<string, string[]>>({});
+  const [ipos, setIpos] = useState<IpoItem[]>([]);
+  const [aiHistory, setAiHistory] = useState<AiHistoryItem[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [indices, setIndices] = useState<Record<string, MarketIndexData>>(DEFAULT_INDICES);
-  const [lastSyncTime, setLastSyncTime] = useState<string>("Canlı");
+  const [userSettings, setUserSettings] = useState<UserSettings>(DEFAULT_USER_SETTINGS);
+  const [lastSyncTime, setLastSyncTime] = useState<string>("Şimdi");
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [usdRate, setUsdRate] = useState<number>(36.45);
   const [aiProvider, setAiProvider] = useState<string>("gemini");
-  const [apiKey, setApiKey] = useState<string>("");
   const [updateInterval, setUpdateIntervalState] = useState<string>("manual");
 
-  // 1. Initial Load: Try Supabase first if configured, else fallback to localStorage
+  const updateUserSettings = useCallback((partial: Partial<UserSettings>) => {
+    setUserSettings((prev) => {
+      const updated = { ...prev, ...partial };
+      fetch("/api/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "update_user_settings", payload: updated }),
+      }).catch();
+      return updated;
+    });
+  }, []);
+
+  // 1. Initial Load: Fetch from server API route (/api/sync) which uses Supabase Admin
   const syncWithSupabase = useCallback(async () => {
-    if (!isSupabaseConfigured || !supabase) return;
-
     try {
-      // Fetch Companies
-      const { data: dbCompanies, error: compErr } = await supabase
-        .from("companies")
-        .select("*");
+      const res = await fetch("/api/sync");
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          const { companies: dbCompanies, baskets: dbBaskets, transactions: dbTx, ipos: dbIpos, aiHistory: dbAi } = json.data;
 
-      if (!compErr && dbCompanies) {
-        const dbMapped = dbCompanies.map(normalizeCompany);
-        const dbSymbols = new Set(dbMapped.map((c) => c.symbol));
-        const missingFromDb = MOCK_COMPANIES.filter((m) => !dbSymbols.has(m.symbol));
-        const fullCompanies = [...dbMapped, ...missingFromDb];
+          if (dbCompanies && dbCompanies.length > 0) {
+            const dbMapped = dbCompanies.map((c: Record<string, unknown>) => normalizeCompany(c));
+            const dbSymbols = new Set(dbMapped.map((c: Company) => c.symbol));
+            const missingFromDb = MOCK_COMPANIES.filter((m) => !dbSymbols.has(m.symbol));
+            setCompanies([...dbMapped, ...missingFromDb]);
+          }
 
-        setCompanies(fullCompanies);
+          if (dbBaskets && dbBaskets.length > 0) {
+            setBaskets(
+              dbBaskets.map((b: Record<string, unknown>) => ({
+                id: (b.id as string) || "",
+                name: (b.name as string) || "",
+                subtitle: (b.subtitle as string) || "",
+                riskLevel: (b.risk_level as "Düşük" | "Orta" | "Yüksek") || "Orta",
+                riskColor: (b.risk_color as "low" | "mid" | "high") || "mid",
+                totalValue: Number(b.total_value || 0),
+                totalCost: Number(b.total_cost || 0),
+                dailyChange: Number(b.daily_change || 0),
+                totalProfitPercent: Number(b.total_profit_percent || 0),
+                description: (b.description as string) || "",
+                aiNote: (b.ai_note as string) || "",
+                holdings: Array.isArray(b.basket_holdings)
+                  ? b.basket_holdings.map((h: Record<string, unknown>) => ({
+                      companySymbol: (h.company_symbol as string) || "",
+                      weightPercent: Number(h.weight_percent || 0),
+                      quantity: Number(h.quantity || 0),
+                      avgCost: Number(h.avg_cost || 0),
+                      currentPrice: Number(h.avg_cost || 0),
+                    }))
+                  : [],
+              }))
+            );
+          }
 
-        // Auto-seed missing assets to Supabase
-        if (missingFromDb.length > 0) {
-          const client = supabase;
-          if (client) {
-            const toInsert = missingFromDb.map((m) => ({
-              id: m.id,
-              symbol: m.symbol,
-              name: m.name,
-              sector: m.sector,
-              exchange: m.exchange,
-              asset_class: m.assetClass,
-              index_tag: m.indexTag,
-              price: m.price,
-              currency: m.currency,
-              daily_change: m.dailyChange,
-              pe_ratio: m.peRatio,
-              pb_ratio: m.pbRatio,
-              dividend_yield: m.dividendYield,
-              market_cap: m.marketCap,
-              beta: m.beta,
-              recommendation: m.recommendation,
-              in_watchlist: m.inWatchlist,
-              description: m.description,
-            }));
-            client.from("companies").upsert(toInsert, { onConflict: "symbol" }).then(({ error }) => {
-              if (!error) console.log(`Auto-seeded ${missingFromDb.length} assets to Supabase.`);
-            });
+          if (dbTx && dbTx.length > 0) {
+            setTransactions(
+              dbTx.map((t: Record<string, unknown>) => ({
+                id: (t.id as string) || "",
+                companySymbol: (t.company_symbol as string) || "",
+                type: (t.type as "BUY" | "SELL") || "BUY",
+                quantity: Number(t.quantity),
+                price: Number(t.price),
+                totalAmount: Number(t.total_amount),
+                date: (t.date as string) || "",
+                note: (t.note as string) || "",
+              }))
+            );
+          }
+
+          if (dbIpos && dbIpos.length > 0) {
+            setIpos(
+              dbIpos.map((i: Record<string, unknown>) => ({
+                id: (i.id as string) || "",
+                code: (i.code as string) || "",
+                name: (i.name as string) || "",
+                sector: (i.sector as string) || "",
+                status: (i.status as "upcoming" | "active" | "completed") || "upcoming",
+                dateRange: (i.date_range as string) || "",
+                priceRange: (i.price_range as string) || "",
+                distributionType: (i.allocation_method as string) || "Bireysele Eşit",
+                leadManager: (i.broker as string) || "",
+                lotAmount: (i.offering_size as string) || "",
+                fundSize: (i.offering_size as string) || "",
+                ceilingStreak: Number(i.ceiling_days || 0),
+              }))
+            );
+          }
+
+          if (dbAi && dbAi.length > 0) {
+            setAiHistory(
+              dbAi.map((a: Record<string, unknown>) => ({
+                id: (a.id as string) || "",
+                date: (a.verdict_date as string) || new Date(a.created_at as string).toLocaleDateString("tr-TR"),
+                type: (a.type as string) || "Şirket Değerleme",
+                title: (a.title as string) || "",
+                description: (a.description as string) || "",
+                verdictTag: (a.verdict_tag as "AL" | "SAT" | "TUT" | "NÖTR" | "YÜKSEK RİSK" | "DENGELİ") || "TUT",
+                symbol: (a.symbol as string) || undefined,
+                verdict: (a.verdict as "AL" | "SAT" | "TUT" | "NÖTR" | "YÜKSEK RİSK" | "DENGELİ") || "TUT",
+                verdictDate: (a.verdict_date as string) || "",
+                priceAtVerdict: a.price_at_verdict ? Number(a.price_at_verdict) : undefined,
+                priceAfterPeriod: a.price_after_period ? Number(a.price_after_period) : undefined,
+                outcomeCheckedAt: (a.outcome_checked_at as string) || undefined,
+                outcomeCorrect: typeof a.outcome_correct === "boolean" ? a.outcome_correct : undefined,
+                targetPeriodDays: Number(a.target_period_days || 30),
+              }))
+            );
           }
         }
       }
-
-      // Fetch Baskets & Holdings
-      const { data: dbBaskets, error: basketErr } = await supabase
-        .from("baskets")
-        .select("*, basket_holdings(*)");
-
-      if (!basketErr && dbBaskets && dbBaskets.length > 0) {
-        setBaskets(
-          dbBaskets.map((b: any) => ({
-            id: b.id,
-            name: b.name,
-            subtitle: b.subtitle || "",
-            riskLevel: b.risk_level || "Orta",
-            riskColor: b.risk_color || "mid",
-            totalValue: Number(b.total_value || 0),
-            totalCost: Number(b.total_cost || 0),
-            dailyChange: Number(b.daily_change || 0),
-            totalProfitPercent: Number(b.total_profit_percent || 0),
-            description: b.description || "",
-            aiNote: b.ai_note || "",
-            holdings: (b.basket_holdings || []).map((h: any) => ({
-              companySymbol: h.company_symbol,
-              weightPercent: Number(h.weight_percent || 0),
-              quantity: Number(h.quantity || 0),
-              avgCost: Number(h.avg_cost || 0),
-              currentPrice: Number(h.avg_cost || 0),
-            })),
-          }))
-        );
-      }
-
-      // Fetch Transactions
-      const { data: dbTx, error: txErr } = await supabase
-        .from("transactions")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (!txErr && dbTx && dbTx.length > 0) {
-        setTransactions(
-          dbTx.map((t: any) => ({
-            id: t.id,
-            companySymbol: t.company_symbol,
-            type: t.type,
-            quantity: Number(t.quantity),
-            price: Number(t.price),
-            totalAmount: Number(t.total_amount),
-            date: t.date,
-            note: t.note,
-          }))
-        );
-      }
-
-      // Fetch IPOs
-      const { data: dbIpos, error: ipoErr } = await supabase
-        .from("ipos")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (!ipoErr && dbIpos && dbIpos.length > 0) {
-        setIpos(
-          dbIpos.map((i: any) => ({
-            id: i.id,
-            code: i.code,
-            name: i.name,
-            sector: i.sector,
-            status: i.status || "upcoming",
-            dateRange: i.date_range,
-            priceRange: i.price_range,
-            distributionType: i.allocation_method || "Bireysele Eşit",
-            leadManager: i.broker || "",
-            lotAmount: i.offering_size || "",
-            fundSize: i.offering_size || "",
-            ceilingStreak: i.ceiling_days || 0,
-          }))
-        );
-      }
-
-      // Fetch AI History
-      const { data: dbAi, error: aiErr } = await supabase
-        .from("ai_history")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (!aiErr && dbAi && dbAi.length > 0) {
-        setAiHistory(
-          dbAi.map((a: any) => ({
-            id: a.id,
-            date: a.verdict_date || new Date(a.created_at).toLocaleDateString("tr-TR"),
-            type: a.type || "Şirket Değerleme",
-            title: a.title,
-            description: a.description,
-            verdictTag: a.verdict_tag,
-            symbol: a.symbol,
-            verdict: a.verdict,
-            verdictDate: a.verdict_date,
-            priceAtVerdict: a.price_at_verdict ? Number(a.price_at_verdict) : undefined,
-            priceAfterPeriod: a.price_after_period ? Number(a.price_after_period) : undefined,
-            outcomeCheckedAt: a.outcome_checked_at,
-            outcomeCorrect: a.outcome_correct,
-            targetPeriodDays: a.target_period_days || 30,
-          }))
-        );
-      }
     } catch (err) {
-      console.warn("Supabase hydration failed, using local/fallback store:", err);
+      console.warn("Supabase hydration via server failed, using local store:", err);
     }
   }, []);
 
   useEffect(() => {
-    try {
-      const storedCompanies = localStorage.getItem(STORAGE_KEYS.COMPANIES);
-      const storedBaskets = localStorage.getItem(STORAGE_KEYS.BASKETS);
-      const storedTx = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
-      const storedNotes = localStorage.getItem(STORAGE_KEYS.NOTES);
-      const storedIpos = localStorage.getItem(STORAGE_KEYS.IPOS);
-      const storedAi = localStorage.getItem(STORAGE_KEYS.AI_HISTORY);
-      const storedNotif = localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
-      const storedProvider = localStorage.getItem(STORAGE_KEYS.AI_PROVIDER);
-      const storedKey = localStorage.getItem(STORAGE_KEYS.AI_KEY);
-      const storedInterval = localStorage.getItem(STORAGE_KEYS.UPDATE_INTERVAL);
-      const storedIndices = localStorage.getItem(STORAGE_KEYS.INDICES);
+    Promise.resolve().then(() => {
+      try {
+        const storedCompanies = localStorage.getItem(STORAGE_KEYS.COMPANIES);
+        const storedBaskets = localStorage.getItem(STORAGE_KEYS.BASKETS);
+        const storedTx = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
+        const storedNotes = localStorage.getItem(STORAGE_KEYS.NOTES);
+        const storedIpos = localStorage.getItem(STORAGE_KEYS.IPOS);
+        const storedAi = localStorage.getItem(STORAGE_KEYS.AI_HISTORY);
+        const storedNotif = localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
+        const storedProvider = localStorage.getItem(STORAGE_KEYS.AI_PROVIDER);
+        const storedInterval = localStorage.getItem(STORAGE_KEYS.UPDATE_INTERVAL);
+        const storedIndices = localStorage.getItem(STORAGE_KEYS.INDICES);
+        const storedUserSettings = localStorage.getItem(STORAGE_KEYS.USER_SETTINGS);
 
-      if (storedCompanies) {
-        try {
-          const parsed = JSON.parse(storedCompanies);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const normalized = parsed.map(normalizeCompany);
-            const existingSymbols = new Set(normalized.map((c) => c.symbol));
-            const missing = MOCK_COMPANIES.filter((m) => !existingSymbols.has(m.symbol));
-            setCompanies([...normalized, ...missing]);
-          } else {
+        if (storedCompanies) {
+          try {
+            const parsed = JSON.parse(storedCompanies);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              const normalized = parsed.map(normalizeCompany);
+              const existingSymbols = new Set(normalized.map((c) => c.symbol));
+              const missing = MOCK_COMPANIES.filter((m) => !existingSymbols.has(m.symbol));
+              setCompanies([...normalized, ...missing]);
+            } else {
+              setCompanies(MOCK_COMPANIES);
+            }
+          } catch {
             setCompanies(MOCK_COMPANIES);
           }
-        } catch {
+        } else {
           setCompanies(MOCK_COMPANIES);
         }
-      } else {
-        setCompanies(MOCK_COMPANIES);
-      }
-      if (storedBaskets) setBaskets(JSON.parse(storedBaskets));
-      if (storedTx) setTransactions(JSON.parse(storedTx));
-      if (storedNotes) setCompanyNotes(JSON.parse(storedNotes));
-      if (storedIpos) {
-        try {
-          const parsed = JSON.parse(storedIpos);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const existingCodes = new Set(parsed.map((p: any) => p.code));
-            const missing = MOCK_IPOS.filter((m) => !existingCodes.has(m.code));
-            setIpos([...parsed, ...missing]);
-          } else {
+        if (storedBaskets) setBaskets(JSON.parse(storedBaskets));
+        if (storedTx) setTransactions(JSON.parse(storedTx));
+        if (storedNotes) setCompanyNotes(JSON.parse(storedNotes));
+        if (storedIpos) {
+          try {
+            const parsed = JSON.parse(storedIpos);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              const existingCodes = new Set(parsed.map((p: Record<string, unknown>) => String(p.code)));
+              const missing = MOCK_IPOS.filter((m) => !existingCodes.has(m.code));
+              setIpos([...parsed, ...missing]);
+            } else {
+              setIpos(MOCK_IPOS);
+            }
+          } catch {
             setIpos(MOCK_IPOS);
           }
-        } catch {
+        } else {
           setIpos(MOCK_IPOS);
         }
-      } else {
-        setIpos(MOCK_IPOS);
-      }
-      if (storedAi) setAiHistory(JSON.parse(storedAi));
-      if (storedNotif) setNotifications(JSON.parse(storedNotif));
-      if (storedProvider) setAiProvider(storedProvider);
-      if (storedKey) setApiKey(storedKey);
-      if (storedInterval) setUpdateIntervalState(storedInterval);
-      if (storedIndices) setIndices(JSON.parse(storedIndices));
+        if (storedAi) setAiHistory(JSON.parse(storedAi));
+        if (storedNotif) setNotifications(JSON.parse(storedNotif));
+        if (storedProvider) setAiProvider(storedProvider);
+        if (storedInterval) setUpdateIntervalState(storedInterval);
+        if (storedIndices) setIndices(JSON.parse(storedIndices));
+        if (storedUserSettings) setUserSettings(JSON.parse(storedUserSettings));
 
-      setLastSyncTime(
-        new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })
-      );
+        setLastSyncTime(
+          new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })
+        );
 
-      // Trigger background sync if Supabase is connected
-      if (isSupabaseConfigured) {
-        syncWithSupabase();
+        // Trigger background sync if Supabase is connected
+        if (isSupabaseConfigured) {
+          syncWithSupabase();
+        }
+      } catch (e) {
+        console.warn("Local storage hydration error:", e);
+      } finally {
+        setIsLoaded(true);
       }
-    } catch (e) {
-      console.warn("Could not load from localStorage:", e);
-    } finally {
-      setIsLoaded(true);
-    }
+    });
   }, [syncWithSupabase]);
 
   // 2. Sync to LocalStorage (Always active as an instant client cache layer)
@@ -474,9 +482,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem(STORAGE_KEYS.AI_HISTORY, JSON.stringify(aiHistory));
       localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifications));
       localStorage.setItem(STORAGE_KEYS.AI_PROVIDER, aiProvider);
-      localStorage.setItem(STORAGE_KEYS.AI_KEY, apiKey);
       localStorage.setItem(STORAGE_KEYS.UPDATE_INTERVAL, updateInterval);
       localStorage.setItem(STORAGE_KEYS.INDICES, JSON.stringify(indices));
+      localStorage.setItem(STORAGE_KEYS.USER_SETTINGS, JSON.stringify(userSettings));
     } catch (e) {
       console.warn("Could not save to localStorage:", e);
     }
@@ -490,9 +498,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     aiHistory,
     notifications,
     aiProvider,
-    apiKey,
     updateInterval,
     indices,
+    userSettings,
   ]);
 
   // Recalculate basket totals dynamically
@@ -575,6 +583,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           return item;
         }
 
+        // Check if target evaluation period (e.g. 30 days) has elapsed
+        const verdictDateStr = item.verdictDate || item.date;
+        if (verdictDateStr) {
+          const verdictTime = new Date(verdictDateStr).getTime();
+          if (!isNaN(verdictTime)) {
+            const daysPassed = (Date.now() - verdictTime) / (1000 * 60 * 60 * 24);
+            const targetDays = item.targetPeriodDays || 30;
+            if (daysPassed < targetDays) {
+              return item; // Evaluation period has not passed yet
+            }
+          }
+        }
+
         const co = companies.find((c) => c.symbol === item.symbol);
         if (!co) return item;
 
@@ -595,18 +616,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (isCorrect !== null) {
-          // Sync update to Supabase if connected
-          if (isSupabaseConfigured && supabase) {
-            supabase
-              .from("ai_history")
-              .update({
-                outcome_correct: isCorrect,
-                price_after_period: curPrice,
-                outcome_checked_at: new Date().toISOString(),
-              })
-              .eq("id", item.id)
-              .then();
-          }
+          // Sync update via server API route
+          fetch("/api/sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "evaluate_ai_outcome",
+              payload: {
+                id: item.id,
+                outcomeCorrect: isCorrect,
+                priceAfterPeriod: curPrice,
+                outcomeCheckedAt: new Date().toISOString(),
+              },
+            }),
+          }).catch();
 
           return {
             ...item,
@@ -622,15 +645,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [companies]);
 
   // Live Refresh Prices Action (Yahoo Finance API)
-  const refreshPrices = async () => {
+  const refreshPrices = useCallback(async () => {
     setIsRefreshing(true);
     try {
       const res = await fetch("/api/prices");
       if (res.ok) {
         const data = await res.json();
         if (data.prices) {
-          setCompanies((prev) =>
-            prev.map((c) => {
+          setCompanies((prev) => {
+            const updated = prev.map((c) => {
               const live = data.prices[c.symbol];
               if (live) {
                 return {
@@ -640,8 +663,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 };
               }
               return c;
-            })
-          );
+            });
+            setBaskets((prevBaskets) =>
+              prevBaskets.map((b) => recalculateBasket(b, updated))
+            );
+            return updated;
+          });
         }
 
         if (data.indices) {
@@ -662,7 +689,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsRefreshing(false);
     }
-  };
+  }, [evaluateAiOutcomes]);
 
   // Periodic Auto-refresh
   useEffect(() => {
@@ -679,66 +706,37 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }, ms);
 
     return () => clearInterval(timer);
-  }, [updateInterval]);
+  }, [updateInterval, refreshPrices]);
 
   // --- CRUD ACTIONS (Optimistic Updates + Background Supabase Sync) ---
 
-  const addCompany = (company: Company) => {
+  const addCompany = useCallback((company: Company) => {
     setCompanies((prev) => [company, ...prev]);
-
-    if (isSupabaseConfigured && supabase) {
-      supabase
-        .from("companies")
-        .upsert({
-          id: company.id,
-          symbol: company.symbol,
-          name: company.name,
-          sector: company.sector,
-          exchange: company.exchange,
-          asset_class: company.assetClass,
-          index_tag: company.indexTag,
-          price: company.price,
-          currency: company.currency,
-          daily_change: company.dailyChange,
-          pe_ratio: company.peRatio,
-          pb_ratio: company.pbRatio,
-          dividend_yield: company.dividendYield,
-          market_cap: company.marketCap,
-          beta: company.beta,
-          recommendation: company.recommendation,
-          in_watchlist: company.inWatchlist,
-          description: company.description,
-        })
-        .then();
-    }
-  };
+    fetch("/api/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "add_company", payload: company }),
+    }).catch();
+  }, []);
 
   const updateCompany = (symbol: string, partial: Partial<Company>) => {
     setCompanies((prev) =>
       prev.map((c) => (c.symbol === symbol ? { ...c, ...partial } : c))
     );
-
-    if (isSupabaseConfigured && supabase) {
-      const dbPayload: any = {};
-      if (partial.price !== undefined) dbPayload.price = partial.price;
-      if (partial.dailyChange !== undefined) dbPayload.daily_change = partial.dailyChange;
-      if (partial.recommendation !== undefined) dbPayload.recommendation = partial.recommendation;
-      if (partial.inWatchlist !== undefined) dbPayload.in_watchlist = partial.inWatchlist;
-
-      supabase
-        .from("companies")
-        .update(dbPayload)
-        .eq("symbol", symbol)
-        .then();
-    }
+    fetch("/api/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "update_company", payload: { symbol, ...partial } }),
+    }).catch();
   };
 
   const deleteCompany = (symbol: string) => {
     setCompanies((prev) => prev.filter((c) => c.symbol !== symbol));
-
-    if (isSupabaseConfigured && supabase) {
-      supabase.from("companies").delete().eq("symbol", symbol).then();
-    }
+    fetch("/api/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete_company", payload: { symbol } }),
+    }).catch();
   };
 
   const toggleWatchlist = (symbol: string) => {
@@ -752,73 +750,30 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         return c;
       })
     );
-
-    if (isSupabaseConfigured && supabase) {
-      supabase
-        .from("companies")
-        .update({ in_watchlist: nextVal })
-        .eq("symbol", symbol)
-        .then();
-    }
+    fetch("/api/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "update_company", payload: { symbol, inWatchlist: nextVal } }),
+    }).catch();
   };
 
   const createBasket = (newBasket: Basket) => {
     setBaskets((prev) => [...prev, newBasket]);
-
-    if (isSupabaseConfigured && supabase) {
-      const client = supabase;
-      client
-        .from("baskets")
-        .insert({
-          id: newBasket.id,
-          name: newBasket.name,
-          subtitle: newBasket.subtitle,
-          risk_level: newBasket.riskLevel,
-          risk_color: newBasket.riskColor,
-          total_value: newBasket.totalValue,
-          total_cost: newBasket.totalCost,
-          daily_change: newBasket.dailyChange,
-          total_profit_percent: newBasket.totalProfitPercent,
-          description: newBasket.description,
-          ai_note: newBasket.aiNote,
-        })
-        .then(() => {
-          if (newBasket.holdings && newBasket.holdings.length > 0) {
-            const holdingsPayload = newBasket.holdings.map((h) => ({
-              basket_id: newBasket.id,
-              company_symbol: h.companySymbol,
-              weight_percent: h.weightPercent,
-              quantity: h.quantity,
-              avg_cost: h.avgCost,
-            }));
-            client.from("basket_holdings").insert(holdingsPayload).then();
-          }
-        });
-    }
+    fetch("/api/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "create_basket", payload: { basket: newBasket } }),
+    }).catch();
   };
 
   const updateBasket = (id: string, partial: Partial<Basket>) => {
     setBaskets((prev) =>
       prev.map((b) => (b.id === id ? { ...b, ...partial } : b))
     );
-
-    if (isSupabaseConfigured && supabase) {
-      const payload: any = {};
-      if (partial.name) payload.name = partial.name;
-      if (partial.subtitle) payload.subtitle = partial.subtitle;
-      if (partial.riskLevel) payload.risk_level = partial.riskLevel;
-      if (partial.description) payload.description = partial.description;
-
-      supabase.from("baskets").update(payload).eq("id", id).then();
-    }
   };
 
   const deleteBasket = (id: string) => {
     setBaskets((prev) => prev.filter((b) => b.id !== id));
-
-    if (isSupabaseConfigured && supabase) {
-      supabase.from("baskets").delete().eq("id", id).then();
-    }
   };
 
   const addHoldingToBasket = (basketId: string, holding: BasketHolding) => {
@@ -828,59 +783,32 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const exists = b.holdings.find(
           (h) => h.companySymbol === holding.companySymbol
         );
+        let newHoldings: BasketHolding[];
         if (exists) {
-          return {
-            ...b,
-            holdings: b.holdings.map((h) =>
-              h.companySymbol === holding.companySymbol
-                ? {
-                    ...h,
-                    quantity: h.quantity + holding.quantity,
-                    weightPercent: holding.weightPercent || h.weightPercent,
-                  }
-                : h
-            ),
-          };
+          newHoldings = b.holdings.map((h) =>
+            h.companySymbol === holding.companySymbol
+              ? {
+                  ...h,
+                  quantity: h.quantity + holding.quantity,
+                }
+              : h
+          );
+        } else {
+          newHoldings = [...b.holdings, holding];
         }
-        return {
-          ...b,
-          holdings: [...b.holdings, holding],
-        };
+        return recalculateBasket({ ...b, holdings: newHoldings }, companies);
       })
     );
-
-    if (isSupabaseConfigured && supabase) {
-      supabase
-        .from("basket_holdings")
-        .upsert({
-          basket_id: basketId,
-          company_symbol: holding.companySymbol,
-          weight_percent: holding.weightPercent,
-          quantity: holding.quantity,
-          avg_cost: holding.avgCost,
-        })
-        .then();
-    }
   };
 
   const removeHoldingFromBasket = (basketId: string, symbol: string) => {
     setBaskets((prev) =>
       prev.map((b) => {
         if (b.id !== basketId) return b;
-        return {
-          ...b,
-          holdings: b.holdings.filter((h) => h.companySymbol !== symbol),
-        };
+        const newHoldings = b.holdings.filter((h) => h.companySymbol !== symbol);
+        return recalculateBasket({ ...b, holdings: newHoldings }, companies);
       })
     );
-
-    if (isSupabaseConfigured && supabase) {
-      supabase
-        .from("basket_holdings")
-        .delete()
-        .match({ basket_id: basketId, company_symbol: symbol })
-        .then();
-    }
   };
 
   const updateHolding = (
@@ -891,120 +819,98 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setBaskets((prev) =>
       prev.map((b) => {
         if (b.id !== basketId) return b;
-        return {
-          ...b,
-          holdings: b.holdings.map((h) =>
-            h.companySymbol === symbol ? { ...h, ...updates } : h
-          ),
-        };
+        const newHoldings = b.holdings.map((h) =>
+          h.companySymbol === symbol ? { ...h, ...updates } : h
+        );
+        return recalculateBasket({ ...b, holdings: newHoldings }, companies);
       })
     );
-
-    if (isSupabaseConfigured && supabase) {
-      const payload: any = {};
-      if (updates.quantity !== undefined) payload.quantity = updates.quantity;
-      if (updates.avgCost !== undefined) payload.avg_cost = updates.avgCost;
-      if (updates.weightPercent !== undefined) payload.weight_percent = updates.weightPercent;
-
-      supabase
-        .from("basket_holdings")
-        .update(payload)
-        .match({ basket_id: basketId, company_symbol: symbol })
-        .then();
-    }
   };
 
   const addTransaction = (
     tx: Omit<Transaction, "id">,
     targetBasketId?: string
   ) => {
+    if (!targetBasketId) {
+      console.warn("addTransaction: targetBasketId is required");
+      return;
+    }
+    const basketToUpdate = baskets.find((b) => b.id === targetBasketId);
+    if (!basketToUpdate) {
+      console.warn("addTransaction: Target basket not found:", targetBasketId);
+      return;
+    }
+
     const newTx: Transaction = {
       ...tx,
       id: `tx-${Date.now()}`,
     };
     setTransactions((prev) => [newTx, ...prev]);
 
-    if (isSupabaseConfigured && supabase) {
-      supabase
-        .from("transactions")
-        .insert({
-          company_symbol: tx.companySymbol,
-          type: tx.type,
-          quantity: tx.quantity,
-          price: tx.price,
-          total_amount: tx.totalAmount,
-          date: tx.date,
-          note: tx.note,
-        })
-        .then();
-    }
+    fetch("/api/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "add_transaction", payload: newTx }),
+    }).catch();
 
-    const basketToUpdate = targetBasketId
-      ? baskets.find((b) => b.id === targetBasketId)
-      : baskets[0];
+    setBaskets((prev) =>
+      prev.map((b) => {
+        if (b.id !== basketToUpdate.id) return b;
 
-    if (basketToUpdate) {
-      setBaskets((prev) =>
-        prev.map((b) => {
-          if (b.id !== basketToUpdate.id) return b;
+        const existingHolding = b.holdings.find(
+          (h) => h.companySymbol === tx.companySymbol
+        );
 
-          const existingHolding = b.holdings.find(
-            (h) => h.companySymbol === tx.companySymbol
-          );
+        let newHoldings = [...b.holdings];
 
-          if (tx.type === "BUY") {
-            if (existingHolding) {
-              const oldQty = existingHolding.quantity;
-              const oldCost = existingHolding.avgCost;
-              const newQty = oldQty + tx.quantity;
-              const newAvgCost =
-                newQty > 0
-                  ? (oldQty * oldCost + tx.quantity * tx.price) / newQty
-                  : tx.price;
+        if (tx.type === "BUY") {
+          if (existingHolding) {
+            const oldQty = existingHolding.quantity;
+            const oldCost = existingHolding.avgCost;
+            const newQty = oldQty + tx.quantity;
+            const newAvgCost =
+              newQty > 0
+                ? (oldQty * oldCost + tx.quantity * tx.price) / newQty
+                : tx.price;
 
-              return {
-                ...b,
-                holdings: b.holdings.map((h) =>
-                  h.companySymbol === tx.companySymbol
-                    ? {
-                        ...h,
-                        quantity: newQty,
-                        avgCost: parseFloat(newAvgCost.toFixed(2)),
-                      }
-                    : h
-                ),
-              };
-            } else {
-              return {
-                ...b,
-                holdings: [
-                  ...b.holdings,
-                  {
-                    companySymbol: tx.companySymbol,
-                    weightPercent: 15,
-                    quantity: tx.quantity,
-                    avgCost: tx.price,
-                    currentPrice: tx.price,
-                  },
-                ],
-              };
-            }
-          } else if (tx.type === "SELL" && existingHolding) {
-            const newQty = Math.max(0, existingHolding.quantity - tx.quantity);
-            return {
-              ...b,
-              holdings: b.holdings.map((h) =>
-                h.companySymbol === tx.companySymbol
-                  ? { ...h, quantity: newQty }
-                  : h
-              ),
-            };
+            newHoldings = b.holdings.map((h) =>
+              h.companySymbol === tx.companySymbol
+                ? {
+                    ...h,
+                    quantity: newQty,
+                    avgCost: parseFloat(newAvgCost.toFixed(2)),
+                  }
+                : h
+            );
+          } else {
+            newHoldings = [
+              ...b.holdings,
+              {
+                companySymbol: tx.companySymbol,
+                weightPercent: 0,
+                quantity: tx.quantity,
+                avgCost: tx.price,
+                currentPrice: tx.price,
+              },
+            ];
           }
+        } else if (tx.type === "SELL" && existingHolding) {
+          const newQty = Math.max(0, existingHolding.quantity - tx.quantity);
+          if (newQty === 0) {
+            // Remove holding completely when sold out (Item 4)
+            newHoldings = b.holdings.filter((h) => h.companySymbol !== tx.companySymbol);
+          } else {
+            newHoldings = b.holdings.map((h) =>
+              h.companySymbol === tx.companySymbol
+                ? { ...h, quantity: newQty }
+                : h
+            );
+          }
+        }
 
-          return b;
-        })
-      );
-    }
+        return recalculateBasket({ ...b, holdings: newHoldings }, companies);
+      })
+    );
   };
 
   const addNote = (symbol: string, noteText: string) => {
@@ -1012,16 +918,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       ...prev,
       [symbol]: [noteText, ...(prev[symbol] || [])],
     }));
-
-    if (isSupabaseConfigured && supabase) {
-      supabase
-        .from("notes")
-        .insert({
-          company_symbol: symbol,
-          note_text: noteText,
-        })
-        .then();
-    }
   };
 
   const deleteNote = (symbol: string, index: number) => {
@@ -1035,32 +931,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const addAiHistory = (item: AiHistoryItem) => {
+  const addAiHistory = useCallback((item: AiHistoryItem) => {
     setAiHistory((prev) => [item, ...prev]);
-
-    if (isSupabaseConfigured && supabase) {
-      supabase
-        .from("ai_history")
-        .insert({
-          id: item.id,
-          symbol: item.symbol || null,
-          type: item.type,
-          title: item.title,
-          description: item.description,
-          verdict: item.verdict || item.verdictTag || "TUT",
-          verdict_tag: item.verdictTag,
-          verdict_date: item.verdictDate || new Date().toISOString().split("T")[0],
-          price_at_verdict: item.priceAtVerdict || null,
-          price_after_period: item.priceAfterPeriod || null,
-          outcome_correct: item.outcomeCorrect ?? null,
-          target_period_days: item.targetPeriodDays || 30,
-        })
-        .then();
-    }
-  };
+    fetch("/api/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "add_ai_history", payload: item }),
+    }).catch();
+  }, []);
 
   const syncIpoToLedger = useCallback(
     (ipo: IpoItem) => {
+      // Only IPOs that are listed and actively trading on BIST can be added to ledger
+      if (ipo.status !== "listed") return;
+
       const exists = companies.some(
         (c) => c.symbol.toUpperCase() === ipo.code.toUpperCase()
       );
@@ -1080,12 +964,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         price: price,
         currency: "₺",
         dailyChange: 0.0,
-        peRatio: 10.5,
-        pbRatio: 2.1,
+        peRatio: undefined,
+        pbRatio: undefined,
         dividendYield: 0.0,
-        marketCap: ipo.fundSize || "2 Mr ₺",
-        beta: 1.05,
-        recommendation: "AL",
+        marketCap: ipo.fundSize || "Belirtilmedi",
+        beta: undefined,
+        recommendation: "NÖTR",
         inWatchlist: true,
         description: `${ipo.name} (${ipo.code}), SPK onaylı halka arz sürecinin ardından Borsa İstanbul kütüğüne kaydedilen yeni şirket.`,
         metrics: [
@@ -1096,7 +980,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
       addCompany(newCo);
 
-      // Add instant notification
       const notifId = `notif-${Date.now()}`;
       const newNotif: NotificationItem = {
         id: notifId,
@@ -1107,52 +990,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         read: false,
       };
       setNotifications((prev) => [newNotif, ...prev]);
-
-      if (isSupabaseConfigured && supabase) {
-        supabase
-          .from("notifications")
-          .insert({
-            id: notifId,
-            type: newNotif.type,
-            title: newNotif.title,
-            message: newNotif.message,
-            time: newNotif.time,
-            read: false,
-          })
-          .then();
-      }
     },
-    [companies, addCompany, isSupabaseConfigured]
+    [companies, addCompany]
   );
 
   const addIpo = useCallback(
     (ipo: IpoItem, autoAddToLedger = true) => {
       setIpos((prev) => [ipo, ...prev]);
 
-      if (isSupabaseConfigured && supabase) {
-        supabase
-          .from("ipos")
-          .upsert({
-            id: ipo.id,
-            name: ipo.name,
-            code: ipo.code,
-            sector: ipo.sector,
-            date_range: ipo.dateRange,
-            price_range: ipo.priceRange,
-            offering_size: ipo.fundSize,
-            allocation_method: ipo.distributionType || "Bireysele Eşit",
-            broker: ipo.leadManager || null,
-            status: ipo.status,
-            ceiling_days: ipo.ceilingStreak || 0,
-          })
-          .then();
-      }
-
       if (autoAddToLedger) {
         syncIpoToLedger(ipo);
       }
     },
-    [isSupabaseConfigured, syncIpoToLedger]
+    [syncIpoToLedger]
   );
 
   const updateIpo = useCallback(
@@ -1160,35 +1010,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setIpos((prev) =>
         prev.map((i) => (i.id === id ? { ...i, ...partial } : i))
       );
-
-      if (isSupabaseConfigured && supabase) {
-        const payload: any = {};
-        if (partial.name) payload.name = partial.name;
-        if (partial.code) payload.code = partial.code;
-        if (partial.sector) payload.sector = partial.sector;
-        if (partial.status) payload.status = partial.status;
-        if (partial.dateRange) payload.date_range = partial.dateRange;
-        if (partial.priceRange) payload.price_range = partial.priceRange;
-        if (partial.fundSize) payload.offering_size = partial.fundSize;
-        if (partial.distributionType) payload.allocation_method = partial.distributionType;
-        if (partial.leadManager) payload.broker = partial.leadManager;
-        if (partial.ceilingStreak !== undefined) payload.ceiling_days = partial.ceilingStreak;
-
-        supabase.from("ipos").update(payload).eq("id", id).then();
-      }
     },
-    [isSupabaseConfigured]
+    []
   );
 
   const deleteIpo = useCallback(
     (id: string) => {
       setIpos((prev) => prev.filter((i) => i.id !== id));
-
-      if (isSupabaseConfigured && supabase) {
-        supabase.from("ipos").delete().eq("id", id).then();
-      }
     },
-    [isSupabaseConfigured]
+    []
   );
 
   const autoSyncNewIpos = useCallback(async () => {
@@ -1198,7 +1028,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     );
 
     for (const ipo of ipos) {
-      if (!existingSymbols.has(ipo.code.toUpperCase())) {
+      if (ipo.status === "listed" && !existingSymbols.has(ipo.code.toUpperCase())) {
         syncIpoToLedger(ipo);
         existingSymbols.add(ipo.code.toUpperCase());
         addedCount++;
@@ -1208,9 +1038,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return addedCount;
   }, [ipos, companies, syncIpoToLedger]);
 
-  const setAiSettings = (provider: string, key: string) => {
+  const setAiSettings = (provider: string) => {
     setAiProvider(provider);
-    setApiKey(key);
   };
 
   const setUpdateInterval = (interval: string) => {
@@ -1219,10 +1048,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const markAllNotificationsRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-
-    if (isSupabaseConfigured && supabase) {
-      supabase.from("notifications").update({ read: true }).neq("read", true).then();
-    }
+    fetch("/api/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "mark_notifications_read" }),
+    }).catch();
   };
 
   const resetToDefaultData = () => {
@@ -1261,6 +1091,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   return (
     <DefterStoreContext.Provider
       value={{
+        userSettings,
+        updateUserSettings,
         companies,
         addCompany,
         updateCompany,
@@ -1290,7 +1122,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         evaluateAiOutcomes,
         aiAccuracyStats,
         aiProvider,
-        apiKey,
         setAiSettings,
         indices,
         lastSyncTime,

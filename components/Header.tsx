@@ -8,10 +8,10 @@ import {
   Menu,
   X,
   Check,
-  ShieldCheck,
   RefreshCw,
   Sparkles,
   Search,
+  CloudCheck,
 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import OrakulChatModal from "@/components/OrakulChatModal";
@@ -120,6 +120,17 @@ export default function Header() {
               />
               <span className="hidden xl:inline text-[11px]">{lastSyncTime}</span>
             </button>
+
+            {/* Cloud Sync Status Indicator */}
+            {isCloudConnected && (
+              <div
+                className="hidden md:flex items-center gap-1 text-[10px] font-mono text-[var(--brass)] bg-[var(--brass-glow)] border border-[var(--brass-dim)] px-2 py-1 rounded"
+                title="Supabase Bulut Senkronizasyonu Aktif"
+              >
+                <CloudCheck className="w-3.5 h-3.5 text-[var(--brass)]" />
+                <span className="hidden lg:inline font-semibold">Bulut</span>
+              </div>
+            )}
 
             {/* Orakul Chat Trigger */}
             <button

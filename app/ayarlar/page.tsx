@@ -21,9 +21,12 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
+import { useToast } from "@/components/ToastProvider";
 
 export default function AyarlarPage() {
   const {
+    userSettings,
+    updateUserSettings,
     isCloudConnected,
     syncWithSupabase,
     resetToDefaultData,
@@ -32,58 +35,126 @@ export default function AyarlarPage() {
     baskets,
     transactions,
     aiProvider,
-    apiKey,
     setAiSettings,
     updateInterval,
     setUpdateInterval,
   } = useDefterStore();
+  const { showToast } = useToast();
 
-  const [userName, setUserName] = useState("Defter Sahibi");
-  const [currency, setCurrency] = useState("₺ TRY");
+  const [userName, setUserName] = useState(userSettings?.userName || "Defter Sahibi");
+  const [currency, setCurrency] = useState(userSettings?.currency || "₺ TRY");
+
+  React.useEffect(() => {
+    if (userSettings) {
+      setUserName(userSettings.userName);
+      setCurrency(userSettings.currency);
+    }
+  }, [userSettings]);
 
   // AI states
   const [selectedProvider, setSelectedProvider] = useState(aiProvider || "gemini");
-  const [keyInput, setKeyInput] = useState(apiKey || "");
   const [aiSavedSuccess, setAiSavedSuccess] = useState(false);
-
-  // Notification toggles
-  const [priceAlerts, setPriceAlerts] = useState(true);
-  const [ipoAlerts, setIpoAlerts] = useState(true);
-  const [dividendAlerts, setDividendAlerts] = useState(true);
-  const [oracleAlerts, setOracleAlerts] = useState(true);
+  const [testResult, setTestResult] = useState<{ isConfigured: boolean; message: string } | null>(null);
+  const [testingKey, setTestingKey] = useState(false);
 
   // Security password state
   const [currentPass, setCurrentPass] = useState("");
   const [newPass, setNewPass] = useState("");
+  const [passSaving, setPassSaving] = useState(false);
   const [passSaved, setPassSaved] = useState(false);
+  const [passError, setPassError] = useState<string | null>(null);
+  const [passMessage, setPassMessage] = useState<string | null>(null);
 
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
+    updateUserSettings({ userName, currency });
     setSavedSuccess(true);
+    showToast("Profil Güncellendi", "Profil ve varsayılan para birimi ayarları kaydedildi.", "success");
     setTimeout(() => setSavedSuccess(false), 3000);
   };
 
   const handleSaveAiSettings = (e: React.FormEvent) => {
     e.preventDefault();
-    setAiSettings(selectedProvider, keyInput.trim());
+    setAiSettings(selectedProvider);
     setAiSavedSuccess(true);
+    showToast("AI Motoru Güncellendi", `Yapay zeka sağlayıcı tercihi '${selectedProvider}' olarak ayarlandı.`, "success");
     setTimeout(() => setAiSavedSuccess(false), 3000);
   };
 
-  const handleChangePassword = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newPass) return;
-    setPassSaved(true);
-    setCurrentPass("");
-    setNewPass("");
-    setTimeout(() => setPassSaved(false), 3000);
+  const handleTestServerKey = async () => {
+    setTestingKey(true);
+    setTestResult(null);
+    try {
+      const res = await fetch("/api/orakul", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "test_connection",
+          provider: selectedProvider,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTestResult({
+          isConfigured: data.isConfigured,
+          message: data.message,
+        });
+        showToast("Bağlantı Testi", data.message, data.isConfigured ? "success" : "info");
+      }
+    } catch (e) {
+      setTestResult({
+        isConfigured: false,
+        message: "Sunucu bağlantı testi gerçekleştirilemedi.",
+      });
+      showToast("Test Hatası", "Sunucu bağlantı testi yapılamadı.", "error");
+    } finally {
+      setTestingKey(false);
+    }
   };
 
-  const handleLockVault = () => {
-    localStorage.removeItem("defter_auth_token");
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentPass || !newPass) return;
+    setPassSaving(true);
+    setPassError(null);
+    setPassSaved(false);
+    setPassMessage(null);
+    try {
+      const res = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "change_password",
+          currentPassword: currentPass,
+          newPassword: newPass,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setPassSaved(true);
+        setPassMessage(data.message || "Şifre doğrulandı.");
+        showToast("Şifre Doğrulandı", "Mevcut kasa şifresi doğrulandı.", "success");
+        setCurrentPass("");
+        setNewPass("");
+      } else {
+        setPassError(data.error || "Şifre değiştirilemedi.");
+        showToast("Şifre Hatası", data.error || "Mevcut şifre hatalı.", "error");
+      }
+    } catch {
+      setPassError("Sunucu bağlantı hatası oluştu.");
+      showToast("Bağlantı Hatası", "Sunucuya ulaşılamadı.", "error");
+    } finally {
+      setPassSaving(false);
+    }
+  };
+
+  const handleLockVault = async () => {
+    try {
+      await fetch("/api/auth", { method: "DELETE" });
+    } catch {}
     window.location.reload();
   };
 
@@ -140,44 +211,69 @@ export default function AyarlarPage() {
               </label>
               <select
                 value={selectedProvider}
-                onChange={(e) => setSelectedProvider(e.target.value)}
+                onChange={(e) => {
+                  setSelectedProvider(e.target.value);
+                  setTestResult(null);
+                }}
                 className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 text-xs text-[var(--paper)] font-mono focus:border-[var(--brass)] outline-none"
               >
-                <option value="gemini">Google Gemini (Önerilen — Ücretsiz Google AI Studio)</option>
-                <option value="openai">OpenAI (GPT-4o / GPT-4o-mini)</option>
+                <option value="gemini">Google Gemini (Önerilen — GEMINI_API_KEY)</option>
+                <option value="openai">OpenAI (GPT-4o — OPENAI_API_KEY)</option>
                 <option value="local">Yerel Finansal Motor (API Anahtarsız Çevrimdışı Mod)</option>
               </select>
             </div>
 
-            <div>
-              <label className="block text-xs font-mono text-[var(--mist)] uppercase mb-1.5 flex items-center justify-between">
-                <span>Özel API Anahtarı (İsteğe Bağlı)</span>
-                <span className="text-[10px] text-[var(--brass)]">Korumalı</span>
-              </label>
-              <input
-                type="password"
-                value={keyInput}
-                onChange={(e) => setKeyInput(e.target.value)}
-                placeholder="AIzaSy... (Gemini) veya sk-... (OpenAI)"
-                className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 text-xs text-[var(--paper)] font-mono focus:border-[var(--brass)] outline-none"
-              />
+            <div className="bg-[var(--ink-3)] p-3 rounded border border-[var(--line)] flex flex-col justify-between">
+              <div>
+                <span className="text-xs font-mono text-[var(--paper)] font-semibold flex items-center gap-1.5">
+                  <Shield className="w-3.5 h-3.5 text-[var(--brass)]" />
+                  Sunucu Ortam Değişkeni Modu
+                </span>
+                <p className="text-[11px] text-[var(--mist)] mt-1 font-mono">
+                  Güvenlik gereği API anahtarları artık tarayıcıda saklanmaz. Değiştirmek için sunucunuzdaki <code>.env.local</code> veya Vercel ayarlarınızı kullanın.
+                </p>
+              </div>
+
+              <div className="pt-2 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={handleTestServerKey}
+                  disabled={testingKey || selectedProvider === "local"}
+                  className="bg-[var(--ink)] border border-[var(--brass-dim)] hover:border-[var(--brass)] text-[var(--brass)] text-[11px] font-mono px-3 py-1.5 rounded transition-all cursor-pointer disabled:opacity-40"
+                >
+                  {testingKey ? "Test Ediliyor..." : "Sunucu Bağlantısını Test Et"}
+                </button>
+              </div>
             </div>
           </div>
 
-          <p className="text-[11px] text-[var(--mist)] leading-relaxed font-sans">
-            * <strong>Google Gemini:</strong> <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-[var(--brass)] underline hover:text-[var(--paper)]">Google AI Studio&apos;dan ücretsiz API anahtarı</a> alarak gerçek zamanlı yapay zeka analizlerini etkinleştirebilirsiniz. Boş bırakırsanız Defter&apos;in yerel kural motoru devreye girer.
-          </p>
+          {testResult && (
+            <div
+              className={`p-3 rounded text-xs font-mono border flex items-center gap-2 ${
+                testResult.isConfigured
+                  ? "bg-[rgba(91,140,123,0.15)] text-[var(--verdigris)] border-[var(--verdigris)]"
+                  : "bg-[var(--brass-glow)] text-[var(--brass)] border-[var(--brass-dim)]"
+              }`}
+            >
+              {testResult.isConfigured ? (
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+              ) : (
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+              )}
+              <span>{testResult.message}</span>
+            </div>
+          )}
 
           <div className="pt-2 flex items-center justify-between">
             <button
               type="submit"
               className="bg-[var(--brass)] text-[var(--ink)] font-bold text-xs px-5 py-2.5 rounded hover:bg-[#d9b35a] transition-all cursor-pointer shadow"
             >
-              Yapay Zeka Ayarlarını Kaydet
+              Sağlayıcı Tercihini Kaydet
             </button>
             {aiSavedSuccess && (
               <span className="text-xs font-mono text-[var(--verdigris)] flex items-center gap-1">
-                <Check className="w-3.5 h-3.5" /> AI yapılandırması güncellendi ✓
+                <Check className="w-3.5 h-3.5" /> AI tercihi güncellendi ✓
               </span>
             )}
           </div>
@@ -282,28 +378,28 @@ export default function AyarlarPage() {
         <div className="space-y-4">
           {[
             {
+              key: "priceAlerts" as const,
               title: "Fiyat ve Trend Alarmları",
               desc: "Takip listesindeki hisseler direnç/destek kırdığında uyar.",
-              checked: priceAlerts,
-              toggle: () => setPriceAlerts(!priceAlerts),
+              checked: userSettings?.priceAlerts ?? true,
             },
             {
+              key: "ipoAlerts" as const,
               title: "Halka Arz Onay & Talep Hatırlatıcısı",
               desc: "Yeni SPK bülteni ve talep toplama başlangıç günlerinde bildirim gönder.",
-              checked: ipoAlerts,
-              toggle: () => setIpoAlerts(!ipoAlerts),
+              checked: userSettings?.ipoAlerts ?? true,
             },
             {
+              key: "dividendAlerts" as const,
               title: "Temettü Ödeme Günleri",
               desc: "Portföyündeki şirketlerin hak kullanım ve nakit aktarım günlerini bildir.",
-              checked: dividendAlerts,
-              toggle: () => setDividendAlerts(!dividendAlerts),
+              checked: userSettings?.dividendAlerts ?? true,
             },
             {
+              key: "oracleAlerts" as const,
               title: "Orakul Yeniden Dengeleme Sinyali",
               desc: "Sepet ağırlıkları hedef sınırları aştığında optimize uyarısı ver.",
-              checked: oracleAlerts,
-              toggle: () => setOracleAlerts(!oracleAlerts),
+              checked: userSettings?.oracleAlerts ?? true,
             },
           ].map((item, idx) => (
             <div
@@ -321,7 +417,7 @@ export default function AyarlarPage() {
 
               <button
                 type="button"
-                onClick={item.toggle}
+                onClick={() => updateUserSettings({ [item.key]: !item.checked })}
                 className={`w-10 h-5 flex items-center rounded-full p-1 transition-colors cursor-pointer ${
                   item.checked ? "bg-[var(--brass)]" : "bg-[var(--line)]"
                 }`}
@@ -347,13 +443,26 @@ export default function AyarlarPage() {
         <form onSubmit={handleChangePassword} className="space-y-4 max-w-md">
           <div>
             <label className="block text-xs font-mono text-[var(--mist)] uppercase mb-1.5">
+              Mevcut Erişim Şifresi
+            </label>
+            <input
+              type="password"
+              value={currentPass}
+              onChange={(e) => setCurrentPass(e.target.value)}
+              placeholder="Mevcut şifrenizi girin..."
+              className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 text-xs text-[var(--paper)] font-mono focus:border-[var(--brass)] outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-mono text-[var(--mist)] uppercase mb-1.5">
               Yeni Erişim Şifresi
             </label>
             <input
               type="password"
               value={newPass}
               onChange={(e) => setNewPass(e.target.value)}
-              placeholder="Yeni şifreyi girin..."
+              placeholder="Yeni şifrenizi girin..."
               className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 text-xs text-[var(--paper)] font-mono focus:border-[var(--brass)] outline-none"
             />
           </div>
@@ -361,9 +470,10 @@ export default function AyarlarPage() {
           <div className="flex items-center gap-3">
             <button
               type="submit"
-              className="bg-[var(--brass)] text-[var(--ink)] font-bold text-xs px-4 py-2 rounded hover:bg-[#d9b35a] transition-all cursor-pointer"
+              disabled={passSaving}
+              className="bg-[var(--brass)] text-[var(--ink)] font-bold text-xs px-4 py-2 rounded hover:bg-[#d9b35a] transition-all cursor-pointer disabled:opacity-50"
             >
-              Şifreyi Güncelle
+              {passSaving ? "Doğrulanıyor..." : "Şifreyi Güncelle & Doğrula"}
             </button>
             {passSaved && (
               <span className="text-xs font-mono text-[var(--verdigris)]">
@@ -371,7 +481,30 @@ export default function AyarlarPage() {
               </span>
             )}
           </div>
+
+          {passError && (
+            <div className="p-3 rounded text-xs font-mono bg-[rgba(217,83,79,0.15)] text-[var(--loss)] border border-[var(--loss)]">
+              {passError}
+            </div>
+          )}
+
+          {passMessage && (
+            <div className="p-3 rounded text-xs font-mono bg-[rgba(91,140,123,0.15)] text-[var(--verdigris)] border border-[var(--verdigris)]">
+              {passMessage}
+            </div>
+          )}
         </form>
+
+        {/* Vercel Environment Variable Notice */}
+        <div className="p-4 rounded-lg bg-[var(--ink-3)] border border-[var(--line)] text-xs font-mono space-y-1.5">
+          <div className="flex items-center gap-2 text-[var(--brass)] font-semibold">
+            <Lock className="w-4 h-4" />
+            <span>Kalıcı Şifre Değişimi Hakkında Bilgilendirme</span>
+          </div>
+          <p className="text-[11px] text-[var(--mist)] leading-relaxed">
+            Güvenlik mimarimiz gereği erişim şifresi sunucu seviyesinde saklanmaktadır. Sunucunuzda şifreyi kalıcı olarak değiştirmek için Vercel panelinizden <strong>Settings → Environment Variables → DEFTER_ACCESS_PASSWORD</strong> değişkenini güncelleyin.
+          </p>
+        </div>
 
         <div className="pt-4 border-t border-dashed border-[var(--line)] flex items-center justify-between">
           <div>

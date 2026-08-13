@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { X, Plus, Trash2, Sliders, Check } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import { Basket } from "@/lib/mockData";
+import { useToast } from "@/components/ToastProvider";
 
 interface EditBasketModalProps {
   basket: Basket;
@@ -23,6 +24,7 @@ export default function EditBasketModal({
     removeHoldingFromBasket,
     updateHolding,
   } = useDefterStore();
+  const { showToast } = useToast();
 
   const [selectedAddSymbol, setSelectedAddSymbol] = useState(
     companies[0]?.symbol || ""
@@ -44,6 +46,12 @@ export default function EditBasketModal({
       avgCost: co.price,
       currentPrice: co.price,
     });
+
+    showToast(
+      "Varlık Eklendi",
+      `${co.symbol} (${parseFloat(addQty) || 10} Lot) ${basket.name} sepetine eklendi.`,
+      "success"
+    );
   };
 
   return (

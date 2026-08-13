@@ -17,10 +17,13 @@ import {
 import { useDefterStore } from "@/lib/store";
 import { Company } from "@/lib/mockData";
 import StampBadge from "@/components/StampBadge";
+import DataStatusBadge from "@/components/DataStatusBadge";
+import { useToast } from "@/components/ToastProvider";
 
 export default function SirketlerPage() {
-  const { companies, addCompany, deleteCompany, toggleWatchlist } =
+  const { companies, addCompany, deleteCompany, toggleWatchlist, transactions, baskets } =
     useDefterStore();
+  const { showToast } = useToast();
 
   const [assetTab, setAssetTab] = useState<"hisse" | "maden" | "fon" | "doviz">("hisse");
   const [subTab, setSubTab] = useState<"all" | "watchlist">("all");
@@ -41,11 +44,6 @@ export default function SirketlerPage() {
     setFilterPill("all");
     setCurrentPage(1);
   };
-
-  // Reset page when search or subtab changes
-  React.useEffect(() => {
-    setCurrentPage(1);
-  }, [subTab, searchQuery, filterPill]);
 
   // Dynamic filter pill options per asset tab
   const filterPillOptions = useMemo(() => {
@@ -142,9 +140,20 @@ export default function SirketlerPage() {
 
   const handleDelete = (symbol: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm(`${symbol} varlığını kütükten silmek istediğinize emin misiniz?`)) {
+    const relatedTxCount = transactions.filter((t) => t.companySymbol === symbol).length;
+    const relatedBasketsCount = baskets.filter((b) =>
+      b.holdings.some((h) => h.companySymbol === symbol)
+    ).length;
+
+    let confirmMsg = `${symbol} varlığını kütükten silmek istediğinize emin misiniz?`;
+    if (relatedTxCount > 0 || relatedBasketsCount > 0) {
+      confirmMsg = `⚠️ UYARI: ${symbol} şirketine ait ${relatedTxCount} adet işlem kaydı ve ${relatedBasketsCount} adet sepet pozisyonu bulunmaktadır!\n\nBu şirketi silmeniz durumunda kütük kayıtlarınız etkilenebilir. Yine de silmek istiyor musunuz?`;
+    }
+
+    if (confirm(confirmMsg)) {
       deleteCompany(symbol);
       setSelectedSymbols(selectedSymbols.filter((s) => s !== symbol));
+      showToast("Şirket Silindi", `${symbol} kütükten kaldırıldı.`, "info");
     }
   };
 
@@ -250,7 +259,7 @@ export default function SirketlerPage() {
         ].map((tab) => (
           <button
             key={tab.id}
-            onClick={() => handleAssetTabChange(tab.id as any)}
+            onClick={() => handleAssetTabChange(tab.id as "hisse" | "maden" | "fon" | "doviz")}
             className={`px-5 py-3 text-sm font-semibold rounded-t-md transition-all cursor-pointer whitespace-nowrap border-t border-x flex items-center gap-2 ${
               assetTab === tab.id
                 ? "bg-[var(--ink)] text-[var(--brass)] border-[var(--line)] border-b-transparent relative z-10"
@@ -273,7 +282,10 @@ export default function SirketlerPage() {
       <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-lg p-4 space-y-4">
         <div className="flex items-center gap-6 border-b border-[var(--line)] pb-3">
           <button
-            onClick={() => setSubTab("all")}
+            onClick={() => {
+              setSubTab("all");
+              setCurrentPage(1);
+            }}
             className={`font-mono text-xs uppercase tracking-wider pb-1 transition-colors cursor-pointer border-b-2 ${
               subTab === "all"
                 ? "border-[var(--brass)] text-[var(--brass)] font-bold"
@@ -283,7 +295,10 @@ export default function SirketlerPage() {
             Kütük ({companies.filter((c) => c.assetClass === assetTab).length})
           </button>
           <button
-            onClick={() => setSubTab("watchlist")}
+            onClick={() => {
+              setSubTab("watchlist");
+              setCurrentPage(1);
+            }}
             className={`font-mono text-xs uppercase tracking-wider pb-1 transition-colors cursor-pointer border-b-2 flex items-center gap-1.5 ${
               subTab === "watchlist"
                 ? "border-[var(--brass)] text-[var(--brass)] font-bold"
@@ -301,14 +316,20 @@ export default function SirketlerPage() {
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setCurrentPage(1);
+              }}
               placeholder="Şirket adı, sembol veya sektör ara..."
               className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded-md pl-10 pr-4 py-2 text-sm text-[var(--paper)] placeholder-[var(--mist)] focus:outline-none focus:border-[var(--brass)] font-sans"
             />
             <Search className="absolute left-3.5 top-2.5 w-4 h-4 text-[var(--mist)]" />
             {searchQuery && (
               <button
-                onClick={() => setSearchQuery("")}
+                onClick={() => {
+                  setSearchQuery("");
+                  setCurrentPage(1);
+                }}
                 className="absolute right-3 top-2.5 text-[var(--mist)] hover:text-[var(--paper)]"
               >
                 <X className="w-4 h-4" />
@@ -323,7 +344,10 @@ export default function SirketlerPage() {
             {filterPillOptions.map((pill) => (
               <button
                 key={pill.id}
-                onClick={() => setFilterPill(pill.id)}
+                onClick={() => {
+                  setFilterPill(pill.id);
+                  setCurrentPage(1);
+                }}
                 className={`text-xs px-3 py-1.5 rounded-full border transition-all cursor-pointer font-medium ${
                   filterPill === pill.id
                     ? "bg-[var(--brass)] text-[var(--ink)] border-[var(--brass)] font-semibold shadow-sm"
@@ -399,8 +423,9 @@ export default function SirketlerPage() {
                       >
                         {c.name}
                       </Link>
-                      <div className="text-xs text-[var(--mist)] font-mono">
-                        {c.symbol} • {c.sector}
+                      <div className="text-xs text-[var(--mist)] font-mono flex items-center gap-1.5 flex-wrap">
+                        <span>{c.symbol} • {c.sector}</span>
+                        <DataStatusBadge symbol={c.symbol} />
                       </div>
                     </div>
                   </div>
@@ -729,7 +754,7 @@ export default function SirketlerPage() {
                   </label>
                   <select
                     value={newAssetClass}
-                    onChange={(e) => setNewAssetClass(e.target.value as any)}
+                    onChange={(e) => setNewAssetClass(e.target.value as "hisse" | "maden" | "fon" | "doviz")}
                     className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2 text-xs text-[var(--paper)] outline-none"
                   >
                     <option value="hisse">Hisse Senedi</option>
@@ -745,7 +770,7 @@ export default function SirketlerPage() {
                   </label>
                   <select
                     value={newExchange}
-                    onChange={(e) => setNewExchange(e.target.value as any)}
+                    onChange={(e) => setNewExchange(e.target.value as "BIST" | "ABD" | "Avrupa" | "Emtia" | "Döviz")}
                     className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2 text-xs text-[var(--paper)] outline-none"
                   >
                     <option value="BIST">Borsa İstanbul (BIST)</option>

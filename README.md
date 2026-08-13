@@ -93,7 +93,7 @@ cp .env.example .env.local
 `.env.local` içeriği:
 ```env
 # Kasa Erişim Şifresi
-DEFTER_ACCESS_PASSWORD=defter2026
+DEFTER_ACCESS_PASSWORD=<kendi-sifreni-buraya-yaz>
 
 # Supabase Veritabanı
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co

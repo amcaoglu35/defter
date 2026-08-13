@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { X, ArrowDownRight, ArrowUpRight, DollarSign, Layers } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
+import { useToast } from "@/components/ToastProvider";
 
 interface TransactionModalProps {
   symbol: string;
@@ -20,6 +21,7 @@ export default function TransactionModal({
   onClose,
 }: TransactionModalProps) {
   const { addTransaction, baskets } = useDefterStore();
+  const { showToast } = useToast();
 
   const [type, setType] = useState<"BUY" | "SELL">("BUY");
   const [quantity, setQuantity] = useState("10");
@@ -37,7 +39,7 @@ export default function TransactionModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (numQty <= 0 || numPrice <= 0) return;
+    if (!targetBasketId || numQty <= 0 || numPrice <= 0) return;
 
     addTransaction(
       {
@@ -50,6 +52,12 @@ export default function TransactionModal({
         note: note.trim() || undefined,
       },
       targetBasketId
+    );
+
+    showToast(
+      "İşlem Kaydedildi",
+      `${symbol} ${type === "BUY" ? "Alış" : "Satış"} işlemi başarıyla eklendi.`,
+      "success"
     );
 
     onClose();
@@ -72,6 +80,12 @@ export default function TransactionModal({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {baskets.length === 0 && (
+          <div className="p-3 bg-[rgba(196,160,82,0.1)] border border-[var(--brass-dim)] rounded text-xs text-[var(--brass)] font-mono">
+            ⚠️ İşlem kaydedebileceğiniz aktif bir sepet bulunamadı. Lütfen önce &quot;Sepetlerim&quot; sayfasından bir sepet oluşturun.
+          </div>
+        )}
 
         {/* Buy / Sell Tab Buttons */}
         <div className="grid grid-cols-2 gap-2 p-1 bg-[var(--ink-3)] rounded-lg">
@@ -106,18 +120,32 @@ export default function TransactionModal({
           {/* Target Basket */}
           <div>
             <label className="block text-xs font-mono text-[var(--mist)] uppercase mb-1">
-              İlişkili Sepet
+              İlişkili Sepet <span className="text-[var(--loss)]">*</span>
             </label>
             <select
               value={targetBasketId}
               onChange={(e) => setTargetBasketId(e.target.value)}
+              required
               className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 text-xs text-[var(--paper)] font-mono focus:border-[var(--brass)] outline-none"
             >
-              {baskets.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
+              {baskets.length === 0 ? (
+                <option value="" disabled>
+                  -- Sepet Yok --
                 </option>
-              ))}
+              ) : (
+                <>
+                  {!targetBasketId && (
+                    <option value="" disabled>
+                      -- Hedef Sepet Seçin --
+                    </option>
+                  )}
+                  {baskets.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </>
+              )}
             </select>
           </div>
 
@@ -187,7 +215,8 @@ export default function TransactionModal({
             </button>
             <button
               type="submit"
-              className="flex-1 bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold py-2.5 rounded text-xs transition-transform active:scale-95"
+              disabled={!targetBasketId || numQty <= 0 || numPrice <= 0}
+              className="flex-1 bg-[var(--brass)] hover:bg-[#d9b35a] disabled:opacity-50 disabled:cursor-not-allowed text-[var(--ink)] font-bold py-2.5 rounded text-xs transition-transform active:scale-95 cursor-pointer"
             >
               İşlemi Kaydet &amp; Maliyeti Güncelle
             </button>

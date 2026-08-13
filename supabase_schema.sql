@@ -1,6 +1,10 @@
 -- =========================================================
 -- DEFTER — SUPABASE POSTGRESQL VERİTABANI ŞEMASI & TOHUM VERİ
 -- =========================================================
+-- ⚠️ UYARI: Bu dosya SADECE İLK KURULUM içindir.
+-- ⚠️ Gerçek veri girildikten sonra bu dosyayı BİR DAHA ASLA çalıştırmayın — DROP TABLE satırları tüm veriyi siler.
+-- ⚠️ Yeni tablo/alan eklemek için 'migrations/' klasörü altında ayrı bir migration dosyası oluşturun.
+-- =========================================================
 
 -- 1. Mevcut tabloları temizle (Tür uyumsuzluklarını gidermek için temiz kurulum)
 DROP TABLE IF EXISTS notifications CASCADE;
@@ -66,7 +70,7 @@ CREATE TABLE basket_holdings (
 -- 5. Alış & Satış İşlem Defteri (Transactions)
 CREATE TABLE transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    company_symbol TEXT NOT NULL REFERENCES companies(symbol) ON DELETE CASCADE,
+    company_symbol TEXT NOT NULL REFERENCES companies(symbol) ON DELETE RESTRICT,
     type TEXT NOT NULL, -- BUY, SELL
     quantity NUMERIC(15, 4) NOT NULL,
     price NUMERIC(15, 2) NOT NULL,
@@ -79,7 +83,7 @@ CREATE TABLE transactions (
 -- 6. Şirkete Özel Notlar
 CREATE TABLE notes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    company_symbol TEXT NOT NULL REFERENCES companies(symbol) ON DELETE CASCADE,
+    company_symbol TEXT NOT NULL REFERENCES companies(symbol) ON DELETE RESTRICT,
     note_text TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -142,14 +146,29 @@ ALTER TABLE ipos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Allow All on companies" ON companies FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow All on baskets" ON baskets FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow All on basket_holdings" ON basket_holdings FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow All on transactions" ON transactions FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow All on notes" ON notes FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow All on ipos" ON ipos FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow All on ai_history" ON ai_history FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow All on notifications" ON notifications FOR ALL USING (true) WITH CHECK (true);
+-- Strict Fail-Closed RLS Policies:
+-- Public/Anon key is explicitly denied read and write access on all tables.
+-- All database operations are mediated by the server-side Service Role key (SUPABASE_SERVICE_ROLE_KEY).
+CREATE POLICY "No Anon Access on companies" ON companies FOR ALL USING (false);
+CREATE POLICY "No Anon Access on baskets" ON baskets FOR ALL USING (false);
+CREATE POLICY "No Anon Access on basket_holdings" ON basket_holdings FOR ALL USING (false);
+CREATE POLICY "No Anon Access on transactions" ON transactions FOR ALL USING (false);
+CREATE POLICY "No Anon Access on notes" ON notes FOR ALL USING (false);
+CREATE POLICY "No Anon Access on ipos" ON ipos FOR ALL USING (false);
+CREATE POLICY "No Anon Access on ai_history" ON ai_history FOR ALL USING (false);
+CREATE POLICY "No Anon Access on notifications" ON notifications FOR ALL USING (false);
+
+-- =========================================================
+-- FİYAT ÖNBELLEĞİ (PRICE CACHE) TABLOSU
+-- =========================================================
+CREATE TABLE IF NOT EXISTS public.price_cache (
+    id TEXT PRIMARY KEY,
+    data JSONB NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE price_cache ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "No Anon Access on price_cache" ON price_cache FOR ALL USING (false);
 
 -- =========================================================
 -- BAŞLANGIÇ TOHUM VERİLERİ (SEED DATA)

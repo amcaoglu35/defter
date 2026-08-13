@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import StampBadge from "@/components/StampBadge";
+import DataStatusBadge from "@/components/DataStatusBadge";
 import TransactionModal from "@/components/TransactionModal";
 import ShareCardModal from "@/components/ShareCardModal";
 
@@ -40,18 +41,45 @@ export default function SirketDetayPage() {
     addNote,
     deleteNote,
     transactions,
-    apiKey,
     aiProvider,
   } = useDefterStore();
 
   const company =
-    companies.find((c) => c.symbol.toUpperCase() === symbol) || companies[0];
+    companies.find((c) => c.symbol.toUpperCase() === symbol);
 
-  const notes = companyNotes[company.symbol] || [];
   const [newNote, setNewNote] = useState("");
   const [txModalOpen, setTxModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
-  const [aiReport, setAiReport] = useState<any | null>(null);
+
+  if (!company) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-20 text-center space-y-4 font-mono">
+        <h2 className="font-serif text-3xl font-bold text-[var(--paper)]">
+          Şirket Bulunamadı
+        </h2>
+        <p className="text-xs text-[var(--mist)] max-w-md mx-auto leading-relaxed">
+          &quot;{symbol}&quot; kütüğe kayıtlı şirketler arasında bulunamadı. Silinmiş veya yanlış bir URL yazılmış olabilir.
+        </p>
+        <Link
+          href="/sirketler"
+          className="inline-flex items-center gap-2 bg-[var(--brass)] text-[var(--ink)] font-bold text-xs px-5 py-2.5 rounded hover:bg-[var(--brass-light)] transition-all cursor-pointer shadow-md"
+        >
+          Şirketler Kütüğüne Dön
+        </Link>
+      </div>
+    );
+  }
+
+  const notes = companyNotes[company.symbol] || [];
+interface CompanyDiagnosisReport {
+  valuationScore?: number | string;
+  verdict?: string;
+  whyMoved?: string;
+  pros?: string[];
+  risks?: string[];
+}
+
+  const [aiReport, setAiReport] = useState<CompanyDiagnosisReport | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
 
   const companyTransactions = transactions.filter(
@@ -74,7 +102,6 @@ export default function SirketDetayPage() {
         body: JSON.stringify({
           type: "company_analysis",
           payload: company,
-          apiKey,
           provider: aiProvider,
         }),
       });
@@ -155,11 +182,12 @@ export default function SirketDetayPage() {
             {company.symbol.slice(0, 3)}
           </div>
           <div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--paper)]">
                 {company.name}
               </h1>
               <StampBadge verdict={company.recommendation} />
+              <DataStatusBadge symbol={company.symbol} />
             </div>
             <div className="font-mono text-xs text-[var(--mist)] mt-1 flex items-center gap-2">
               <span className="text-[var(--brass)] font-semibold">{company.symbol}</span>
@@ -309,7 +337,7 @@ export default function SirketDetayPage() {
                 <div className="font-mono text-lg font-bold text-[var(--paper)] mt-1">
                   {company.marketCap || "453 Mr ₺"}
                 </div>
-                <span className="text-[10px] text-[var(--mist)]">Beta: {company.beta || 1.1}</span>
+                <span className="text-[10px] text-[var(--mist)]">Beta: {company.beta !== undefined ? company.beta : "-"}</span>
               </div>
             </div>
           </div>
@@ -358,7 +386,7 @@ export default function SirketDetayPage() {
                       Güçlü Yönler:
                     </span>
                     <ul className="mt-1 space-y-0.5 text-[var(--paper-dim)]">
-                      {aiReport.pros.map((p: string, i: number) => (
+                      {(aiReport.pros || []).map((p: string, i: number) => (
                         <li key={i}>✓ {p}</li>
                       ))}
                     </ul>
@@ -368,7 +396,7 @@ export default function SirketDetayPage() {
                       Riskler:
                     </span>
                     <ul className="mt-1 space-y-0.5 text-[var(--paper-dim)]">
-                      {aiReport.risks.map((r: string, i: number) => (
+                      {(aiReport.risks || []).map((r: string, i: number) => (
                         <li key={i}>✕ {r}</li>
                       ))}
                     </ul>

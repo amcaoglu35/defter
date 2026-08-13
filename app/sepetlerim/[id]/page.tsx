@@ -28,7 +28,7 @@ export default function SepetDetayPage() {
   const { baskets, removeHoldingFromBasket } = useDefterStore();
 
   const basket =
-    baskets.find((b) => b.id === basketId) || baskets[0];
+    baskets.find((b) => b.id === basketId);
 
   const [period, setPeriod] = useState<"1A" | "3A" | "6A" | "1Y">("6A");
   const [editModalOpen, setEditModalOpen] = useState(false);

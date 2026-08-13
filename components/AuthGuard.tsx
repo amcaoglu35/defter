@@ -9,13 +9,18 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    // Check local storage for existing session
-    const authState = localStorage.getItem("defter_auth_token");
-    if (authState === "authenticated_user") {
-      setIsAuthenticated(true);
-    } else {
-      setIsAuthenticated(false);
-    }
+    // Check server httpOnly cookie session
+    fetch("/api/auth")
+      .then((res) => {
+        if (res.ok) {
+          setIsAuthenticated(true);
+        } else {
+          setIsAuthenticated(false);
+        }
+      })
+      .catch(() => {
+        setIsAuthenticated(false);
+      });
   }, []);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -43,7 +48,6 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       const data = await res.json();
 
       if (res.ok && data.success) {
-        localStorage.setItem("defter_auth_token", data.token || "authenticated_user");
         setIsAuthenticated(true);
         setError(false);
       } else {

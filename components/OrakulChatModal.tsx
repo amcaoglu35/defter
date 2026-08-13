@@ -14,6 +14,15 @@ import {
 import { useDefterStore } from "@/lib/store";
 import { ChatMessage } from "@/lib/aiService";
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 interface OrakulChatModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -23,7 +32,7 @@ export default function OrakulChatModal({
   isOpen,
   onClose,
 }: OrakulChatModalProps) {
-  const { companies, baskets, dividends, apiKey, aiProvider, aiAccuracyStats, aiHistory } = useDefterStore();
+  const { companies, baskets, dividends, aiProvider, aiAccuracyStats, aiHistory, addAiHistory } = useDefterStore();
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -80,17 +89,29 @@ export default function OrakulChatModal({
             })),
           },
           history: aiHistory,
-          apiKey,
           provider: aiProvider,
         }),
       });
 
       if (res.ok) {
         const data = await res.json();
+        const replyText = data.reply || "Analiz tamamlandı.";
         setMessages([
           ...newMessages,
-          { role: "assistant", content: data.reply || "Analiz tamamlandı." },
+          { role: "assistant", content: replyText },
         ]);
+
+        // Save conversation summary to aiHistory for persistence & history tab
+        addAiHistory({
+          id: `ai-chat-${Date.now()}`,
+          date: new Date().toLocaleDateString("tr-TR"),
+          type: "Sohbet Analizi",
+          title: `Soru: ${query.slice(0, 45)}${query.length > 45 ? "..." : ""}`,
+          description: replyText,
+          verdictTag: "DENGELİ",
+          verdict: "DENGELİ",
+          targetPeriodDays: 30,
+        });
       } else {
         setMessages([
           ...newMessages,
@@ -177,7 +198,7 @@ export default function OrakulChatModal({
                 {/* Format markdown-like bold text */}
                 <div
                   dangerouslySetInnerHTML={{
-                    __html: m.content
+                    __html: escapeHtml(m.content)
                       .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
                       .replace(/\n/g, "<br />"),
                   }}

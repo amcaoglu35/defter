@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import { X, Download, Copy, Check, Sparkles, Share2 } from "lucide-react";
+import { X, Download, Copy, Check, Sparkles, Share2, Loader2 } from "lucide-react";
+import { toPng } from "html-to-image";
 import StampBadge from "./StampBadge";
 
 interface ShareCardModalProps {
@@ -31,6 +32,7 @@ export default function ShareCardModal({
 }: ShareCardModalProps) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   if (!isOpen) return null;
 
@@ -39,6 +41,22 @@ export default function ShareCardModal({
     navigator.clipboard.writeText(textToCopy);
     setCopied(true);
     setTimeout(() => setCopied(false), 3000);
+  };
+
+  const handleDownloadImage = async () => {
+    if (!cardRef.current) return;
+    try {
+      setIsDownloading(true);
+      const dataUrl = await toPng(cardRef.current, { cacheBust: true, pixelRatio: 2 });
+      const link = document.createElement("a");
+      link.download = `Defter-Yatirim-Karti-${title.replace(/\s+/g, "_")}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error("Görsel indirilirken hata oluştu:", err);
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   return (
@@ -135,15 +153,33 @@ export default function ShareCardModal({
         </div>
 
         {/* Modal Actions */}
-        <div className="flex gap-3">
+        <div className="flex flex-wrap sm:flex-nowrap gap-2.5">
+          <button
+            onClick={handleDownloadImage}
+            disabled={isDownloading}
+            className="flex-1 bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold py-2.5 px-3 rounded-lg text-xs font-mono flex items-center justify-center gap-2 cursor-pointer transition-colors disabled:opacity-50"
+          >
+            {isDownloading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Hazırlanıyor...</span>
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4" />
+                <span>Görsel İndir</span>
+              </>
+            )}
+          </button>
+
           <button
             onClick={handleCopyText}
-            className="flex-1 bg-[var(--ink-3)] border border-[var(--line)] hover:border-[var(--brass)] text-[var(--paper)] py-2.5 rounded-lg text-xs font-mono flex items-center justify-center gap-2 cursor-pointer transition-colors"
+            className="flex-1 bg-[var(--ink-3)] border border-[var(--line)] hover:border-[var(--brass)] text-[var(--paper)] py-2.5 px-3 rounded-lg text-xs font-mono flex items-center justify-center gap-2 cursor-pointer transition-colors"
           >
             {copied ? (
               <>
                 <Check className="w-4 h-4 text-[var(--verdigris)]" />
-                <span>Panoya Kopyalandı!</span>
+                <span>Kopyalandı!</span>
               </>
             ) : (
               <>
@@ -155,7 +191,7 @@ export default function ShareCardModal({
 
           <button
             onClick={onClose}
-            className="bg-[var(--brass)] text-[var(--ink)] font-bold px-5 py-2.5 rounded-lg text-xs hover:bg-[#d9b35a] cursor-pointer"
+            className="bg-[var(--ink-3)] border border-[var(--line)] text-[var(--paper-dim)] hover:text-[var(--paper)] font-bold px-4 py-2.5 rounded-lg text-xs cursor-pointer transition-colors"
           >
             Kapat
           </button>

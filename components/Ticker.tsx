@@ -19,7 +19,12 @@ export default function Ticker() {
         { symbol: "BIST 30", price: "10.720,10", change: "+1.65%", isPositive: true },
       ];
 
-  const companyItems = (companies || []).map((c) => ({
+  // Prioritize watchlist companies first, then fill with other companies up to 25 items total
+  const watchlistCompanies = (companies || []).filter((c) => c.inWatchlist);
+  const otherCompanies = (companies || []).filter((c) => !c.inWatchlist);
+  const selectedCompanies = [...watchlistCompanies, ...otherCompanies].slice(0, 25);
+
+  const companyItems = selectedCompanies.map((c) => ({
     symbol: c.symbol,
     price: `${c.price.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ${c.currency}`,
     change: `${c.dailyChange >= 0 ? "+" : ""}${c.dailyChange}%`,
@@ -34,7 +39,7 @@ export default function Ticker() {
         {/* Double the list for infinite seamless marquee */}
         {[...tickerItems, ...tickerItems].map((item, idx) => (
           <div
-            key={idx}
+            key={`${item.symbol}-${idx}`}
             className="inline-flex items-center gap-2 text-[var(--paper-dim)] hover:text-[var(--paper)] transition-colors"
           >
             <span className="font-bold text-[var(--paper)]">{item.symbol}</span>

@@ -31,6 +31,7 @@ import OracleSeal from "@/components/OracleSeal";
 import StampBadge from "@/components/StampBadge";
 import { useDefterStore } from "@/lib/store";
 import { AiHistoryItem, Basket } from "@/lib/mockData";
+import { useToast } from "@/components/ToastProvider";
 
 export default function OrakulPage() {
   const {
@@ -41,11 +42,11 @@ export default function OrakulPage() {
     createBasket,
     companies,
     baskets,
-    apiKey,
     aiProvider,
   } = useDefterStore();
+  const { showToast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<"wizard" | "company" | "sentiment" | "anomaly">("wizard");
+  const [activeTab, setActiveTab] = useState<"wizard" | "company" | "sentiment" | "anomaly" | "portfolio">("wizard");
 
   // Wizard state
   const [goal, setGoal] = useState("Temettü Odaklı Nakit Akışı");
@@ -53,13 +54,46 @@ export default function OrakulPage() {
   const [universe, setUniverse] = useState("BIST 30 & Emtia");
   const [budget, setBudget] = useState("100.000");
 
+interface OrakulRecipeResult {
+  title?: string;
+  recipeTitle?: string;
+  summary?: string;
+  healthScore?: number | string;
+  expectedYield?: string;
+  recommendedDuration?: string;
+  riskRating?: string;
+  allocation?: Array<{
+    symbol: string;
+    companyName?: string;
+    name?: string;
+    weight: number;
+    note?: string;
+    rationale?: string;
+  }>;
+}
+
+interface CompanyAnalysisResult {
+  symbol?: string;
+  companyName?: string;
+  verdict?: "AL" | "SAT" | "TUT" | "NÖTR" | "YÜKSEK RİSK" | "DENGELİ";
+  valuationScore?: number | string;
+  targetPrice?: number | string;
+  summary?: string;
+  whyMoved?: string;
+  pastFeedbackSummary?: string;
+  metrics?: Array<{ label: string; value: string }>;
+  pros?: string[];
+  risks?: string[];
+  catalysts?: string[];
+}
+
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any | null>(null);
+  const [result, setResult] = useState<OrakulRecipeResult | null>(null);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   // Company Deep-Dive state
   const [selectedCoSymbol, setSelectedCoSymbol] = useState(companies[0]?.symbol || "THYAO");
-  const [companyAnalysis, setCompanyAnalysis] = useState<any | null>(null);
+  const [companyAnalysis, setCompanyAnalysis] = useState<CompanyAnalysisResult | null>(null);
   const [companyLoading, setCompanyLoading] = useState(false);
 
   // History Filter state
@@ -83,7 +117,6 @@ export default function OrakulPage() {
             universe,
             budget: parseFloat(budget.replace(/\./g, "")) || 100000,
           },
-          apiKey,
           provider: aiProvider,
         }),
       });
@@ -91,18 +124,26 @@ export default function OrakulPage() {
       if (res.ok) {
         const data = await res.json();
         setResult(data.data);
+        showToast("Orakul Reçetesi Hazır", `${goal} için özel varlık dağılımı hesaplandı.`, "success");
+      } else {
+        showToast("Reçete Oluşturulamadı", "Yapay zeka motoru yanıt verirken bir sorun oluştu.", "error");
       }
     } catch (e) {
       console.warn("Recipe generation error:", e);
+      showToast("Bağlantı Hatası", "Sunucu ile iletişim kurulamadı.", "error");
     } finally {
       setLoading(false);
     }
   };
 
   const handleCompanyAnalyze = async () => {
+    const co = companies.find((c) => c.symbol === selectedCoSymbol);
+    if (!co) {
+      showToast("Şirket Bulunamadı", "Analiz etmek istediğiniz şirket kütükte kayıtlı değil.", "error");
+      return;
+    }
     setCompanyLoading(true);
     try {
-      const co = companies.find((c) => c.symbol === selectedCoSymbol);
       const res = await fetch("/api/orakul", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -110,7 +151,6 @@ export default function OrakulPage() {
           type: "company_analysis",
           payload: co,
           history: aiHistory,
-          apiKey,
           provider: aiProvider,
         }),
       });
@@ -118,6 +158,7 @@ export default function OrakulPage() {
       if (res.ok) {
         const data = await res.json();
         setCompanyAnalysis(data.data);
+        showToast("Analiz Tamamlandı", `${co?.name || selectedCoSymbol} için değerleme raporu hazırlandı.`, "success");
 
         // Record analysis into aiHistory for persistent feedback tracking
         if (data.data) {
@@ -137,9 +178,12 @@ export default function OrakulPage() {
           };
           addAiHistory(newHist);
         }
+      } else {
+        showToast("Analiz Başarısız", "Şirket verisi analiz edilirken bir sorun yaşandı.", "error");
       }
     } catch (e) {
       console.warn("Company analyze error:", e);
+      showToast("Bağlantı Hatası", "Sunucu bağlantısında sorun oluştu.", "error");
     } finally {
       setCompanyLoading(false);
     }
@@ -161,22 +205,22 @@ export default function OrakulPage() {
       totalCost: budgetNum,
       dailyChange: 0.0,
       totalProfitPercent: 0.0,
-      description: result.summary,
+      description: result.summary || "",
       aiNote: "Orakul AI yapay zeka reçetesi tarafından otomatik oluşturulmuştur.",
-      holdings: result.allocation.map((item: any) => {
-        const co = companies.find((c) => c.symbol === item.symbol);
-        const price = co ? co.price : 100;
-        const allocatedMoney = (budgetNum * item.weight) / 100;
-        const qty = parseFloat((allocatedMoney / price).toFixed(1));
+      holdings: (result.allocation || []).map((item) => {
+            const co = companies.find((c) => c.symbol === item.symbol);
+            const price = co ? co.price : 100;
+            const allocatedMoney = (budgetNum * item.weight) / 100;
+            const qty = parseFloat((allocatedMoney / price).toFixed(1));
 
-        return {
-          companySymbol: item.symbol,
-          weightPercent: item.weight,
-          quantity: qty,
-          avgCost: price,
-          currentPrice: price,
-        };
-      }),
+            return {
+              companySymbol: item.symbol,
+              weightPercent: item.weight,
+              quantity: qty,
+              avgCost: price,
+              currentPrice: price,
+            };
+          }),
     };
 
     createBasket(newBasket);
@@ -190,16 +234,18 @@ export default function OrakulPage() {
       verdictTag: "DENGELİ",
       verdict: "DENGELİ",
       verdictDate: new Date().toISOString().split("T")[0],
-      priceAtVerdict: budgetNum,
+      budgetAtCreation: budgetNum,
       outcomeCorrect: null,
       targetPeriodDays: 30,
     };
     addAiHistory(newHist);
+    showToast("Sepet Oluşturuldu", `${newBasket.name} sepetlerinize kaydedildi.`, "success");
   };
 
   const handleEvaluateOutcomes = () => {
     setEvaluating(true);
     evaluateAiOutcomes();
+    showToast("Karneler Güncellendi", "Süresi dolan AI tahminlerinin isabet durumları kontrol edildi.", "info");
     setTimeout(() => setEvaluating(false), 800);
   };
 
@@ -242,7 +288,7 @@ export default function OrakulPage() {
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
+                onClick={() => setActiveTab(tab.id as "portfolio" | "company" | "sentiment" | "anomaly")}
                 className={`flex items-center gap-2 px-4 py-2 rounded-md text-xs font-mono font-medium transition-all cursor-pointer ${
                   activeTab === tab.id
                     ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow"
@@ -410,7 +456,7 @@ export default function OrakulPage() {
                   Varlık Dağılım Matrisi
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {result.allocation.map((item: any, idx: number) => (
+                  {(result.allocation || []).map((item, idx: number) => (
                     <div
                       key={idx}
                       className="p-3 bg-[var(--ink-3)] border border-[var(--line)] rounded-md flex items-center justify-between gap-3"
@@ -421,10 +467,10 @@ export default function OrakulPage() {
                         </div>
                         <div>
                           <div className="font-semibold text-xs text-[var(--paper)]">
-                            {item.name}
+                            {item.companyName || item.name || item.symbol}
                           </div>
                           <div className="text-[11px] text-[var(--mist)] line-clamp-1">
-                            {item.note}
+                            {item.rationale || item.note || ""}
                           </div>
                         </div>
                       </div>
@@ -513,7 +559,7 @@ export default function OrakulPage() {
                   </div>
                 </div>
 
-                <StampBadge verdict={companyAnalysis.verdict as any} />
+                <StampBadge verdict={(companyAnalysis as Record<string, unknown>).verdict as "AL" | "SAT" | "TUT" | "NÖTR" | "YÜKSEK RİSK" | "DENGELİ"} />
               </div>
 
               {/* Feedback Loop Context Banner */}
@@ -544,7 +590,7 @@ export default function OrakulPage() {
                     Güçlü Yönler (Pros)
                   </h5>
                   <ul className="text-xs space-y-1 text-[var(--paper-dim)]">
-                    {companyAnalysis.pros.map((p: string, i: number) => (
+                    {(companyAnalysis.pros || []).map((p: string, i: number) => (
                       <li key={i}>✓ {p}</li>
                     ))}
                   </ul>
@@ -555,7 +601,7 @@ export default function OrakulPage() {
                     Risk Faktörleri (Risks)
                   </h5>
                   <ul className="text-xs space-y-1 text-[var(--paper-dim)]">
-                    {companyAnalysis.risks.map((r: string, i: number) => (
+                    {(companyAnalysis.risks || []).map((r: string, i: number) => (
                       <li key={i}>✕ {r}</li>
                     ))}
                   </ul>
@@ -764,7 +810,7 @@ export default function OrakulPage() {
           ].map((f) => (
             <button
               key={f.id}
-              onClick={() => setHistoryFilter(f.id as any)}
+              onClick={() => setHistoryFilter(f.id as "all" | "correct" | "incorrect" | "pending")}
               className={`px-3 py-1 rounded text-xs font-mono transition-all cursor-pointer ${
                 historyFilter === f.id
                   ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow"
@@ -803,7 +849,7 @@ export default function OrakulPage() {
                       <span className="font-mono text-xs font-bold text-[var(--brass)]">
                         {h.symbol || h.type}
                       </span>
-                      <StampBadge verdict={(h.verdict || h.verdictTag) as any} />
+                      <StampBadge verdict={(h.verdict || h.verdictTag) as "AL" | "SAT" | "TUT" | "NÖTR" | "YÜKSEK RİSK" | "DENGELİ"} />
                     </div>
                     <div className="font-medium text-xs text-[var(--paper)] mt-0.5 line-clamp-1">
                       {h.title}

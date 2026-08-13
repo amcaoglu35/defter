@@ -7,7 +7,7 @@ interface StampBadgeProps {
 
 export default function StampBadge({ verdict, className = "" }: StampBadgeProps) {
   let styleClass = "stamp-notr";
-  let label = verdict;
+  const label = verdict;
 
   if (verdict === "AL") {
     styleClass = "stamp-al";

@@ -1,0 +1,50 @@
+-- =========================================================
+-- DEFTER — SUPABASE İLERİ MİGRASYON #001
+-- =========================================================
+-- ⚠️ GÜVENLİK KURALI: Bu migration dosyası mevcuttaki verileri KORUR.
+-- ⚠️ 'DROP TABLE' veya yıkıcı komut İÇERMEZ.
+-- ⚠️ Sadece eksik tabloları 'CREATE TABLE IF NOT EXISTS' ile ekler.
+-- =========================================================
+
+-- 1. Kullanıcı Ayarları Tablosu
+CREATE TABLE IF NOT EXISTS public.user_settings (
+    id TEXT PRIMARY KEY DEFAULT 'default',
+    user_name TEXT NOT NULL DEFAULT 'Defter Sahibi',
+    currency TEXT NOT NULL DEFAULT '₺ TRY',
+    price_alerts BOOLEAN NOT NULL DEFAULT true,
+    ipo_alerts BOOLEAN NOT NULL DEFAULT true,
+    dividend_alerts BOOLEAN NOT NULL DEFAULT true,
+    oracle_alerts BOOLEAN NOT NULL DEFAULT true,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "No Anon Access on user_settings" ON user_settings FOR ALL USING (false);
+
+-- 2. Fiyat Alarmları Tablosu
+CREATE TABLE IF NOT EXISTS public.price_alerts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    company_symbol TEXT NOT NULL REFERENCES companies(symbol) ON DELETE CASCADE,
+    target_price NUMERIC(15, 2) NOT NULL,
+    condition TEXT NOT NULL DEFAULT 'ABOVE', -- ABOVE, BELOW
+    triggered BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE price_alerts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "No Anon Access on price_alerts" ON price_alerts FOR ALL USING (false);
+
+-- 3. Temettü Projeksiyonları Tablosu
+CREATE TABLE IF NOT EXISTS public.dividends (
+    id TEXT PRIMARY KEY,
+    company_symbol TEXT NOT NULL REFERENCES companies(symbol) ON DELETE CASCADE,
+    company_name TEXT NOT NULL,
+    payment_date DATE NOT NULL,
+    net_amount_per_share NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
+    yield_percent NUMERIC(5, 2) NOT NULL DEFAULT 0.00,
+    status TEXT NOT NULL DEFAULT 'Yaklaşıyor', -- Yaklaşıyor, Ödendi, Açıklanacak
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE dividends ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "No Anon Access on dividends" ON dividends FOR ALL USING (false);
