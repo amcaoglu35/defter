@@ -89,21 +89,10 @@ export async function POST(req: Request) {
         );
       }
 
-      const newSessionToken = await createSessionToken(newPassword);
-      const response = NextResponse.json({
+      return NextResponse.json({
         success: true,
         message: "Mevcut şifreniz doğrulandı. Sunucu seviyesinde kalıcı değişim için Vercel panelinizden DEFTER_ACCESS_PASSWORD ortam değişkenini güncelleyin.",
       });
-
-      response.cookies.set(SESSION_COOKIE_NAME, newSessionToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: "/",
-        maxAge: 60 * 60 * 24 * 7,
-      });
-
-      return response;
     }
 
     const { password } = body;

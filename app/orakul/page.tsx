@@ -256,15 +256,40 @@ interface CompanyAnalysisResult {
     return true;
   });
 
+  const [aiStatus, setAiStatus] = useState<{ isRealAiActive: boolean; modeText: string } | null>(null);
+
+  React.useEffect(() => {
+    fetch("/api/orakul")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success) setAiStatus({ isRealAiActive: d.isRealAiActive, modeText: d.modeText });
+      })
+      .catch(() => {});
+  }, []);
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-10">
       {/* 1. Orakul Hero Section with Rings & Seal */}
       <section className="relative text-center py-8 border-b border-[var(--line)] flex flex-col items-center">
         <OracleSeal size="lg" />
 
-        <div className="inline-flex items-center gap-2 font-mono text-xs text-[var(--brass)] tracking-widest uppercase mb-3 bg-[var(--brass-glow)] px-3 py-1 rounded-xs border border-[var(--brass-dim)]">
-          <Brain className="w-3.5 h-3.5" />
-          <span>Yapay Zeka Analiz &amp; Karar Motoru</span>
+        <div className="flex flex-wrap items-center justify-center gap-2 mb-3">
+          <div className="inline-flex items-center gap-2 font-mono text-xs text-[var(--brass)] tracking-widest uppercase bg-[var(--brass-glow)] px-3 py-1 rounded-xs border border-[var(--brass-dim)]">
+            <Brain className="w-3.5 h-3.5" />
+            <span>Yapay Zeka Analiz &amp; Karar Motoru</span>
+          </div>
+
+          {aiStatus && (
+            <span
+              className={`font-mono text-[10px] font-bold px-2.5 py-1 rounded border ${
+                aiStatus.isRealAiActive
+                  ? "bg-[rgba(91,140,123,0.2)] text-[var(--verdigris)] border-[var(--verdigris)]"
+                  : "bg-[var(--ink-3)] text-[var(--brass)] border-[var(--brass-dim)]"
+              }`}
+            >
+              {aiStatus.modeText}
+            </span>
+          )}
         </div>
 
         <h1 className="font-serif text-3xl sm:text-5xl font-medium tracking-tight text-[var(--paper)] max-w-3xl leading-snug">

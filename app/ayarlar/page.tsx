@@ -43,13 +43,15 @@ export default function AyarlarPage() {
 
   const [userName, setUserName] = useState(userSettings?.userName || "Defter Sahibi");
   const [currency, setCurrency] = useState(userSettings?.currency || "₺ TRY");
+  const [prevUserSettings, setPrevUserSettings] = useState(userSettings);
 
-  React.useEffect(() => {
+  if (userSettings !== prevUserSettings) {
+    setPrevUserSettings(userSettings);
     if (userSettings) {
       setUserName(userSettings.userName);
       setCurrency(userSettings.currency);
     }
-  }, [userSettings]);
+  }
 
   // AI states
   const [selectedProvider, setSelectedProvider] = useState(aiProvider || "gemini");

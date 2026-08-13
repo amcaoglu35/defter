@@ -79,3 +79,17 @@ export async function POST(req: Request) {
     return formatApiError(error, "Orakul AI analizi sırasında bir hata oluştu.");
   }
 }
+
+export async function GET() {
+  const hasGemini = Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim().length > 10);
+  const hasOpenAI = Boolean(process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim().length > 10);
+
+  return NextResponse.json({
+    success: true,
+    geminiConfigured: hasGemini,
+    openaiConfigured: hasOpenAI,
+    isRealAiActive: hasGemini || hasOpenAI,
+    activeProvider: hasGemini ? "gemini" : hasOpenAI ? "openai" : "fallback",
+    modeText: (hasGemini || hasOpenAI) ? "GERÇEK AI AKTİF" : "ŞABLON MODU / YEDEK",
+  });
+}

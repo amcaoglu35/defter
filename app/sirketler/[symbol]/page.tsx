@@ -29,6 +29,14 @@ import DataStatusBadge from "@/components/DataStatusBadge";
 import TransactionModal from "@/components/TransactionModal";
 import ShareCardModal from "@/components/ShareCardModal";
 
+interface CompanyDiagnosisReport {
+  valuationScore?: number | string;
+  verdict?: string;
+  whyMoved?: string;
+  pros?: string[];
+  risks?: string[];
+}
+
 export default function SirketDetayPage() {
   const params = useParams();
   const router = useRouter();
@@ -50,6 +58,8 @@ export default function SirketDetayPage() {
   const [newNote, setNewNote] = useState("");
   const [txModalOpen, setTxModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [aiReport, setAiReport] = useState<CompanyDiagnosisReport | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
 
   if (!company) {
     return (
@@ -71,16 +81,6 @@ export default function SirketDetayPage() {
   }
 
   const notes = companyNotes[company.symbol] || [];
-interface CompanyDiagnosisReport {
-  valuationScore?: number | string;
-  verdict?: string;
-  whyMoved?: string;
-  pros?: string[];
-  risks?: string[];
-}
-
-  const [aiReport, setAiReport] = useState<CompanyDiagnosisReport | null>(null);
-  const [aiLoading, setAiLoading] = useState(false);
 
   const companyTransactions = transactions.filter(
     (t) => t.companySymbol === company.symbol
