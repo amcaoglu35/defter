@@ -28,6 +28,7 @@ import StampBadge from "@/components/StampBadge";
 import DataStatusBadge from "@/components/DataStatusBadge";
 import TransactionModal from "@/components/TransactionModal";
 import ShareCardModal from "@/components/ShareCardModal";
+import { isLiveSymbol } from "@/lib/liveSymbols";
 
 interface CompanyDiagnosisReport {
   valuationScore?: number | string;
@@ -187,7 +188,7 @@ export default function SirketDetayPage() {
                 {company.name}
               </h1>
               <StampBadge verdict={company.recommendation} />
-              <DataStatusBadge symbol={company.symbol} />
+              <DataStatusBadge symbol={company.symbol} isLive={isLiveSymbol(company.symbol)} />
             </div>
             <div className="font-mono text-xs text-[var(--mist)] mt-1 flex items-center gap-2">
               <span className="text-[var(--brass)] font-semibold">{company.symbol}</span>

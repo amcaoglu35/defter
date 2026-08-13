@@ -19,6 +19,7 @@ import { Company } from "@/lib/mockData";
 import StampBadge from "@/components/StampBadge";
 import DataStatusBadge from "@/components/DataStatusBadge";
 import { useToast } from "@/components/ToastProvider";
+import { isLiveSymbol } from "@/lib/liveSymbols";
 
 export default function SirketlerPage() {
   const { companies, addCompany, deleteCompany, toggleWatchlist, transactions, baskets } =
@@ -425,7 +426,7 @@ export default function SirketlerPage() {
                       </Link>
                       <div className="text-xs text-[var(--mist)] font-mono flex items-center gap-1.5 flex-wrap">
                         <span>{c.symbol} • {c.sector}</span>
-                        <DataStatusBadge symbol={c.symbol} />
+                        <DataStatusBadge symbol={c.symbol} isLive={isLiveSymbol(c.symbol)} />
                       </div>
                     </div>
                   </div>
