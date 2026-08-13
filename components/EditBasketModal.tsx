@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Plus, Trash2, Sliders, Check } from "lucide-react";
+import { X, Plus, Trash2, Sliders, Check, Sparkles, DollarSign } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
-import { Basket } from "@/lib/mockData";
+import { Basket, Company } from "@/lib/mockData";
 import { useToast } from "@/components/ToastProvider";
+import CompanyCombobox from "@/components/CompanyCombobox";
 
 interface EditBasketModalProps {
   basket: Basket;
@@ -42,22 +43,25 @@ export default function EditBasketModal({
 
   if (!isOpen) return null;
 
+  const currentCo = companies.find((c) => c.symbol === selectedAddSymbol);
+  const parsedQty = parseFloat(addQty) || 0;
+  const estimatedCost = currentCo ? parsedQty * currentCo.price : 0;
+
   const handleAddHolding = (e: React.FormEvent) => {
     e.preventDefault();
-    const co = companies.find((c) => c.symbol === selectedAddSymbol);
-    if (!co) return;
+    if (!currentCo || parsedQty <= 0) return;
 
     addHoldingToBasket(basket.id, {
-      companySymbol: co.symbol,
-      quantity: parseFloat(addQty) || 10,
+      companySymbol: currentCo.symbol,
+      quantity: parsedQty,
       weightPercent: parseFloat(addWeight) || 15,
-      avgCost: co.price,
-      currentPrice: co.price,
+      avgCost: currentCo.price,
+      currentPrice: currentCo.price,
     });
 
     showToast(
       "Varlık Eklendi",
-      `${co.symbol} (${parseFloat(addQty) || 10} Lot) ${basket.name} sepetine eklendi.`,
+      `${currentCo.symbol} (${parsedQty} Lot) ${basket.name} sepetine eklendi.`,
       "success"
     );
   };
@@ -85,16 +89,21 @@ export default function EditBasketModal({
 
         {/* Existing Holdings List */}
         <div className="space-y-3">
-          <h4 className="font-mono text-xs text-[var(--brass)] uppercase tracking-wider">
-            Mevcut Varlıklar ({basket.holdings.length})
-          </h4>
+          <div className="flex items-center justify-between">
+            <h4 className="font-mono text-xs text-[var(--brass)] uppercase tracking-wider">
+              Mevcut Varlıklar ({basket.holdings.length})
+            </h4>
+            <span className="font-mono text-xs text-[var(--mist)]">
+              Toplam Değer: {basket.totalValue.toLocaleString("tr-TR")} ₺
+            </span>
+          </div>
 
           {basket.holdings.length === 0 ? (
             <p className="text-xs text-[var(--mist)] py-4 text-center border border-dashed border-[var(--line)] rounded">
-              Bu sepette henüz varlık yok. Aşağıdan yeni hisse ekleyebilirsiniz.
+              Bu sepette henüz varlık yok. Aşağıdan arama yaparak yeni hisse ekleyebilirsiniz.
             </p>
           ) : (
-            <div className="divide-y divide-dashed divide-[var(--line)] border border-[var(--line)] rounded-lg p-3 bg-[var(--ink-3)]">
+            <div className="divide-y divide-dashed divide-[var(--line)] border border-[var(--line)] rounded-lg p-3 bg-[var(--ink-3)] max-h-48 overflow-y-auto">
               {basket.holdings.map((h) => (
                 <div
                   key={h.companySymbol}
@@ -105,7 +114,7 @@ export default function EditBasketModal({
                       {h.companySymbol}
                     </span>
                     <div className="text-[11px] text-[var(--mist)]">
-                      {h.quantity} Lot • Maliyet: {h.avgCost.toFixed(2)} ₺
+                      {h.quantity} Lot • Maliyet: {h.avgCost.toFixed(2)} ₺ • Anlık: {(h.quantity * (h.currentPrice || h.avgCost)).toLocaleString("tr-TR")} ₺
                     </div>
                   </div>
 
@@ -130,7 +139,7 @@ export default function EditBasketModal({
                       onClick={() =>
                         removeHoldingFromBasket(basket.id, h.companySymbol)
                       }
-                      className="text-[var(--mist)] hover:text-[var(--loss)] p-1 transition-colors"
+                      className="text-[var(--mist)] hover:text-[var(--loss)] p-1 transition-colors cursor-pointer"
                       title="Sepetten Çıkar"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -142,65 +151,81 @@ export default function EditBasketModal({
           )}
         </div>
 
-        {/* Add Holding Form */}
+        {/* Modern Add Holding Form with CompanyCombobox */}
         <form
           onSubmit={handleAddHolding}
-          className="bg-[var(--ink-3)] border border-[var(--line)] p-4 rounded-lg space-y-3"
+          className="bg-[var(--ink-3)] border border-[var(--brass-dim)] p-4 rounded-xl space-y-4 shadow-inner"
         >
-          <div className="flex items-center gap-1.5 font-mono text-xs text-[var(--brass)] uppercase font-semibold">
-            <Plus className="w-4 h-4" />
-            <span>Sepete Yeni Şirket Ekle</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 font-mono text-xs text-[var(--brass)] uppercase font-semibold">
+              <Plus className="w-4 h-4" />
+              <span>Sepete Yeni Şirket / Varlık Ekle</span>
+            </div>
+            {currentCo && (
+              <span className="font-mono text-xs text-[var(--verdigris)] font-bold">
+                Tutar: ~{estimatedCost.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺
+              </span>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <label className="block text-[11px] font-mono text-[var(--mist)] uppercase mb-1">
-                Şirket / Varlık
-              </label>
-              <select
-                value={selectedAddSymbol}
-                onChange={(e) => setSelectedAddSymbol(e.target.value)}
-                className="w-full bg-[var(--ink-2)] border border-[var(--line)] rounded p-2 text-xs text-[var(--paper)] font-mono outline-none"
-              >
-                {companies.map((c) => (
-                  <option key={c.symbol} value={c.symbol}>
-                    {c.symbol} — {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+          {/* Search-as-you-type Combobox */}
+          <CompanyCombobox
+            companies={companies}
+            selectedSymbol={selectedAddSymbol}
+            onSelect={(co) => setSelectedAddSymbol(co.symbol)}
+            label="Şirket / Varlık Arayın veya Seçin"
+          />
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-mono text-[var(--mist)] uppercase mb-1">
-                Adet (Lot)
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-mono text-[var(--mist)] uppercase">
+                  Adet (Lot)
+                </label>
+                {/* Quick lot increment chips */}
+                <div className="flex items-center gap-1">
+                  {[10, 50, 100, 500].map((quick) => (
+                    <button
+                      key={quick}
+                      type="button"
+                      onClick={() => setAddQty(quick.toString())}
+                      className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--ink-2)] hover:bg-[var(--ink)] border border-[var(--line)] text-[var(--mist)] hover:text-[var(--brass)] cursor-pointer"
+                    >
+                      +{quick}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <input
                 type="number"
+                min="1"
                 value={addQty}
                 onChange={(e) => setAddQty(e.target.value)}
-                className="w-full bg-[var(--ink-2)] border border-[var(--line)] rounded p-2 text-xs text-[var(--paper)] font-mono outline-none"
+                className="w-full bg-[var(--ink-2)] border border-[var(--line)] rounded p-2 text-xs text-[var(--paper)] font-mono outline-none focus:border-[var(--brass)]"
               />
             </div>
 
             <div>
               <label className="block text-[11px] font-mono text-[var(--mist)] uppercase mb-1">
-                Ağırlık (%)
+                Hedef Portföy Ağırlığı (%)
               </label>
               <input
                 type="number"
+                min="1"
+                max="100"
                 value={addWeight}
                 onChange={(e) => setAddWeight(e.target.value)}
-                className="w-full bg-[var(--ink-2)] border border-[var(--line)] rounded p-2 text-xs text-[var(--paper)] font-mono outline-none"
+                className="w-full bg-[var(--ink-2)] border border-[var(--line)] rounded p-2 text-xs text-[var(--paper)] font-mono outline-none focus:border-[var(--brass)]"
               />
             </div>
           </div>
 
           <button
             type="submit"
-            className="w-full bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold text-xs py-2 rounded flex items-center justify-center gap-1.5 cursor-pointer"
+            className="w-full bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold text-xs py-2.5 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer shadow transition-all active:scale-[0.99]"
           >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Sepete Ekle</span>
+            <Plus className="w-4 h-4" />
+            <span>{selectedAddSymbol} ({addQty} Lot) Sepete Ekle</span>
           </button>
         </form>
 

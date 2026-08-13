@@ -159,9 +159,24 @@ export default function TransactionModal({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-mono text-[var(--mist)] uppercase mb-1">
-                Lot / Adet
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-mono text-[var(--mist)] uppercase">
+                  Lot / Adet
+                </label>
+                {/* Quick lot increment chips */}
+                <div className="flex items-center gap-1">
+                  {[10, 50, 100].map((quick) => (
+                    <button
+                      key={quick}
+                      type="button"
+                      onClick={() => setQuantity((prev) => ((parseFloat(prev) || 0) + quick).toString())}
+                      className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--ink-3)] hover:bg-[var(--ink)] border border-[var(--line)] text-[var(--mist)] hover:text-[var(--brass)] cursor-pointer"
+                    >
+                      +{quick}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <input
                 type="number"
                 step="any"

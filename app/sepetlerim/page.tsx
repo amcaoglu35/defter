@@ -330,20 +330,75 @@ export default function SepetlerimPage() {
       {/* 5. Create Basket Modal */}
       {createModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl max-w-md w-full p-6 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[var(--line)] pb-3 mb-5">
-              <h3 className="font-serif text-lg font-semibold text-[var(--paper)]">
-                Yeni Yatırım Sepeti Tanımla
-              </h3>
+          <div className="bg-[var(--ink-2)] border border-[var(--brass-dim)] rounded-xl max-w-lg w-full p-6 shadow-2xl space-y-5 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+              <div>
+                <h3 className="font-serif text-xl font-semibold text-[var(--paper)]">
+                  Yeni Yatırım Sepeti Tanımla
+                </h3>
+                <p className="text-xs font-mono text-[var(--mist)] mt-0.5">
+                  İster hazır strateji şablonlarından seçin, ister kendiniz adlandırın.
+                </p>
+              </div>
               <button
                 onClick={() => setCreateModalOpen(false)}
-                className="text-[var(--mist)] hover:text-[var(--paper)]"
+                className="text-[var(--mist)] hover:text-[var(--paper)] p-1 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateBasket} className="space-y-4">
+            {/* Smart Strategy Template Chips */}
+            <div>
+              <label className="block text-[11px] font-mono text-[var(--brass)] uppercase mb-2 font-bold flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Tek Tıkla Akıllı Strateji Şablonları</span>
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  {
+                    name: "Temettü Şampiyonları",
+                    sub: "Yüksek verimli düzenli temettü dağıtan BIST şirketleri",
+                    risk: "Düşük" as const,
+                  },
+                  {
+                    name: "Enflasyon & Kur Kalkanı",
+                    sub: "Döviz bazlı ihracatçılar ve kıymetli maden dengesi",
+                    risk: "Orta" as const,
+                  },
+                  {
+                    name: "Büyüme & Teknoloji İhracatı",
+                    sub: "Yüksek kâr marjlı teknoloji ve havacılık odaklı büyüme",
+                    risk: "Yüksek" as const,
+                  },
+                  {
+                    name: "Kıymetli Maden & Emtia Kalesi",
+                    sub: "Gram Altın, Gümüş ve defansif koruma varlıkları",
+                    risk: "Düşük" as const,
+                  },
+                  {
+                    name: "BIST 30 Lider Şirketler",
+                    sub: "Borsa İstanbul'un en güçlü ve likit mavi çip devleri",
+                    risk: "Orta" as const,
+                  },
+                ].map((tpl) => (
+                  <button
+                    key={tpl.name}
+                    type="button"
+                    onClick={() => {
+                      setBasketName(tpl.name);
+                      setBasketSubtitle(tpl.sub);
+                      setRiskLevel(tpl.risk);
+                    }}
+                    className="px-2.5 py-1.5 rounded-md bg-[var(--ink-3)] hover:bg-[var(--ink)] border border-[var(--line)] hover:border-[var(--brass)] text-[11px] font-mono text-[var(--paper-dim)] hover:text-[var(--brass)] transition-all cursor-pointer text-left"
+                  >
+                    + {tpl.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <form onSubmit={handleCreateBasket} className="space-y-4 pt-2 border-t border-dashed border-[var(--line)]">
               <div>
                 <label className="block text-xs font-mono text-[var(--mist)] uppercase mb-1">
                   Sepet Adı
@@ -353,21 +408,21 @@ export default function SepetlerimPage() {
                   required
                   value={basketName}
                   onChange={(e) => setBasketName(e.target.value)}
-                  placeholder="Örn: Büyüme &amp; Teknoloji Sepeti"
-                  className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 text-sm text-[var(--paper)] focus:border-[var(--brass)] outline-none"
+                  placeholder="Örn: BIST Temettü Kalesi"
+                  className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded-lg p-2.5 text-xs text-[var(--paper)] font-mono focus:border-[var(--brass)] outline-none shadow-inner"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-mono text-[var(--mist)] uppercase mb-1">
-                  Kısa Açıklama / Strateji
+                  Kısa Açıklama / Strateji Hedefi
                 </label>
                 <input
                   type="text"
                   value={basketSubtitle}
                   onChange={(e) => setBasketSubtitle(e.target.value)}
-                  placeholder="Örn: Yüksek getiri hedefli teknoloji şirketleri"
-                  className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 text-sm text-[var(--paper)] focus:border-[var(--brass)] outline-none"
+                  placeholder="Örn: Düzenli nakit akışı ve bileşik büyüme"
+                  className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded-lg p-2.5 text-xs text-[var(--paper)] font-mono focus:border-[var(--brass)] outline-none shadow-inner"
                 />
               </div>
 
@@ -381,13 +436,13 @@ export default function SepetlerimPage() {
                       key={lvl}
                       type="button"
                       onClick={() => setRiskLevel(lvl)}
-                      className={`py-2 text-xs font-mono rounded border transition-all cursor-pointer ${
+                      className={`py-2 text-xs font-mono rounded-lg border transition-all cursor-pointer ${
                         riskLevel === lvl
-                          ? "border-[var(--brass)] bg-[var(--brass)] text-[var(--ink)] font-bold"
-                          : "border-[var(--line)] text-[var(--mist)] bg-[var(--ink-3)]"
+                          ? "border-[var(--brass)] bg-[var(--brass)] text-[var(--ink)] font-bold shadow-md"
+                          : "border-[var(--line)] text-[var(--mist)] bg-[var(--ink-3)] hover:text-[var(--paper)]"
                       }`}
                     >
-                      {lvl}
+                      {lvl} Risk
                     </button>
                   ))}
                 </div>
@@ -397,15 +452,15 @@ export default function SepetlerimPage() {
                 <button
                   type="button"
                   onClick={() => setCreateModalOpen(false)}
-                  className="flex-1 border border-[var(--line)] py-2.5 rounded text-sm text-[var(--mist)] hover:text-[var(--paper)]"
+                  className="flex-1 border border-[var(--line)] py-2.5 rounded-lg text-xs font-mono text-[var(--mist)] hover:text-[var(--paper)] cursor-pointer"
                 >
                   İptal
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 bg-[var(--brass)] text-[var(--ink)] font-bold py-2.5 rounded text-sm hover:bg-[#d9b35a] cursor-pointer"
+                  className="flex-1 bg-[var(--brass)] text-[var(--ink)] font-bold py-2.5 rounded-lg text-xs hover:bg-[#d9b35a] cursor-pointer shadow"
                 >
-                  Sepeti Kaydet
+                  Sepeti Kaydet &amp; Başla
                 </button>
               </div>
             </form>
