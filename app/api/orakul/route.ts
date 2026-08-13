@@ -33,9 +33,8 @@ export async function POST(req: Request) {
           ? process.env.OPENAI_API_KEY
           : process.env.GEMINI_API_KEY;
 
-      const effectiveKey = (apiKey && typeof apiKey === "string" && apiKey.trim().length > 10)
-        ? apiKey.trim()
-        : envKey;
+      const rawKey = (apiKey && typeof apiKey === "string") ? apiKey.trim().replace(/^["']|["']$/g, "") : "";
+      const effectiveKey = rawKey.length > 10 ? rawKey : (envKey ? envKey.trim().replace(/^["']|["']$/g, "") : "");
 
       if (!effectiveKey || effectiveKey.length <= 10) {
         return NextResponse.json({
@@ -46,11 +45,11 @@ export async function POST(req: Request) {
         });
       }
 
-      // Live Ping Test with Active Model Fallback
+      // Live Ping Test with Detailed Error Diagnostics
       try {
         if (selectedProvider === "gemini") {
           const modelsToTry = [reqModel, "gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-exp"];
-          let firstError = "";
+          let rawGoogleError = "";
           let successModel = "";
 
           for (const modelCandidate of Array.from(new Set(modelsToTry))) {
@@ -69,11 +68,22 @@ export async function POST(req: Request) {
             } else {
               const errData = await testRes.json().catch(() => ({}));
               const msg = errData.error?.message || testRes.statusText || "Geçersiz API Anahtarı";
-              if (!firstError) firstError = msg;
-              
-              // If API Key itself is invalid, stop trying other models
+              if (!rawGoogleError) rawGoogleError = msg;
+
               if (msg.includes("API key not valid") || msg.includes("API_KEY_INVALID")) {
-                firstError = "Girdiğiniz Google Gemini API anahtarı geçersiz. Lütfen Google AI Studio'dan aldığınız doğru anahtarı girin.";
+                rawGoogleError = `Google API Anahtarı Geçersiz (API_KEY_INVALID). Anahtarın başındaki 'AIzaSy...' ifadesinin tam yazıldığından emin olun.`;
+                break;
+              }
+              if (msg.includes("RESOURCE_EXHAUSTED") || msg.includes("Quota")) {
+                rawGoogleError = `Kota Aşımı (RESOURCE_EXHAUSTED): Anahtarın ücretsiz kullanım limiti veya dakikalık çağrı sınırı dolmuş.`;
+                break;
+              }
+              if (msg.includes("PERMISSION_DENIED") || msg.includes("API has not been used")) {
+                rawGoogleError = `Erişim Engellendi (PERMISSION_DENIED): Google Cloud konsolunuzda 'Generative Language API' servisi aktif değil.`;
+                break;
+              }
+              if (msg.includes("USER_LOCATION_NOT_SUPPORTED")) {
+                rawGoogleError = `Bölge Desteklenmiyor (USER_LOCATION_NOT_SUPPORTED): Gemini API bulunduğunuz IP/ülke bölgesinde doğrudan desteklenmiyor olabilir.`;
                 break;
               }
             }
@@ -91,7 +101,7 @@ export async function POST(req: Request) {
               success: true,
               provider: selectedProvider,
               isConfigured: false,
-              message: `Gemini API bağlantı hatası: ${firstError}`,
+              message: `Gemini API reddetti: ${rawGoogleError}`,
             });
           }
         } else if (selectedProvider === "openai") {
