@@ -298,7 +298,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "update_user_settings", payload: updated }),
-      }).catch();
+      }).catch((err) => console.warn("[Sync] user settings sync error:", err));
       return updated;
     });
   }, []);
@@ -716,7 +716,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "add_company", payload: company }),
-    }).catch();
+    }).catch((err) => console.warn("[Sync] add company error:", err));
   }, []);
 
   const updateCompany = (symbol: string, partial: Partial<Company>) => {
@@ -727,7 +727,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "update_company", payload: { symbol, ...partial } }),
-    }).catch();
+    }).catch((err) => console.warn("[Sync] update company error:", err));
   };
 
   const deleteCompany = (symbol: string) => {
@@ -736,7 +736,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "delete_company", payload: { symbol } }),
-    }).catch();
+    }).catch((err) => console.warn("[Sync] delete company error:", err));
   };
 
   const toggleWatchlist = (symbol: string) => {
@@ -754,7 +754,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "update_company", payload: { symbol, inWatchlist: nextVal } }),
-    }).catch();
+    }).catch((err) => console.warn("[Sync] toggle watchlist sync error:", err));
   };
 
   const createBasket = (newBasket: Basket) => {
@@ -763,7 +763,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "create_basket", payload: { basket: newBasket } }),
-    }).catch();
+    }).catch((err) => console.warn("[Sync] create basket error:", err));
   };
 
   const updateBasket = (id: string, partial: Partial<Basket>) => {
@@ -978,7 +978,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "add_transaction", payload: newTx }),
-    }).catch();
+    }).catch((err) => console.warn("[Sync] add transaction error:", err));
 
     setBaskets((prev) =>
       prev.map((b) => {
@@ -1094,7 +1094,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "add_ai_history", payload: item }),
-    }).catch();
+    }).catch((err) => console.warn("[Sync] add ai history error:", err));
   }, []);
 
   const syncIpoToLedger = useCallback(
@@ -1221,7 +1221,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "mark_notifications_read" }),
-    }).catch();
+    }).catch((err) => console.warn("[Sync] mark all notifications read error:", err));
   };
 
   const markNotificationRead = (id: string) => {
@@ -1232,7 +1232,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "mark_notification_read", payload: { id } }),
-    }).catch();
+    }).catch((err) => console.warn("[Sync] mark notification read error:", err));
   };
 
   const resetToDefaultData = () => {
