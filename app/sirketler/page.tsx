@@ -254,9 +254,9 @@ export default function SirketlerPage() {
         if (filterPill === "eu" && c.exchange !== "Avrupa") return false;
         if (filterPill === "highDividend" && (!c.dividendYield || c.dividendYield < 3.0)) return false;
         if (filterPill === "lowPe" && (!c.peRatio || c.peRatio > 10.0)) return false;
-        if (filterPill === "gold" && !c.symbol?.includes("ALTIN") && !["CEYREK", "TAM", "ATA"].includes(c.symbol)) return false;
-        if (filterPill === "metals" && !c.symbol?.includes("GÜMÜŞ") && !c.symbol?.includes("PLATIN")) return false;
-        if (filterPill === "commodities" && !["BRENT", "BAKIR", "DOGALGAZ"].includes(c.symbol)) return false;
+        if (filterPill === "gold" && c.madenKategori !== "altin") return false;
+        if (filterPill === "metals" && c.madenKategori !== "gumus_platin") return false;
+        if (filterPill === "commodities" && c.madenKategori !== "enerji_sanayi") return false;
         if (filterPill === "tefas" && c.exchange !== "BIST") return false;
         if (filterPill === "etf" && c.exchange !== "ABD") return false;
         if (filterPill === "tl" && !c.symbol?.includes("/TRY")) return false;

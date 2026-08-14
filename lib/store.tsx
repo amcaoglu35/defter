@@ -198,6 +198,28 @@ function normalizeCompany(c: Record<string, unknown>): Company {
     }
   }
 
+  let madenKategori: "altin" | "gumus_platin" | "enerji_sanayi" | undefined =
+    (c.madenKategori || c.maden_kategori) as "altin" | "gumus_platin" | "enerji_sanayi" | undefined;
+
+  if (!madenKategori && assetClass === "maden") {
+    if (symbol.includes("ALTIN") || ["CEYREK", "YARIM", "TAM", "ATA", "BILEZIK22"].includes(symbol)) {
+      madenKategori = "altin";
+    } else if (
+      symbol.includes("GÜMÜŞ") ||
+      symbol.includes("GUMUS") ||
+      symbol.includes("PLATIN") ||
+      symbol.includes("PALADYUM")
+    ) {
+      madenKategori = "gumus_platin";
+    } else if (
+      ["BRENT", "WTI_OIL", "DOGALGAZ", "BAKIR"].includes(symbol) ||
+      c.sector === "Enerji Emtiaları" ||
+      c.sector === "Endüstriyel Metaller"
+    ) {
+      madenKategori = "enerji_sanayi";
+    }
+  }
+
   return {
     id: (c.id as string) || symbol.toLowerCase(),
     symbol,
@@ -205,6 +227,7 @@ function normalizeCompany(c: Record<string, unknown>): Company {
     sector: (c.sector as string) || "Genel",
     exchange: (c.exchange as "BIST" | "ABD" | "Avrupa" | "Emtia" | "Döviz") || "BIST",
     assetClass,
+    madenKategori,
     indexTag: String(c.indexTag || c.index_tag || "BIST 100"),
     price: Number(c.price || 0),
     currency: (c.currency as string) || "₺",
