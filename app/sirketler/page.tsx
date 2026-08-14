@@ -257,7 +257,7 @@ export default function SirketlerPage() {
         if (filterPill === "gold" && !c.symbol?.includes("ALTIN") && !["CEYREK", "TAM", "ATA"].includes(c.symbol)) return false;
         if (filterPill === "metals" && !c.symbol?.includes("GÜMÜŞ") && !c.symbol?.includes("PLATIN")) return false;
         if (filterPill === "commodities" && !["BRENT", "BAKIR", "DOGALGAZ"].includes(c.symbol)) return false;
-        if (filterPill === "tefas" && c.exchange === "BIST") return false;
+        if (filterPill === "tefas" && c.exchange !== "BIST") return false;
         if (filterPill === "etf" && c.exchange !== "ABD") return false;
         if (filterPill === "tl" && !c.symbol?.includes("/TRY")) return false;
         if (filterPill === "cross" && c.symbol?.includes("/TRY")) return false;
