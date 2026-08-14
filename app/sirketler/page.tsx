@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import {
   Search,
@@ -255,8 +255,26 @@ export default function SirketlerPage() {
     });
   }, [companies, assetTab, subTab, searchQuery, filterPill]);
 
+  // Tab-specific counts (Strictly counts only assets belonging to the currently active assetTab)
+  const assetTabCompanies = useMemo(() => {
+    return companies.filter((c) => inferAssetClass(c) === assetTab);
+  }, [companies, assetTab]);
+
+  const assetTabTotalCount = assetTabCompanies.length;
+  const assetTabWatchlistCount = useMemo(() => {
+    return assetTabCompanies.filter((c) => c.inWatchlist).length;
+  }, [assetTabCompanies]);
+
   // Paginated dataset
   const totalPages = Math.ceil(filteredCompanies.length / pageSize) || 1;
+
+  // Clamp currentPage when filtered dataset shrinks or records are deleted
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
   const paginatedCompanies = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
     return filteredCompanies.slice(start, start + pageSize);
@@ -351,7 +369,7 @@ export default function SirketlerPage() {
                 : "text-[var(--mist)] hover:text-[var(--paper)]"
             }`}
           >
-            Tüm Kütük ({companies.length})
+            Tüm Kütük ({assetTabTotalCount})
           </button>
 
           <button
@@ -366,7 +384,7 @@ export default function SirketlerPage() {
             }`}
           >
             <Bookmark className="w-3.5 h-3.5" />
-            <span>İzleme Listesi ({companies.filter((c) => c.inWatchlist).length})</span>
+            <span>İzleme Listesi ({assetTabWatchlistCount})</span>
           </button>
         </div>
       </div>
