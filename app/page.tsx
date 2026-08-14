@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import {
   TrendingUp,
+  TrendingDown,
   ArrowUpRight,
   Shield,
   Sparkles,
@@ -17,24 +18,57 @@ import {
   RefreshCw,
   Zap,
   ArrowRight,
+  Activity,
+  Flame,
 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import StampBadge from "@/components/StampBadge";
+import DataStatusBadge from "@/components/DataStatusBadge";
 import { isLiveSymbol } from "@/lib/liveSymbols";
 import { DailyBriefingResult } from "@/lib/aiService";
+import { calculatePortfolioHealthScore } from "@/lib/healthScore";
+import { useToast } from "@/components/ToastProvider";
 
 export default function HomePage() {
-  const { companies, baskets, ipos, dividends, aiProvider, aiApiKey, geminiModel } = useDefterStore();
+  const { companies, baskets, ipos, dividends, aiProvider, geminiModel } = useDefterStore();
+  const { showToast } = useToast();
 
-  const featuredCompanies = companies.slice(0, 6);
+  // 1. Featured Companies: Sort by absolute daily activity/movement
+  const featuredCompanies = useMemo(() => {
+    return [...companies]
+      .sort((a, b) => Math.abs(b.dailyChange) - Math.abs(a.dailyChange))
+      .slice(0, 6);
+  }, [companies]);
+
   const activeIpos = ipos.filter((ipo) => ipo.status !== "listed");
   const watchlistCompanies = companies.filter((c) => c.inWatchlist);
 
+  // 2. Portfolio Value & Profit
   const totalPortfolioValue = baskets.reduce((sum, b) => sum + b.totalValue, 0);
   const totalCost = baskets.reduce((sum, b) => sum + b.totalCost, 0);
   const totalProfit = totalPortfolioValue - totalCost;
+  const isProfitPositive = totalProfit >= 0;
   const profitPercent = totalCost > 0 ? ((totalProfit / totalCost) * 100).toFixed(1) : "0.0";
 
+  // 3. Genuine Weighted Daily Change Percentage
+  const totalDailyChangePct = useMemo(() => {
+    if (totalPortfolioValue <= 0 || baskets.length === 0) return 0;
+    const totalChange = baskets.reduce((sum, b) => {
+      const basketChange = b.holdings.reduce((s, h) => {
+        const company = companies.find((c) => c.symbol === h.companySymbol);
+        return s + (company?.dailyChange || 0) * (h.weightPercent / 100);
+      }, 0);
+      return sum + basketChange * (b.totalValue / totalPortfolioValue);
+    }, 0);
+    return parseFloat(totalChange.toFixed(2));
+  }, [baskets, companies, totalPortfolioValue]);
+
+  // 4. Real Portfolio Health Score Calculation
+  const healthScore = useMemo(() => {
+    return calculatePortfolioHealthScore(baskets, companies);
+  }, [baskets, companies]);
+
+  // 5. Holdings & Live Ratios
   const allHoldingsSymbols = baskets.flatMap((b) => b.holdings.map((h) => h.companySymbol));
   const totalHoldingsCount = allHoldingsSymbols.length;
   const liveHoldingsCount = allHoldingsSymbols.filter(isLiveSymbol).length;
@@ -46,11 +80,12 @@ export default function HomePage() {
     0
   );
 
-  // Daily Briefing state
+  // 6. Daily Briefing state
   const [dailyBrief, setDailyBrief] = useState<DailyBriefingResult | null>(null);
   const [briefLoading, setBriefLoading] = useState(false);
 
   const loadDailyBrief = async () => {
+    if (companies.length === 0) return;
     setBriefLoading(true);
     try {
       const res = await fetch("/api/orakul", {
@@ -61,28 +96,33 @@ export default function HomePage() {
           payload: {
             totalValue: totalPortfolioValue,
             totalProfit,
-            dailyChangePct: 1.45,
+            dailyChangePct: totalDailyChangePct,
             basketsCount: baskets.length,
           },
           provider: aiProvider,
-          apiKey: aiApiKey || undefined,
           model: geminiModel,
         }),
       });
       if (res.ok) {
         const data = await res.json();
         setDailyBrief(data.data);
+      } else {
+        showToast("Günlük Brifing Alınamadı", "Orakul sunucusu yanıt vermedi.", "error");
       }
     } catch {
+      showToast("Bağlantı Hatası", "Orakul günlük brifingi yüklenirken bir sorun oluştu.", "error");
     } finally {
       setBriefLoading(false);
     }
   };
 
+  // Safe useEffect triggered only when company & basket data is properly loaded
   useEffect(() => {
-    loadDailyBrief();
+    if (companies.length > 0 && baskets.length > 0) {
+      loadDailyBrief();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [companies.length, baskets.length]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-12">
@@ -135,9 +175,16 @@ export default function HomePage() {
           <div className="font-serif text-2xl sm:text-3xl text-[var(--paper)] font-semibold">
             {totalPortfolioValue.toLocaleString("tr-TR")} ₺
           </div>
-          <div className="flex items-center gap-1.5 mt-2 font-mono text-xs text-[var(--verdigris)]">
-            <ArrowUpRight className="w-3.5 h-3.5" />
-            <span>+{totalProfit.toLocaleString("tr-TR")} ₺ (%{profitPercent}) Net Kâr</span>
+          <div
+            className={`flex items-center gap-1.5 mt-2 font-mono text-xs ${
+              isProfitPositive ? "text-[var(--verdigris)]" : "text-[var(--loss)]"
+            }`}
+          >
+            {isProfitPositive ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+            <span>
+              {isProfitPositive ? "+" : ""}
+              {totalProfit.toLocaleString("tr-TR")} ₺ ({isProfitPositive ? "+" : ""}%{profitPercent}) Net Kâr
+            </span>
           </div>
           {totalHoldingsCount > 0 && (
             <div className="mt-3.5 flex items-center justify-between text-[11px] font-mono border-t border-dashed border-[var(--line)] pt-2">
@@ -149,20 +196,37 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* Card 2: Portföy Sağlık Skoru */}
+        {/* Card 2: Portföy Sağlık Skoru (Dinamik & Gerçekçi) */}
         <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-lg p-5 hover:border-[var(--brass-dim)] transition-colors">
           <div className="flex items-center justify-between text-[var(--mist)] text-xs font-mono uppercase tracking-wider mb-2">
             <span>Orakul Sağlık Skoru</span>
-            <Shield className="w-4 h-4 text-[var(--verdigris)]" />
+            <Shield
+              className={`w-4 h-4 ${
+                healthScore.verdictColor === "verdigris"
+                  ? "text-[var(--verdigris)]"
+                  : healthScore.verdictColor === "brass"
+                  ? "text-[var(--brass)]"
+                  : "text-[var(--loss)]"
+              }`}
+            />
           </div>
           <div className="flex items-baseline gap-2">
             <span className="font-serif text-2xl sm:text-3xl text-[var(--paper)] font-semibold">
-              88
+              {healthScore.score}
             </span>
             <span className="font-mono text-xs text-[var(--mist)]">/ 100</span>
           </div>
-          <div className="mt-2 text-xs font-mono text-[var(--brass)]">
-            Dengeli &amp; Yüksek Likidite
+          <div
+            className={`mt-2 text-xs font-mono font-medium truncate ${
+              healthScore.verdictColor === "verdigris"
+                ? "text-[var(--verdigris)]"
+                : healthScore.verdictColor === "brass"
+                ? "text-[var(--brass)]"
+                : "text-[var(--loss)]"
+            }`}
+            title={healthScore.label}
+          >
+            {healthScore.label}
           </div>
         </div>
 
@@ -195,7 +259,23 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 2.5 Orakul Günlük Kapanış Brifingi Card */}
+      {/* 2.5 Orakul Günlük Kapanış Brifingi Card (With Skeleton Loader) */}
+      {briefLoading && !dailyBrief && (
+        <section className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 relative overflow-hidden shadow-xl animate-pulse">
+          <div className="flex items-center gap-3 border-b border-dashed border-[var(--line)] pb-4">
+            <div className="w-10 h-10 rounded-full bg-[var(--ink-3)] shrink-0" />
+            <div className="space-y-2 flex-1">
+              <div className="h-3 bg-[var(--ink-3)] rounded w-1/4" />
+              <div className="h-5 bg-[var(--ink-3)] rounded w-1/2" />
+            </div>
+          </div>
+          <div className="mt-4 space-y-2">
+            <div className="h-4 bg-[var(--ink-3)] rounded w-full" />
+            <div className="h-4 bg-[var(--ink-3)] rounded w-3/4" />
+          </div>
+        </section>
+      )}
+
       {dailyBrief && (
         <section className="bg-[var(--ink-2)] border border-[var(--brass-dim)] rounded-xl p-6 relative overflow-hidden shadow-xl animate-in fade-in">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-dashed border-[var(--line)] pb-4">
@@ -253,7 +333,7 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* 3. Favorites / Quick Watchlist Strip */}
+      {/* 3. Favorites / Quick Watchlist Strip (with DataStatusBadge) */}
       <section className="bg-[var(--ink-2)] border border-[var(--line)] rounded-lg p-4 sm:p-5">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -284,9 +364,12 @@ export default function HomePage() {
                 className="bg-[var(--ink-3)] border border-[var(--line)] hover:border-[var(--brass-dim)] p-3 rounded flex flex-col justify-between transition-all group"
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-mono font-bold text-xs text-[var(--paper)] group-hover:text-[var(--brass)]">
-                    {c.symbol}
-                  </span>
+                  <div className="flex items-center gap-1">
+                    <span className="font-mono font-bold text-xs text-[var(--paper)] group-hover:text-[var(--brass)]">
+                      {c.symbol}
+                    </span>
+                    <DataStatusBadge symbol={c.symbol} isLive={isLiveSymbol(c.symbol)} />
+                  </div>
                   <span
                     className={`font-mono text-[11px] font-semibold ${
                       c.dailyChange >= 0
@@ -307,15 +390,16 @@ export default function HomePage() {
         )}
       </section>
 
-      {/* 4. Company Ledger Section */}
+      {/* 4. Company Ledger Section (Featured & Mobile Responsive) */}
       <section className="space-y-4">
         <div className="flex items-end justify-between border-b border-[var(--line)] pb-4">
           <div>
-            <span className="font-mono text-xs text-[var(--brass)] uppercase tracking-wider">
-              Kütük Özeti
-            </span>
+            <div className="flex items-center gap-1.5 font-mono text-xs text-[var(--brass)] uppercase tracking-wider">
+              <Flame className="w-3.5 h-3.5" />
+              <span>Günün Öne Çıkanları</span>
+            </div>
             <h2 className="font-serif text-2xl sm:text-3xl text-[var(--paper)] font-medium mt-1">
-              Öne Çıkan Şirketler &amp; Varlıklar
+              En Yüksek Hareketlilik Gösteren Varlıklar
             </h2>
           </div>
           <Link
@@ -328,7 +412,7 @@ export default function HomePage() {
         </div>
 
         <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-lg overflow-hidden">
-          <div className="hidden md:grid grid-cols-[1.5fr_100px_100px_90px_90px_110px_90px] gap-4 px-6 py-3 border-b border-[var(--line)] bg-[var(--ink-3)] font-mono text-[11px] uppercase tracking-wider text-[var(--mist)]">
+          <div className="hidden md:grid grid-cols-[1.5fr_110px_100px_90px_90px_110px_90px] gap-4 px-6 py-3 border-b border-[var(--line)] bg-[var(--ink-3)] font-mono text-[11px] uppercase tracking-wider text-[var(--mist)]">
             <span>Şirket / Varlık</span>
             <span className="text-right">Fiyat</span>
             <span className="text-right">Günlük %</span>
@@ -342,32 +426,38 @@ export default function HomePage() {
             {featuredCompanies.map((c) => (
               <div
                 key={c.id}
-                className="grid grid-cols-1 md:grid-cols-[1.5fr_100px_100px_90px_90px_110px_90px] gap-3 md:gap-4 p-4 md:px-6 md:py-4 items-center hover:bg-[rgba(201,162,75,0.04)] transition-colors"
+                className="grid grid-cols-2 md:grid-cols-[1.5fr_110px_100px_90px_90px_110px_90px] gap-3 md:gap-4 p-4 md:px-6 md:py-4 items-center hover:bg-[rgba(201,162,75,0.04)] transition-colors"
               >
-                <div className="flex items-center gap-3">
+                {/* Symbol & Name */}
+                <div className="flex items-center gap-3 col-span-2 md:col-span-1">
                   <div className="w-9 h-9 rounded border border-[var(--line)] bg-[var(--ink-3)] flex items-center justify-center font-mono text-xs font-bold text-[var(--brass)] shrink-0">
                     {c.symbol.slice(0, 3)}
                   </div>
                   <div>
-                    <Link
-                      href={`/sirketler/${c.symbol}`}
-                      className="font-medium text-sm text-[var(--paper)] hover:text-[var(--brass)] transition-colors"
-                    >
-                      {c.name}
-                    </Link>
+                    <div className="flex items-center gap-1.5">
+                      <Link
+                        href={`/sirketler/${c.symbol}`}
+                        className="font-medium text-sm text-[var(--paper)] hover:text-[var(--brass)] transition-colors"
+                      >
+                        {c.name}
+                      </Link>
+                      <DataStatusBadge symbol={c.symbol} isLive={isLiveSymbol(c.symbol)} />
+                    </div>
                     <div className="text-xs text-[var(--mist)] font-mono">
                       {c.symbol} • {c.sector}
                     </div>
                   </div>
                 </div>
 
-                <div className="text-right font-mono text-sm font-semibold text-[var(--paper)]">
+                {/* Price */}
+                <div className="text-left md:text-right font-mono text-sm font-semibold text-[var(--paper)]">
                   {c.price.toLocaleString("tr-TR", {
                     minimumFractionDigits: 2,
                   })}{" "}
                   {c.currency}
                 </div>
 
+                {/* Daily Change */}
                 <div
                   className={`text-right font-mono text-sm font-semibold ${
                     c.dailyChange >= 0
@@ -379,19 +469,22 @@ export default function HomePage() {
                   {c.dailyChange}%
                 </div>
 
-                <div className="text-right font-mono text-xs text-[var(--mist)]">
+                {/* Secondary data columns (hidden on mobile, visible on desktop) */}
+                <div className="hidden md:block text-right font-mono text-xs text-[var(--mist)]">
                   {c.peRatio ? `${c.peRatio}x` : "-"}
                 </div>
 
-                <div className="text-right font-mono text-xs text-[var(--paper-dim)]">
+                <div className="hidden md:block text-right font-mono text-xs text-[var(--paper-dim)]">
                   {c.dividendYield ? `%${c.dividendYield}` : "-"}
                 </div>
 
-                <div className="text-center">
+                {/* Verdict Stamp */}
+                <div className="hidden md:flex justify-center">
                   <StampBadge verdict={c.recommendation} />
                 </div>
 
-                <div className="text-right">
+                {/* Action Link */}
+                <div className="col-span-2 md:col-span-1 flex justify-end md:text-right pt-2 md:pt-0 border-t md:border-t-0 border-dashed border-[var(--line)]">
                   <Link
                     href={`/sirketler/${c.symbol}`}
                     className="inline-flex items-center gap-1 text-xs font-mono text-[var(--brass)] hover:underline"
@@ -423,63 +516,74 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {baskets.map((basket) => (
-              <Link
-                key={basket.id}
-                href={`/sepetlerim/${basket.id}`}
-                className="ticket-card p-5 block group"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h4 className="font-serif font-bold text-lg text-[var(--ink)] group-hover:text-[var(--brass-dim)] transition-colors">
-                      {basket.name}
-                    </h4>
-                    <p className="font-mono text-[11px] uppercase tracking-wider text-[var(--brass-dim)] mt-0.5">
-                      {basket.subtitle}
-                    </p>
-                  </div>
-                  <span
-                    className={`font-mono text-[10px] font-bold px-2 py-0.5 rounded-xs uppercase ${
-                      basket.riskColor === "low"
-                        ? "bg-[rgba(91,140,123,0.2)] text-[var(--verdigris)]"
-                        : "bg-[rgba(201,162,75,0.2)] text-[var(--brass-dim)]"
-                    }`}
-                  >
-                    {basket.riskLevel} Risk
-                  </span>
-                </div>
+            {baskets.map((basket) => {
+              const isBasketProfit = basket.totalProfitPercent >= 0;
 
-                <div className="border-t border-dashed border-[rgba(18,21,28,0.25)] my-4 pt-3 flex items-center justify-between">
-                  <div>
-                    <div className="text-[11px] text-[rgba(18,21,28,0.6)]">
-                      Sepet Değeri
+              return (
+                <Link
+                  key={basket.id}
+                  href={`/sepetlerim/${basket.id}`}
+                  className="ticket-card p-5 block group"
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h4 className="font-serif font-bold text-lg text-[var(--ink)] group-hover:text-[var(--brass-dim)] transition-colors">
+                        {basket.name}
+                      </h4>
+                      <p className="font-mono text-[11px] uppercase tracking-wider text-[var(--brass-dim)] mt-0.5">
+                        {basket.subtitle}
+                      </p>
                     </div>
-                    <div className="font-mono font-bold text-base text-[var(--ink)]">
-                      {basket.totalValue.toLocaleString("tr-TR")} ₺
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-[11px] text-[rgba(18,21,28,0.6)]">
-                      Toplam Getiri
-                    </div>
-                    <div className="font-mono font-bold text-sm text-[var(--verdigris)]">
-                      +{basket.totalProfitPercent}%
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {basket.holdings.map((h) => (
                     <span
-                      key={h.companySymbol}
-                      className="font-mono text-[10px] bg-[rgba(18,21,28,0.08)] px-2 py-0.5 rounded-full font-medium text-[var(--ink)]"
+                      className={`font-mono text-[10px] font-bold px-2 py-0.5 rounded-xs uppercase ${
+                        basket.riskColor === "low"
+                          ? "bg-[rgba(91,140,123,0.2)] text-[var(--verdigris)]"
+                          : basket.riskColor === "high"
+                          ? "bg-[rgba(163,59,59,0.2)] text-[var(--loss)]"
+                          : "bg-[rgba(201,162,75,0.2)] text-[var(--brass-dim)]"
+                      }`}
                     >
-                      {h.companySymbol} %{h.weightPercent}
+                      {basket.riskLevel} Risk
                     </span>
-                  ))}
-                </div>
-              </Link>
-            ))}
+                  </div>
+
+                  <div className="border-t border-dashed border-[rgba(18,21,28,0.25)] my-4 pt-3 flex items-center justify-between">
+                    <div>
+                      <div className="text-[11px] text-[rgba(18,21,28,0.6)]">
+                        Sepet Değeri
+                      </div>
+                      <div className="font-mono font-bold text-base text-[var(--ink)]">
+                        {basket.totalValue.toLocaleString("tr-TR")} ₺
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-[11px] text-[rgba(18,21,28,0.6)]">
+                        Toplam Getiri
+                      </div>
+                      <div
+                        className={`font-mono font-bold text-sm ${
+                          isBasketProfit ? "text-[var(--verdigris)]" : "text-[var(--loss)]"
+                        }`}
+                      >
+                        {isBasketProfit ? "+" : ""}
+                        {basket.totalProfitPercent}%
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {basket.holdings.map((h) => (
+                      <span
+                        key={h.companySymbol}
+                        className="font-mono text-[10px] bg-[rgba(18,21,28,0.08)] px-2 py-0.5 rounded-full font-medium text-[var(--ink)]"
+                      >
+                        {h.companySymbol} %{h.weightPercent}
+                      </span>
+                    ))}
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </div>
 
