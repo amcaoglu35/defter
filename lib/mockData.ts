@@ -12,7 +12,7 @@ export interface Company {
   exchange: "BIST" | "ABD" | "Avrupa" | "Emtia" | "Döviz";
   assetClass: "hisse" | "maden" | "fon" | "doviz";
   madenKategori?: "altin" | "gumus_platin" | "enerji_sanayi";
-  indexTag?: "BIST 30" | "BIST 100" | "S&P 500" | "NASDAQ 100" | "Kıymetli Maden" | "Avrupa" | string;
+  indexTag?: "BIST 30" | "BIST 100" | "S&P 500" | "NASDAQ 100" | "Dow Jones" | "DAX 40" | "CAC 40" | "FTSE 100" | "AEX" | "SMI" | "Kıymetli Maden" | "Avrupa" | "TEFAS" | "ETF" | string;
   price: number;
   currency: string;
   dailyChange: number;
@@ -25,6 +25,16 @@ export interface Company {
   inWatchlist: boolean;
   metrics: CompanyMetric[];
   description?: string;
+
+  // Fund / ETF Specific Optional Fields
+  fundManager?: string;        // Yöneten kurum (örn. "İş Portföy", "Invesco", "Vanguard")
+  fundType?: string;           // TEFAS için: "Hisse Senedi Fonu", "Borçlanma Araçları Fonu" vb. / ETF için: "Endeks Fonu", "Sektör Fonu" vb.
+  expenseRatio?: number;       // Yıllık masraf/yönetim ücreti oranı (%)
+  aum?: string;                // Fon büyüklüğü / yönetilen varlık (örn. "12.4 Milyar ₺" / "$450B")
+  riskLevel?: number;          // TEFAS risk değeri (1-7 skala)
+  oneYearReturn?: number;      // Son 1 yıllık getiri (%)
+  threeYearReturn?: number;    // Son 3 yıllık getiri (%)
+  topHoldings?: string[];      // Fonun en büyük 3-5 pozisyonu (örn. ["AAPL %8.2", "MSFT %7.1", ...])
 }
 
 export interface BasketHolding {
@@ -10734,66 +10744,34 @@ export const MOCK_COMPANIES: Company[] = [
     ]
   },
   {
-    "id": "nvda",
-    "symbol": "NVDA",
-    "name": "NVIDIA Corporation",
-    "sector": "Yapay Zeka & Yarı İletken",
-    "exchange": "ABD",
-    "assetClass": "hisse",
-    "indexTag": "NASDAQ 100",
-    "price": 138.25,
-    "currency": "$",
-    "dailyChange": 4.18,
-    "peRatio": 48,
-    "pbRatio": 28.5,
-    "dividendYield": 0.03,
-    "marketCap": "3.4 Trilyon $",
-    "beta": 1.25,
-    "recommendation": "AL",
-    "inWatchlist": true,
-    "description": "NVIDIA Corporation (NVDA), ABD borsalarında Yapay Zeka & Yarı İletken alanında işlem gören küresel teknoloji ve piyasa lideri.",
-    "metrics": [
-      {
-        "label": "F/K Oranı",
-        "value": "48x",
-        "peerAvg": "32.0x"
-      },
-      {
-        "label": "PD/DD",
-        "value": "28.5",
-        "peerAvg": "10.0"
-      }
-    ]
-  },
-  {
     "id": "aapl",
     "symbol": "AAPL",
     "name": "Apple Inc.",
-    "sector": "Tüketici Teknolojisi & Ekosistem",
+    "sector": "Tüketici Elektroniği & Yazılım",
     "exchange": "ABD",
     "assetClass": "hisse",
     "indexTag": "NASDAQ 100",
     "price": 232.4,
     "currency": "$",
-    "dailyChange": 0.92,
-    "peRatio": 33.1,
-    "pbRatio": 48,
-    "dividendYield": 0.45,
-    "marketCap": "3.52 Trilyon $",
-    "beta": 1.25,
+    "dailyChange": 0.85,
+    "peRatio": 33.2,
+    "pbRatio": 48.5,
+    "dividendYield": 0.44,
+    "marketCap": "$3.52T",
+    "beta": 1.08,
     "recommendation": "AL",
-    "inWatchlist": true,
-    "description": "Apple Inc. (AAPL), ABD borsalarında Tüketici Teknolojisi & Ekosistem alanında işlem gören küresel teknoloji ve piyasa lideri.",
+    "inWatchlist": false,
+    "description": "iPhone, Mac, iPad donanımları ve iOS ekosistemiyle dünyanın en değerli teknoloji ve tüketici elektroniği devi.",
     "metrics": [
       {
         "label": "F/K Oranı",
-        "value": "33.1x",
-        "peerAvg": "32.0x"
+        "value": "33.2x",
+        "peerAvg": "29.8x"
       },
       {
         "label": "PD/DD",
-        "value": "48",
-        "peerAvg": "10.0"
+        "value": "48.5",
+        "peerAvg": "18.2"
       }
     ]
   },
@@ -10801,31 +10779,63 @@ export const MOCK_COMPANIES: Company[] = [
     "id": "msft",
     "symbol": "MSFT",
     "name": "Microsoft Corporation",
-    "sector": "Yazılım & Bulut (Azure / AI)",
+    "sector": "Bulut & Kurumsal Yazılım",
     "exchange": "ABD",
     "assetClass": "hisse",
     "indexTag": "NASDAQ 100",
-    "price": 448.5,
+    "price": 448.6,
     "currency": "$",
-    "dailyChange": 1.45,
-    "peRatio": 36.2,
+    "dailyChange": 1.12,
+    "peRatio": 36.4,
     "pbRatio": 12.8,
-    "dividendYield": 0.72,
-    "marketCap": "3.33 Trilyon $",
-    "beta": 1.25,
+    "dividendYield": 0.68,
+    "marketCap": "$3.33T",
+    "beta": 1.15,
     "recommendation": "AL",
-    "inWatchlist": true,
-    "description": "Microsoft Corporation (MSFT), ABD borsalarında Yazılım & Bulut (Azure / AI) alanında işlem gören küresel teknoloji ve piyasa lideri.",
+    "inWatchlist": false,
+    "description": "Azure bulut bilişim altyapısı, Office 365 üretkenlik yazılımları ve OpenAI ortaklığıyla yapay zeka lideri.",
     "metrics": [
       {
         "label": "F/K Oranı",
-        "value": "36.2x",
-        "peerAvg": "32.0x"
+        "value": "36.4x",
+        "peerAvg": "31.2x"
       },
       {
         "label": "PD/DD",
         "value": "12.8",
-        "peerAvg": "10.0"
+        "peerAvg": "9.5"
+      }
+    ]
+  },
+  {
+    "id": "nvda",
+    "symbol": "NVDA",
+    "name": "NVIDIA Corporation",
+    "sector": "Yarı İletken & Yapay Zeka",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NASDAQ 100",
+    "price": 138.25,
+    "currency": "$",
+    "dailyChange": 2.85,
+    "peRatio": 48.6,
+    "pbRatio": 42.1,
+    "dividendYield": 0.03,
+    "marketCap": "$3.39T",
+    "beta": 1.68,
+    "recommendation": "AL",
+    "inWatchlist": true,
+    "description": "Yapay zeka (LLM) eğitimi ve veri merkezi hızlandırma GPU donanımlarında küresel pazarın %85'ine hakim çip devi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "48.6x",
+        "peerAvg": "34.5x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "42.1",
+        "peerAvg": "14.2"
       }
     ]
   },
@@ -10833,31 +10843,31 @@ export const MOCK_COMPANIES: Company[] = [
     "id": "googl",
     "symbol": "GOOGL",
     "name": "Alphabet Inc. (Google)",
-    "sector": "Arama Motoru & Yapay Zeka (Gemini)",
+    "sector": "İnternet & Yapay Zeka",
     "exchange": "ABD",
     "assetClass": "hisse",
     "indexTag": "NASDAQ 100",
-    "price": 182.4,
+    "price": 184.2,
     "currency": "$",
-    "dailyChange": 1.85,
-    "peRatio": 24.5,
+    "dailyChange": -0.45,
+    "peRatio": 23.8,
     "pbRatio": 6.8,
-    "dividendYield": 0.42,
-    "marketCap": "2.26 Trilyon $",
-    "beta": 1.25,
+    "dividendYield": 0.43,
+    "marketCap": "$2.28T",
+    "beta": 1.05,
     "recommendation": "AL",
-    "inWatchlist": true,
-    "description": "Alphabet Inc. (Google) (GOOGL), ABD borsalarında Arama Motoru & Yapay Zeka (Gemini) alanında işlem gören küresel teknoloji ve piyasa lideri.",
+    "inWatchlist": false,
+    "description": "Google Arama, YouTube, Google Cloud ve Gemini yapay zeka modelleriyle dijital reklam ve bulut bilişim devi.",
     "metrics": [
       {
         "label": "F/K Oranı",
-        "value": "24.5x",
-        "peerAvg": "32.0x"
+        "value": "23.8x",
+        "peerAvg": "26.4x"
       },
       {
         "label": "PD/DD",
         "value": "6.8",
-        "peerAvg": "10.0"
+        "peerAvg": "7.1"
       }
     ]
   },
@@ -10865,31 +10875,63 @@ export const MOCK_COMPANIES: Company[] = [
     "id": "amzn",
     "symbol": "AMZN",
     "name": "Amazon.com Inc.",
-    "sector": "E-Ticaret & Bulut (AWS)",
+    "sector": "E-Ticaret & AWS Bulut",
     "exchange": "ABD",
     "assetClass": "hisse",
     "indexTag": "NASDAQ 100",
-    "price": 198.6,
+    "price": 198.5,
     "currency": "$",
-    "dailyChange": 2.1,
-    "peRatio": 42,
-    "pbRatio": 8.5,
+    "dailyChange": 1.4,
+    "peRatio": 41.2,
+    "pbRatio": 8.4,
     "dividendYield": 0,
-    "marketCap": "2.08 Trilyon $",
-    "beta": 1.25,
+    "marketCap": "$2.06T",
+    "beta": 1.18,
     "recommendation": "AL",
     "inWatchlist": false,
-    "description": "Amazon.com Inc. (AMZN), ABD borsalarında E-Ticaret & Bulut (AWS) alanında işlem gören küresel teknoloji ve piyasa lideri.",
+    "description": "Küresel e-ticaret platformu, AWS bulut bilişim altyapısı ve Prime lojistik ekosisteminin mutlak lideri.",
     "metrics": [
       {
         "label": "F/K Oranı",
-        "value": "42x",
-        "peerAvg": "32.0x"
+        "value": "41.2x",
+        "peerAvg": "35.0x"
       },
       {
         "label": "PD/DD",
-        "value": "8.5",
-        "peerAvg": "10.0"
+        "value": "8.4",
+        "peerAvg": "6.2"
+      }
+    ]
+  },
+  {
+    "id": "meta",
+    "symbol": "META",
+    "name": "Meta Platforms Inc.",
+    "sector": "Sosyal Medya & AI",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NASDAQ 100",
+    "price": 592.4,
+    "currency": "$",
+    "dailyChange": 2.1,
+    "peRatio": 27.5,
+    "pbRatio": 8.6,
+    "dividendYield": 0.34,
+    "marketCap": "$1.50T",
+    "beta": 1.22,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Instagram, WhatsApp, Facebook ve Llama açık kaynaklı yapay zeka modellerinin çatı teknoloji şirketi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "27.5x",
+        "peerAvg": "28.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "8.6",
+        "peerAvg": "7.5"
       }
     ]
   },
@@ -10897,511 +10939,63 @@ export const MOCK_COMPANIES: Company[] = [
     "id": "tsla",
     "symbol": "TSLA",
     "name": "Tesla Inc.",
-    "sector": "Elektrikli Araç & Otonom Sürüş",
+    "sector": "Elektrikli Araç & Enerji",
     "exchange": "ABD",
     "assetClass": "hisse",
     "indexTag": "NASDAQ 100",
-    "price": 218.4,
+    "price": 248.8,
     "currency": "$",
     "dailyChange": 3.45,
-    "peRatio": 62,
+    "peRatio": 72.4,
     "pbRatio": 11.2,
     "dividendYield": 0,
-    "marketCap": "695 Mr $",
-    "beta": 1.25,
-    "recommendation": "AL",
-    "inWatchlist": true,
-    "description": "Tesla Inc. (TSLA), ABD borsalarında Elektrikli Araç & Otonom Sürüş alanında işlem gören küresel teknoloji ve piyasa lideri.",
+    "marketCap": "$794B",
+    "beta": 2.15,
+    "recommendation": "TUT",
+    "inWatchlist": false,
+    "description": "Elektrikli otomobil, otonom sürüş (FSD), Optimus insansı robot ve Megapack batarya depolama üreticisi.",
     "metrics": [
       {
         "label": "F/K Oranı",
-        "value": "62x",
-        "peerAvg": "32.0x"
+        "value": "72.4x",
+        "peerAvg": "42.0x"
       },
       {
         "label": "PD/DD",
         "value": "11.2",
-        "peerAvg": "10.0"
+        "peerAvg": "5.8"
       }
     ]
   },
   {
-    "id": "meta",
-    "symbol": "META",
-    "name": "Meta Platforms (Facebook & Instagram)",
-    "sector": "Sosyal Medya & Yapay Zeka (Llama)",
+    "id": "avgo",
+    "symbol": "AVGO",
+    "name": "Broadcom Inc.",
+    "sector": "Yarı İletken & Kurumsal Yazılım",
     "exchange": "ABD",
     "assetClass": "hisse",
     "indexTag": "NASDAQ 100",
-    "price": 528,
+    "price": 178.5,
     "currency": "$",
-    "dailyChange": 2.65,
-    "peRatio": 26.8,
-    "pbRatio": 8.2,
-    "dividendYield": 0.38,
-    "marketCap": "1.34 Trilyon $",
-    "beta": 1.25,
+    "dailyChange": 1.75,
+    "peRatio": 38.2,
+    "pbRatio": 11.4,
+    "dividendYield": 1.25,
+    "marketCap": "$835B",
+    "beta": 1.28,
     "recommendation": "AL",
     "inWatchlist": false,
-    "description": "Meta Platforms (Facebook & Instagram) (META), ABD borsalarında Sosyal Medya & Yapay Zeka (Llama) alanında işlem gören küresel teknoloji ve piyasa lideri.",
+    "description": "Ağ donanımı, özel yapay zeka çipleri (ASIC) ve VMware kurumsal sanallaştırma yazılımları üreticisi.",
     "metrics": [
       {
         "label": "F/K Oranı",
-        "value": "26.8x",
+        "value": "38.2x",
         "peerAvg": "32.0x"
       },
       {
         "label": "PD/DD",
-        "value": "8.2",
-        "peerAvg": "10.0"
-      }
-    ]
-  },
-  {
-    "id": "amd",
-    "symbol": "AMD",
-    "name": "Advanced Micro Devices",
-    "sector": "Yarı İletken & AI Çipleri",
-    "exchange": "ABD",
-    "assetClass": "hisse",
-    "indexTag": "NASDAQ 100",
-    "price": 156.4,
-    "currency": "$",
-    "dailyChange": 3.12,
-    "peRatio": 44,
-    "pbRatio": 4.2,
-    "dividendYield": 0,
-    "marketCap": "253 Mr $",
-    "beta": 1.25,
-    "recommendation": "AL",
-    "inWatchlist": false,
-    "description": "Advanced Micro Devices (AMD), ABD borsalarında Yarı İletken & AI Çipleri alanında işlem gören küresel teknoloji ve piyasa lideri.",
-    "metrics": [
-      {
-        "label": "F/K Oranı",
-        "value": "44x",
-        "peerAvg": "32.0x"
-      },
-      {
-        "label": "PD/DD",
-        "value": "4.2",
-        "peerAvg": "10.0"
-      }
-    ]
-  },
-  {
-    "id": "pltr",
-    "symbol": "PLTR",
-    "name": "Palantir Technologies",
-    "sector": "Büyük Veri & Askeri Yapay Zeka",
-    "exchange": "ABD",
-    "assetClass": "hisse",
-    "indexTag": "S&P 500",
-    "price": 36.8,
-    "currency": "$",
-    "dailyChange": 5.12,
-    "peRatio": 84,
-    "pbRatio": 18.2,
-    "dividendYield": 0,
-    "marketCap": "82.4 Mr $",
-    "beta": 1.25,
-    "recommendation": "AL",
-    "inWatchlist": true,
-    "description": "Palantir Technologies (PLTR), ABD borsalarında Büyük Veri & Askeri Yapay Zeka alanında işlem gören küresel teknoloji ve piyasa lideri.",
-    "metrics": [
-      {
-        "label": "F/K Oranı",
-        "value": "84x",
-        "peerAvg": "32.0x"
-      },
-      {
-        "label": "PD/DD",
-        "value": "18.2",
-        "peerAvg": "10.0"
-      }
-    ]
-  },
-  {
-    "id": "coin",
-    "symbol": "COIN",
-    "name": "Coinbase Global",
-    "sector": "Kripto Finans & Borsa",
-    "exchange": "ABD",
-    "assetClass": "hisse",
-    "indexTag": "NASDAQ 100",
-    "price": 215,
-    "currency": "$",
-    "dailyChange": 4.8,
-    "peRatio": 38,
-    "pbRatio": 5.4,
-    "dividendYield": 0,
-    "marketCap": "52.8 Mr $",
-    "beta": 1.25,
-    "recommendation": "AL",
-    "inWatchlist": false,
-    "description": "Coinbase Global (COIN), ABD borsalarında Kripto Finans & Borsa alanında işlem gören küresel teknoloji ve piyasa lideri.",
-    "metrics": [
-      {
-        "label": "F/K Oranı",
-        "value": "38x",
-        "peerAvg": "32.0x"
-      },
-      {
-        "label": "PD/DD",
-        "value": "5.4",
-        "peerAvg": "10.0"
-      }
-    ]
-  },
-  {
-    "id": "nflx",
-    "symbol": "NFLX",
-    "name": "Netflix Inc.",
-    "sector": "Dijital Yayıncılık & Eğlence",
-    "exchange": "ABD",
-    "assetClass": "hisse",
-    "indexTag": "NASDAQ 100",
-    "price": 685,
-    "currency": "$",
-    "dailyChange": 1.85,
-    "peRatio": 36.5,
-    "pbRatio": 14.2,
-    "dividendYield": 0,
-    "marketCap": "294 Mr $",
-    "beta": 1.25,
-    "recommendation": "AL",
-    "inWatchlist": false,
-    "description": "Netflix Inc. (NFLX), ABD borsalarında Dijital Yayıncılık & Eğlence alanında işlem gören küresel teknoloji ve piyasa lideri.",
-    "metrics": [
-      {
-        "label": "F/K Oranı",
-        "value": "36.5x",
-        "peerAvg": "32.0x"
-      },
-      {
-        "label": "PD/DD",
-        "value": "14.2",
-        "peerAvg": "10.0"
-      }
-    ]
-  },
-  {
-    "id": "intc",
-    "symbol": "INTC",
-    "name": "Intel Corporation",
-    "sector": "Yarı İletken Üretim & Çip",
-    "exchange": "ABD",
-    "assetClass": "hisse",
-    "indexTag": "NASDAQ 100",
-    "price": 22.8,
-    "currency": "$",
-    "dailyChange": 1.15,
-    "peRatio": 28,
-    "pbRatio": 0.95,
-    "dividendYield": 2.1,
-    "marketCap": "98 Mr $",
-    "beta": 1.25,
-    "recommendation": "AL",
-    "inWatchlist": false,
-    "description": "Intel Corporation (INTC), ABD borsalarında Yarı İletken Üretim & Çip alanında işlem gören küresel teknoloji ve piyasa lideri.",
-    "metrics": [
-      {
-        "label": "F/K Oranı",
-        "value": "28x",
-        "peerAvg": "32.0x"
-      },
-      {
-        "label": "PD/DD",
-        "value": "0.95",
-        "peerAvg": "10.0"
-      }
-    ]
-  },
-  {
-    "id": "brkb",
-    "symbol": "BRK-B",
-    "name": "Berkshire Hathaway (Warren Buffett)",
-    "sector": "Çok Sektörlü Holding & Sigorta",
-    "exchange": "ABD",
-    "assetClass": "hisse",
-    "indexTag": "S&P 500",
-    "price": 452,
-    "currency": "$",
-    "dailyChange": 0.45,
-    "peRatio": 21.4,
-    "pbRatio": 1.55,
-    "dividendYield": 0,
-    "marketCap": "980 Mr $",
-    "beta": 1.25,
-    "recommendation": "AL",
-    "inWatchlist": false,
-    "description": "Berkshire Hathaway (Warren Buffett) (BRK-B), ABD borsalarında Çok Sektörlü Holding & Sigorta alanında işlem gören küresel teknoloji ve piyasa lideri.",
-    "metrics": [
-      {
-        "label": "F/K Oranı",
-        "value": "21.4x",
-        "peerAvg": "32.0x"
-      },
-      {
-        "label": "PD/DD",
-        "value": "1.55",
-        "peerAvg": "10.0"
-      }
-    ]
-  },
-  {
-    "id": "dis",
-    "symbol": "DIS",
-    "name": "The Walt Disney Company",
-    "sector": "Medya, Eğlence & Tema Parkları",
-    "exchange": "ABD",
-    "assetClass": "hisse",
-    "indexTag": "S&P 500",
-    "price": 96.5,
-    "currency": "$",
-    "dailyChange": 0.85,
-    "peRatio": 18.5,
-    "pbRatio": 1.75,
-    "dividendYield": 0.95,
-    "marketCap": "176 Mr $",
-    "beta": 1.25,
-    "recommendation": "AL",
-    "inWatchlist": false,
-    "description": "The Walt Disney Company (DIS), ABD borsalarında Medya, Eğlence & Tema Parkları alanında işlem gören küresel teknoloji ve piyasa lideri.",
-    "metrics": [
-      {
-        "label": "F/K Oranı",
-        "value": "18.5x",
-        "peerAvg": "32.0x"
-      },
-      {
-        "label": "PD/DD",
-        "value": "1.75",
-        "peerAvg": "10.0"
-      }
-    ]
-  },
-  {
-    "id": "v",
-    "symbol": "V",
-    "name": "Visa Inc.",
-    "sector": "Dijital Ödeme Sistemleri",
-    "exchange": "ABD",
-    "assetClass": "hisse",
-    "indexTag": "S&P 500",
-    "price": 284,
-    "currency": "$",
-    "dailyChange": 0.65,
-    "peRatio": 29.5,
-    "pbRatio": 13.8,
-    "dividendYield": 0.75,
-    "marketCap": "580 Mr $",
-    "beta": 1.25,
-    "recommendation": "AL",
-    "inWatchlist": false,
-    "description": "Visa Inc. (V), ABD borsalarında Dijital Ödeme Sistemleri alanında işlem gören küresel teknoloji ve piyasa lideri.",
-    "metrics": [
-      {
-        "label": "F/K Oranı",
-        "value": "29.5x",
-        "peerAvg": "32.0x"
-      },
-      {
-        "label": "PD/DD",
-        "value": "13.8",
-        "peerAvg": "10.0"
-      }
-    ]
-  },
-  {
-    "id": "ma",
-    "symbol": "MA",
-    "name": "Mastercard Incorporated",
-    "sector": "Dijital Ödeme Sistemleri",
-    "exchange": "ABD",
-    "assetClass": "hisse",
-    "indexTag": "S&P 500",
-    "price": 488,
-    "currency": "$",
-    "dailyChange": 0.72,
-    "peRatio": 33,
-    "pbRatio": 54,
-    "dividendYield": 0.55,
-    "marketCap": "454 Mr $",
-    "beta": 1.25,
-    "recommendation": "AL",
-    "inWatchlist": false,
-    "description": "Mastercard Incorporated (MA), ABD borsalarında Dijital Ödeme Sistemleri alanında işlem gören küresel teknoloji ve piyasa lideri.",
-    "metrics": [
-      {
-        "label": "F/K Oranı",
-        "value": "33x",
-        "peerAvg": "32.0x"
-      },
-      {
-        "label": "PD/DD",
-        "value": "54",
-        "peerAvg": "10.0"
-      }
-    ]
-  },
-  {
-    "id": "jpm",
-    "symbol": "JPM",
-    "name": "JPMorgan Chase & Co.",
-    "sector": "Yatırım & Ticari Bankacılık",
-    "exchange": "ABD",
-    "assetClass": "hisse",
-    "indexTag": "S&P 500",
-    "price": 218,
-    "currency": "$",
-    "dailyChange": 1.15,
-    "peRatio": 12.2,
-    "pbRatio": 1.85,
-    "dividendYield": 2.25,
-    "marketCap": "625 Mr $",
-    "beta": 1.25,
-    "recommendation": "AL",
-    "inWatchlist": false,
-    "description": "JPMorgan Chase & Co. (JPM), ABD borsalarında Yatırım & Ticari Bankacılık alanında işlem gören küresel teknoloji ve piyasa lideri.",
-    "metrics": [
-      {
-        "label": "F/K Oranı",
-        "value": "12.2x",
-        "peerAvg": "32.0x"
-      },
-      {
-        "label": "PD/DD",
-        "value": "1.85",
-        "peerAvg": "10.0"
-      }
-    ]
-  },
-  {
-    "id": "jnj",
-    "symbol": "JNJ",
-    "name": "Johnson & Johnson",
-    "sector": "İlaç & Tıbbi Cihazlar",
-    "exchange": "ABD",
-    "assetClass": "hisse",
-    "indexTag": "S&P 500",
-    "price": 162,
-    "currency": "$",
-    "dailyChange": 0.25,
-    "peRatio": 16.8,
-    "pbRatio": 5.2,
-    "dividendYield": 3.1,
-    "marketCap": "390 Mr $",
-    "beta": 1.25,
-    "recommendation": "AL",
-    "inWatchlist": false,
-    "description": "Johnson & Johnson (JNJ), ABD borsalarında İlaç & Tıbbi Cihazlar alanında işlem gören küresel teknoloji ve piyasa lideri.",
-    "metrics": [
-      {
-        "label": "F/K Oranı",
-        "value": "16.8x",
-        "peerAvg": "32.0x"
-      },
-      {
-        "label": "PD/DD",
-        "value": "5.2",
-        "peerAvg": "10.0"
-      }
-    ]
-  },
-  {
-    "id": "wmt",
-    "symbol": "WMT",
-    "name": "Walmart Inc.",
-    "sector": "Küresel Perakende Devi",
-    "exchange": "ABD",
-    "assetClass": "hisse",
-    "indexTag": "S&P 500",
-    "price": 76.5,
-    "currency": "$",
-    "dailyChange": 0.85,
-    "peRatio": 31,
-    "pbRatio": 6.2,
-    "dividendYield": 1.15,
-    "marketCap": "615 Mr $",
-    "beta": 1.25,
-    "recommendation": "AL",
-    "inWatchlist": false,
-    "description": "Walmart Inc. (WMT), ABD borsalarında Küresel Perakende Devi alanında işlem gören küresel teknoloji ve piyasa lideri.",
-    "metrics": [
-      {
-        "label": "F/K Oranı",
-        "value": "31x",
-        "peerAvg": "32.0x"
-      },
-      {
-        "label": "PD/DD",
-        "value": "6.2",
-        "peerAvg": "10.0"
-      }
-    ]
-  },
-  {
-    "id": "cost",
-    "symbol": "COST",
-    "name": "Costco Wholesale Corporation",
-    "sector": "Toptan Üyelikli Perakende",
-    "exchange": "ABD",
-    "assetClass": "hisse",
-    "indexTag": "S&P 500",
-    "price": 895,
-    "currency": "$",
-    "dailyChange": 1.25,
-    "peRatio": 52,
-    "pbRatio": 14.5,
-    "dividendYield": 0.55,
-    "marketCap": "397 Mr $",
-    "beta": 1.25,
-    "recommendation": "AL",
-    "inWatchlist": false,
-    "description": "Costco Wholesale Corporation (COST), ABD borsalarında Toptan Üyelikli Perakende alanında işlem gören küresel teknoloji ve piyasa lideri.",
-    "metrics": [
-      {
-        "label": "F/K Oranı",
-        "value": "52x",
-        "peerAvg": "32.0x"
-      },
-      {
-        "label": "PD/DD",
-        "value": "14.5",
-        "peerAvg": "10.0"
-      }
-    ]
-  },
-  {
-    "id": "crm",
-    "symbol": "CRM",
-    "name": "Salesforce Inc.",
-    "sector": "Müşteri İlişkileri Yazılımı (CRM)",
-    "exchange": "ABD",
-    "assetClass": "hisse",
-    "indexTag": "S&P 500",
-    "price": 258,
-    "currency": "$",
-    "dailyChange": 1.45,
-    "peRatio": 38,
-    "pbRatio": 4.2,
-    "dividendYield": 0.62,
-    "marketCap": "250 Mr $",
-    "beta": 1.25,
-    "recommendation": "AL",
-    "inWatchlist": false,
-    "description": "Salesforce Inc. (CRM), ABD borsalarında Müşteri İlişkileri Yazılımı (CRM) alanında işlem gören küresel teknoloji ve piyasa lideri.",
-    "metrics": [
-      {
-        "label": "F/K Oranı",
-        "value": "38x",
-        "peerAvg": "32.0x"
-      },
-      {
-        "label": "PD/DD",
-        "value": "4.2",
-        "peerAvg": "10.0"
+        "value": "11.4",
+        "peerAvg": "8.5"
       }
     ]
   },
@@ -11413,27 +11007,59 @@ export const MOCK_COMPANIES: Company[] = [
     "exchange": "ABD",
     "assetClass": "hisse",
     "indexTag": "S&P 500",
-    "price": 142,
+    "price": 174.2,
     "currency": "$",
-    "dailyChange": 2.15,
-    "peRatio": 34,
-    "pbRatio": 28,
-    "dividendYield": 1.12,
-    "marketCap": "392 Mr $",
-    "beta": 1.25,
+    "dailyChange": 1.85,
+    "peRatio": 32.5,
+    "pbRatio": 18.4,
+    "dividendYield": 0.92,
+    "marketCap": "$480B",
+    "beta": 0.95,
     "recommendation": "AL",
     "inWatchlist": false,
-    "description": "Oracle Corporation (ORCL), ABD borsalarında Veritabanı & Bulut Altyapısı alanında işlem gören küresel teknoloji ve piyasa lideri.",
+    "description": "Kurumsal ilişkisel veritabanı (RDBMS), ERP yazılımları ve Oracle Cloud Infrastructure (OCI) sağlayıcısı.",
     "metrics": [
       {
         "label": "F/K Oranı",
-        "value": "34x",
-        "peerAvg": "32.0x"
+        "value": "32.5x",
+        "peerAvg": "28.5x"
       },
       {
         "label": "PD/DD",
-        "value": "28",
-        "peerAvg": "10.0"
+        "value": "18.4",
+        "peerAvg": "9.2"
+      }
+    ]
+  },
+  {
+    "id": "crm",
+    "symbol": "CRM",
+    "name": "Salesforce Inc.",
+    "sector": "Müşteri İlişkileri (CRM) & Bulut",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 295.4,
+    "currency": "$",
+    "dailyChange": 0.65,
+    "peRatio": 45.2,
+    "pbRatio": 4.8,
+    "dividendYield": 0.54,
+    "marketCap": "$286B",
+    "beta": 1.12,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Bulut tabanlı müşteri ilişkileri yönetimi (CRM), Agentforce yapay zeka aracı ve Slack iş birliği platformu.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "45.2x",
+        "peerAvg": "36.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "4.8",
+        "peerAvg": "6.0"
       }
     ]
   },
@@ -11441,191 +11067,383 @@ export const MOCK_COMPANIES: Company[] = [
     "id": "adbe",
     "symbol": "ADBE",
     "name": "Adobe Inc.",
-    "sector": "Yaratıcı Yazılım & Photoshop AI",
+    "sector": "Yaratıcı Yazılım & Tasarım",
     "exchange": "ABD",
     "assetClass": "hisse",
     "indexTag": "NASDAQ 100",
-    "price": 524,
+    "price": 512.8,
     "currency": "$",
-    "dailyChange": 1.65,
-    "peRatio": 39,
-    "pbRatio": 14.2,
+    "dailyChange": 0.35,
+    "peRatio": 38.4,
+    "pbRatio": 12.2,
     "dividendYield": 0,
-    "marketCap": "234 Mr $",
-    "beta": 1.25,
-    "recommendation": "AL",
+    "marketCap": "$228B",
+    "beta": 1.24,
+    "recommendation": "TUT",
     "inWatchlist": false,
-    "description": "Adobe Inc. (ADBE), ABD borsalarında Yaratıcı Yazılım & Photoshop AI alanında işlem gören küresel teknoloji ve piyasa lideri.",
+    "description": "Photoshop, Illustrator, Acrobat PDF ve Firefly üretken yapay zeka yaratıcı araçlarının küresel lideri.",
     "metrics": [
       {
         "label": "F/K Oranı",
-        "value": "39x",
+        "value": "38.4x",
         "peerAvg": "32.0x"
       },
       {
         "label": "PD/DD",
-        "value": "14.2",
-        "peerAvg": "10.0"
+        "value": "12.2",
+        "peerAvg": "8.4"
+      }
+    ]
+  },
+  {
+    "id": "nflx",
+    "symbol": "NFLX",
+    "name": "Netflix Inc.",
+    "sector": "Yayıncılık & Dijital Medya",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NASDAQ 100",
+    "price": 742.5,
+    "currency": "$",
+    "dailyChange": 1.55,
+    "peRatio": 42.8,
+    "pbRatio": 14.6,
+    "dividendYield": 0,
+    "marketCap": "$318B",
+    "beta": 1.26,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Dünya çapında 280 milyondan fazla aboneye sahip lider video akış (streaming) platformu.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "42.8x",
+        "peerAvg": "30.5x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "14.6",
+        "peerAvg": "7.8"
+      }
+    ]
+  },
+  {
+    "id": "amd",
+    "symbol": "AMD",
+    "name": "Advanced Micro Devices",
+    "sector": "Yarı İletken & Mikroişlemci",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NASDAQ 100",
+    "price": 154.2,
+    "currency": "$",
+    "dailyChange": 2.15,
+    "peRatio": 84.5,
+    "pbRatio": 4.2,
+    "dividendYield": 0,
+    "marketCap": "$250B",
+    "beta": 1.72,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Ryzen masaüstü CPU, EPYC sunucu işlemcileri ve Instinct MI300 yapay zeka hızlandırıcı üreticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "84.5x",
+        "peerAvg": "40.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "4.2",
+        "peerAvg": "6.5"
       }
     ]
   },
   {
     "id": "qcom",
     "symbol": "QCOM",
-    "name": "Qualcomm Incorporated",
-    "sector": "Mobil İşlemci (Snapdragon) & 5G",
+    "name": "Qualcomm Inc.",
+    "sector": "Mobil Çip & Telekom Donanımı",
     "exchange": "ABD",
     "assetClass": "hisse",
     "indexTag": "NASDAQ 100",
-    "price": 168,
+    "price": 172.6,
     "currency": "$",
-    "dailyChange": 1.95,
-    "peRatio": 19.5,
-    "pbRatio": 7.8,
-    "dividendYield": 1.95,
-    "marketCap": "188 Mr $",
+    "dailyChange": 0.95,
+    "peRatio": 21.4,
+    "pbRatio": 7.2,
+    "dividendYield": 1.97,
+    "marketCap": "$192B",
     "beta": 1.25,
     "recommendation": "AL",
     "inWatchlist": false,
-    "description": "Qualcomm Incorporated (QCOM), ABD borsalarında Mobil İşlemci (Snapdragon) & 5G alanında işlem gören küresel teknoloji ve piyasa lideri.",
+    "description": "Snapdragon mobil işlemcileri, 5G modemleri ve ARM mimarili Snapdragon X Elite PC işlemcileri üreticisi.",
     "metrics": [
       {
         "label": "F/K Oranı",
-        "value": "19.5x",
-        "peerAvg": "32.0x"
+        "value": "21.4x",
+        "peerAvg": "26.0x"
       },
       {
         "label": "PD/DD",
-        "value": "7.8",
-        "peerAvg": "10.0"
+        "value": "7.2",
+        "peerAvg": "8.0"
       }
     ]
   },
   {
-    "id": "avgo",
-    "symbol": "AVGO",
-    "name": "Broadcom Inc.",
-    "sector": "Özel Yapay Zeka Hızlandırıcıları & Çip",
+    "id": "intc",
+    "symbol": "INTC",
+    "name": "Intel Corporation",
+    "sector": "Yarı İletken & Dökümhane",
     "exchange": "ABD",
     "assetClass": "hisse",
     "indexTag": "NASDAQ 100",
-    "price": 164,
+    "price": 24.5,
     "currency": "$",
-    "dailyChange": 3.45,
-    "peRatio": 42,
-    "pbRatio": 11.5,
-    "dividendYield": 1.35,
-    "marketCap": "768 Mr $",
-    "beta": 1.25,
-    "recommendation": "AL",
+    "dailyChange": -1.2,
+    "peRatio": 45,
+    "pbRatio": 0.92,
+    "dividendYield": 2.05,
+    "marketCap": "$105B",
+    "beta": 1.15,
+    "recommendation": "TUT",
     "inWatchlist": false,
-    "description": "Broadcom Inc. (AVGO), ABD borsalarında Özel Yapay Zeka Hızlandırıcıları & Çip alanında işlem gören küresel teknoloji ve piyasa lideri.",
+    "description": "x86 PC ve veri merkezi işlemcileri üreticisi ve küresel Intel Foundry Services (IFS) dökümhane operasyonu.",
     "metrics": [
       {
         "label": "F/K Oranı",
-        "value": "42x",
-        "peerAvg": "32.0x"
+        "value": "45.0x",
+        "peerAvg": "30.0x"
       },
       {
         "label": "PD/DD",
-        "value": "11.5",
-        "peerAvg": "10.0"
+        "value": "0.92",
+        "peerAvg": "3.5"
+      }
+    ]
+  },
+  {
+    "id": "pltr",
+    "symbol": "PLTR",
+    "name": "Palantir Technologies",
+    "sector": "Büyük Veri & Savunma Yapay Zekası",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 43.8,
+    "currency": "$",
+    "dailyChange": 4.1,
+    "peRatio": 98,
+    "pbRatio": 22.5,
+    "dividendYield": 0,
+    "marketCap": "$98B",
+    "beta": 2.45,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Gotham, Foundry ve AIP (Artificial Intelligence Platform) ile savunma ve kurumsal veri analitiği devi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "98.0x",
+        "peerAvg": "42.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "22.5",
+        "peerAvg": "11.0"
       }
     ]
   },
   {
     "id": "uber",
     "symbol": "UBER",
-    "name": "Uber Technologies",
-    "sector": "Araç Çağırma & Teslimat",
+    "name": "Uber Technologies Inc.",
+    "sector": "Ulaşım Ağı & Teslimat",
     "exchange": "ABD",
     "assetClass": "hisse",
     "indexTag": "S&P 500",
-    "price": 74.5,
+    "price": 78.4,
+    "currency": "$",
+    "dailyChange": 1.25,
+    "peRatio": 35.6,
+    "pbRatio": 8.5,
+    "dividendYield": 0,
+    "marketCap": "$164B",
+    "beta": 1.35,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Küresel araç çağırma (rideshare), Uber Eats yemek teslimatı ve Uber Freight lojistik platformu.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "35.6x",
+        "peerAvg": "28.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "8.5",
+        "peerAvg": "5.5"
+      }
+    ]
+  },
+  {
+    "id": "abnb",
+    "symbol": "ABNB",
+    "name": "Airbnb Inc.",
+    "sector": "Konaklama & Seyahat Platformu",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NASDAQ 100",
+    "price": 134.5,
+    "currency": "$",
+    "dailyChange": 0.7,
+    "peRatio": 18.2,
+    "pbRatio": 9.8,
+    "dividendYield": 0,
+    "marketCap": "$85B",
+    "beta": 1.18,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Kısa dönemli ev ve tatil konaklaması kiralama sektörünün küresel pazar yeri lideri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "18.2x",
+        "peerAvg": "24.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "9.8",
+        "peerAvg": "6.2"
+      }
+    ]
+  },
+  {
+    "id": "now",
+    "symbol": "NOW",
+    "name": "ServiceNow Inc.",
+    "sector": "Kurumsal İş Akışı Yazılımı",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 924,
+    "currency": "$",
+    "dailyChange": 1.3,
+    "peRatio": 62.4,
+    "pbRatio": 18.5,
+    "dividendYield": 0,
+    "marketCap": "$190B",
+    "beta": 1.05,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Kurumsal BT hizmet yönetimi (ITSM) ve yapay zeka destekli dijital iş akışı otomasyon platformu.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "62.4x",
+        "peerAvg": "38.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "18.5",
+        "peerAvg": "10.0"
+      }
+    ]
+  },
+  {
+    "id": "intu",
+    "symbol": "INTU",
+    "name": "Intuit Inc.",
+    "sector": "Finansal Yazılım & Vergi",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NASDAQ 100",
+    "price": 648.5,
+    "currency": "$",
+    "dailyChange": 0.45,
+    "peRatio": 58.2,
+    "pbRatio": 9.6,
+    "dividendYield": 0.65,
+    "marketCap": "$182B",
+    "beta": 1.15,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "TurboTax, QuickBooks, Credit Karma ve Mailchimp yazılımlarıyla KOBİ ve bireysel finans yazılımları devi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "58.2x",
+        "peerAvg": "35.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "9.6",
+        "peerAvg": "7.0"
+      }
+    ]
+  },
+  {
+    "id": "panw",
+    "symbol": "PANW",
+    "name": "Palo Alto Networks",
+    "sector": "Siber Güvenlik",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NASDAQ 100",
+    "price": 368.2,
+    "currency": "$",
+    "dailyChange": 1.8,
+    "peRatio": 46.5,
+    "pbRatio": 19.8,
+    "dividendYield": 0,
+    "marketCap": "$120B",
+    "beta": 1.12,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Yeni nesil güvenlik duvarı (NGFW), Prisma Cloud ve Cortex XDR platformlarıyla küresel siber güvenlik lideri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "46.5x",
+        "peerAvg": "38.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "19.8",
+        "peerAvg": "12.0"
+      }
+    ]
+  },
+  {
+    "id": "crwd",
+    "symbol": "CRWD",
+    "name": "CrowdStrike Holdings",
+    "sector": "Uç Nokta Siber Güvenlik",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NASDAQ 100",
+    "price": 312.4,
     "currency": "$",
     "dailyChange": 2.25,
-    "peRatio": 32,
-    "pbRatio": 7.5,
+    "peRatio": 78,
+    "pbRatio": 28.5,
     "dividendYield": 0,
-    "marketCap": "155 Mr $",
-    "beta": 1.25,
+    "marketCap": "$76B",
+    "beta": 1.38,
     "recommendation": "AL",
     "inWatchlist": false,
-    "description": "Uber Technologies (UBER), ABD borsalarında Araç Çağırma & Teslimat alanında işlem gören küresel teknoloji ve piyasa lideri.",
+    "description": "Falcon bulut tabanlı uç nokta koruma ve tehdit istihbaratı platformuyla kurumsal siber güvenlik sağlayıcısı.",
     "metrics": [
       {
         "label": "F/K Oranı",
-        "value": "32x",
-        "peerAvg": "32.0x"
+        "value": "78.0x",
+        "peerAvg": "42.0x"
       },
       {
         "label": "PD/DD",
-        "value": "7.5",
-        "peerAvg": "10.0"
-      }
-    ]
-  },
-  {
-    "id": "spot",
-    "symbol": "SPOT",
-    "name": "Spotify Technology",
-    "sector": "Müzik & Podcast Yayını",
-    "exchange": "ABD",
-    "assetClass": "hisse",
-    "indexTag": "NASDAQ 100",
-    "price": 345,
-    "currency": "$",
-    "dailyChange": 2.85,
-    "peRatio": 54,
-    "pbRatio": 18,
-    "dividendYield": 0,
-    "marketCap": "69 Mr $",
-    "beta": 1.25,
-    "recommendation": "AL",
-    "inWatchlist": false,
-    "description": "Spotify Technology (SPOT), ABD borsalarında Müzik & Podcast Yayını alanında işlem gören küresel teknoloji ve piyasa lideri.",
-    "metrics": [
-      {
-        "label": "F/K Oranı",
-        "value": "54x",
-        "peerAvg": "32.0x"
-      },
-      {
-        "label": "PD/DD",
-        "value": "18",
-        "peerAvg": "10.0"
-      }
-    ]
-  },
-  {
-    "id": "pypl",
-    "symbol": "PYPL",
-    "name": "PayPal Holdings",
-    "sector": "Dijital Cüzdan & Fintek",
-    "exchange": "ABD",
-    "assetClass": "hisse",
-    "indexTag": "NASDAQ 100",
-    "price": 71.5,
-    "currency": "$",
-    "dailyChange": 1.45,
-    "peRatio": 17.5,
-    "pbRatio": 2.4,
-    "dividendYield": 0,
-    "marketCap": "74 Mr $",
-    "beta": 1.25,
-    "recommendation": "AL",
-    "inWatchlist": false,
-    "description": "PayPal Holdings (PYPL), ABD borsalarında Dijital Cüzdan & Fintek alanında işlem gören küresel teknoloji ve piyasa lideri.",
-    "metrics": [
-      {
-        "label": "F/K Oranı",
-        "value": "17.5x",
-        "peerAvg": "32.0x"
-      },
-      {
-        "label": "PD/DD",
-        "value": "2.4",
-        "peerAvg": "10.0"
+        "value": "28.5",
+        "peerAvg": "14.0"
       }
     ]
   },
@@ -11636,60 +11454,1180 @@ export const MOCK_COMPANIES: Company[] = [
     "sector": "Bulut Veri Ambarı",
     "exchange": "ABD",
     "assetClass": "hisse",
-    "indexTag": "NASDAQ 100",
-    "price": 118,
+    "indexTag": "NYSE",
+    "price": 128.5,
     "currency": "$",
-    "dailyChange": 3.85,
-    "peRatio": 68,
-    "pbRatio": 6.5,
+    "dailyChange": 1.1,
+    "peRatio": 52,
+    "pbRatio": 8.9,
     "dividendYield": 0,
-    "marketCap": "39 Mr $",
-    "beta": 1.25,
-    "recommendation": "AL",
+    "marketCap": "$43B",
+    "beta": 1.45,
+    "recommendation": "TUT",
     "inWatchlist": false,
-    "description": "Snowflake Inc. (SNOW), ABD borsalarında Bulut Veri Ambarı alanında işlem gören küresel teknoloji ve piyasa lideri.",
+    "description": "Çoklu bulut ortamında çalışan veri gölü, veri ambarı ve veri mühendisliği platformu sağlayıcısı.",
     "metrics": [
       {
         "label": "F/K Oranı",
-        "value": "68x",
-        "peerAvg": "32.0x"
+        "value": "52.0x",
+        "peerAvg": "36.0x"
       },
       {
         "label": "PD/DD",
-        "value": "6.5",
-        "peerAvg": "10.0"
+        "value": "8.9",
+        "peerAvg": "6.5"
       }
     ]
   },
   {
-    "id": "shop",
-    "symbol": "SHOP",
-    "name": "Shopify Inc.",
-    "sector": "E-Ticaret Altyapı Platformu",
+    "id": "amat",
+    "symbol": "AMAT",
+    "name": "Applied Materials",
+    "sector": "Yarı İletken Ekipmanı",
     "exchange": "ABD",
     "assetClass": "hisse",
     "indexTag": "NASDAQ 100",
-    "price": 78.5,
+    "price": 198.4,
     "currency": "$",
-    "dailyChange": 2.95,
-    "peRatio": 74,
-    "pbRatio": 8.8,
-    "dividendYield": 0,
-    "marketCap": "101 Mr $",
-    "beta": 1.25,
+    "dailyChange": 1.65,
+    "peRatio": 22.8,
+    "pbRatio": 8.4,
+    "dividendYield": 0.81,
+    "marketCap": "$164B",
+    "beta": 1.55,
     "recommendation": "AL",
     "inWatchlist": false,
-    "description": "Shopify Inc. (SHOP), ABD borsalarında E-Ticaret Altyapı Platformu alanında işlem gören küresel teknoloji ve piyasa lideri.",
+    "description": "Yarı iletken çip üretiminde kullanılan malzeme mühendisliği ve nanoteknoloji üretim ekipmanları lideri.",
     "metrics": [
       {
         "label": "F/K Oranı",
-        "value": "74x",
+        "value": "22.8x",
+        "peerAvg": "26.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "8.4",
+        "peerAvg": "7.0"
+      }
+    ]
+  },
+  {
+    "id": "lrcx",
+    "symbol": "LRCX",
+    "name": "Lam Research Corporation",
+    "sector": "Çip Aşındırma & İmalat",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NASDAQ 100",
+    "price": 78.6,
+    "currency": "$",
+    "dailyChange": 1.95,
+    "peRatio": 24.5,
+    "pbRatio": 9.8,
+    "dividendYield": 1.15,
+    "marketCap": "$102B",
+    "beta": 1.62,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "3D NAND ve DRAM bellek yongalarının üretiminde kullanılan kimyasal aşındırma ve biriktirme sistemleri üreticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "24.5x",
+        "peerAvg": "26.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "9.8",
+        "peerAvg": "7.5"
+      }
+    ]
+  },
+  {
+    "id": "mu",
+    "symbol": "MU",
+    "name": "Micron Technology",
+    "sector": "Bellek Çipleri (DRAM & NAND)",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NASDAQ 100",
+    "price": 108.5,
+    "currency": "$",
+    "dailyChange": 2.4,
+    "peRatio": 18.2,
+    "pbRatio": 2.4,
+    "dividendYield": 0.42,
+    "marketCap": "$120B",
+    "beta": 1.48,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Yapay zeka sunucuları için HBM3E yüksek bant genişlikli bellek ve tüketici SSD/DRAM üreticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "18.2x",
+        "peerAvg": "22.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "2.4",
+        "peerAvg": "3.2"
+      }
+    ]
+  },
+  {
+    "id": "jpm",
+    "symbol": "JPM",
+    "name": "JPMorgan Chase & Co.",
+    "sector": "Yatırım Bankacılığı & Ticari Banka",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 224.5,
+    "currency": "$",
+    "dailyChange": 0.65,
+    "peRatio": 12.4,
+    "pbRatio": 1.85,
+    "dividendYield": 2.05,
+    "marketCap": "$640B",
+    "beta": 1.08,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "3.9 trilyon dolarlık varlık tabanıyla ABD'nin ve dünyanın en büyük ve en karlı finans/bankacılık kuruluşu.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "12.4x",
+        "peerAvg": "11.8x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "1.85",
+        "peerAvg": "1.25"
+      }
+    ]
+  },
+  {
+    "id": "bac",
+    "symbol": "BAC",
+    "name": "Bank of America Corp.",
+    "sector": "Perakende & Ticari Bankacılık",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 42.8,
+    "currency": "$",
+    "dailyChange": 0.4,
+    "peRatio": 13.8,
+    "pbRatio": 1.25,
+    "dividendYield": 2.43,
+    "marketCap": "$334B",
+    "beta": 1.35,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Geniş şube ve mevduat tabanıyla ABD genelinde lider perakende bankacılık ve varlık yönetimi hizmetleri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "13.8x",
+        "peerAvg": "12.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "1.25",
+        "peerAvg": "1.15"
+      }
+    ]
+  },
+  {
+    "id": "gs",
+    "symbol": "GS",
+    "name": "The Goldman Sachs Group",
+    "sector": "Yatırım Bankacılığı & Menkul Değerler",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 528,
+    "currency": "$",
+    "dailyChange": 1.15,
+    "peRatio": 15.2,
+    "pbRatio": 1.55,
+    "dividendYield": 2.27,
+    "marketCap": "$172B",
+    "beta": 1.38,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Şirket birleşme-devralma (M&A) danışmanlığı, halka arz aracılığı ve küresel piyasa yapıcılığı devi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "15.2x",
+        "peerAvg": "13.5x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "1.55",
+        "peerAvg": "1.30"
+      }
+    ]
+  },
+  {
+    "id": "ms",
+    "symbol": "MS",
+    "name": "Morgan Stanley",
+    "sector": "Varlık Yönetimi & Yatırım Bankası",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 118.5,
+    "currency": "$",
+    "dailyChange": 0.85,
+    "peRatio": 17.5,
+    "pbRatio": 1.95,
+    "dividendYield": 2.87,
+    "marketCap": "$192B",
+    "beta": 1.28,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "E*TRADE dijital yatırım platformu ve 6 trilyon dolarlık zengin müşteri servet yönetimi portföyü lideri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "17.5x",
+        "peerAvg": "14.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "1.95",
+        "peerAvg": "1.40"
+      }
+    ]
+  },
+  {
+    "id": "v",
+    "symbol": "V",
+    "name": "Visa Inc.",
+    "sector": "Ödeme Teknolojileri & Kart Ağı",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 288.4,
+    "currency": "$",
+    "dailyChange": 0.75,
+    "peRatio": 29.8,
+    "pbRatio": 14.5,
+    "dividendYield": 0.72,
+    "marketCap": "$585B",
+    "beta": 0.95,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "200'den fazla ülkede saniyede on binlerce dijital ödeme işlemini takas eden küresel elektronik para ağı.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "29.8x",
+        "peerAvg": "27.5x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "14.5",
+        "peerAvg": "10.2"
+      }
+    ]
+  },
+  {
+    "id": "ma",
+    "symbol": "MA",
+    "name": "Mastercard Incorporated",
+    "sector": "Elektronik Ödeme Ağı",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 498.2,
+    "currency": "$",
+    "dailyChange": 0.9,
+    "peRatio": 34.2,
+    "pbRatio": 52,
+    "dividendYield": 0.53,
+    "marketCap": "$462B",
+    "beta": 1.02,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Küresel ödeme altyapısı, sınır ötesi para transferleri ve siber güvenlik kimlik doğrulama çözümleri devi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "34.2x",
+        "peerAvg": "28.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "52.0",
+        "peerAvg": "15.0"
+      }
+    ]
+  },
+  {
+    "id": "axp",
+    "symbol": "AXP",
+    "name": "American Express Company",
+    "sector": "Ödeme Kartları & Finans",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 274.6,
+    "currency": "$",
+    "dailyChange": 1.05,
+    "peRatio": 19.5,
+    "pbRatio": 6.2,
+    "dividendYield": 1.02,
+    "marketCap": "$198B",
+    "beta": 1.18,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Premium kredi kartı segmenti, kurumsal harcama çözümleri ve seyahat sadakat programları lideri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "19.5x",
+        "peerAvg": "15.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "6.2",
+        "peerAvg": "3.5"
+      }
+    ]
+  },
+  {
+    "id": "brkb",
+    "symbol": "BRK.B",
+    "name": "Berkshire Hathaway Inc.",
+    "sector": "Çok Sektörlü Holding & Sigorta",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 468.2,
+    "currency": "$",
+    "dailyChange": 0.35,
+    "peRatio": 22.4,
+    "pbRatio": 1.62,
+    "dividendYield": 0,
+    "marketCap": "$1.02T",
+    "beta": 0.88,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Warren Buffett liderliğinde GEICO sigorta, BNSF demiryolu ve devasa nakit/hisse senedi portföyü holdingi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "22.4x",
+        "peerAvg": "18.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "1.62",
+        "peerAvg": "1.45"
+      }
+    ]
+  },
+  {
+    "id": "blk",
+    "symbol": "BLK",
+    "name": "BlackRock Inc.",
+    "sector": "Fon Yönetimi & iShares",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 985,
+    "currency": "$",
+    "dailyChange": 1.1,
+    "peRatio": 24.8,
+    "pbRatio": 3.4,
+    "dividendYield": 2.07,
+    "marketCap": "$148B",
+    "beta": 1.25,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "11 trilyon doların üzerinde varlık yöneten dünyanın en büyük varlık yöneticisi ve iShares ETF kurucusu.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "24.8x",
+        "peerAvg": "18.5x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "3.4",
+        "peerAvg": "2.8"
+      }
+    ]
+  },
+  {
+    "id": "c",
+    "symbol": "C",
+    "name": "Citigroup Inc.",
+    "sector": "Küresel Bankacılık",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 64.2,
+    "currency": "$",
+    "dailyChange": 0.5,
+    "peRatio": 16.5,
+    "pbRatio": 0.65,
+    "dividendYield": 3.49,
+    "marketCap": "$122B",
+    "beta": 1.42,
+    "recommendation": "TUT",
+    "inWatchlist": false,
+    "description": "160'tan fazla ülkede kurumsal hazine yönetimi, uluslararası ticaret finansmanı ve perakende bankacılık.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "16.5x",
+        "peerAvg": "12.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "0.65",
+        "peerAvg": "1.10"
+      }
+    ]
+  },
+  {
+    "id": "wfc",
+    "symbol": "WFC",
+    "name": "Wells Fargo & Company",
+    "sector": "Ticari Bankacılık & Konut Kredisi",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 66.8,
+    "currency": "$",
+    "dailyChange": 0.7,
+    "peRatio": 13.2,
+    "pbRatio": 1.35,
+    "dividendYield": 2.4,
+    "marketCap": "$232B",
+    "beta": 1.15,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "ABD'de konut finansmanı (mortgage), küçük işletme kredileri ve bireysel bankacılık devi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "13.2x",
+        "peerAvg": "11.5x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "1.35",
+        "peerAvg": "1.15"
+      }
+    ]
+  },
+  {
+    "id": "pnc",
+    "symbol": "PNC",
+    "name": "PNC Financial Services",
+    "sector": "Bölgesel & Kurumsal Bankacılık",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 188.4,
+    "currency": "$",
+    "dailyChange": 0.45,
+    "peRatio": 14.5,
+    "pbRatio": 1.52,
+    "dividendYield": 3.4,
+    "marketCap": "$75B",
+    "beta": 1.12,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "ABD'nin önde gelen çeşitlendirilmiş finansal hizmetler ve ticari kredi sağlayan bankacılık grubu.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "14.5x",
+        "peerAvg": "12.5x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "1.52",
+        "peerAvg": "1.20"
+      }
+    ]
+  },
+  {
+    "id": "lly",
+    "symbol": "LLY",
+    "name": "Eli Lilly and Company",
+    "sector": "Biyofarmasötik & Diyabet/Obezite",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 885,
+    "currency": "$",
+    "dailyChange": 1.45,
+    "peRatio": 64.2,
+    "pbRatio": 42,
+    "dividendYield": 0.59,
+    "marketCap": "$840B",
+    "beta": 0.75,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Mounjaro ve Zepbound (GLP-1) kilo verme ve diyabet ilaçlarıyla küresel ilaç pazarının en değerli devi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "64.2x",
         "peerAvg": "32.0x"
       },
       {
         "label": "PD/DD",
-        "value": "8.8",
-        "peerAvg": "10.0"
+        "value": "42.0",
+        "peerAvg": "12.0"
+      }
+    ]
+  },
+  {
+    "id": "unh",
+    "symbol": "UNH",
+    "name": "UnitedHealth Group",
+    "sector": "Sağlık Sigortası & Optum Hizmetleri",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "Dow Jones",
+    "price": 588.4,
+    "currency": "$",
+    "dailyChange": 0.35,
+    "peRatio": 28.5,
+    "pbRatio": 6.2,
+    "dividendYield": 1.43,
+    "marketCap": "$542B",
+    "beta": 0.65,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "ABD'nin en büyük özel sağlık sigortacısı ve Optum eczane/klinik analitik teknolojileri sağlayıcısı.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "28.5x",
+        "peerAvg": "22.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "6.2",
+        "peerAvg": "4.5"
+      }
+    ]
+  },
+  {
+    "id": "jnj",
+    "symbol": "JNJ",
+    "name": "Johnson & Johnson",
+    "sector": "İlaç & Tıbbi Cihaz",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "Dow Jones",
+    "price": 162.8,
+    "currency": "$",
+    "dailyChange": 0.2,
+    "peRatio": 16.8,
+    "pbRatio": 5.2,
+    "dividendYield": 3.05,
+    "marketCap": "$392B",
+    "beta": 0.55,
+    "recommendation": "TUT",
+    "inWatchlist": false,
+    "description": "Onkoloji, immünoloji yenilikçi tedavileri ve cerrahi robotik/ortopedik tıbbi cihaz sistemleri üreticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "16.8x",
+        "peerAvg": "18.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "5.2",
+        "peerAvg": "4.8"
+      }
+    ]
+  },
+  {
+    "id": "abbv",
+    "symbol": "ABBV",
+    "name": "AbbVie Inc.",
+    "sector": "Biyoteknoloji & İmmünoloji",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 192.4,
+    "currency": "$",
+    "dailyChange": 0.6,
+    "peRatio": 18.5,
+    "pbRatio": 38,
+    "dividendYield": 3.22,
+    "marketCap": "$340B",
+    "beta": 0.62,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Humira, Skyrizi, Rinvoq immünoloji ilaçları ve Allergan (Botox) medikal estetik ürünleri üreticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "18.5x",
+        "peerAvg": "19.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "38.0",
+        "peerAvg": "8.5"
+      }
+    ]
+  },
+  {
+    "id": "mrk",
+    "symbol": "MRK",
+    "name": "Merck & Co. Inc.",
+    "sector": "Onkoloji & Aşılar",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 114.2,
+    "currency": "$",
+    "dailyChange": -0.15,
+    "peRatio": 17.2,
+    "pbRatio": 6.8,
+    "dividendYield": 2.7,
+    "marketCap": "$290B",
+    "beta": 0.42,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Keytruda blokbaser kanser immünoterapisi, Gardasil aşısı ve hayvan sağlığı ilaçları üreticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "17.2x",
+        "peerAvg": "18.5x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "6.8",
+        "peerAvg": "5.2"
+      }
+    ]
+  },
+  {
+    "id": "pfe",
+    "symbol": "PFE",
+    "name": "Pfizer Inc.",
+    "sector": "Biyofarmasötik & Aşı",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 28.5,
+    "currency": "$",
+    "dailyChange": 0.1,
+    "peRatio": 14.2,
+    "pbRatio": 1.82,
+    "dividendYield": 5.89,
+    "marketCap": "$162B",
+    "beta": 0.68,
+    "recommendation": "TUT",
+    "inWatchlist": false,
+    "description": "Comirnaty mRNA aşıları, Seagen onkoloji portföyü ve kardiyovasküler tedavi ilaçları geliştiricisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "14.2x",
+        "peerAvg": "16.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "1.82",
+        "peerAvg": "3.2"
+      }
+    ]
+  },
+  {
+    "id": "tmo",
+    "symbol": "TMO",
+    "name": "Thermo Fisher Scientific",
+    "sector": "Laboratuvar & Yaşam Bilimleri",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 568,
+    "currency": "$",
+    "dailyChange": 0.85,
+    "peRatio": 32.4,
+    "pbRatio": 4.5,
+    "dividendYield": 0.28,
+    "marketCap": "$218B",
+    "beta": 0.85,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Genetik dizileme cihazları, analitik test reaktifleri ve klinik araştırma laboratuvar altyapısı sağlayıcısı.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "32.4x",
+        "peerAvg": "26.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "4.5",
+        "peerAvg": "3.8"
+      }
+    ]
+  },
+  {
+    "id": "abt",
+    "symbol": "ABT",
+    "name": "Abbott Laboratories",
+    "sector": "Tıbbi Cihaz & Tanı Sistemleri",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 116.8,
+    "currency": "$",
+    "dailyChange": 0.4,
+    "peRatio": 26.5,
+    "pbRatio": 4.8,
+    "dividendYield": 1.88,
+    "marketCap": "$204B",
+    "beta": 0.72,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "FreeStyle Libre sürekli glikoz izleme sensörleri, kalp kapakçıkları ve pediatrik beslenme ürünleri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "26.5x",
+        "peerAvg": "24.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "4.8",
+        "peerAvg": "4.2"
+      }
+    ]
+  },
+  {
+    "id": "dhr",
+    "symbol": "DHR",
+    "name": "Danaher Corporation",
+    "sector": "Biyoteknoloji & Tanı Ekipmanları",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 254,
+    "currency": "$",
+    "dailyChange": 0.6,
+    "peRatio": 38,
+    "pbRatio": 3.6,
+    "dividendYield": 0.42,
+    "marketCap": "$188B",
+    "beta": 0.88,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Biyoproses filtreleme sistemleri, moleküler tanı aletleri ve yaşam bilimleri araştırma cihazları üreticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "38.0x",
+        "peerAvg": "28.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "3.6",
+        "peerAvg": "3.5"
+      }
+    ]
+  },
+  {
+    "id": "isrg",
+    "symbol": "ISRG",
+    "name": "Intuitive Surgical Inc.",
+    "sector": "Robotik Cerrahi Sistemleri",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NASDAQ 100",
+    "price": 495,
+    "currency": "$",
+    "dailyChange": 1.8,
+    "peRatio": 78.5,
+    "pbRatio": 11.2,
+    "dividendYield": 0,
+    "marketCap": "$176B",
+    "beta": 1.35,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "da Vinci robotik minimal invaziv cerrahi sistemleri ve cerrahi sarf malzemeleri üreticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "78.5x",
+        "peerAvg": "35.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "11.2",
+        "peerAvg": "6.0"
+      }
+    ]
+  },
+  {
+    "id": "xom",
+    "symbol": "XOM",
+    "name": "Exxon Mobil Corporation",
+    "sector": "Petrol & Doğalgaz Entegre",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 122.4,
+    "currency": "$",
+    "dailyChange": 0.75,
+    "peRatio": 14.8,
+    "pbRatio": 2.15,
+    "dividendYield": 3.1,
+    "marketCap": "$540B",
+    "beta": 0.95,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Arama-üretim, rafinaj, petrokimya ve karbon yakalama projeleriyle batı yarımkürenin en büyük petrol devi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "14.8x",
+        "peerAvg": "12.5x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "2.15",
+        "peerAvg": "1.80"
+      }
+    ]
+  },
+  {
+    "id": "cvx",
+    "symbol": "CVX",
+    "name": "Chevron Corporation",
+    "sector": "Petrol & Gaz Arama-Üretim",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "Dow Jones",
+    "price": 154.6,
+    "currency": "$",
+    "dailyChange": 0.5,
+    "peRatio": 14.2,
+    "pbRatio": 1.78,
+    "dividendYield": 4.22,
+    "marketCap": "$286B",
+    "beta": 1.05,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Permian Havzası kayaç petrolü sahaları ve küresel LNG sıvılaştırılmış doğalgaz projeleri operatörü.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "14.2x",
+        "peerAvg": "12.5x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "1.78",
+        "peerAvg": "1.65"
+      }
+    ]
+  },
+  {
+    "id": "cop",
+    "symbol": "COP",
+    "name": "ConocoPhillips",
+    "sector": "Saf Petrol Arama & Üretim",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 112.5,
+    "currency": "$",
+    "dailyChange": 0.85,
+    "peRatio": 12.8,
+    "pbRatio": 2.45,
+    "dividendYield": 2.78,
+    "marketCap": "$132B",
+    "beta": 1.15,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Düşük maliyetli kayaç petrolü, derin deniz arama sahaları ve LNG ihracat terminalleri işleticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "12.8x",
+        "peerAvg": "11.5x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "2.45",
+        "peerAvg": "1.90"
+      }
+    ]
+  },
+  {
+    "id": "slb",
+    "symbol": "SLB",
+    "name": "SLB (Schlumberger)",
+    "sector": "Petrol Sahası Teknolojisi & Sondaj",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 44.2,
+    "currency": "$",
+    "dailyChange": 1.1,
+    "peRatio": 13.5,
+    "pbRatio": 2.8,
+    "dividendYield": 2.49,
+    "marketCap": "$62B",
+    "beta": 1.45,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Petrol ve jeotermal kuyu sondajı, rezervuar karakterizasyonu ve dijital petrol sahası çözümleri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "13.5x",
+        "peerAvg": "14.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "2.80",
+        "peerAvg": "2.50"
+      }
+    ]
+  },
+  {
+    "id": "nee",
+    "symbol": "NEE",
+    "name": "NextEra Energy Inc.",
+    "sector": "Yenilenebilir Enerji & Elektrik",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 82.5,
+    "currency": "$",
+    "dailyChange": -0.2,
+    "peRatio": 24.5,
+    "pbRatio": 3.4,
+    "dividendYield": 2.5,
+    "marketCap": "$170B",
+    "beta": 0.55,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Florida Power & Light kamu hizmeti ve dünyanın en büyük rüzgar ve güneş enerjisi üreticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "24.5x",
+        "peerAvg": "18.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "3.4",
+        "peerAvg": "2.1"
+      }
+    ]
+  },
+  {
+    "id": "wmt",
+    "symbol": "WMT",
+    "name": "Walmart Inc.",
+    "sector": "Büyük Perakende & Süpermarket",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "Dow Jones",
+    "price": 82.4,
+    "currency": "$",
+    "dailyChange": 0.45,
+    "peRatio": 32.5,
+    "pbRatio": 6.8,
+    "dividendYield": 1.01,
+    "marketCap": "$662B",
+    "beta": 0.52,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "10.500'den fazla mağazası ve dev e-ticaret ağıyla dünyanın en yüksek ciroya sahip perakende devi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "32.5x",
+        "peerAvg": "24.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "6.8",
+        "peerAvg": "4.5"
+      }
+    ]
+  },
+  {
+    "id": "cost",
+    "symbol": "COST",
+    "name": "Costco Wholesale Corp.",
+    "sector": "Toptan Perakende & Üyelik Kulübü",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NASDAQ 100",
+    "price": 914,
+    "currency": "$",
+    "dailyChange": 0.9,
+    "peRatio": 54.8,
+    "pbRatio": 16.2,
+    "dividendYield": 0.51,
+    "marketCap": "$405B",
+    "beta": 0.78,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Yüksek sadakatli üyelik modeliyle toptan gıda, tüketim malları ve benzin istasyonu ağı.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "54.8x",
+        "peerAvg": "28.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "16.2",
+        "peerAvg": "5.8"
+      }
+    ]
+  },
+  {
+    "id": "pg",
+    "symbol": "PG",
+    "name": "The Procter & Gamble Co.",
+    "sector": "Hızlı Tüketim & Kişisel Bakım",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "Dow Jones",
+    "price": 172.5,
+    "currency": "$",
+    "dailyChange": 0.15,
+    "peRatio": 27.2,
+    "pbRatio": 8.5,
+    "dividendYield": 2.33,
+    "marketCap": "$406B",
+    "beta": 0.42,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Pampers, Tide, Ariel, Gillette, Oral-B ve Head & Shoulders markalarıyla küresel tüketim devi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "27.2x",
+        "peerAvg": "22.5x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "8.5",
+        "peerAvg": "5.2"
+      }
+    ]
+  },
+  {
+    "id": "ko",
+    "symbol": "KO",
+    "name": "The Coca-Cola Company",
+    "sector": "Alkolsüz İçecekler & Meşrubat",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "Dow Jones",
+    "price": 68.2,
+    "currency": "$",
+    "dailyChange": 0.3,
+    "peRatio": 26.4,
+    "pbRatio": 10.8,
+    "dividendYield": 2.84,
+    "marketCap": "$294B",
+    "beta": 0.58,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Coca-Cola, Sprite, Fanta, Minute Maid ve Costa Coffee ile dünyanın 1 numaralı içecek şirketi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "26.4x",
+        "peerAvg": "23.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "10.8",
+        "peerAvg": "6.5"
+      }
+    ]
+  },
+  {
+    "id": "pep",
+    "symbol": "PEP",
+    "name": "PepsiCo Inc.",
+    "sector": "Atıştırmalık & İçecek",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NASDAQ 100",
+    "price": 174.5,
+    "currency": "$",
+    "dailyChange": 0.25,
+    "peRatio": 24.8,
+    "pbRatio": 11.4,
+    "dividendYield": 3.1,
+    "marketCap": "$240B",
+    "beta": 0.55,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Lay's, Doritos, Cheetos atıştırmalıkları ve Pepsi, Gatorade, Tropicana içecek markaları portföyü.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "24.8x",
+        "peerAvg": "22.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "11.4",
+        "peerAvg": "6.2"
+      }
+    ]
+  },
+  {
+    "id": "mcd",
+    "symbol": "MCD",
+    "name": "McDonald's Corporation",
+    "sector": "Hızlı Servis Restoran Zinciri",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "Dow Jones",
+    "price": 298.4,
+    "currency": "$",
+    "dailyChange": 0.6,
+    "peRatio": 26.2,
+    "pbRatio": -45,
+    "dividendYield": 2.37,
+    "marketCap": "$214B",
+    "beta": 0.68,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "100'den fazla ülkede 40.000'den fazla franchise restoranıyla dünyanın en büyük fast-food zinciri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "26.2x",
+        "peerAvg": "24.5x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "-",
+        "peerAvg": "8.5"
       }
     ]
   },
@@ -11697,31 +12635,223 @@ export const MOCK_COMPANIES: Company[] = [
     "id": "nke",
     "symbol": "NKE",
     "name": "NIKE Inc.",
-    "sector": "Spor Giyim & Ayakkabı",
+    "sector": "Spor Ayakkabı & Giyim",
     "exchange": "ABD",
     "assetClass": "hisse",
-    "indexTag": "S&P 500",
+    "indexTag": "Dow Jones",
     "price": 82.5,
     "currency": "$",
-    "dailyChange": 0.45,
-    "peRatio": 24,
-    "pbRatio": 8.5,
-    "dividendYield": 1.85,
-    "marketCap": "124 Mr $",
-    "beta": 1.25,
-    "recommendation": "AL",
+    "dailyChange": 1.15,
+    "peRatio": 23.4,
+    "pbRatio": 8.9,
+    "dividendYield": 1.8,
+    "marketCap": "$124B",
+    "beta": 1.12,
+    "recommendation": "TUT",
     "inWatchlist": false,
-    "description": "NIKE Inc. (NKE), ABD borsalarında Spor Giyim & Ayakkabı alanında işlem gören küresel teknoloji ve piyasa lideri.",
+    "description": "Nike, Jordan ve Converse markalarıyla spor ayakkabı, performans giyimi ve ekipman lideri.",
     "metrics": [
       {
         "label": "F/K Oranı",
-        "value": "24x",
-        "peerAvg": "32.0x"
+        "value": "23.4x",
+        "peerAvg": "25.0x"
       },
       {
         "label": "PD/DD",
-        "value": "8.5",
-        "peerAvg": "10.0"
+        "value": "8.9",
+        "peerAvg": "6.2"
+      }
+    ]
+  },
+  {
+    "id": "sbux",
+    "symbol": "SBUX",
+    "name": "Starbucks Corporation",
+    "sector": "Özel Kahve Zinciri & Perakende",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NASDAQ 100",
+    "price": 98.4,
+    "currency": "$",
+    "dailyChange": 1.35,
+    "peRatio": 28.5,
+    "pbRatio": -12.5,
+    "dividendYield": 2.48,
+    "marketCap": "$112B",
+    "beta": 0.98,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "38.000'den fazla mağazasıyla küresel özel kahve kavurucusu, perakendecisi ve lisansörü.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "28.5x",
+        "peerAvg": "24.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "-",
+        "peerAvg": "7.8"
+      }
+    ]
+  },
+  {
+    "id": "hd",
+    "symbol": "HD",
+    "name": "The Home Depot Inc.",
+    "sector": "Ev Geliştirme & Yapı Market",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "Dow Jones",
+    "price": 412,
+    "currency": "$",
+    "dailyChange": 0.7,
+    "peRatio": 27.5,
+    "pbRatio": 42,
+    "dividendYield": 2.18,
+    "marketCap": "$408B",
+    "beta": 0.98,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Yapı malzemeleri, ev yenileme aletleri ve profesyonel müteahhit tedarik mağazaları zinciri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "27.5x",
+        "peerAvg": "22.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "42.0",
+        "peerAvg": "8.5"
+      }
+    ]
+  },
+  {
+    "id": "low",
+    "symbol": "LOW",
+    "name": "Lowe's Companies Inc.",
+    "sector": "Yapı Malzemeleri Perakendesi",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 268.5,
+    "currency": "$",
+    "dailyChange": 0.55,
+    "peRatio": 22.8,
+    "pbRatio": -16,
+    "dividendYield": 1.71,
+    "marketCap": "$152B",
+    "beta": 1.05,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Konut bakım, onarım, tadilat ve bahçe düzenleme ürünleri süpermarket zinciri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "22.8x",
+        "peerAvg": "22.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "-",
+        "peerAvg": "7.0"
+      }
+    ]
+  },
+  {
+    "id": "tjx",
+    "symbol": "TJX",
+    "name": "The TJX Companies Inc.",
+    "sector": "İndirimli Marka Giyim Perakendesi",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 118.4,
+    "currency": "$",
+    "dailyChange": 0.8,
+    "peRatio": 28.4,
+    "pbRatio": 18.2,
+    "dividendYield": 1.27,
+    "marketCap": "$134B",
+    "beta": 0.92,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "T.J. Maxx, Marshalls ve HomeGoods markalarıyla indirimli lüks moda ve ev eşyası perakendecisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "28.4x",
+        "peerAvg": "21.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "18.2",
+        "peerAvg": "6.5"
+      }
+    ]
+  },
+  {
+    "id": "cat",
+    "symbol": "CAT",
+    "name": "Caterpillar Inc.",
+    "sector": "İş & Madencilik Makineleri",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "Dow Jones",
+    "price": 398.5,
+    "currency": "$",
+    "dailyChange": 1.2,
+    "peRatio": 18.5,
+    "pbRatio": 8.9,
+    "dividendYield": 1.42,
+    "marketCap": "$192B",
+    "beta": 1.15,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "İnşaat ve madencilik iş makineleri, dizel-doğalgaz motorları ve endüstriyel gaz türbinleri devi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "18.5x",
+        "peerAvg": "20.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "8.9",
+        "peerAvg": "4.8"
+      }
+    ]
+  },
+  {
+    "id": "ge",
+    "symbol": "GE",
+    "name": "GE Aerospace",
+    "sector": "Havacılık Jet Motorları & Sistemleri",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 192.8,
+    "currency": "$",
+    "dailyChange": 1.4,
+    "peRatio": 38.5,
+    "pbRatio": 7.4,
+    "dividendYield": 0.58,
+    "marketCap": "$208B",
+    "beta": 1.22,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Ticari ve askeri uçaklar için CFM LEAP jet motorları ve aviyonik havacılık sistemleri üreticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "38.5x",
+        "peerAvg": "28.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "7.4",
+        "peerAvg": "5.2"
       }
     ]
   },
@@ -11729,127 +12859,2811 @@ export const MOCK_COMPANIES: Company[] = [
     "id": "ba",
     "symbol": "BA",
     "name": "The Boeing Company",
-    "sector": "Ticari & Askeri Uçak Üretimi",
+    "sector": "Ticari Uçak & Savunma Sanayi",
     "exchange": "ABD",
     "assetClass": "hisse",
-    "indexTag": "S&P 500",
-    "price": 158,
+    "indexTag": "Dow Jones",
+    "price": 158.4,
     "currency": "$",
-    "dailyChange": -1.25,
-    "peRatio": 35,
-    "pbRatio": 12,
+    "dailyChange": 2.1,
+    "peRatio": -32,
+    "pbRatio": -8.5,
     "dividendYield": 0,
-    "marketCap": "98 Mr $",
-    "beta": 1.25,
+    "marketCap": "$98B",
+    "beta": 1.55,
     "recommendation": "TUT",
     "inWatchlist": false,
-    "description": "The Boeing Company (BA), ABD borsalarında Ticari & Askeri Uçak Üretimi alanında işlem gören küresel teknoloji ve piyasa lideri.",
+    "description": "Boeing 737 MAX, 787 Dreamliner ticari uçakları, AH-64 Apache ve uzay fırlatma sistemleri üreticisi.",
     "metrics": [
       {
         "label": "F/K Oranı",
-        "value": "35x",
-        "peerAvg": "32.0x"
+        "value": "-",
+        "peerAvg": "24.0x"
       },
       {
         "label": "PD/DD",
-        "value": "12",
-        "peerAvg": "10.0"
+        "value": "-",
+        "peerAvg": "4.5"
       }
     ]
   },
   {
-    "id": "ibm",
-    "symbol": "IBM",
-    "name": "International Business Machines",
-    "sector": "Kurumsal Bilişim & Hibrit Bulut",
+    "id": "rtx",
+    "symbol": "RTX",
+    "name": "RTX Corporation",
+    "sector": "Havacılık & Savunma Teknolojileri",
     "exchange": "ABD",
     "assetClass": "hisse",
     "indexTag": "S&P 500",
-    "price": 204,
+    "price": 124.5,
     "currency": "$",
-    "dailyChange": 1.15,
-    "peRatio": 21,
-    "pbRatio": 7.5,
-    "dividendYield": 3.25,
-    "marketCap": "188 Mr $",
-    "beta": 1.25,
+    "dailyChange": 0.75,
+    "peRatio": 35.2,
+    "pbRatio": 2.6,
+    "dividendYield": 2.02,
+    "marketCap": "$165B",
+    "beta": 0.78,
     "recommendation": "AL",
     "inWatchlist": false,
-    "description": "International Business Machines (IBM), ABD borsalarında Kurumsal Bilişim & Hibrit Bulut alanında işlem gören küresel teknoloji ve piyasa lideri.",
+    "description": "Pratt & Whitney uçak motorları, Collins Aerospace aviyonik ve Raytheon füze savunma sistemleri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "35.2x",
+        "peerAvg": "24.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "2.6",
+        "peerAvg": "3.2"
+      }
+    ]
+  },
+  {
+    "id": "lmt",
+    "symbol": "LMT",
+    "name": "Lockheed Martin Corp.",
+    "sector": "Savunma Sanayi & Askeri Havacılık",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 574,
+    "currency": "$",
+    "dailyChange": 0.9,
+    "peRatio": 20.8,
+    "pbRatio": 21,
+    "dividendYield": 2.3,
+    "marketCap": "$136B",
+    "beta": 0.52,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "F-35 Lightning II hayalet savaş uçakları, HIMARS roket sistemleri ve Patriot füze teknolojisi üreticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "20.8x",
+        "peerAvg": "22.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "21.0",
+        "peerAvg": "6.0"
+      }
+    ]
+  },
+  {
+    "id": "hon",
+    "symbol": "HON",
+    "name": "Honeywell International",
+    "sector": "Endüstriyel Otomasyon & Havacılık",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "Dow Jones",
+    "price": 216.5,
+    "currency": "$",
+    "dailyChange": 0.35,
+    "peRatio": 24.5,
+    "pbRatio": 8.5,
+    "dividendYield": 2.08,
+    "marketCap": "$140B",
+    "beta": 1.05,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Bina otomasyon sistemleri, özel kimyasallar, havacılık donanımı ve kuantum bilişim girişimleri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "24.5x",
+        "peerAvg": "22.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "8.5",
+        "peerAvg": "5.0"
+      }
+    ]
+  },
+  {
+    "id": "unp",
+    "symbol": "UNP",
+    "name": "Union Pacific Corporation",
+    "sector": "Demiryolu Taşımacılığı & Lojistik",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 242,
+    "currency": "$",
+    "dailyChange": 0.45,
+    "peRatio": 22.4,
+    "pbRatio": 8.9,
+    "dividendYield": 2.15,
+    "marketCap": "$146B",
+    "beta": 0.88,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "ABD'nin batı eyaletlerini limanlara bağlayan 50.000 km'lik stratejik yük demiryolu ağı işletmecisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "22.4x",
+        "peerAvg": "20.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "8.9",
+        "peerAvg": "5.2"
+      }
+    ]
+  },
+  {
+    "id": "ups",
+    "symbol": "UPS",
+    "name": "United Parcel Service",
+    "sector": "Küresel Kargo & Tedarik Zinciri",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 134.8,
+    "currency": "$",
+    "dailyChange": 0.6,
+    "peRatio": 19.5,
+    "pbRatio": 6.8,
+    "dividendYield": 4.84,
+    "marketCap": "$114B",
+    "beta": 1.08,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Dünya genelinde 220'den fazla ülkede paket teslimatı ve entegre tedarik zinciri yönetimi devi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "19.5x",
+        "peerAvg": "18.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "6.8",
+        "peerAvg": "4.0"
+      }
+    ]
+  },
+  {
+    "id": "de",
+    "symbol": "DE",
+    "name": "Deere & Company",
+    "sector": "Tarım & Ormancılık Makineleri",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 412.5,
+    "currency": "$",
+    "dailyChange": 1.1,
+    "peRatio": 16.8,
+    "pbRatio": 4.8,
+    "dividendYield": 1.43,
+    "marketCap": "$114B",
+    "beta": 1.1,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "John Deere yeşil traktörleri, hassas tarım GPS otomasyonu ve inşaat ekipmanları küresel üreticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "16.8x",
+        "peerAvg": "18.5x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "4.8",
+        "peerAvg": "3.8"
+      }
+    ]
+  },
+  {
+    "id": "dis",
+    "symbol": "DIS",
+    "name": "The Walt Disney Company",
+    "sector": "Medya & Eğlence Parkları",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "Dow Jones",
+    "price": 96.5,
+    "currency": "$",
+    "dailyChange": 0.85,
+    "peRatio": 21.5,
+    "pbRatio": 1.75,
+    "dividendYield": 0.93,
+    "marketCap": "$175B",
+    "beta": 1.38,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Disney+, Marvel, Star Wars, Pixar stüdyoları, tema parkları ve ESPN spor yayıncılık devi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "21.5x",
+        "peerAvg": "22.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "1.75",
+        "peerAvg": "2.40"
+      }
+    ]
+  },
+  {
+    "id": "cmcsa",
+    "symbol": "CMCSA",
+    "name": "Comcast Corporation",
+    "sector": "Kablo, Genişbant & Universal Stüdyo",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NASDAQ 100",
+    "price": 42.8,
+    "currency": "$",
+    "dailyChange": 0.3,
+    "peRatio": 11.2,
+    "pbRatio": 1.95,
+    "dividendYield": 2.9,
+    "marketCap": "$165B",
+    "beta": 0.95,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Xfinity yüksek hızlı internet, NBCUniversal medya kanalları ve Universal Studios tema parkları.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "11.2x",
+        "peerAvg": "15.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "1.95",
+        "peerAvg": "2.20"
+      }
+    ]
+  },
+  {
+    "id": "t",
+    "symbol": "T",
+    "name": "AT&T Inc.",
+    "sector": "5G Mobil İletişim & Fiber Ağ",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 22.4,
+    "currency": "$",
+    "dailyChange": 0.45,
+    "peRatio": 11.8,
+    "pbRatio": 1.35,
+    "dividendYield": 4.95,
+    "marketCap": "$160B",
+    "beta": 0.72,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "ABD genelinde 5G kablosuz iletişim, gigabit fiber internet ve kurumsal veri bağlantı hizmetleri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "11.8x",
+        "peerAvg": "14.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "1.35",
+        "peerAvg": "1.80"
+      }
+    ]
+  },
+  {
+    "id": "vz",
+    "symbol": "VZ",
+    "name": "Verizon Communications",
+    "sector": "Kablosuz Telekomünikasyon",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "Dow Jones",
+    "price": 44.5,
+    "currency": "$",
+    "dailyChange": 0.2,
+    "peRatio": 15.4,
+    "pbRatio": 1.9,
+    "dividendYield": 6.08,
+    "marketCap": "$187B",
+    "beta": 0.45,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "ABD'nin en geniş kapsama alanına sahip kablosuz 5G operatörü ve fiber ağ altyapısı sağlayıcısı.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "15.4x",
+        "peerAvg": "14.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "1.90",
+        "peerAvg": "1.80"
+      }
+    ]
+  },
+  {
+    "id": "txn",
+    "symbol": "TXN",
+    "name": "Texas Instruments",
+    "sector": "Analog Çipler",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 205.4,
+    "currency": "$",
+    "dailyChange": -2.33,
+    "peRatio": 32.5,
+    "pbRatio": 11.2,
+    "dividendYield": 2.65,
+    "marketCap": "$186B",
+    "beta": 1.33,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Texas Instruments (TXN), ABD borsalarında Analog Çipler sektöründe işlem gören lider şirket. Endüstriyel ve otomotiv analog entegre devreleri ile gömülü işlemciler lideri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "32.5x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "11.2",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "klac",
+    "symbol": "KLAC",
+    "name": "KLA Corporation",
+    "sector": "Yarı İletken Süreç Kontrolü",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 742,
+    "currency": "$",
+    "dailyChange": 1.38,
+    "peRatio": 28.4,
+    "pbRatio": 28.5,
+    "dividendYield": 0.92,
+    "marketCap": "$99B",
+    "beta": 1.49,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "KLA Corporation (KLAC), ABD borsalarında Yarı İletken Süreç Kontrolü sektöründe işlem gören lider şirket. Nanometre seviyesinde silikon gofret kusur tespit ve metroloji sistemleri üreticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "28.4x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "28.5",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "cdns",
+    "symbol": "CDNS",
+    "name": "Cadence Design Systems",
+    "sector": "Elektronik Tasarım Otomasyonu (EDA)",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 288.5,
+    "currency": "$",
+    "dailyChange": -1.26,
+    "peRatio": 64,
+    "pbRatio": 18.2,
+    "dividendYield": 0,
+    "marketCap": "$78B",
+    "beta": 1.46,
+    "recommendation": "TUT",
+    "inWatchlist": false,
+    "description": "Cadence Design Systems (CDNS), ABD borsalarında Elektronik Tasarım Otomasyonu (EDA) sektöründe işlem gören lider şirket. Mikroçip tasarımı, simülasyonu ve özel ASIC geliştirme yazılımları lideri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "64x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "18.2",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "snps",
+    "symbol": "SNPS",
+    "name": "Synopsys Inc.",
+    "sector": "Silikon Tasarım Yazılımı",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 524,
+    "currency": "$",
+    "dailyChange": 1.5,
+    "peRatio": 58.5,
+    "pbRatio": 12.4,
+    "dividendYield": 0,
+    "marketCap": "$80B",
+    "beta": 1.52,
+    "recommendation": "TUT",
+    "inWatchlist": false,
+    "description": "Synopsys Inc. (SNPS), ABD borsalarında Silikon Tasarım Yazılımı sektöründe işlem gören lider şirket. Yarı iletken IP blokları, silikon tasarım otomasyonu ve yazılım güvenlik araçları.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "58.5x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "12.4",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "mrvl",
+    "symbol": "MRVL",
+    "name": "Marvell Technology",
+    "sector": "Veri Merkezi Çipleri",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 88.5,
+    "currency": "$",
+    "dailyChange": 1.28,
+    "peRatio": 48,
+    "pbRatio": 4.8,
+    "dividendYield": 0.27,
+    "marketCap": "$76B",
+    "beta": 1.46,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Marvell Technology (MRVL), ABD borsalarında Veri Merkezi Çipleri sektöründe işlem gören lider şirket. Yapay zeka veri merkezleri için optik ara bağlantı ve özel ASIC işlemcileri üreticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "48x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "4.8",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "anet",
+    "symbol": "ANET",
+    "name": "Arista Networks",
+    "sector": "Bulut Ağ Ekipmanları",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 388,
+    "currency": "$",
+    "dailyChange": -2.5,
+    "peRatio": 44.5,
+    "pbRatio": 12.8,
+    "dividendYield": 0,
+    "marketCap": "$122B",
+    "beta": 0.87,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Arista Networks (ANET), ABD borsalarında Bulut Ağ Ekipmanları sektöründe işlem gören lider şirket. Dev bulut veri merkezleri ve yapay zeka kümeleri için yüksek hızlı ağ anahtarları (switch).",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "44.5x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "12.8",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "mchp",
+    "symbol": "MCHP",
+    "name": "Microchip Technology",
+    "sector": "Mikrodenetleyiciler",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 78.4,
+    "currency": "$",
+    "dailyChange": 0.35,
+    "peRatio": 22,
+    "pbRatio": 6.5,
+    "dividendYield": 2.3,
+    "marketCap": "$42B",
+    "beta": 1.04,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Microchip Technology (MCHP), ABD borsalarında Mikrodenetleyiciler sektöründe işlem gören lider şirket. PIC mikrodenetleyicileri, karışık sinyal ve Flash-IP entegre devreleri üreticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "22x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "6.5",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "on",
+    "symbol": "ON",
+    "name": "ON Semiconductor",
+    "sector": "Güç Yarı İletkenleri (SiC)",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 72.5,
+    "currency": "$",
+    "dailyChange": -0.6,
+    "peRatio": 16.5,
+    "pbRatio": 3.8,
+    "dividendYield": 0,
+    "marketCap": "$31B",
+    "beta": 1.18,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "ON Semiconductor (ON), ABD borsalarında Güç Yarı İletkenleri (SiC) sektöründe işlem gören lider şirket. Elektrikli araç güç aktarma organları ve endüstriyel silisyum karbür (SiC) güç çipleri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "16.5x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "3.8",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "adi",
+    "symbol": "ADI",
+    "name": "Analog Devices Inc.",
+    "sector": "Sinyal İşleme Entegreleri",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 228,
+    "currency": "$",
+    "dailyChange": 2.43,
+    "peRatio": 34,
+    "pbRatio": 3.2,
+    "dividendYield": 1.62,
+    "marketCap": "$113B",
+    "beta": 1.17,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Analog Devices Inc. (ADI), ABD borsalarında Sinyal İşleme Entegreleri sektöründe işlem gören lider şirket. Sensör arayüzleri, veri dönüştürücüler ve yüksek performanslı analog sinyal işleme.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "34x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "3.2",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "ftnt",
+    "symbol": "FTNT",
+    "name": "Fortinet Inc.",
+    "sector": "Ağ Güvenliği & FortiGate",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 82.4,
+    "currency": "$",
+    "dailyChange": 1.65,
+    "peRatio": 42,
+    "pbRatio": 14.5,
+    "dividendYield": 0,
+    "marketCap": "$63B",
+    "beta": 1.54,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Fortinet Inc. (FTNT), ABD borsalarında Ağ Güvenliği & FortiGate sektöründe işlem gören lider şirket. FortiGate donanımsal güvenlik duvarları ve SASE bulut güvenlik mimarisi çözümleri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "42x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "14.5",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "wday",
+    "symbol": "WDAY",
+    "name": "Workday Inc.",
+    "sector": "İnsan Kaynakları & Finans Bulutu",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 264,
+    "currency": "$",
+    "dailyChange": 0.27,
+    "peRatio": 48.5,
+    "pbRatio": 9.2,
+    "dividendYield": 0,
+    "marketCap": "$70B",
+    "beta": 1,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Workday Inc. (WDAY), ABD borsalarında İnsan Kaynakları & Finans Bulutu sektöründe işlem gören lider şirket. Büyük kurumsal şirketler için bulut tabanlı İK yönetimi ve finansal planlama yazılımı.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "48.5x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "9.2",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "team",
+    "symbol": "TEAM",
+    "name": "Atlassian Corporation",
+    "sector": "Yazılım Geliştirme Araçları (Jira)",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 212,
+    "currency": "$",
+    "dailyChange": -2.5,
+    "peRatio": 54,
+    "pbRatio": 24,
+    "dividendYield": 0,
+    "marketCap": "$55B",
+    "beta": 0.93,
+    "recommendation": "TUT",
+    "inWatchlist": false,
+    "description": "Atlassian Corporation (TEAM), ABD borsalarında Yazılım Geliştirme Araçları (Jira) sektöründe işlem gören lider şirket. Jira, Confluence, Trello ve Bitbucket iş birliği ve yazılım yönetim araçları sağlayıcısı.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "54x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "24",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "ddog",
+    "symbol": "DDOG",
+    "name": "Datadog Inc.",
+    "sector": "Bulut İzleme & Güvenlik Analitiği",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 132,
+    "currency": "$",
+    "dailyChange": 0.13,
+    "peRatio": 72,
+    "pbRatio": 14.2,
+    "dividendYield": 0,
+    "marketCap": "$44B",
+    "beta": 0.92,
+    "recommendation": "TUT",
+    "inWatchlist": false,
+    "description": "Datadog Inc. (DDOG), ABD borsalarında Bulut İzleme & Güvenlik Analitiği sektöründe işlem gören lider şirket. Bulut altyapısı, sunucusuz mimariler ve APM uygulama performans izleme platformu.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "72x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "14.2",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "mdb",
+    "symbol": "MDB",
+    "name": "MongoDB Inc.",
+    "sector": "Doküman Veritabanı Platformu",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 284,
+    "currency": "$",
+    "dailyChange": 2.38,
+    "peRatio": 85,
+    "pbRatio": 18,
+    "dividendYield": 0,
+    "marketCap": "$21B",
+    "beta": 1.26,
+    "recommendation": "TUT",
+    "inWatchlist": false,
+    "description": "MongoDB Inc. (MDB), ABD borsalarında Doküman Veritabanı Platformu sektöründe işlem gören lider şirket. Geliştiricilerin en çok tercih ettiği modern NoSQL doküman veritabanı ve Atlas bulut servisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "85x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "18",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "coin",
+    "symbol": "COIN",
+    "name": "Coinbase Global Inc.",
+    "sector": "Kripto Varlık Borsası & Saklama",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 218,
+    "currency": "$",
+    "dailyChange": -2.36,
+    "peRatio": 38,
+    "pbRatio": 5.4,
+    "dividendYield": 0,
+    "marketCap": "$54B",
+    "beta": 1.29,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Coinbase Global Inc. (COIN), ABD borsalarında Kripto Varlık Borsası & Saklama sektöründe işlem gören lider şirket. ABD'nin en büyük regüle kripto para borsası ve kurumsal spot Bitcoin/ETH saklayıcısı.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "38x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "5.4",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "pypl",
+    "symbol": "PYPL",
+    "name": "PayPal Holdings Inc.",
+    "sector": "Dijital Cüzdan & Ödeme",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 78.5,
+    "currency": "$",
+    "dailyChange": 0.1,
+    "peRatio": 18.2,
+    "pbRatio": 3.8,
+    "dividendYield": 0,
+    "marketCap": "$80B",
+    "beta": 0.91,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "PayPal Holdings Inc. (PYPL), ABD borsalarında Dijital Cüzdan & Ödeme sektöründe işlem gören lider şirket. PayPal, Venmo ve Braintree dijital cüzdan ve e-ticaret ödeme altyapısı sağlayıcısı.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "18.2x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "3.8",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "bk",
+    "symbol": "BK",
+    "name": "The Bank of New York Mellon",
+    "sector": "Saklama Bankacılığı",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 74.5,
+    "currency": "$",
+    "dailyChange": -1.96,
+    "peRatio": 15,
+    "pbRatio": 1.55,
+    "dividendYield": 2.52,
+    "marketCap": "$56B",
+    "beta": 1.53,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "The Bank of New York Mellon (BK), ABD borsalarında Saklama Bankacılığı sektöründe işlem gören lider şirket. 50 trilyon dolarlık küresel varlık saklama (custody) ve menkul kıymet takas devi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "15x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "1.55",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "spgi",
+    "symbol": "SPGI",
+    "name": "S&P Global Inc.",
+    "sector": "Finansal Veri & Kredi Derecelendirme",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 512,
+    "currency": "$",
+    "dailyChange": 0.2,
+    "peRatio": 38.5,
+    "pbRatio": 5.2,
+    "dividendYield": 0.72,
+    "marketCap": "$158B",
+    "beta": 0.96,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "S&P Global Inc. (SPGI), ABD borsalarında Finansal Veri & Kredi Derecelendirme sektöründe işlem gören lider şirket. S&P 500 endeks lisansörü, S&P Capital IQ veri platformu ve küresel kredi derecelendirme.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "38.5x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "5.2",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "mco",
+    "symbol": "MCO",
+    "name": "Moody's Corporation",
+    "sector": "Kredi Notu & Risk Analitiği",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 488,
+    "currency": "$",
+    "dailyChange": -2.17,
+    "peRatio": 42,
+    "pbRatio": 24,
+    "dividendYield": 0.7,
+    "marketCap": "$88B",
+    "beta": 1.45,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Moody's Corporation (MCO), ABD borsalarında Kredi Notu & Risk Analitiği sektöründe işlem gören lider şirket. Tahvil kredi derecelendirme (Moody's Investors Service) ve kurumsal risk modelleme.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "42x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "24",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "ice",
+    "symbol": "ICE",
+    "name": "Intercontinental Exchange",
+    "sector": "Borsa İşleticisi (NYSE)",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 164,
+    "currency": "$",
+    "dailyChange": 1.49,
+    "peRatio": 32,
+    "pbRatio": 3.4,
+    "dividendYield": 1.1,
+    "marketCap": "$94B",
+    "beta": 1.52,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Intercontinental Exchange (ICE), ABD borsalarında Borsa İşleticisi (NYSE) sektöründe işlem gören lider şirket. New York Menkul Kıymetler Borsası (NYSE) ve Brent petrol vadeli işlem piyasaları işletmecisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "32x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "3.4",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "cme",
+    "symbol": "CME",
+    "name": "CME Group Inc.",
+    "sector": "Türev & Vadeli İşlemler Borsası",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 228,
+    "currency": "$",
+    "dailyChange": 2.43,
+    "peRatio": 24.5,
+    "pbRatio": 3,
+    "dividendYield": 4.25,
+    "marketCap": "$82B",
+    "beta": 1.17,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "CME Group Inc. (CME), ABD borsalarında Türev & Vadeli İşlemler Borsası sektöründe işlem gören lider şirket. Chicago Ticaret Borsası; faiz, hisse, emtia ve döviz vadeli işlem kontratlarının merkezi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "24.5x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "3",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "schw",
+    "symbol": "SCHW",
+    "name": "The Charles Schwab Corp.",
+    "sector": "Yatırım Aracılığı & Varlık Yönetimi",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 76.5,
+    "currency": "$",
+    "dailyChange": 2.23,
+    "peRatio": 26,
+    "pbRatio": 3.8,
+    "dividendYield": 1.3,
+    "marketCap": "$138B",
+    "beta": 1.41,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "The Charles Schwab Corp. (SCHW), ABD borsalarında Yatırım Aracılığı & Varlık Yönetimi sektöründe işlem gören lider şirket. 9 trilyon dolarlık müşteri varlığıyla bireysel yatırım, borsa aracılığı ve bankacılık.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "26x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "3.8",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "cvs",
+    "symbol": "CVS",
+    "name": "CVS Health Corporation",
+    "sector": "Eczane Perakendesi & Sağlık Sigortası",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 62.4,
+    "currency": "$",
+    "dailyChange": -1.05,
+    "peRatio": 11.5,
+    "pbRatio": 1.05,
+    "dividendYield": 4.26,
+    "marketCap": "$78B",
+    "beta": 1.38,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "CVS Health Corporation (CVS), ABD borsalarında Eczane Perakendesi & Sağlık Sigortası sektöründe işlem gören lider şirket. 9.000'den fazla eczanesi, MinuteClinic sağlık merkezleri ve Aetna sağlık sigortası.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "11.5x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "1.05",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "ci",
+    "symbol": "CI",
+    "name": "The Cigna Group",
+    "sector": "Küresel Sağlık Hizmetleri & Sigorta",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 334,
+    "currency": "$",
+    "dailyChange": 2.09,
+    "peRatio": 18,
+    "pbRatio": 2.1,
+    "dividendYield": 1.68,
+    "marketCap": "$94B",
+    "beta": 1.49,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "The Cigna Group (CI), ABD borsalarında Küresel Sağlık Hizmetleri & Sigorta sektöründe işlem gören lider şirket. Evernorth eczane fayda yönetimi ve kurumsal sağlık sigortası çözümleri sağlayıcısı.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "18x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "2.1",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "elv",
+    "symbol": "ELV",
+    "name": "Elevance Health Inc.",
+    "sector": "Sağlık Sigortası (Anthem)",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 432,
+    "currency": "$",
+    "dailyChange": -2.5,
+    "peRatio": 15.8,
+    "pbRatio": 2.4,
+    "dividendYield": 1.52,
+    "marketCap": "$100B",
+    "beta": 0.89,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Elevance Health Inc. (ELV), ABD borsalarında Sağlık Sigortası (Anthem) sektöründe işlem gören lider şirket. Anthem Blue Cross Blue Shield planlarıyla 47 milyon üyeye sağlık sigortası hizmeti.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "15.8x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "2.4",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "bmy",
+    "symbol": "BMY",
+    "name": "Bristol-Myers Squibb",
+    "sector": "Biyofarmasötik & İmmünoterapi",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 54,
+    "currency": "$",
+    "dailyChange": -1.4,
+    "peRatio": 14.5,
+    "pbRatio": 4.2,
+    "dividendYield": 4.44,
+    "marketCap": "$110B",
+    "beta": 1.5,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Bristol-Myers Squibb (BMY), ABD borsalarında Biyofarmasötik & İmmünoterapi sektöründe işlem gören lider şirket. Opdivo ve Eliquis kan sulandırıcı ile onkoloji ve kardiyoloji yenilikçi tedavileri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "14.5x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "4.2",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "amgn",
+    "symbol": "AMGN",
+    "name": "Amgen Inc.",
+    "sector": "Biyoteknoloji Öncüsü",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 324,
+    "currency": "$",
+    "dailyChange": -1.01,
+    "peRatio": 18.2,
+    "pbRatio": 16.5,
+    "dividendYield": 2.78,
+    "marketCap": "$174B",
+    "beta": 1.37,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Amgen Inc. (AMGN), ABD borsalarında Biyoteknoloji Öncüsü sektöründe işlem gören lider şirket. Biyolojik ilaçların öncüsü; Prolia kemik sağlığı, Enbrel ve Repatha kolesterol tedavileri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "18.2x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "16.5",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "gild",
+    "symbol": "GILD",
+    "name": "Gilead Sciences Inc.",
+    "sector": "Viroloji & Onkoloji",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 88.5,
+    "currency": "$",
+    "dailyChange": 1.28,
+    "peRatio": 16,
+    "pbRatio": 4.8,
+    "dividendYield": 3.48,
+    "marketCap": "$110B",
+    "beta": 1.46,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Gilead Sciences Inc. (GILD), ABD borsalarında Viroloji & Onkoloji sektöründe işlem gören lider şirket. HIV tedavileri (Biktarvy), Hepatit C ilaçları ve Yescarta CAR-T hücre terapileri üreticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "16x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "4.8",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "vrtx",
+    "symbol": "VRTX",
+    "name": "Vertex Pharmaceuticals",
+    "sector": "Kistik Fibrozis & Gen Tedavileri",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 468,
+    "currency": "$",
+    "dailyChange": 0.24,
+    "peRatio": 28.5,
+    "pbRatio": 6.2,
+    "dividendYield": 0,
+    "marketCap": "$120B",
+    "beta": 0.99,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Vertex Pharmaceuticals (VRTX), ABD borsalarında Kistik Fibrozis & Gen Tedavileri sektöründe işlem gören lider şirket. Kistik fibrozis hedefli tedaviler ve CRISPR tabanlı Casgevy orak hücre gen terapisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "28.5x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "6.2",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "regn",
+    "symbol": "REGN",
+    "name": "Regeneron Pharmaceuticals",
+    "sector": "Antikor Teknolojileri & Göz Sağlığı",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 984,
+    "currency": "$",
+    "dailyChange": -1.57,
+    "peRatio": 24,
+    "pbRatio": 3.8,
+    "dividendYield": 0,
+    "marketCap": "$106B",
+    "beta": 1.53,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Regeneron Pharmaceuticals (REGN), ABD borsalarında Antikor Teknolojileri & Göz Sağlığı sektöründe işlem gören lider şirket. Dupixent egzama/astım antikoru ve Eylea göz hastalıkları tedavisi geliştiricisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "24x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "3.8",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "syk",
+    "symbol": "SYK",
+    "name": "Stryker Corporation",
+    "sector": "Ortopedi & Tıbbi Cihazlar",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 364,
+    "currency": "$",
+    "dailyChange": -1.03,
+    "peRatio": 34,
+    "pbRatio": 7.2,
+    "dividendYield": 0.88,
+    "marketCap": "$138B",
+    "beta": 1.38,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Stryker Corporation (SYK), ABD borsalarında Ortopedi & Tıbbi Cihazlar sektöründe işlem gören lider şirket. Mako robotik eklem cerrahisi, implantlar, sedyeler ve acil tıp müdahale ekipmanları.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "34x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "7.2",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "mdt",
+    "symbol": "MDT",
+    "name": "Medtronic plc",
+    "sector": "Kalp Pilleri & Tıbbi Teknolojiler",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 88,
+    "currency": "$",
+    "dailyChange": 0.09,
+    "peRatio": 22.5,
+    "pbRatio": 2.2,
+    "dividendYield": 3.18,
+    "marketCap": "$113B",
+    "beta": 0.9,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Medtronic plc (MDT), ABD borsalarında Kalp Pilleri & Tıbbi Teknolojiler sektöründe işlem gören lider şirket. Kalp pilleri, insülin pompaları, omurga cerrahisi ve minimal invaziv cerrahi aletleri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "22.5x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "2.2",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "bsx",
+    "symbol": "BSX",
+    "name": "Boston Scientific Corp.",
+    "sector": "Girişimsel Kardiyoloji Cihazları",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 84.5,
+    "currency": "$",
+    "dailyChange": 0.79,
+    "peRatio": 42,
+    "pbRatio": 5.8,
+    "dividendYield": 0,
+    "marketCap": "$124B",
+    "beta": 1.27,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Boston Scientific Corp. (BSX), ABD borsalarında Girişimsel Kardiyoloji Cihazları sektöründe işlem gören lider şirket. WATCHMAN sol atriyal apendiks kapatma cihazı ve koroner stent sistemleri üreticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "42x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "5.8",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "bdx",
+    "symbol": "BDX",
+    "name": "Becton, Dickinson and Company",
+    "sector": "Tıbbi Sarf & Enjeksiyon Sistemleri",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 238,
+    "currency": "$",
+    "dailyChange": -1.72,
+    "peRatio": 28,
+    "pbRatio": 2.6,
+    "dividendYield": 1.6,
+    "marketCap": "$68B",
+    "beta": 1.55,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Becton, Dickinson and Company (BDX), ABD borsalarında Tıbbi Sarf & Enjeksiyon Sistemleri sektöründe işlem gören lider şirket. Şırıngalar, damar içi kateterler, tanı tüpleri ve diyabet bakım enjeksiyon sistemleri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "28x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "2.6",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "ew",
+    "symbol": "EW",
+    "name": "Edwards Lifesciences",
+    "sector": "Yapay Kalp Kapakçıkları (TAVR)",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 72,
+    "currency": "$",
+    "dailyChange": 0.63,
+    "peRatio": 28.5,
+    "pbRatio": 4.8,
+    "dividendYield": 0,
+    "marketCap": "$43B",
+    "beta": 1.19,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Edwards Lifesciences (EW), ABD borsalarında Yapay Kalp Kapakçıkları (TAVR) sektöründe işlem gören lider şirket. Açık kalp ameliyatsız transkateter aort kapak replasmanı (TAVR) sistemleri lideri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "28.5x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "4.8",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "eog",
+    "symbol": "EOG",
+    "name": "EOG Resources Inc.",
+    "sector": "Petrol & Doğalgaz Arama",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 132,
+    "currency": "$",
+    "dailyChange": 0.13,
+    "peRatio": 11.2,
+    "pbRatio": 2.4,
+    "dividendYield": 2.76,
+    "marketCap": "$76B",
+    "beta": 0.92,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "EOG Resources Inc. (EOG), ABD borsalarında Petrol & Doğalgaz Arama sektöründe işlem gören lider şirket. ABD kayaç formasyonlarında yüksek verimli 'premium' petrol ve gaz kuyusu sondajcısı.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "11.2x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "2.4",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "oxy",
+    "symbol": "OXY",
+    "name": "Occidental Petroleum",
+    "sector": "Kayaç Petrolü & Karbon Yakalama",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 54.5,
+    "currency": "$",
+    "dailyChange": -2.22,
+    "peRatio": 15,
+    "pbRatio": 1.85,
+    "dividendYield": 1.61,
+    "marketCap": "$50B",
+    "beta": 1.42,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Occidental Petroleum (OXY), ABD borsalarında Kayaç Petrolü & Karbon Yakalama sektöründe işlem gören lider şirket. Permian Havzası üreticisi ve doğrudan hava karbon yakalama (DAC) projeleri öncüsü.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "15x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "1.85",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "mpc",
+    "symbol": "MPC",
+    "name": "Marathon Petroleum Corp.",
+    "sector": "Petrol Rafinerisi & Akaryakıt Dağıtım",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 168,
+    "currency": "$",
+    "dailyChange": -2.49,
+    "peRatio": 10.5,
+    "pbRatio": 2.8,
+    "dividendYield": 1.96,
+    "marketCap": "$58B",
+    "beta": 0.95,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Marathon Petroleum Corp. (MPC), ABD borsalarında Petrol Rafinerisi & Akaryakıt Dağıtım sektöründe işlem gören lider şirket. Günlük 3 milyon varil işleme kapasitesiyle ABD'nin en büyük bağımsız rafineri grubu.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "10.5x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "2.8",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "vlo",
+    "symbol": "VLO",
+    "name": "Valero Energy Corporation",
+    "sector": "Rafineri & Yenilenebilir Dizel",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 142,
+    "currency": "$",
+    "dailyChange": -1.47,
+    "peRatio": 11,
+    "pbRatio": 2.1,
+    "dividendYield": 3.02,
+    "marketCap": "$45B",
+    "beta": 1.52,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Valero Energy Corporation (VLO), ABD borsalarında Rafineri & Yenilenebilir Dizel sektöründe işlem gören lider şirket. Düşük maliyetli kompleks petrol rafinerileri ve Diamond Green Diesel biyoyakıt tesisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "11x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "2.1",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "psx",
+    "symbol": "PSX",
+    "name": "Phillips 66",
+    "sector": "Rafinaj & Orta Akım Boru Hatları",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 138,
+    "currency": "$",
+    "dailyChange": -0.57,
+    "peRatio": 13.2,
+    "pbRatio": 1.9,
+    "dividendYield": 3.33,
+    "marketCap": "$58B",
+    "beta": 1.16,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Phillips 66 (PSX), ABD borsalarında Rafinaj & Orta Akım Boru Hatları sektöründe işlem gören lider şirket. Petrol rafinajı, petrokimya (CPChem) ve akaryakıt lojistik boru hatları işleticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "13.2x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "1.9",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "kmi",
+    "symbol": "KMI",
+    "name": "Kinder Morgan Inc.",
+    "sector": "Doğalgaz Boru Hatları Altyapısı",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 24.5,
+    "currency": "$",
+    "dailyChange": -1.48,
+    "peRatio": 21,
+    "pbRatio": 1.8,
+    "dividendYield": 4.65,
+    "marketCap": "$54B",
+    "beta": 1.52,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Kinder Morgan Inc. (KMI), ABD borsalarında Doğalgaz Boru Hatları Altyapısı sektöründe işlem gören lider şirket. 130.000 km'lik boru hattıyla ABD doğalgaz tüketiminin %40'ını taşıyan altyapı devi.",
     "metrics": [
       {
         "label": "F/K Oranı",
         "value": "21x",
-        "peerAvg": "32.0x"
+        "peerAvg": "25.0x"
       },
       {
         "label": "PD/DD",
-        "value": "7.5",
-        "peerAvg": "10.0"
+        "value": "1.8",
+        "peerAvg": "5.50"
       }
     ]
   },
   {
-    "id": "mstr",
-    "symbol": "MSTR",
-    "name": "MicroStrategy Incorporated",
-    "sector": "Kurumsal Yazılım & Bitcoin Hazinesi",
+    "id": "wmb",
+    "symbol": "WMB",
+    "name": "The Williams Companies",
+    "sector": "Doğalgaz Taşıma & Transco",
     "exchange": "ABD",
     "assetClass": "hisse",
-    "indexTag": "NASDAQ 100",
-    "price": 145,
+    "indexTag": "NYSE",
+    "price": 52,
     "currency": "$",
-    "dailyChange": 6.85,
-    "peRatio": 45,
-    "pbRatio": 8.2,
-    "dividendYield": 0,
-    "marketCap": "29 Mr $",
-    "beta": 1.25,
+    "dailyChange": 2.47,
+    "peRatio": 22.5,
+    "pbRatio": 3.8,
+    "dividendYield": 3.65,
+    "marketCap": "$63B",
+    "beta": 1.08,
     "recommendation": "AL",
     "inWatchlist": false,
-    "description": "MicroStrategy Incorporated (MSTR), ABD borsalarında Kurumsal Yazılım & Bitcoin Hazinesi alanında işlem gören küresel teknoloji ve piyasa lideri.",
+    "description": "The Williams Companies (WMB), ABD borsalarında Doğalgaz Taşıma & Transco sektöründe işlem gören lider şirket. Transco boru hattıyla Meksika Körfezi'nden New York'a doğalgaz taşıyan stratejik omurga.",
     "metrics": [
       {
         "label": "F/K Oranı",
-        "value": "45x",
-        "peerAvg": "32.0x"
+        "value": "22.5x",
+        "peerAvg": "25.0x"
       },
       {
         "label": "PD/DD",
-        "value": "8.2",
-        "peerAvg": "10.0"
+        "value": "3.8",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "duk",
+    "symbol": "DUK",
+    "name": "Duke Energy Corporation",
+    "sector": "Elektrik & Gaz Dağıtım Şebekesi",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 118,
+    "currency": "$",
+    "dailyChange": -2.45,
+    "peRatio": 19.5,
+    "pbRatio": 1.85,
+    "dividendYield": 3.52,
+    "marketCap": "$91B",
+    "beta": 1.11,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Duke Energy Corporation (DUK), ABD borsalarında Elektrik & Gaz Dağıtım Şebekesi sektöründe işlem gören lider şirket. 8.4 milyon müşteriye elektrik ve doğalgaz dağıtan ABD kamu hizmetleri holdingi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "19.5x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "1.85",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "so",
+    "symbol": "SO",
+    "name": "The Southern Company",
+    "sector": "Nükleer & Temiz Enerji Şebekesi",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 92.4,
+    "currency": "$",
+    "dailyChange": -2.4,
+    "peRatio": 22,
+    "pbRatio": 2.4,
+    "dividendYield": 3.12,
+    "marketCap": "$101B",
+    "beta": 1.22,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "The Southern Company (SO), ABD borsalarında Nükleer & Temiz Enerji Şebekesi sektöründe işlem gören lider şirket. Vogtle 3 & 4 yeni nesil ticari nükleer santralleri ve elektrik dağıtım şebekeleri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "22x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "2.4",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "aep",
+    "symbol": "AEP",
+    "name": "American Electric Power",
+    "sector": "Elektrik İletim Hatları",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 102,
+    "currency": "$",
+    "dailyChange": 2.49,
+    "peRatio": 18.5,
+    "pbRatio": 2.1,
+    "dividendYield": 3.45,
+    "marketCap": "$54B",
+    "beta": 0.99,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "American Electric Power (AEP), ABD borsalarında Elektrik İletim Hatları sektöründe işlem gören lider şirket. 11 eyalette 64.000 km'lik yüksek voltaj elektrik iletim şebekesi işleticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "18.5x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "2.1",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "sre",
+    "symbol": "SRE",
+    "name": "Sempra Energy",
+    "sector": "Enerji Altyapısı & LNG Terminalleri",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 88.5,
+    "currency": "$",
+    "dailyChange": 1.28,
+    "peRatio": 18,
+    "pbRatio": 1.9,
+    "dividendYield": 2.8,
+    "marketCap": "$56B",
+    "beta": 1.46,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Sempra Energy (SRE), ABD borsalarında Enerji Altyapısı & LNG Terminalleri sektöründe işlem gören lider şirket. Güney Kaliforniya gaz şebekeleri ve Port Arthur sıvılaştırılmış gaz ihracat tesisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "18x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "1.9",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "tgt",
+    "symbol": "TGT",
+    "name": "Target Corporation",
+    "sector": "Zincir Perakende Mağazaları",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 154,
+    "currency": "$",
+    "dailyChange": -0.15,
+    "peRatio": 16.5,
+    "pbRatio": 5.2,
+    "dividendYield": 2.91,
+    "marketCap": "$71B",
+    "beta": 0.94,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Target Corporation (TGT), ABD borsalarında Zincir Perakende Mağazaları sektöründe işlem gören lider şirket. 2.000'e yakın çok katlı mağazasıyla uygun fiyatlı tasarım giyim ve ev eşyası perakendesi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "16.5x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "5.2",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "mdlz",
+    "symbol": "MDLZ",
+    "name": "Mondelez International",
+    "sector": "Bisküvi & Çikolata (Oreo & Milka)",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 72,
+    "currency": "$",
+    "dailyChange": 0.63,
+    "peRatio": 22,
+    "pbRatio": 3.4,
+    "dividendYield": 2.61,
+    "marketCap": "$96B",
+    "beta": 1.19,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Mondelez International (MDLZ), ABD borsalarında Bisküvi & Çikolata (Oreo & Milka) sektöründe işlem gören lider şirket. Oreo, Milka, Toblerone, Cadbury ve Philadelphia peynir markaları küresel üreticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "22x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "3.4",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "kmb",
+    "symbol": "KMB",
+    "name": "Kimberly-Clark Corporation",
+    "sector": "Kağıt Hijyen Ürünleri (Huggies)",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 142,
+    "currency": "$",
+    "dailyChange": -1.47,
+    "peRatio": 21,
+    "pbRatio": 38,
+    "dividendYield": 3.44,
+    "marketCap": "$48B",
+    "beta": 1.52,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Kimberly-Clark Corporation (KMB), ABD borsalarında Kağıt Hijyen Ürünleri (Huggies) sektöründe işlem gören lider şirket. Huggies çocuk bezi, Kleenex mendilleri ve Kotex kadın bakım ürünleri üreticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "21x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "38",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "cl",
+    "symbol": "CL",
+    "name": "Colgate-Palmolive Company",
+    "sector": "Ağız Bakımı & Ev Hijyeni",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 102,
+    "currency": "$",
+    "dailyChange": 2.49,
+    "peRatio": 28.5,
+    "pbRatio": 85,
+    "dividendYield": 1.96,
+    "marketCap": "$83B",
+    "beta": 0.99,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Colgate-Palmolive Company (CL), ABD borsalarında Ağız Bakımı & Ev Hijyeni sektöründe işlem gören lider şirket. Colgate diş macunları, Palmolive sabunları ve Hill's Science Diet veteriner maması.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "28.5x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "85",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "mnst",
+    "symbol": "MNST",
+    "name": "Monster Beverage Corp.",
+    "sector": "Enerji İçecekleri",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 52,
+    "currency": "$",
+    "dailyChange": 2.47,
+    "peRatio": 32,
+    "pbRatio": 6.8,
+    "dividendYield": 0,
+    "marketCap": "$54B",
+    "beta": 1.08,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Monster Beverage Corp. (MNST), ABD borsalarında Enerji İçecekleri sektöründe işlem gören lider şirket. Monster Energy, Reign ve Predator küresel enerji ve performans içecekleri üreticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "32x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "6.8",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "bkng",
+    "symbol": "BKNG",
+    "name": "Booking Holdings Inc.",
+    "sector": "Çevrimiçi Seyahat & Otel Rezervasyonu",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 4480,
+    "currency": "$",
+    "dailyChange": 0.22,
+    "peRatio": 29.5,
+    "dividendYield": 0.78,
+    "marketCap": "$152B",
+    "beta": 0.97,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Booking Holdings Inc. (BKNG), ABD borsalarında Çevrimiçi Seyahat & Otel Rezervasyonu sektöründe işlem gören lider şirket. Booking.com, Priceline, Agoda, Kayak ve OpenTable seyahat rezervasyon platformları.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "29.5x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "-",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "mar",
+    "symbol": "MAR",
+    "name": "Marriott International",
+    "sector": "Küresel Otel Zincirleri",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 274,
+    "currency": "$",
+    "dailyChange": -1.57,
+    "peRatio": 28,
+    "pbRatio": 165,
+    "dividendYield": 0.92,
+    "marketCap": "$78B",
+    "beta": 1.53,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Marriott International (MAR), ABD borsalarında Küresel Otel Zincirleri sektöründe işlem gören lider şirket. Ritz-Carlton, St. Regis, Sheraton, W Hotels ve Marriott Bonvoy sadakat programı.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "28x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "165",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "hlt",
+    "symbol": "HLT",
+    "name": "Hilton Worldwide Holdings",
+    "sector": "Konaklama & Otel Franchise",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 242,
+    "currency": "$",
+    "dailyChange": -0.24,
+    "peRatio": 38.5,
+    "dividendYield": 0.25,
+    "marketCap": "$60B",
+    "beta": 0.99,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Hilton Worldwide Holdings (HLT), ABD borsalarında Konaklama & Otel Franchise sektöründe işlem gören lider şirket. Waldorf Astoria, Conrad, Hilton Garden Inn ve Hampton markalı 7.500 otel işletmesi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "38.5x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "-",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "lvs",
+    "symbol": "LVS",
+    "name": "Las Vegas Sands Corp.",
+    "sector": "Entegre Tatil Köyleri & Kumarhane",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 52,
+    "currency": "$",
+    "dailyChange": 2.47,
+    "peRatio": 22,
+    "pbRatio": 9.8,
+    "dividendYield": 1.54,
+    "marketCap": "$38B",
+    "beta": 1.08,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Las Vegas Sands Corp. (LVS), ABD borsalarında Entegre Tatil Köyleri & Kumarhane sektöründe işlem gören lider şirket. Singapur Marina Bay Sands ve Makao lüks eğlence, fuar ve kongre otelleri kompleksi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "22x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "9.8",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "orly",
+    "symbol": "ORLY",
+    "name": "O'Reilly Automotive Inc.",
+    "sector": "Oto Yedek Parça Perakendesi",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 1180,
+    "currency": "$",
+    "dailyChange": -2.36,
+    "peRatio": 28,
+    "dividendYield": 0,
+    "marketCap": "$69B",
+    "beta": 1.28,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "O'Reilly Automotive Inc. (ORLY), ABD borsalarında Oto Yedek Parça Perakendesi sektöründe işlem gören lider şirket. Profesyonel oto tamircileri ve bireysel araç sahipleri için yedek parça mağaza zinciri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "28x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "-",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "azo",
+    "symbol": "AZO",
+    "name": "AutoZone Inc.",
+    "sector": "Otomotiv Parçaları & Aksesuar",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 3120,
+    "currency": "$",
+    "dailyChange": -0.97,
+    "peRatio": 21,
+    "dividendYield": 0,
+    "marketCap": "$53B",
+    "beta": 1.35,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "AutoZone Inc. (AZO), ABD borsalarında Otomotiv Parçaları & Aksesuar sektöründe işlem gören lider şirket. 7.000'den fazla mağazasıyla otomotiv yedek parça, yağ ve akü perakende zinciri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "21x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "-",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "rost",
+    "symbol": "ROST",
+    "name": "Ross Stores Inc.",
+    "sector": "İndirimli Hazır Giyim",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 148,
+    "currency": "$",
+    "dailyChange": -0.85,
+    "peRatio": 25,
+    "pbRatio": 7.2,
+    "dividendYield": 0.99,
+    "marketCap": "$49B",
+    "beta": 1.3,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Ross Stores Inc. (ROST), ABD borsalarında İndirimli Hazır Giyim sektöründe işlem gören lider şirket. Ross Dress for Less markalı 2.100 mağazasıyla uygun fiyatlı giyim ve ayakkabı.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "25x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "7.2",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "gww",
+    "symbol": "GWW",
+    "name": "W.W. Grainger Inc.",
+    "sector": "Endüstriyel Malzeme Dağıtımı",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 1040,
+    "currency": "$",
+    "dailyChange": -0.33,
+    "peRatio": 26.5,
+    "pbRatio": 12.8,
+    "dividendYield": 0.79,
+    "marketCap": "$51B",
+    "beta": 1.03,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "W.W. Grainger Inc. (GWW), ABD borsalarında Endüstriyel Malzeme Dağıtımı sektöründe işlem gören lider şirket. Fabrika, tesis ve kamu binaları için MRO bakım-onarım malzemeleri dağıtım devi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "26.5x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "12.8",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "fast",
+    "symbol": "FAST",
+    "name": "Fastenal Company",
+    "sector": "Endüstriyel Bağlantı Elemanları",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 78,
+    "currency": "$",
+    "dailyChange": 1.28,
+    "peRatio": 38,
+    "pbRatio": 11.5,
+    "dividendYield": 1.95,
+    "marketCap": "$45B",
+    "beta": 1.47,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Fastenal Company (FAST), ABD borsalarında Endüstriyel Bağlantı Elemanları sektöründe işlem gören lider şirket. Cıvata, somun, vida ve fabrikalar içi otomatik akıllı malzeme otomatı tedarikçisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "38x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "11.5",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "ctas",
+    "symbol": "CTAS",
+    "name": "Cintas Corporation",
+    "sector": "Kurumsal İş Kıyafetleri & Hijyen",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 208,
+    "currency": "$",
+    "dailyChange": 1.52,
+    "peRatio": 48,
+    "pbRatio": 18.5,
+    "dividendYield": 0.75,
+    "marketCap": "$84B",
+    "beta": 1.53,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Cintas Corporation (CTAS), ABD borsalarında Kurumsal İş Kıyafetleri & Hijyen sektöründe işlem gören lider şirket. Kurumsal şirket üniformaları kiralama, ilk yardım kitleri ve yangın güvenliği hizmetleri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "48x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "18.5",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "itw",
+    "symbol": "ITW",
+    "name": "Illinois Tool Works",
+    "sector": "Özel Mühendislik Ekipmanları",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 264,
+    "currency": "$",
+    "dailyChange": 0.27,
+    "peRatio": 24.5,
+    "pbRatio": 22,
+    "dividendYield": 2.27,
+    "marketCap": "$78B",
+    "beta": 1,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Illinois Tool Works (ITW), ABD borsalarında Özel Mühendislik Ekipmanları sektöründe işlem gören lider şirket. Otomotiv polimer parçaları, test ekipmanları ve kaynak makineleri üreticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "24.5x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "22",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "emr",
+    "symbol": "EMR",
+    "name": "Emerson Electric Co.",
+    "sector": "Endüstriyel Süreç Otomasyonu",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 118,
+    "currency": "$",
+    "dailyChange": -2.45,
+    "peRatio": 26,
+    "pbRatio": 3.4,
+    "dividendYield": 1.78,
+    "marketCap": "$67B",
+    "beta": 1.11,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Emerson Electric Co. (EMR), ABD borsalarında Endüstriyel Süreç Otomasyonu sektöründe işlem gören lider şirket. Kimya, enerji ve ilaç tesisleri için vanalar, kontrolörler ve otomasyon yazılımları.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "26x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "3.4",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "etn",
+    "symbol": "ETN",
+    "name": "Eaton Corporation plc",
+    "sector": "Akıllı Güç Yönetimi & Elektrik",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "S&P 500",
+    "price": 358,
+    "currency": "$",
+    "dailyChange": -0.35,
+    "peRatio": 38,
+    "pbRatio": 7.4,
+    "dividendYield": 1.05,
+    "marketCap": "$142B",
+    "beta": 1.05,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Eaton Corporation plc (ETN), ABD borsalarında Akıllı Güç Yönetimi & Elektrik sektöründe işlem gören lider şirket. Veri merkezleri için kesintisiz güç kaynakları (UPS), şalt panoları ve elektrik dağıtımı.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "38x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "7.4",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "ph",
+    "symbol": "PH",
+    "name": "Parker-Hannifin Corp.",
+    "sector": "Hareket & Kontrol Teknolojileri",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 645,
+    "currency": "$",
+    "dailyChange": -2.07,
+    "peRatio": 26,
+    "pbRatio": 7.8,
+    "dividendYield": 1.01,
+    "marketCap": "$83B",
+    "beta": 1.5,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Parker-Hannifin Corp. (PH), ABD borsalarında Hareket & Kontrol Teknolojileri sektöründe işlem gören lider şirket. Hidrolik, pnömatik, sızdırmazlık ve sıvı transfer valfleri ve filtre sistemleri devi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "26x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "7.8",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "tt",
+    "symbol": "TT",
+    "name": "Trane Technologies plc",
+    "sector": "İklimlendirme (HVAC) & Soğutma",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 388,
+    "currency": "$",
+    "dailyChange": -2.5,
+    "peRatio": 34,
+    "pbRatio": 11.2,
+    "dividendYield": 0.87,
+    "marketCap": "$87B",
+    "beta": 0.87,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Trane Technologies plc (TT), ABD borsalarında İklimlendirme (HVAC) & Soğutma sektöründe işlem gören lider şirket. Trane ve Thermo King markalarıyla ticari bina soğutma ve soğuk zincir taşımacılığı.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "34x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "11.2",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "carr",
+    "symbol": "CARR",
+    "name": "Carrier Global Corp.",
+    "sector": "Akıllı İklim & HVAC Sistemleri",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 78,
+    "currency": "$",
+    "dailyChange": 1.28,
+    "peRatio": 28,
+    "pbRatio": 7.8,
+    "dividendYield": 0.97,
+    "marketCap": "$68B",
+    "beta": 1.47,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Carrier Global Corp. (CARR), ABD borsalarında Akıllı İklim & HVAC Sistemleri sektöründe işlem gören lider şirket. Isı pompaları, klima santralleri ve Viessmann yenilenebilir ısıtma sistemleri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "28x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "7.8",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "fdx",
+    "symbol": "FDX",
+    "name": "FedEx Corporation",
+    "sector": "Ekspres Kargo & Hava Taşımacılığı",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 278,
+    "currency": "$",
+    "dailyChange": 2.5,
+    "peRatio": 16.5,
+    "pbRatio": 2.4,
+    "dividendYield": 1.99,
+    "marketCap": "$68B",
+    "beta": 0.89,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "FedEx Corporation (FDX), ABD borsalarında Ekspres Kargo & Hava Taşımacılığı sektöründe işlem gören lider şirket. 650'den fazla kargo uçağıyla küresel ekspres hava ve kara kargo taşımacılığı.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "16.5x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "2.4",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "csx",
+    "symbol": "CSX",
+    "name": "CSX Corporation",
+    "sector": "Doğu Yakası Yük Demiryolu",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 36,
+    "currency": "$",
+    "dailyChange": -2.48,
+    "peRatio": 19,
+    "pbRatio": 5.4,
+    "dividendYield": 1.33,
+    "marketCap": "$70B",
+    "beta": 1.03,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "CSX Corporation (CSX), ABD borsalarında Doğu Yakası Yük Demiryolu sektöründe işlem gören lider şirket. ABD'nin doğu eyaletlerinde konteyner, kömür ve kimyasal madde demiryolu nakliyesi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "19x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "5.4",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "nsc",
+    "symbol": "NSC",
+    "name": "Norfolk Southern Corp.",
+    "sector": "Demiryolu Taşımacılığı",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 254,
+    "currency": "$",
+    "dailyChange": 1.13,
+    "peRatio": 22,
+    "pbRatio": 4.2,
+    "dividendYield": 2.13,
+    "marketCap": "$57B",
+    "beta": 1.41,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Norfolk Southern Corp. (NSC), ABD borsalarında Demiryolu Taşımacılığı sektöründe işlem gören lider şirket. 35.000 km'lik demiryolu hattıyla doğu ve orta batı ABD sanayi merkezleri bağlantısı.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "22x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "4.2",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "wm",
+    "symbol": "WM",
+    "name": "Waste Management Inc.",
+    "sector": "Atık Yönetimi & Geri Dönüşüm",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 218,
+    "currency": "$",
+    "dailyChange": -2.36,
+    "peRatio": 32.5,
+    "pbRatio": 11.8,
+    "dividendYield": 1.38,
+    "marketCap": "$88B",
+    "beta": 1.29,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Waste Management Inc. (WM), ABD borsalarında Atık Yönetimi & Geri Dönüşüm sektöründe işlem gören lider şirket. Katı atık toplama, modern depolama sahaları ve çöpten biyogaz üretim tesisleri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "32.5x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "11.8",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "rsg",
+    "symbol": "RSG",
+    "name": "Republic Services Inc.",
+    "sector": "Çevre Hizmetleri & Atık Bertarafı",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 204,
+    "currency": "$",
+    "dailyChange": 0.51,
+    "peRatio": 33,
+    "pbRatio": 5.8,
+    "dividendYield": 1.14,
+    "marketCap": "$64B",
+    "beta": 1.13,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Republic Services Inc. (RSG), ABD borsalarında Çevre Hizmetleri & Atık Bertarafı sektöründe işlem gören lider şirket. Belediye ve ticari atık toplama, geri dönüşüm ve temiz enerji üretim sahaları.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "33x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "5.8",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "ecl",
+    "symbol": "ECL",
+    "name": "Ecolab Inc.",
+    "sector": "Su Arıtma & Hijyen Teknolojileri",
+    "exchange": "ABD",
+    "assetClass": "hisse",
+    "indexTag": "NYSE",
+    "price": 254,
+    "currency": "$",
+    "dailyChange": 1.13,
+    "peRatio": 42,
+    "pbRatio": 8.5,
+    "dividendYield": 0.9,
+    "marketCap": "$72B",
+    "beta": 1.41,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Ecolab Inc. (ECL), ABD borsalarında Su Arıtma & Hijyen Teknolojileri sektöründe işlem gören lider şirket. Gıda işleme, hastane ve endüstriyel tesisler için su arıtma, hijyen ve dezenfeksiyon.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "42x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "8.5",
+        "peerAvg": "5.50"
       }
     ]
   },
   {
     "id": "asml",
     "symbol": "ASML",
-    "name": "ASML Holding N.V.",
-    "sector": "Yarı İletken Litografi Ekipmanı",
+    "name": "ASML Holding NV",
+    "sector": "Yarı İletken Litografi Sistemleri",
     "exchange": "Avrupa",
     "assetClass": "hisse",
-    "indexTag": "Avrupa",
-    "price": 785,
+    "indexTag": "AEX",
+    "price": 845,
     "currency": "€",
-    "dailyChange": 2.35,
-    "peRatio": 38.5,
-    "pbRatio": 18,
-    "dividendYield": 0.95,
-    "marketCap": "312 Mr €",
-    "beta": 1.25,
+    "dailyChange": 1.85,
+    "peRatio": 42.5,
+    "pbRatio": 22.4,
+    "dividendYield": 0.75,
+    "marketCap": "348 Mr €",
+    "beta": 1.45,
     "recommendation": "AL",
     "inWatchlist": true,
-    "description": "ASML Holding N.V. (ASML), Avrupa borsalarında Yarı İletken Litografi Ekipmanı alanında işlem gören küresel teknoloji ve piyasa lideri.",
+    "description": "En gelişmiş 3nm/2nm mikroçipleri üretebilen dünyadaki tek Aşırı Ultraviyole (EUV) litografi devi.",
     "metrics": [
       {
         "label": "F/K Oranı",
-        "value": "38.5x",
+        "value": "42.5x",
         "peerAvg": "32.0x"
       },
       {
         "label": "PD/DD",
-        "value": "18",
-        "peerAvg": "10.0"
+        "value": "22.4",
+        "peerAvg": "8.50"
+      }
+    ]
+  },
+  {
+    "id": "ing",
+    "symbol": "INGA",
+    "name": "ING Groep N.V.",
+    "sector": "Bankacılık & Dijital Finans",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "AEX",
+    "price": 16.4,
+    "currency": "€",
+    "dailyChange": 0.45,
+    "peRatio": 7.8,
+    "pbRatio": 0.95,
+    "dividendYield": 6.8,
+    "marketCap": "58 Mr €",
+    "beta": 1.15,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Hollanda merkezli, Avrupa çapında 38 milyon müşteriye dijital bankacılık ve kurumsal kredi hizmeti.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "7.8x",
+        "peerAvg": "8.5x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "0.95",
+        "peerAvg": "0.90"
+      }
+    ]
+  },
+  {
+    "id": "philips",
+    "symbol": "PHIA",
+    "name": "Koninklijke Philips NV",
+    "sector": "Sağlık Teknolojileri & Görüntüleme",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "AEX",
+    "price": 26.8,
+    "currency": "€",
+    "dailyChange": -0.3,
+    "peRatio": 18.5,
+    "pbRatio": 2.1,
+    "dividendYield": 3.15,
+    "marketCap": "25 Mr €",
+    "beta": 1.05,
+    "recommendation": "TUT",
+    "inWatchlist": false,
+    "description": "MR, BT tanısal görüntüleme sistemleri, hasta başı monitörleri ve kişisel sağlık teknolojileri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "18.5x",
+        "peerAvg": "22.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "2.10",
+        "peerAvg": "2.80"
+      }
+    ]
+  },
+  {
+    "id": "heia",
+    "symbol": "HEIA",
+    "name": "Heineken N.V.",
+    "sector": "İçecek & Bira Üretimi",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "AEX",
+    "price": 78.5,
+    "currency": "€",
+    "dailyChange": 0.2,
+    "peRatio": 17.2,
+    "pbRatio": 2.45,
+    "dividendYield": 2.25,
+    "marketCap": "45 Mr €",
+    "beta": 0.72,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Heineken, Amstel, Sol ve 300'den fazla bira markasıyla dünyanın 2. büyük bira üreticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "17.2x",
+        "peerAvg": "19.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "2.45",
+        "peerAvg": "3.10"
       }
     ]
   },
@@ -11857,95 +15671,383 @@ export const MOCK_COMPANIES: Company[] = [
     "id": "sap",
     "symbol": "SAP",
     "name": "SAP SE",
-    "sector": "Kurumsal Yazılım & Bulut",
+    "sector": "Kurumsal Bulut & ERP Yazılımları",
     "exchange": "Avrupa",
     "assetClass": "hisse",
-    "indexTag": "Avrupa",
-    "price": 198,
+    "indexTag": "DAX 40",
+    "price": 218.4,
     "currency": "€",
-    "dailyChange": 1.45,
-    "peRatio": 34,
-    "pbRatio": 5.2,
-    "dividendYield": 1.15,
-    "marketCap": "235 Mr €",
-    "beta": 1.25,
+    "dailyChange": 1.65,
+    "peRatio": 38,
+    "pbRatio": 5.4,
+    "dividendYield": 1.05,
+    "marketCap": "258 Mr €",
+    "beta": 1.05,
     "recommendation": "AL",
     "inWatchlist": false,
-    "description": "SAP SE (SAP), Avrupa borsalarında Kurumsal Yazılım & Bulut alanında işlem gören küresel teknoloji ve piyasa lideri.",
+    "description": "Dünya genelinde 400.000'den fazla şirketin tedarik, finans ve İK operasyonlarını yöneten ERP devi.",
     "metrics": [
       {
         "label": "F/K Oranı",
-        "value": "34x",
-        "peerAvg": "32.0x"
+        "value": "38.0x",
+        "peerAvg": "30.0x"
       },
       {
         "label": "PD/DD",
-        "value": "5.2",
-        "peerAvg": "10.0"
+        "value": "5.4",
+        "peerAvg": "4.80"
       }
     ]
   },
   {
-    "id": "lvmh",
-    "symbol": "LVMH",
-    "name": "LVMH Moët Hennessy Louis Vuitton",
-    "sector": "Lüks Tüketim Malları",
+    "id": "sie",
+    "symbol": "SIE",
+    "name": "Siemens AG",
+    "sector": "Endüstriyel Otomasyon & Dijital İkiz",
     "exchange": "Avrupa",
     "assetClass": "hisse",
-    "indexTag": "Avrupa",
-    "price": 642,
+    "indexTag": "DAX 40",
+    "price": 184.5,
+    "currency": "€",
+    "dailyChange": 0.9,
+    "peRatio": 16.5,
+    "pbRatio": 2.8,
+    "dividendYield": 2.65,
+    "marketCap": "148 Mr €",
+    "beta": 1.18,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Fabrika otomasyonu, demiryolu sinyalizasyon sistemleri (Mobility) ve akıllı bina altyapısı devi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "16.5x",
+        "peerAvg": "18.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "2.8",
+        "peerAvg": "3.20"
+      }
+    ]
+  },
+  {
+    "id": "alv",
+    "symbol": "ALV",
+    "name": "Allianz SE",
+    "sector": "Sigortacılık & Varlık Yönetimi (PIMCO)",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "DAX 40",
+    "price": 292,
+    "currency": "€",
+    "dailyChange": 0.4,
+    "peRatio": 11.2,
+    "pbRatio": 1.85,
+    "dividendYield": 4.8,
+    "marketCap": "116 Mr €",
+    "beta": 0.88,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Avrupa'nın en büyük sigorta grubu ve PIMCO/AllianzGI ile 2.3 trilyon avro yöneten finans devi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "11.2x",
+        "peerAvg": "10.5x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "1.85",
+        "peerAvg": "1.40"
+      }
+    ]
+  },
+  {
+    "id": "basf",
+    "symbol": "BAS",
+    "name": "BASF SE",
+    "sector": "Özel Kimyasallar & Malzeme Bilimi",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "DAX 40",
+    "price": 45.8,
+    "currency": "€",
+    "dailyChange": 0.15,
+    "peRatio": 13.5,
+    "pbRatio": 1.1,
+    "dividendYield": 7.42,
+    "marketCap": "41 Mr €",
+    "beta": 1.25,
+    "recommendation": "TUT",
+    "inWatchlist": false,
+    "description": "Otomotiv, tarım ve tüketim sanayileri için kimyasal hammaddeler üreten dünyanın en büyük kimya devi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "13.5x",
+        "peerAvg": "14.5x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "1.10",
+        "peerAvg": "1.60"
+      }
+    ]
+  },
+  {
+    "id": "vow3",
+    "symbol": "VOW3",
+    "name": "Volkswagen AG",
+    "sector": "Otomotiv & Ticari Araç",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "DAX 40",
+    "price": 94.2,
+    "currency": "€",
+    "dailyChange": -0.65,
+    "peRatio": 3.8,
+    "pbRatio": 0.28,
+    "dividendYield": 9.55,
+    "marketCap": "48 Mr €",
+    "beta": 1.35,
+    "recommendation": "TUT",
+    "inWatchlist": false,
+    "description": "VW, Audi, Porsche, Skoda, Seat ve Scania markalarıyla Avrupa'nın 1 numaralı otomotiv üreticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "3.8x",
+        "peerAvg": "6.5x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "0.28",
+        "peerAvg": "0.75"
+      }
+    ]
+  },
+  {
+    "id": "mbg",
+    "symbol": "MBG",
+    "name": "Mercedes-Benz Group AG",
+    "sector": "Lüks Otomobil & Van İmalatı",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "DAX 40",
+    "price": 58.4,
+    "currency": "€",
+    "dailyChange": 0.35,
+    "peRatio": 5.2,
+    "pbRatio": 0.65,
+    "dividendYield": 9.05,
+    "marketCap": "58 Mr €",
+    "beta": 1.28,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "S-Serisi, E-Serisi ve EQS lüks segment binek ve elektrikli otomobil üreticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "5.2x",
+        "peerAvg": "6.5x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "0.65",
+        "peerAvg": "0.80"
+      }
+    ]
+  },
+  {
+    "id": "bmw",
+    "symbol": "BMW",
+    "name": "Bayerische Motoren Werke (BMW)",
+    "sector": "Premium Otomotiv & Motosiklet",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "DAX 40",
+    "price": 74.8,
+    "currency": "€",
+    "dailyChange": 0.5,
+    "peRatio": 5,
+    "pbRatio": 0.52,
+    "dividendYield": 8.02,
+    "marketCap": "46 Mr €",
+    "beta": 1.22,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "BMW, MINI ve Rolls-Royce markalarıyla premium binek araç ve motosiklet üreticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "5.0x",
+        "peerAvg": "6.5x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "0.52",
+        "peerAvg": "0.80"
+      }
+    ]
+  },
+  {
+    "id": "dte",
+    "symbol": "DTE",
+    "name": "Deutsche Telekom AG",
+    "sector": "Telekomünikasyon & T-Mobile",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "DAX 40",
+    "price": 28.5,
+    "currency": "€",
+    "dailyChange": 0.7,
+    "peRatio": 15.8,
+    "pbRatio": 2.2,
+    "dividendYield": 3.15,
+    "marketCap": "142 Mr €",
+    "beta": 0.65,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "T-Mobile US çoğunluk hissesi ve Avrupa genelinde fiber ve 5G şebekelerinin lider telekom devi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "15.8x",
+        "peerAvg": "14.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "2.20",
+        "peerAvg": "1.80"
+      }
+    ]
+  },
+  {
+    "id": "bayn",
+    "symbol": "BAYN",
+    "name": "Bayer AG",
+    "sector": "İlaç & Tarım Bilimleri (Monsanto)",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "DAX 40",
+    "price": 26.5,
+    "currency": "€",
+    "dailyChange": -0.4,
+    "peRatio": 8.5,
+    "pbRatio": 0.75,
+    "dividendYield": 0.42,
+    "marketCap": "26 Mr €",
+    "beta": 1.15,
+    "recommendation": "TUT",
+    "inWatchlist": false,
+    "description": "Aspirin, Xarelto ilaçları ve tarım tohum/bitki koruma ürünleri (Crop Science) üreticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "8.5x",
+        "peerAvg": "16.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "0.75",
+        "peerAvg": "2.40"
+      }
+    ]
+  },
+  {
+    "id": "muv2",
+    "symbol": "MUV2",
+    "name": "Munich Re (Münchener Rück)",
+    "sector": "Reasürans & Risk Transferi",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "DAX 40",
+    "price": 495,
     "currency": "€",
     "dailyChange": 0.85,
-    "peRatio": 22.5,
-    "pbRatio": 5.1,
-    "dividendYield": 2.05,
-    "marketCap": "322 Mr €",
-    "beta": 1.25,
+    "peRatio": 12.8,
+    "pbRatio": 2.1,
+    "dividendYield": 3.25,
+    "marketCap": "66 Mr €",
+    "beta": 0.78,
     "recommendation": "AL",
     "inWatchlist": false,
-    "description": "LVMH Moët Hennessy Louis Vuitton (LVMH), Avrupa borsalarında Lüks Tüketim Malları alanında işlem gören küresel teknoloji ve piyasa lideri.",
+    "description": "Doğal afetler ve büyük endüstriyel riskler için dünyanın en büyük reasürans (sigortacının sigortası) şirketi.",
     "metrics": [
       {
         "label": "F/K Oranı",
-        "value": "22.5x",
-        "peerAvg": "32.0x"
+        "value": "12.8x",
+        "peerAvg": "11.0x"
       },
       {
         "label": "PD/DD",
-        "value": "5.1",
-        "peerAvg": "10.0"
+        "value": "2.10",
+        "peerAvg": "1.50"
       }
     ]
   },
   {
-    "id": "novo",
-    "symbol": "NOVO",
-    "name": "Novo Nordisk (Ozempic & Wegovy)",
-    "sector": "İlaç & Sağlık",
+    "id": "mc",
+    "symbol": "MC",
+    "name": "LVMH Moët Hennessy Louis Vuitton",
+    "sector": "Lüks Moda, Deri & Şampanya",
     "exchange": "Avrupa",
     "assetClass": "hisse",
-    "indexTag": "Avrupa",
-    "price": 118,
-    "currency": "$",
-    "dailyChange": 1.95,
-    "peRatio": 36,
-    "pbRatio": 24,
-    "dividendYield": 1.2,
-    "marketCap": "528 Mr $",
+    "indexTag": "CAC 40",
+    "price": 648,
+    "currency": "€",
+    "dailyChange": 1.25,
+    "peRatio": 21.5,
+    "pbRatio": 4.8,
+    "dividendYield": 2,
+    "marketCap": "324 Mr €",
     "beta": 1.25,
     "recommendation": "AL",
-    "inWatchlist": true,
-    "description": "Novo Nordisk (Ozempic & Wegovy) (NOVO), Avrupa borsalarında İlaç & Sağlık alanında işlem gören küresel teknoloji ve piyasa lideri.",
+    "inWatchlist": false,
+    "description": "Louis Vuitton, Dior, Moët & Chandon, Hennessy, Tiffany & Co. markalarıyla lüks tüketim imparatorluğu.",
     "metrics": [
       {
         "label": "F/K Oranı",
-        "value": "36x",
-        "peerAvg": "32.0x"
+        "value": "21.5x",
+        "peerAvg": "24.0x"
       },
       {
         "label": "PD/DD",
-        "value": "24",
-        "peerAvg": "10.0"
+        "value": "4.80",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "or",
+    "symbol": "OR",
+    "name": "L'Oréal S.A.",
+    "sector": "Kozmetik & Güzellik Ürünleri",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "CAC 40",
+    "price": 368,
+    "currency": "€",
+    "dailyChange": 0.4,
+    "peRatio": 28.5,
+    "pbRatio": 6.2,
+    "dividendYield": 1.78,
+    "marketCap": "196 Mr €",
+    "beta": 0.85,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Lancôme, Yves Saint Laurent Beauté, Maybelline ve CeraVe ile dünyanın en büyük kozmetik şirketi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "28.5x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "6.20",
+        "peerAvg": "5.00"
       }
     ]
   },
@@ -11953,31 +16055,63 @@ export const MOCK_COMPANIES: Company[] = [
     "id": "tte",
     "symbol": "TTE",
     "name": "TotalEnergies SE",
-    "sector": "Entegre Petrol & Gaz / Yeşil Enerji",
+    "sector": "Entegre Enerji, Petrol & LNG",
     "exchange": "Avrupa",
     "assetClass": "hisse",
-    "indexTag": "Avrupa",
-    "price": 62.5,
+    "indexTag": "CAC 40",
+    "price": 61.2,
     "currency": "€",
     "dailyChange": 0.65,
     "peRatio": 7.8,
     "pbRatio": 1.15,
-    "dividendYield": 5.1,
-    "marketCap": "148 Mr €",
-    "beta": 1.25,
+    "dividendYield": 5.25,
+    "marketCap": "142 Mr €",
+    "beta": 0.95,
     "recommendation": "AL",
     "inWatchlist": false,
-    "description": "TotalEnergies SE (TTE), Avrupa borsalarında Entegre Petrol & Gaz / Yeşil Enerji alanında işlem gören küresel teknoloji ve piyasa lideri.",
+    "description": "Küresel petrol/doğalgaz arama, LNG tedariki ve güneş/rüzgar yenilenebilir enerji üreticisi.",
     "metrics": [
       {
         "label": "F/K Oranı",
         "value": "7.8x",
-        "peerAvg": "32.0x"
+        "peerAvg": "8.5x"
       },
       {
         "label": "PD/DD",
         "value": "1.15",
-        "peerAvg": "10.0"
+        "peerAvg": "1.40"
+      }
+    ]
+  },
+  {
+    "id": "san",
+    "symbol": "SAN",
+    "name": "Sanofi S.A.",
+    "sector": "İlaç & Aşılar",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "CAC 40",
+    "price": 102.5,
+    "currency": "€",
+    "dailyChange": 0.1,
+    "peRatio": 14.2,
+    "pbRatio": 1.75,
+    "dividendYield": 3.68,
+    "marketCap": "128 Mr €",
+    "beta": 0.58,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Dupixent immünoloji antikoru, grip/çocukluk aşıları ve nadir hastalıklar tedavisi üreticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "14.2x",
+        "peerAvg": "16.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "1.75",
+        "peerAvg": "2.80"
       }
     ]
   },
@@ -11988,28 +16122,700 @@ export const MOCK_COMPANIES: Company[] = [
     "sector": "Ticari Havacılık & Savunma",
     "exchange": "Avrupa",
     "assetClass": "hisse",
-    "indexTag": "Avrupa",
-    "price": 134,
+    "indexTag": "CAC 40",
+    "price": 142,
     "currency": "€",
     "dailyChange": 1.15,
-    "peRatio": 24.5,
-    "pbRatio": 6.8,
-    "dividendYield": 1.45,
-    "marketCap": "106 Mr €",
-    "beta": 1.25,
+    "peRatio": 28,
+    "pbRatio": 6.5,
+    "dividendYield": 1.95,
+    "marketCap": "112 Mr €",
+    "beta": 1.35,
     "recommendation": "AL",
     "inWatchlist": false,
-    "description": "Airbus SE (AIR), Avrupa borsalarında Ticari Havacılık & Savunma alanında işlem gören küresel teknoloji ve piyasa lideri.",
+    "description": "A320neo, A350 yolcu uçakları, askeri nakliye uçakları ve helikopter üretiminde dünya lideri.",
     "metrics": [
       {
         "label": "F/K Oranı",
-        "value": "24.5x",
-        "peerAvg": "32.0x"
+        "value": "28.0x",
+        "peerAvg": "24.0x"
       },
       {
         "label": "PD/DD",
-        "value": "6.8",
-        "peerAvg": "10.0"
+        "value": "6.50",
+        "peerAvg": "4.50"
+      }
+    ]
+  },
+  {
+    "id": "rms",
+    "symbol": "RMS",
+    "name": "Hermès International",
+    "sector": "Ultra-Lüks Deri & Moda (Birkin)",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "CAC 40",
+    "price": 2120,
+    "currency": "€",
+    "dailyChange": 0.95,
+    "peRatio": 48,
+    "pbRatio": 14.5,
+    "dividendYield": 0.72,
+    "marketCap": "222 Mr €",
+    "beta": 0.92,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "El yapımı ikonik Birkin & Kelly çantaları, ipek eşarplar ve ultra-lüks zanaatkarlık evi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "48.0x",
+        "peerAvg": "24.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "14.5",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "su",
+    "symbol": "SU",
+    "name": "Schneider Electric SE",
+    "sector": "Enerji Yönetimi & Otomasyon",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "CAC 40",
+    "price": 242,
+    "currency": "€",
+    "dailyChange": 1.45,
+    "peRatio": 32,
+    "pbRatio": 4.8,
+    "dividendYield": 1.48,
+    "marketCap": "138 Mr €",
+    "beta": 1.12,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Veri merkezleri için akıllı şalt panoları, enerji verimliliği ve endüstriyel yazılım çözümleri.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "32.0x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "4.80",
+        "peerAvg": "3.80"
+      }
+    ]
+  },
+  {
+    "id": "bnp",
+    "symbol": "BNP",
+    "name": "BNP Paribas S.A.",
+    "sector": "Evrensel Bankacılık",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "CAC 40",
+    "price": 68.4,
+    "currency": "€",
+    "dailyChange": 0.35,
+    "peRatio": 7.2,
+    "pbRatio": 0.68,
+    "dividendYield": 6.75,
+    "marketCap": "78 Mr €",
+    "beta": 1.25,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Avro Bölgesi'nin en büyük bilanço büyüklüğüne sahip lider kurumsal ve perakende bankası.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "7.2x",
+        "peerAvg": "8.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "0.68",
+        "peerAvg": "0.85"
+      }
+    ]
+  },
+  {
+    "id": "nesn",
+    "symbol": "NESN",
+    "name": "Nestlé S.A.",
+    "sector": "Paketli Gıda, İçecek & Kahve",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "SMI",
+    "price": 84.5,
+    "currency": "CHF",
+    "dailyChange": 0.15,
+    "peRatio": 18.5,
+    "pbRatio": 5.8,
+    "dividendYield": 3.55,
+    "marketCap": "220 Mr CHF",
+    "beta": 0.48,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Nespresso, Nescafé, KitKat, Maggi ve Purina evcil hayvan mamalarıyla dünyanın en büyük gıda şirketi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "18.5x",
+        "peerAvg": "20.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "5.80",
+        "peerAvg": "4.20"
+      }
+    ]
+  },
+  {
+    "id": "novn",
+    "symbol": "NOVN",
+    "name": "Novartis AG",
+    "sector": "Yenilikçi İlaçlar & Gen Terapisi",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "SMI",
+    "price": 98.2,
+    "currency": "CHF",
+    "dailyChange": 0.4,
+    "peRatio": 15.2,
+    "pbRatio": 4.2,
+    "dividendYield": 3.45,
+    "marketCap": "204 Mr CHF",
+    "beta": 0.52,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Entresto kalp yetmezliği ilacı, Cosentyx ve Pluvicto radyoligand kanser tedavileri geliştiricisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "15.2x",
+        "peerAvg": "17.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "4.20",
+        "peerAvg": "3.50"
+      }
+    ]
+  },
+  {
+    "id": "rog",
+    "symbol": "ROG",
+    "name": "Roche Holding AG",
+    "sector": "Onkoloji İlaçları & In-Vitro Tanı",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "SMI",
+    "price": 274,
+    "currency": "CHF",
+    "dailyChange": 0.3,
+    "peRatio": 16.8,
+    "pbRatio": 6.8,
+    "dividendYield": 3.5,
+    "marketCap": "218 Mr CHF",
+    "beta": 0.45,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Biyoteknoloji onkoloji ilaçları (Genentech) ve klinik laboratuvar tanı cihazlarında küresel lider.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "16.8x",
+        "peerAvg": "17.5x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "6.80",
+        "peerAvg": "4.00"
+      }
+    ]
+  },
+  {
+    "id": "ubs",
+    "symbol": "UBSG",
+    "name": "UBS Group AG",
+    "sector": "Küresel Servet Yönetimi & Yatırım Bankası",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "SMI",
+    "price": 28.4,
+    "currency": "CHF",
+    "dailyChange": 0.85,
+    "peRatio": 12.4,
+    "pbRatio": 1.15,
+    "dividendYield": 2.65,
+    "marketCap": "92 Mr CHF",
+    "beta": 1.15,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Credit Suisse entegrasyonuyla 5.5 trilyon doların üzerinde varlık yöneten İsviçre'nin 1 numaralı finans devi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "12.4x",
+        "peerAvg": "11.5x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "1.15",
+        "peerAvg": "1.10"
+      }
+    ]
+  },
+  {
+    "id": "cfrc",
+    "symbol": "CFR",
+    "name": "Compagnie Financière Richemont",
+    "sector": "Lüks Mücevher & Saatçilik (Cartier)",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "SMI",
+    "price": 138.5,
+    "currency": "CHF",
+    "dailyChange": 1.1,
+    "peRatio": 22,
+    "pbRatio": 3.8,
+    "dividendYield": 2.05,
+    "marketCap": "78 Mr CHF",
+    "beta": 1.25,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Cartier, Van Cleef & Arpels, IWC Schaffhausen ve Jaeger-LeCoultre lüks mücevher ve saat evi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "22.0x",
+        "peerAvg": "24.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "3.80",
+        "peerAvg": "4.50"
+      }
+    ]
+  },
+  {
+    "id": "shel",
+    "symbol": "SHEL",
+    "name": "Shell plc",
+    "sector": "Küresel Petrol, Gaz & LNG Ticareti",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "FTSE 100",
+    "price": 2680,
+    "currency": "GBp",
+    "dailyChange": 0.55,
+    "peRatio": 11.5,
+    "pbRatio": 1.25,
+    "dividendYield": 3.95,
+    "marketCap": "172 Mr £",
+    "beta": 0.92,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Küresel LNG ticaret pazarının en büyük oyuncusu, derin deniz petrol üretimi ve rafinaj devi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "11.5x",
+        "peerAvg": "10.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "1.25",
+        "peerAvg": "1.30"
+      }
+    ]
+  },
+  {
+    "id": "azn",
+    "symbol": "AZN",
+    "name": "AstraZeneca plc",
+    "sector": "Biyofarmasötik & Onkoloji İlaçları",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "FTSE 100",
+    "price": 11850,
+    "currency": "GBp",
+    "dailyChange": 0.75,
+    "peRatio": 34,
+    "pbRatio": 4.8,
+    "dividendYield": 2.1,
+    "marketCap": "184 Mr £",
+    "beta": 0.62,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Tagrisso, Enhertu kanser tedavileri, kardiyovasküler ve solunum yolu yenilikçi ilaçları üreticisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "34.0x",
+        "peerAvg": "20.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "4.80",
+        "peerAvg": "3.80"
+      }
+    ]
+  },
+  {
+    "id": "hsba",
+    "symbol": "HSBA",
+    "name": "HSBC Holdings plc",
+    "sector": "Uluslararası Ticaret Bankacılığı",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "FTSE 100",
+    "price": 685,
+    "currency": "GBp",
+    "dailyChange": 0.4,
+    "peRatio": 7.2,
+    "pbRatio": 0.85,
+    "dividendYield": 7.15,
+    "marketCap": "128 Mr £",
+    "beta": 0.95,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Asya-Pasifik ve Avrupa arasında ticaret finansmanı, servet yönetimi ve küresel kurumsal bankacılık devi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "7.2x",
+        "peerAvg": "7.8x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "0.85",
+        "peerAvg": "0.90"
+      }
+    ]
+  },
+  {
+    "id": "ulvr",
+    "symbol": "ULVR",
+    "name": "Unilever PLC",
+    "sector": "Hızlı Tüketim Malları & Gıda",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "FTSE 100",
+    "price": 4720,
+    "currency": "GBp",
+    "dailyChange": 0.25,
+    "peRatio": 21,
+    "pbRatio": 6.5,
+    "dividendYield": 3.25,
+    "marketCap": "118 Mr £",
+    "beta": 0.52,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Dove, Rexona, Domestos, Knorr, Hellmann's ve Algida dondurma markalarıyla küresel tüketim devi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "21.0x",
+        "peerAvg": "21.5x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "6.50",
+        "peerAvg": "4.50"
+      }
+    ]
+  },
+  {
+    "id": "bp",
+    "symbol": "BP",
+    "name": "BP p.l.c.",
+    "sector": "Entegre Petrol & Gaz",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "FTSE 100",
+    "price": 412,
+    "currency": "GBp",
+    "dailyChange": 0.6,
+    "peRatio": 10.8,
+    "pbRatio": 1.1,
+    "dividendYield": 5.6,
+    "marketCap": "66 Mr £",
+    "beta": 1.05,
+    "recommendation": "TUT",
+    "inWatchlist": false,
+    "description": "Arama-üretim, Castrol madeni yağları, rafinaj ve elektrikli araç şarj istasyonu (bp pulse) altyapısı.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "10.8x",
+        "peerAvg": "10.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "1.10",
+        "peerAvg": "1.25"
+      }
+    ]
+  },
+  {
+    "id": "gsk",
+    "symbol": "GSK",
+    "name": "GSK plc (GlaxoSmithKline)",
+    "sector": "Aşılar & Özel İlaçlar",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "FTSE 100",
+    "price": 1540,
+    "currency": "GBp",
+    "dailyChange": -0.2,
+    "peRatio": 12.5,
+    "pbRatio": 4.2,
+    "dividendYield": 3.9,
+    "marketCap": "63 Mr £",
+    "beta": 0.58,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Shingrix zona aşısı, Arexvy RSV aşısı ve HIV enfeksiyon tedavileri alanında öncü biyofarma şirketi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "12.5x",
+        "peerAvg": "15.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "4.20",
+        "peerAvg": "3.20"
+      }
+    ]
+  },
+  {
+    "id": "rel",
+    "symbol": "REL",
+    "name": "RELX PLC",
+    "sector": "Veri Analitiği & Hukuki/Bilimsel Yayıncılık",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "FTSE 100",
+    "price": 3620,
+    "currency": "GBp",
+    "dailyChange": 0.8,
+    "peRatio": 32,
+    "pbRatio": 16.5,
+    "dividendYield": 1.7,
+    "marketCap": "68 Mr £",
+    "beta": 0.65,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "ScienceDirect, LexisNexis ve risk analitiği karar araçlarıyla küresel bilgi ve analiz devi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "32.0x",
+        "peerAvg": "26.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "16.5",
+        "peerAvg": "5.50"
+      }
+    ]
+  },
+  {
+    "id": "rio",
+    "symbol": "RIO",
+    "name": "Rio Tinto plc",
+    "sector": "Demir Cevheri & Madencilik",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "FTSE 100",
+    "price": 5040,
+    "currency": "GBp",
+    "dailyChange": 1.2,
+    "peRatio": 10.5,
+    "pbRatio": 1.85,
+    "dividendYield": 6.45,
+    "marketCap": "82 Mr £",
+    "beta": 1.15,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Avustralya Pilbara demir cevheri, alüminyum ve lityum madenciliğinde dünyanın önde gelen maden devi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "10.5x",
+        "peerAvg": "11.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "1.85",
+        "peerAvg": "1.90"
+      }
+    ]
+  },
+  {
+    "id": "novo",
+    "symbol": "NOVO-B",
+    "name": "Novo Nordisk A/S",
+    "sector": "Diyabet & Obezite Tedavileri",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "OMXC 25",
+    "price": 785,
+    "currency": "DKK",
+    "dailyChange": 1.1,
+    "peRatio": 38.5,
+    "pbRatio": 32,
+    "dividendYield": 1.25,
+    "marketCap": "3.48 Tr DKK",
+    "beta": 0.65,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Ozempic ve Wegovy GLP-1 tedavileriyle Avrupa'nın piyasa değeri en yüksek ilaç şirketi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "38.5x",
+        "peerAvg": "25.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "32.0",
+        "peerAvg": "6.50"
+      }
+    ]
+  },
+  {
+    "id": "itx",
+    "symbol": "ITX",
+    "name": "Industria de Diseño Textil (Inditex)",
+    "sector": "Hızlı Moda Perakendesi (Zara)",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "IBEX 35",
+    "price": 52.4,
+    "currency": "€",
+    "dailyChange": 1.3,
+    "peRatio": 26.5,
+    "pbRatio": 8.2,
+    "dividendYield": 2.95,
+    "marketCap": "163 Mr €",
+    "beta": 0.95,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Zara, Massimo Dutti, Bershka, Pull&Bear ve Oysho markalarıyla dünyanın en büyük hazır giyim perakendecisi.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "26.5x",
+        "peerAvg": "22.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "8.20",
+        "peerAvg": "4.50"
+      }
+    ]
+  },
+  {
+    "id": "san_es",
+    "symbol": "SAN.MC",
+    "name": "Banco Santander S.A.",
+    "sector": "Küresel Perakende Bankacılık",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "IBEX 35",
+    "price": 4.55,
+    "currency": "€",
+    "dailyChange": 0.4,
+    "peRatio": 6.4,
+    "pbRatio": 0.68,
+    "dividendYield": 4.25,
+    "marketCap": "70 Mr €",
+    "beta": 1.28,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "İspanya, İngiltere, Brezilya ve Latin Amerika genelinde 165 milyon müşteriye bankacılık hizmeti.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "6.4x",
+        "peerAvg": "7.5x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "0.68",
+        "peerAvg": "0.85"
+      }
+    ]
+  },
+  {
+    "id": "ferrari",
+    "symbol": "RACE",
+    "name": "Ferrari N.V.",
+    "sector": "Lüks Süper Spor Otomobiller",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "FTSE MIB",
+    "price": 428,
+    "currency": "€",
+    "dailyChange": 0.9,
+    "peRatio": 52,
+    "pbRatio": 24.5,
+    "dividendYield": 0.58,
+    "marketCap": "77 Mr €",
+    "beta": 0.92,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "Maranello üretimi ikonik V8/V12 süper lüks spor arabalar ve Scuderia Ferrari Formula 1 yarış takımı.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "52.0x",
+        "peerAvg": "15.0x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "24.5",
+        "peerAvg": "3.50"
+      }
+    ]
+  },
+  {
+    "id": "enel",
+    "symbol": "ENEL",
+    "name": "Enel S.p.A.",
+    "sector": "Elektrik Dağıtımı & Yenilenebilir Enerji",
+    "exchange": "Avrupa",
+    "assetClass": "hisse",
+    "indexTag": "FTSE MIB",
+    "price": 7.15,
+    "currency": "€",
+    "dailyChange": 0.2,
+    "peRatio": 10.8,
+    "pbRatio": 1.45,
+    "dividendYield": 6.25,
+    "marketCap": "72 Mr €",
+    "beta": 0.85,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "description": "İtalya, İspanya ve Latin Amerika'da elektrik şebekesi ve Enel Green Power temiz enerji santralleri operatörü.",
+    "metrics": [
+      {
+        "label": "F/K Oranı",
+        "value": "10.8x",
+        "peerAvg": "12.5x"
+      },
+      {
+        "label": "PD/DD",
+        "value": "1.45",
+        "peerAvg": "1.80"
       }
     ]
   },
@@ -12306,305 +17112,2204 @@ export const MOCK_COMPANIES: Company[] = [
     "id": "aft",
     "symbol": "AFT",
     "name": "Ak Portföy Yeni Teknolojiler Yabancı Hisse Fonu",
-    "sector": "Yatırım Fonları (TEFAS)",
+    "sector": "Yabancı Teknoloji Hisse",
     "exchange": "BIST",
     "assetClass": "fon",
-    "indexTag": "BIST 100",
-    "price": 0.482,
+    "indexTag": "TEFAS",
+    "price": 0.4485,
     "currency": "₺",
-    "dailyChange": 1.95,
+    "dailyChange": 1.85,
     "recommendation": "AL",
-    "inWatchlist": true,
-    "description": "Apple, Microsoft, Nvidia, Google hisselerine TL bazında tek payla yatırım.",
-    "metrics": []
+    "inWatchlist": false,
+    "fundManager": "Ak Portföy",
+    "fundType": "Yabancı Hisse Senedi Fonu",
+    "expenseRatio": 2.9,
+    "aum": "24.8 Milyar ₺",
+    "riskLevel": 7,
+    "oneYearReturn": 88.5,
+    "threeYearReturn": 412,
+    "topHoldings": [
+      "NVDA %9.2",
+      "MSFT %8.4",
+      "AAPL %7.8",
+      "AMZN %6.5",
+      "GOOGL %6.1"
+    ],
+    "description": "Küresel yapay zeka, yarı iletken ve bulut teknolojisi devlerine TL bazında doğrudan yatırım imkanı sağlayan fon.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%88.5",
+        "peerAvg": "%62.0"
+      },
+      {
+        "label": "Yönetim Ücreti",
+        "value": "%2.90",
+        "peerAvg": "%3.10"
+      }
+    ]
   },
   {
     "id": "mac",
     "symbol": "MAC",
     "name": "Marmara Capital Portföy Hisse Senedi Fonu",
-    "sector": "Yatırım Fonları (TEFAS)",
+    "sector": "BIST Değer Hisse",
     "exchange": "BIST",
     "assetClass": "fon",
-    "indexTag": "BIST 100",
-    "price": 1.842,
+    "indexTag": "TEFAS",
+    "price": 182.4,
     "currency": "₺",
-    "dailyChange": 1.45,
+    "dailyChange": 0.95,
     "recommendation": "AL",
-    "inWatchlist": true,
-    "description": "Değer yatırımı felsefesiyle BIST'in iskontolu şirketlerini toplayan aktif hisse fonu.",
-    "metrics": []
+    "inWatchlist": false,
+    "fundManager": "Marmara Capital",
+    "fundType": "Yerli Hisse Senedi Fonu",
+    "expenseRatio": 2.5,
+    "aum": "8.4 Milyar ₺",
+    "riskLevel": 6,
+    "oneYearReturn": 74.2,
+    "threeYearReturn": 520,
+    "topHoldings": [
+      "THYAO %8.5",
+      "TUPRS %7.8",
+      "FROTO %6.9",
+      "BIMAS %6.2",
+      "KCHOL %5.8"
+    ],
+    "description": "BIST'te temel analiz ve değer yatırımı disipliniyle yüksek getiri hedefleyen yoğun hisse senedi fonu.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%74.2",
+        "peerAvg": "%58.0"
+      },
+      {
+        "label": "Yönetim Ücreti",
+        "value": "%2.50",
+        "peerAvg": "%2.80"
+      }
+    ]
   },
   {
     "id": "ti1",
     "symbol": "TI1",
-    "name": "İş Portföy BIST 30 Endeksi Hisse Senedi Fonu",
-    "sector": "Yatırım Fonları (TEFAS)",
+    "name": "İş Portföy İhracatçı Şirketler Hisse Senedi Fonu",
+    "sector": "Döviz Gelirli BIST Şirketleri",
     "exchange": "BIST",
     "assetClass": "fon",
-    "indexTag": "BIST 30",
-    "price": 2.15,
+    "indexTag": "TEFAS",
+    "price": 38.65,
     "currency": "₺",
-    "dailyChange": 1.65,
+    "dailyChange": 1.1,
     "recommendation": "AL",
     "inWatchlist": false,
-    "description": "BIST 30 endeks ağırlıklarını birebir yansıtan düşük giderli endeks fonu.",
-    "metrics": []
+    "fundManager": "İş Portföy",
+    "fundType": "Yerli Hisse Senedi Fonu",
+    "expenseRatio": 2.65,
+    "aum": "12.6 Milyar ₺",
+    "riskLevel": 6,
+    "oneYearReturn": 68.4,
+    "threeYearReturn": 380,
+    "topHoldings": [
+      "FROTO %9.1",
+      "SISE %8.2",
+      "ARCLK %7.4",
+      "TOASO %6.8",
+      "VESTL %5.5"
+    ],
+    "description": "Gelirlerinin en az %50'sini yurtdışı ihracattan elde eden döviz dirençli BIST şirketlerine yatırım yapar.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%68.4",
+        "peerAvg": "%55.0"
+      },
+      {
+        "label": "Yönetim Ücreti",
+        "value": "%2.65",
+        "peerAvg": "%2.90"
+      }
+    ]
   },
   {
     "id": "yay",
     "symbol": "YAY",
-    "name": "Yapı Kredi Portföy Yabancı Teknoloji Fonu",
-    "sector": "Yatırım Fonları (TEFAS)",
+    "name": "Yapı Kredi Portföy Yabancı Teknoloji Sektörü Fonu",
+    "sector": "Küresel İnovasyon & Donanım",
     "exchange": "BIST",
     "assetClass": "fon",
-    "indexTag": "NASDAQ 100",
-    "price": 1.34,
+    "indexTag": "TEFAS",
+    "price": 24.8,
     "currency": "₺",
-    "dailyChange": 1.85,
+    "dailyChange": 1.7,
     "recommendation": "AL",
     "inWatchlist": false,
-    "description": "Yarı iletken, yapay zeka ve siber güvenlik odaklı yabancı hisse senedi sepeti.",
-    "metrics": []
+    "fundManager": "Yapı Kredi Portföy",
+    "fundType": "Yabancı Hisse Senedi Fonu",
+    "expenseRatio": 2.8,
+    "aum": "16.2 Milyar ₺",
+    "riskLevel": 7,
+    "oneYearReturn": 82,
+    "threeYearReturn": 395,
+    "topHoldings": [
+      "AAPL %8.8",
+      "MSFT %8.1",
+      "NVDA %7.9",
+      "AVGO %6.4",
+      "META %6.0"
+    ],
+    "description": "Yarı iletken, yazılım, yapay zeka ve dijital dönüşüm alanındaki dünya devlerine odaklanan yabancı fon.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%82.0",
+        "peerAvg": "%62.0"
+      },
+      {
+        "label": "Yönetim Ücreti",
+        "value": "%2.80",
+        "peerAvg": "%3.10"
+      }
+    ]
   },
   {
     "id": "iih",
     "symbol": "IIH",
     "name": "İstanbul Portföy Üçüncü Hisse Senedi Fonu",
-    "sector": "Yatırım Fonları (TEFAS)",
+    "sector": "Aktif Yönetimli BIST Hisse",
     "exchange": "BIST",
     "assetClass": "fon",
-    "indexTag": "BIST 100",
-    "price": 0.92,
+    "indexTag": "TEFAS",
+    "price": 145.2,
     "currency": "₺",
-    "dailyChange": 1.95,
+    "dailyChange": 1.35,
     "recommendation": "AL",
     "inWatchlist": false,
-    "description": "BIST 100 dışı potansiyeli yüksek büyüme (Growth) şirketlerini toplayan aktif fon.",
-    "metrics": []
+    "fundManager": "İstanbul Portföy",
+    "fundType": "Yerli Hisse Senedi Fonu",
+    "expenseRatio": 2.7,
+    "aum": "18.9 Milyar ₺",
+    "riskLevel": 6,
+    "oneYearReturn": 86.5,
+    "threeYearReturn": 610,
+    "topHoldings": [
+      "THYAO %9.5",
+      "PGSUS %8.2",
+      "ASELS %7.5",
+      "TUPRS %7.0",
+      "SAHOL %6.4"
+    ],
+    "description": "Piyasa döngülerine göre dinamik hisse seçimi yapan Türkiye'nin en büyük aktif hisse senedi fonlarından biri.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%86.5",
+        "peerAvg": "%58.0"
+      },
+      {
+        "label": "Yönetim Ücreti",
+        "value": "%2.70",
+        "peerAvg": "%2.85"
+      }
+    ]
   },
   {
     "id": "gmr",
     "symbol": "GMR",
     "name": "Inveo Portföy İkinci Hisse Senedi Fonu",
-    "sector": "Yatırım Fonları (TEFAS)",
+    "sector": "Büyüme Odaklı Hisse",
     "exchange": "BIST",
     "assetClass": "fon",
-    "indexTag": "BIST 100",
-    "price": 2.45,
+    "indexTag": "TEFAS",
+    "price": 42.1,
     "currency": "₺",
-    "dailyChange": 1.75,
+    "dailyChange": 1.45,
     "recommendation": "AL",
     "inWatchlist": false,
-    "description": "Döngüsel sektörlerde ve sanayi ihracat şirketlerinde aktif hisse fonu.",
-    "metrics": []
+    "fundManager": "Inveo Portföy",
+    "fundType": "Yerli Hisse Senedi Fonu",
+    "expenseRatio": 2.75,
+    "aum": "6.5 Milyar ₺",
+    "riskLevel": 6,
+    "oneYearReturn": 79.2,
+    "threeYearReturn": 480,
+    "topHoldings": [
+      "MGROS %8.8",
+      "LOGO %7.4",
+      "KCHOL %7.1",
+      "ISCTR %6.5",
+      "TTKOM %5.9"
+    ],
+    "description": "Yüksek ciro ve kâr büyümesi yakalayan BIST sanayi ve teknoloji şirketlerine odaklanır.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%79.2",
+        "peerAvg": "%58.0"
+      },
+      {
+        "label": "Yönetim Ücreti",
+        "value": "%2.75",
+        "peerAvg": "%2.90"
+      }
+    ]
   },
   {
     "id": "kzl",
     "symbol": "KZL",
-    "name": "Kuveyt Türk Altın Katılım Fonu",
-    "sector": "Yatırım Fonları (TEFAS)",
+    "name": "Kuveyt Türk Portföy Kıymetli Madenler Katılım Fonu",
+    "sector": "Faizsiz Altın & Gümüş",
     "exchange": "BIST",
     "assetClass": "fon",
-    "indexTag": "Kıymetli Maden",
-    "price": 0.084,
+    "indexTag": "TEFAS",
+    "price": 18.9,
     "currency": "₺",
-    "dailyChange": 0.45,
+    "dailyChange": 0.55,
     "recommendation": "AL",
     "inWatchlist": false,
-    "description": "Faizsiz katılım esaslarına uygun fiziki altın katılım fonu.",
-    "metrics": []
+    "fundManager": "Kuveyt Türk Portföy",
+    "fundType": "Kıymetli Madenler Katılım Fonu",
+    "expenseRatio": 1.5,
+    "aum": "14.1 Milyar ₺",
+    "riskLevel": 5,
+    "oneYearReturn": 64,
+    "threeYearReturn": 285,
+    "topHoldings": [
+      "Fiziki Altın %75.0",
+      "Fiziki Gümüş %20.0",
+      "Kira Sertifikaları %5.0"
+    ],
+    "description": "Faizsiz katılım finans prensiplerine uygun olarak fiziki altın ve gümüş varlıklarına yatırım yapar.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%64.0",
+        "peerAvg": "%59.0"
+      },
+      {
+        "label": "Yönetim Ücreti",
+        "value": "%1.50",
+        "peerAvg": "%1.80"
+      }
+    ]
   },
   {
     "id": "tcd",
     "symbol": "TCD",
     "name": "Tacirler Portföy Değişken Fon",
-    "sector": "Yatırım Fonları (TEFAS)",
+    "sector": "Taktiksel Varlık Dağılımı",
     "exchange": "BIST",
     "assetClass": "fon",
-    "indexTag": "BIST 100",
-    "price": 6.85,
+    "indexTag": "TEFAS",
+    "price": 88.6,
     "currency": "₺",
-    "dailyChange": 1.25,
+    "dailyChange": 0.8,
     "recommendation": "AL",
     "inWatchlist": false,
-    "description": "Varlık dağılımını piyasa koşullarına göre aktif değiştiren çoklu varlık fonu.",
-    "metrics": []
+    "fundManager": "Tacirler Portföy",
+    "fundType": "Değişken Fon",
+    "expenseRatio": 2.85,
+    "aum": "9.2 Milyar ₺",
+    "riskLevel": 6,
+    "oneYearReturn": 71.5,
+    "threeYearReturn": 440,
+    "topHoldings": [
+      "BIST Hisse %65.0",
+      "Özel Sektör Tahvili %20.0",
+      "Vadeli İşlemler %15.0"
+    ],
+    "description": "Piyasa koşullarına göre hisse, borçlanma araçları ve türev ürünler arasında esnek geçiş yapan popüler fon.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%71.5",
+        "peerAvg": "%54.0"
+      },
+      {
+        "label": "Yönetim Ücreti",
+        "value": "%2.85",
+        "peerAvg": "%3.00"
+      }
+    ]
   },
   {
     "id": "bio",
     "symbol": "BIO",
     "name": "Ak Portföy Sağlık Sektörü Yabancı Hisse Fonu",
-    "sector": "Yatırım Fonları (TEFAS)",
+    "sector": "Küresel İlaç & Biyoteknoloji",
     "exchange": "BIST",
     "assetClass": "fon",
-    "indexTag": "S&P 500",
-    "price": 0.385,
+    "indexTag": "TEFAS",
+    "price": 12.45,
     "currency": "₺",
-    "dailyChange": 0.85,
+    "dailyChange": 0.65,
     "recommendation": "AL",
     "inWatchlist": false,
-    "description": "Küresel ilaç, biyoteknoloji ve medikal cihaz şirketleri fonu.",
-    "metrics": []
+    "fundManager": "Ak Portföy",
+    "fundType": "Yabancı Hisse Senedi Fonu",
+    "expenseRatio": 2.8,
+    "aum": "7.8 Milyar ₺",
+    "riskLevel": 6,
+    "oneYearReturn": 48.5,
+    "threeYearReturn": 210,
+    "topHoldings": [
+      "LLY %9.5",
+      "UNH %8.4",
+      "JNJ %7.6",
+      "ABBV %7.0",
+      "MRK %6.8"
+    ],
+    "description": "Küresel obezite, onkoloji ve genetik tedavi geliştiren dev ilaç şirketlerine TL bazında yatırım sağlar.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%48.5",
+        "peerAvg": "%42.0"
+      },
+      {
+        "label": "Yönetim Ücreti",
+        "value": "%2.80",
+        "peerAvg": "%3.00"
+      }
+    ]
   },
   {
     "id": "buy",
     "symbol": "BUY",
-    "name": "Garanti Portföy Blockchain ve Fintek Fonu",
-    "sector": "Yatırım Fonları (TEFAS)",
+    "name": "QNB Finans Portföy Temiz Enerji Fonu",
+    "sector": "Güneş, Rüzgar & Batarya",
     "exchange": "BIST",
     "assetClass": "fon",
-    "indexTag": "NASDAQ 100",
-    "price": 0.525,
+    "indexTag": "TEFAS",
+    "price": 6.85,
     "currency": "₺",
-    "dailyChange": 2.85,
-    "recommendation": "AL",
+    "dailyChange": 0.4,
+    "recommendation": "TUT",
     "inWatchlist": false,
-    "description": "Blokzincir, kripto madencilik ve dijital ödeme fintek hisseleri.",
-    "metrics": []
+    "fundManager": "QNB Portföy",
+    "fundType": "Tematik Yabancı Hisse Fonu",
+    "expenseRatio": 2.9,
+    "aum": "4.1 Milyar ₺",
+    "riskLevel": 7,
+    "oneYearReturn": 32,
+    "threeYearReturn": 145,
+    "topHoldings": [
+      "NEE %8.2",
+      "ENPH %7.5",
+      "FSLR %7.1",
+      "IBDRY %6.4",
+      "ORSTED %5.8"
+    ],
+    "description": "Yenilenebilir enerji üretimi, rüzgar türbinleri ve akıllı şebeke teknolojileri şirketlerine yatırım yapar.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%32.0",
+        "peerAvg": "%30.0"
+      },
+      {
+        "label": "Yönetim Ücreti",
+        "value": "%2.90",
+        "peerAvg": "%3.10"
+      }
+    ]
   },
   {
     "id": "ihk",
     "symbol": "IHK",
     "name": "İş Portföy İş'te Kadın Hisse Senedi Fonu",
-    "sector": "Yatırım Fonları (TEFAS)",
+    "sector": "ESG & Kadın İstihdamı",
     "exchange": "BIST",
     "assetClass": "fon",
-    "indexTag": "BIST 100",
-    "price": 1.15,
+    "indexTag": "TEFAS",
+    "price": 5.62,
     "currency": "₺",
-    "dailyChange": 1.45,
+    "dailyChange": 1.05,
     "recommendation": "AL",
     "inWatchlist": false,
-    "description": "Yönetiminde kadın liderliği yüksek sürdürülebilir BIST şirketleri.",
-    "metrics": []
+    "fundManager": "İş Portföy",
+    "fundType": "Yerli Hisse Senedi Fonu",
+    "expenseRatio": 2.4,
+    "aum": "3.6 Milyar ₺",
+    "riskLevel": 6,
+    "oneYearReturn": 69.8,
+    "threeYearReturn": 360,
+    "topHoldings": [
+      "KCHOL %9.0",
+      "ARCLK %8.4",
+      "AKBNK %7.8",
+      "TUPRS %7.2",
+      "MGROS %6.5"
+    ],
+    "description": "Yönetiminde ve istihdamında kadınlara öncelik veren kurumsal sürdürülebilir BIST şirketlerini seçer.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%69.8",
+        "peerAvg": "%58.0"
+      },
+      {
+        "label": "Yönetim Ücreti",
+        "value": "%2.40",
+        "peerAvg": "%2.70"
+      }
+    ]
   },
   {
-    "id": "qqq",
-    "symbol": "QQQ",
-    "name": "Invesco QQQ Trust (NASDAQ 100 ETF)",
-    "sector": "Borsa Yatırım Fonu (ETF)",
-    "exchange": "ABD",
+    "id": "tte_tefas",
+    "symbol": "TTE",
+    "name": "İş Portföy BIST Teknoloji Ağırlık Sınırlamalı Fon",
+    "sector": "BIST Bilişim & Savunma",
+    "exchange": "BIST",
     "assetClass": "fon",
-    "indexTag": "NASDAQ 100",
-    "price": 492.5,
-    "currency": "$",
-    "dailyChange": 1.25,
+    "indexTag": "TEFAS",
+    "price": 4.88,
+    "currency": "₺",
+    "dailyChange": 2.1,
     "recommendation": "AL",
-    "inWatchlist": true,
-    "description": "NASDAQ-100 endeksini birebir takip eden dünyanın en likit teknoloji ETF'i.",
-    "metrics": []
+    "inWatchlist": false,
+    "fundManager": "İş Portföy",
+    "fundType": "Sektör Hisse Fonu",
+    "expenseRatio": 2.5,
+    "aum": "11.2 Milyar ₺",
+    "riskLevel": 7,
+    "oneYearReturn": 92.4,
+    "threeYearReturn": 580,
+    "topHoldings": [
+      "ASELS %10.0",
+      "LOGO %9.5",
+      "MIATK %8.8",
+      "REEDR %7.4",
+      "KFEIN %6.2"
+    ],
+    "description": "Borsa İstanbul'da işlem gören yerli yazılım, telekom, savunma ve bilişim şirketlerine yatırım yapar.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%92.4",
+        "peerAvg": "%65.0"
+      },
+      {
+        "label": "Yönetim Ücreti",
+        "value": "%2.50",
+        "peerAvg": "%2.75"
+      }
+    ]
+  },
+  {
+    "id": "ipb",
+    "symbol": "IPB",
+    "name": "İstanbul Portföy Birinci Değişken Fon",
+    "sector": "Hedge & Mutlak Getiri",
+    "exchange": "BIST",
+    "assetClass": "fon",
+    "indexTag": "TEFAS",
+    "price": 8.92,
+    "currency": "₺",
+    "dailyChange": 0.65,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "İstanbul Portföy",
+    "fundType": "Değişken Fon",
+    "expenseRatio": 2.8,
+    "aum": "14.5 Milyar ₺",
+    "riskLevel": 6,
+    "oneYearReturn": 76.5,
+    "threeYearReturn": 490,
+    "topHoldings": [
+      "BIST Hisse %55.0",
+      "Eurobond %25.0",
+      "Ters Repo %20.0"
+    ],
+    "description": "Her piyasa koşulunda enflasyon üzeri reel mutlak getiri hedefleyen dinamik çoklu varlık fonu.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%76.5",
+        "peerAvg": "%54.0"
+      },
+      {
+        "label": "Yönetim Ücreti",
+        "value": "%2.80",
+        "peerAvg": "%3.00"
+      }
+    ]
+  },
+  {
+    "id": "afo",
+    "symbol": "AFO",
+    "name": "Ak Portföy Eurobond (Borçlanma Araçları) Fonu",
+    "sector": "Döviz Gelirli Eurobond",
+    "exchange": "BIST",
+    "assetClass": "fon",
+    "indexTag": "TEFAS",
+    "price": 1.145,
+    "currency": "₺",
+    "dailyChange": 0.25,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "Ak Portföy",
+    "fundType": "Dış Borçlanma (Eurobond) Fonu",
+    "expenseRatio": 1.85,
+    "aum": "8.9 Milyar ₺",
+    "riskLevel": 4,
+    "oneYearReturn": 52,
+    "threeYearReturn": 240,
+    "topHoldings": [
+      "TC Hazine Eurobond %65.0",
+      "Banka Eurobondları %25.0",
+      "Döviz Likit %10.0"
+    ],
+    "description": "Türkiye Cumhuriyeti Hazinesi ve özel sektör şirketlerinin ihraç ettiği ABD Doları cinsi Eurobond'lara yatırım yapar.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%52.0",
+        "peerAvg": "%48.0"
+      },
+      {
+        "label": "Yönetim Ücreti",
+        "value": "%1.85",
+        "peerAvg": "%2.10"
+      }
+    ]
+  },
+  {
+    "id": "gzh",
+    "symbol": "GZH",
+    "name": "Garanti Portföy Sürdürülebilirlik Hisse Fonu",
+    "sector": "Yeşil Dönüşüm & ESG",
+    "exchange": "BIST",
+    "assetClass": "fon",
+    "indexTag": "TEFAS",
+    "price": 0.124,
+    "currency": "₺",
+    "dailyChange": 0.9,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "Garanti BBVA Portföy",
+    "fundType": "Yerli Hisse Senedi Fonu",
+    "expenseRatio": 2.45,
+    "aum": "5.8 Milyar ₺",
+    "riskLevel": 6,
+    "oneYearReturn": 66.2,
+    "threeYearReturn": 340,
+    "topHoldings": [
+      "KCHOL %9.2",
+      "TUPRS %8.5",
+      "EREGL %7.8",
+      "SISE %7.0",
+      "GARAN %6.8"
+    ],
+    "description": "BIST Sürdürülebilirlik Endeksi kriterlerini karşılayan çevreye duyarlı sanayi şirketlerine yatırım yapar.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%66.2",
+        "peerAvg": "%58.0"
+      },
+      {
+        "label": "Yönetim Ücreti",
+        "value": "%2.45",
+        "peerAvg": "%2.75"
+      }
+    ]
+  },
+  {
+    "id": "zkp",
+    "symbol": "ZKP",
+    "name": "Ziraat Portföy Kısa Vadeli Borçlanma Fonu",
+    "sector": "Düşük Risk & Likit Getiri",
+    "exchange": "BIST",
+    "assetClass": "fon",
+    "indexTag": "TEFAS",
+    "price": 3.42,
+    "currency": "₺",
+    "dailyChange": 0.12,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "Ziraat Portföy",
+    "fundType": "Borçlanma Araçları Fonu",
+    "expenseRatio": 0.95,
+    "aum": "22.5 Milyar ₺",
+    "riskLevel": 2,
+    "oneYearReturn": 49.5,
+    "threeYearReturn": 165,
+    "topHoldings": [
+      "Kısa Vadeli Devlet Tahvili %50.0",
+      "Özel Sektör Bonosu %35.0",
+      "Repo %15.0"
+    ],
+    "description": "Mevduat alternatifi, günlük değer kazanan ve dalgalanması asgari düzeyde olan güvenli likit fon.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%49.5",
+        "peerAvg": "%47.0"
+      },
+      {
+        "label": "Yönetim Ücreti",
+        "value": "%0.95",
+        "peerAvg": "%1.20"
+      }
+    ]
+  },
+  {
+    "id": "tge",
+    "symbol": "TGE",
+    "name": "İş Portföy Emtia Yabancı BYF Fon Sepeti Fonu",
+    "sector": "Petrol, Bakır & Tarım Emtiası",
+    "exchange": "BIST",
+    "assetClass": "fon",
+    "indexTag": "TEFAS",
+    "price": 0.285,
+    "currency": "₺",
+    "dailyChange": 0.45,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "İş Portföy",
+    "fundType": "Fon Sepeti Fonu",
+    "expenseRatio": 2.75,
+    "aum": "6.3 Milyar ₺",
+    "riskLevel": 6,
+    "oneYearReturn": 44,
+    "threeYearReturn": 195,
+    "topHoldings": [
+      "Brent Petrol ETF %25.0",
+      "Bakır & Endüstriyel Metal %25.0",
+      "Tarım & Buğday ETF %20.0",
+      "Altın/Gümüş %30.0"
+    ],
+    "description": "Küresel emtia piyasalarına (enerji, endüstriyel metal ve tarım) yatırım yaparak enflasyon kalkanı sunar.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%44.0",
+        "peerAvg": "%38.0"
+      },
+      {
+        "label": "Yönetim Ücreti",
+        "value": "%2.75",
+        "peerAvg": "%3.00"
+      }
+    ]
+  },
+  {
+    "id": "gld_tefas",
+    "symbol": "KZG",
+    "name": "Kuveyt Türk Portföy Altın Katılım Fonu",
+    "sector": "Fiziki Altın",
+    "exchange": "BIST",
+    "assetClass": "fon",
+    "indexTag": "TEFAS",
+    "price": 4.85,
+    "currency": "₺",
+    "dailyChange": 0.6,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "Kuveyt Türk Portföy",
+    "fundType": "Kıymetli Madenler Fonu",
+    "expenseRatio": 1.2,
+    "aum": "18.5 Milyar ₺",
+    "riskLevel": 5,
+    "oneYearReturn": 66.8,
+    "threeYearReturn": 310,
+    "topHoldings": [
+      "Borsa İstanbul Kasası Fiziki Altın %95.0",
+      "Kira Sertifikası %5.0"
+    ],
+    "description": "Varlıklarının asgari %80'ini Borsa İstanbul kasalarında saklanan fiziki altında değerlendiren fon.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%66.8",
+        "peerAvg": "%61.0"
+      },
+      {
+        "label": "Yönetim Ücreti",
+        "value": "%1.20",
+        "peerAvg": "%1.50"
+      }
+    ]
+  },
+  {
+    "id": "idg",
+    "symbol": "IDG",
+    "name": "İş Portföy BIST 100 Dışı Şirketler Fonu",
+    "sector": "Küçük & Orta Ölçekli BIST (Yan Tahtalar)",
+    "exchange": "BIST",
+    "assetClass": "fon",
+    "indexTag": "TEFAS",
+    "price": 7.45,
+    "currency": "₺",
+    "dailyChange": 1.9,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "İş Portföy",
+    "fundType": "Yerli Hisse Senedi Fonu",
+    "expenseRatio": 2.8,
+    "aum": "4.8 Milyar ₺",
+    "riskLevel": 7,
+    "oneYearReturn": 95,
+    "threeYearReturn": 680,
+    "topHoldings": [
+      "BIST 100 Dışı Büyüme Şirketleri %85.0",
+      "Hisse Repo %15.0"
+    ],
+    "description": "BIST 100 endeksi dışındaki hızlı büyüyen yan sanayi, teknoloji ve ihracatçı KOBİ ölçekli şirketlere odaklanır.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%95.0",
+        "peerAvg": "%65.0"
+      },
+      {
+        "label": "Yönetim Ücreti",
+        "value": "%2.80",
+        "peerAvg": "%3.00"
+      }
+    ]
+  },
+  {
+    "id": "yhk",
+    "symbol": "YHK",
+    "name": "Yapı Kredi Portföy Koç Holding İştirakleri Fonu",
+    "sector": "Koç Topluluğu Şirketleri",
+    "exchange": "BIST",
+    "assetClass": "fon",
+    "indexTag": "TEFAS",
+    "price": 3.18,
+    "currency": "₺",
+    "dailyChange": 1.15,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "Yapı Kredi Portföy",
+    "fundType": "Tematik Hisse Senedi Fonu",
+    "expenseRatio": 2.5,
+    "aum": "7.2 Milyar ₺",
+    "riskLevel": 6,
+    "oneYearReturn": 72,
+    "threeYearReturn": 440,
+    "topHoldings": [
+      "TUPRS %18.0",
+      "FROTO %17.0",
+      "KCHOL %15.0",
+      "YKBNK %14.0",
+      "TOASO %12.0",
+      "ARCLK %10.0"
+    ],
+    "description": "Koç Topluluğu bünyesindeki sanayi, enerji, otomotiv ve finans lokomotiflerine doğrudan yatırım yapar.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%72.0",
+        "peerAvg": "%58.0"
+      },
+      {
+        "label": "Yönetim Ücreti",
+        "value": "%2.50",
+        "peerAvg": "%2.75"
+      }
+    ]
+  },
+  {
+    "id": "tkf",
+    "symbol": "TKF",
+    "name": "Tacirler Portföy Hisse Senedi Fonu",
+    "sector": "Yoğun BIST Hisse",
+    "exchange": "BIST",
+    "assetClass": "fon",
+    "indexTag": "TEFAS",
+    "price": 12.85,
+    "currency": "₺",
+    "dailyChange": 1.4,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "Tacirler Portföy",
+    "fundType": "Yerli Hisse Senedi Fonu",
+    "expenseRatio": 2.9,
+    "aum": "5.4 Milyar ₺",
+    "riskLevel": 6,
+    "oneYearReturn": 84,
+    "threeYearReturn": 540,
+    "topHoldings": [
+      "KCHOL %9.2",
+      "THYAO %8.8",
+      "MGROS %7.5",
+      "BIMAS %7.0",
+      "ASELS %6.4"
+    ],
+    "description": "Yüksek alfa üretme hedefiyle derin temel analiz süzgecinden geçmiş seçkin BIST hisselerine yatırım yapar.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%84.0",
+        "peerAvg": "%58.0"
+      },
+      {
+        "label": "Yönetim Ücreti",
+        "value": "%2.90",
+        "peerAvg": "%3.00"
+      }
+    ]
+  },
+  {
+    "id": "nnf",
+    "symbol": "NNF",
+    "name": "Hedef Portföy Birinci Hisse Senedi Fonu",
+    "sector": "Aktif Hisse & Katalizörler",
+    "exchange": "BIST",
+    "assetClass": "fon",
+    "indexTag": "TEFAS",
+    "price": 6.75,
+    "currency": "₺",
+    "dailyChange": 1.65,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "Hedef Portföy",
+    "fundType": "Yerli Hisse Senedi Fonu",
+    "expenseRatio": 2.85,
+    "aum": "8.1 Milyar ₺",
+    "riskLevel": 6,
+    "oneYearReturn": 88,
+    "threeYearReturn": 590,
+    "topHoldings": [
+      "KARTN %8.5",
+      "BRISA %7.8",
+      "LOGO %7.2",
+      "OTKAR %6.8",
+      "TTRAK %6.4"
+    ],
+    "description": "Büyüme hikayesi ve kurumsal dönüşüm yaşayan orta-büyük ölçekli BIST hisselerinde fırsat arar.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%88.0",
+        "peerAvg": "%58.0"
+      },
+      {
+        "label": "Yönetim Ücreti",
+        "value": "%2.85",
+        "peerAvg": "%3.00"
+      }
+    ]
+  },
+  {
+    "id": "gbe",
+    "symbol": "GBE",
+    "name": "Garanti Portföy Birinci Borçlanma Araçları Fonu",
+    "sector": "Özel Sektör Tahvili & Bono",
+    "exchange": "BIST",
+    "assetClass": "fon",
+    "indexTag": "TEFAS",
+    "price": 0.485,
+    "currency": "₺",
+    "dailyChange": 0.14,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "Garanti BBVA Portföy",
+    "fundType": "Borçlanma Araçları Fonu",
+    "expenseRatio": 1.4,
+    "aum": "11.8 Milyar ₺",
+    "riskLevel": 3,
+    "oneYearReturn": 53.2,
+    "threeYearReturn": 190,
+    "topHoldings": [
+      "Özel Sektör Tahvilleri %60.0",
+      "Devlet Tahvilleri %30.0",
+      "Ters Repo %10.0"
+    ],
+    "description": "Yüksek kredi derecesine sahip Türk şirketlerinin borçlanma senetlerine yatırım yaparak düzenli getiri sağlar.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%53.2",
+        "peerAvg": "%50.0"
+      },
+      {
+        "label": "Yönetim Ücreti",
+        "value": "%1.40",
+        "peerAvg": "%1.60"
+      }
+    ]
+  },
+  {
+    "id": "st1",
+    "symbol": "ST1",
+    "name": "Strateji Portföy Birinci Hisse Senedi Fonu",
+    "sector": "Değer & Temettü Hisseleri",
+    "exchange": "BIST",
+    "assetClass": "fon",
+    "indexTag": "TEFAS",
+    "price": 15.4,
+    "currency": "₺",
+    "dailyChange": 1.1,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "Strateji Portföy",
+    "fundType": "Yerli Hisse Senedi Fonu",
+    "expenseRatio": 2.7,
+    "aum": "3.2 Milyar ₺",
+    "riskLevel": 6,
+    "oneYearReturn": 77,
+    "threeYearReturn": 460,
+    "topHoldings": [
+      "FROTO %9.0",
+      "TUPRS %8.4",
+      "TOASO %7.5",
+      "BIMAS %7.1",
+      "PETKM %5.8"
+    ],
+    "description": "Yüksek serbest nakit akımı ve düzenli kâr payı dağıtan köklü sanayi kuruluşlarına odaklanır.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%77.0",
+        "peerAvg": "%58.0"
+      },
+      {
+        "label": "Yönetim Ücreti",
+        "value": "%2.70",
+        "peerAvg": "%2.85"
+      }
+    ]
+  },
+  {
+    "id": "hvt",
+    "symbol": "HVT",
+    "name": "Halk Portföy Para Piyasası Fonu",
+    "sector": "Günlük Likit & Gecelik Faiz",
+    "exchange": "BIST",
+    "assetClass": "fon",
+    "indexTag": "TEFAS",
+    "price": 1.82,
+    "currency": "₺",
+    "dailyChange": 0.13,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "Halk Portföy",
+    "fundType": "Para Piyasası Fonu",
+    "expenseRatio": 0.85,
+    "aum": "34.5 Milyar ₺",
+    "riskLevel": 1,
+    "oneYearReturn": 51.2,
+    "threeYearReturn": 150,
+    "topHoldings": [
+      "Gecelik Ters Repo %65.0",
+      "Mevduat %25.0",
+      "Kısa Vadeli Bono %10.0"
+    ],
+    "description": "Sıfır piyasa riskiyle günlük faiz getirisi sunan ve aynı gün 7/24 nakde çevrilebilen en büyük likit fon.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%51.2",
+        "peerAvg": "%50.5"
+      },
+      {
+        "label": "Yönetim Ücreti",
+        "value": "%0.85",
+        "peerAvg": "%1.00"
+      }
+    ]
   },
   {
     "id": "spy",
     "symbol": "SPY",
     "name": "SPDR S&P 500 ETF Trust",
-    "sector": "Borsa Yatırım Fonu (ETF)",
+    "sector": "ABD Geniş Piyasa (S&P 500)",
     "exchange": "ABD",
     "assetClass": "fon",
-    "indexTag": "S&P 500",
-    "price": 564.8,
+    "indexTag": "ETF",
+    "price": 585.4,
     "currency": "$",
-    "dailyChange": 0.45,
+    "dailyChange": 0.72,
     "recommendation": "AL",
     "inWatchlist": false,
-    "description": "ABD'nin en büyük 500 şirketine dengeli borsa yatırım fonu.",
-    "metrics": []
+    "fundManager": "State Street Global Advisors",
+    "fundType": "Geniş Piyasa Endeks Fonu",
+    "expenseRatio": 0.09,
+    "aum": "$580B",
+    "riskLevel": 4,
+    "oneYearReturn": 28.5,
+    "threeYearReturn": 42,
+    "topHoldings": [
+      "AAPL %7.2",
+      "MSFT %6.8",
+      "NVDA %6.4",
+      "AMZN %3.8",
+      "META %2.6"
+    ],
+    "description": "Dünyanın ilk ve en likit borsa yatırım fonu. ABD ekonomisinin en büyük 500 şirketine tek işlemle yatırım sağlar.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%28.5",
+        "peerAvg": "%24.0"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.09",
+        "peerAvg": "%0.25"
+      }
+    ]
   },
   {
     "id": "voo",
     "symbol": "VOO",
     "name": "Vanguard S&P 500 ETF",
-    "sector": "Borsa Yatırım Fonu (ETF)",
+    "sector": "ABD S&P 500 Düşük Masraf",
     "exchange": "ABD",
     "assetClass": "fon",
-    "indexTag": "S&P 500",
-    "price": 518,
+    "indexTag": "ETF",
+    "price": 536.8,
     "currency": "$",
-    "dailyChange": 0.45,
+    "dailyChange": 0.74,
     "recommendation": "AL",
     "inWatchlist": false,
-    "description": "%0.03 ultra düşük gider oranlı Vanguard S&P 500 endeks fonu.",
-    "metrics": []
+    "fundManager": "Vanguard Group",
+    "fundType": "Endeks Fonu",
+    "expenseRatio": 0.03,
+    "aum": "$520B",
+    "riskLevel": 4,
+    "oneYearReturn": 28.6,
+    "threeYearReturn": 42.2,
+    "topHoldings": [
+      "AAPL %7.2",
+      "MSFT %6.8",
+      "NVDA %6.4",
+      "AMZN %3.8",
+      "META %2.6"
+    ],
+    "description": "Yıllık %0.03 ultra düşük yönetim masrafıyla uzun vadeli bireysel emeklilik ve portföy birikimi için altın standart.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%28.6",
+        "peerAvg": "%24.0"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.03",
+        "peerAvg": "%0.25"
+      }
+    ]
+  },
+  {
+    "id": "qqq",
+    "symbol": "QQQ",
+    "name": "Invesco QQQ Trust (NASDAQ 100)",
+    "sector": "Büyük Ölçekli Teknoloji & Büyüme",
+    "exchange": "ABD",
+    "assetClass": "fon",
+    "indexTag": "ETF",
+    "price": 494.2,
+    "currency": "$",
+    "dailyChange": 1.15,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "Invesco",
+    "fundType": "Büyüme Endeks Fonu",
+    "expenseRatio": 0.2,
+    "aum": "$290B",
+    "riskLevel": 5,
+    "oneYearReturn": 34.2,
+    "threeYearReturn": 52.5,
+    "topHoldings": [
+      "AAPL %8.9",
+      "MSFT %8.4",
+      "NVDA %7.8",
+      "AMZN %5.2",
+      "META %4.8"
+    ],
+    "description": "Finans dışı en büyük 100 NASDAQ şirketine odaklanarak inovasyon ve yapay zeka rallisini yakalar.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%34.2",
+        "peerAvg": "%26.0"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.20",
+        "peerAvg": "%0.35"
+      }
+    ]
+  },
+  {
+    "id": "vti",
+    "symbol": "VTI",
+    "name": "Vanguard Total Stock Market ETF",
+    "sector": "Tüm ABD Hisse Senedi Piyasası",
+    "exchange": "ABD",
+    "assetClass": "fon",
+    "indexTag": "ETF",
+    "price": 285,
+    "currency": "$",
+    "dailyChange": 0.68,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "Vanguard Group",
+    "fundType": "Tüm Piyasa Endeks Fonu",
+    "expenseRatio": 0.03,
+    "aum": "$420B",
+    "riskLevel": 4,
+    "oneYearReturn": 27.8,
+    "threeYearReturn": 39.5,
+    "topHoldings": [
+      "Büyük Şirketler %72.0",
+      "Orta Ölçek %18.0",
+      "Küçük Ölçek (Small-Cap) %10.0"
+    ],
+    "description": "ABD'de halka açık 3.600'den fazla hissenin tamamını kapsayan nihai tek fonluk çeşitlendirme aracı.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%27.8",
+        "peerAvg": "%24.0"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.03",
+        "peerAvg": "%0.25"
+      }
+    ]
   },
   {
     "id": "gld",
     "symbol": "GLD",
-    "name": "SPDR Gold Shares (Fiziki Altın ETF)",
-    "sector": "Borsa Yatırım Fonu (ETF)",
+    "name": "SPDR Gold Shares",
+    "sector": "Fiziki Külçe Altın",
     "exchange": "ABD",
     "assetClass": "fon",
-    "indexTag": "Kıymetli Maden",
-    "price": 245.8,
+    "indexTag": "ETF",
+    "price": 248.5,
     "currency": "$",
-    "dailyChange": 0.42,
+    "dailyChange": 0.45,
     "recommendation": "AL",
     "inWatchlist": false,
-    "description": "Londra kasalarında saklanan %100 fiziki külçe altın karşılığı küresel altın ETF'i.",
-    "metrics": []
+    "fundManager": "World Gold Trust",
+    "fundType": "Fiziki Emtia Fonu",
+    "expenseRatio": 0.4,
+    "aum": "$72B",
+    "riskLevel": 4,
+    "oneYearReturn": 36.5,
+    "threeYearReturn": 54,
+    "topHoldings": [
+      "Londra Kasalarında 100% Fiziki Külçe Altın"
+    ],
+    "description": "Londra kasalarında güvenle saklanan fiziki külçe altın karşılığı işlem gören küresel altın çıpası.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%36.5",
+        "peerAvg": "%30.0"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.40",
+        "peerAvg": "%0.45"
+      }
+    ]
   },
   {
     "id": "slv",
     "symbol": "SLV",
-    "name": "iShares Silver Trust (Fiziki Gümüş ETF)",
-    "sector": "Borsa Yatırım Fonu (ETF)",
+    "name": "iShares Silver Trust",
+    "sector": "Fiziki Gümüş",
     "exchange": "ABD",
     "assetClass": "fon",
-    "indexTag": "Kıymetli Maden",
-    "price": 29.1,
+    "indexTag": "ETF",
+    "price": 28.9,
     "currency": "$",
-    "dailyChange": 1.85,
+    "dailyChange": 0.85,
     "recommendation": "AL",
     "inWatchlist": false,
-    "description": "BlackRock iShares fiziki gümüş saklama borsa yatırım fonu.",
-    "metrics": []
+    "fundManager": "BlackRock iShares",
+    "fundType": "Fiziki Emtia Fonu",
+    "expenseRatio": 0.5,
+    "aum": "$14B",
+    "riskLevel": 6,
+    "oneYearReturn": 42,
+    "threeYearReturn": 48,
+    "topHoldings": [
+      "Londra Kasalarında 100% Fiziki Külçe Gümüş"
+    ],
+    "description": "Güneş paneli ve elektrikli araç sanayisinde artan gümüş talebini ve enflasyon korumasını yansıtır.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%42.0",
+        "peerAvg": "%32.0"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.50",
+        "peerAvg": "%0.55"
+      }
+    ]
   },
   {
     "id": "smh",
     "symbol": "SMH",
-    "name": "VanEck Semiconductor ETF (Yarı İletken)",
-    "sector": "Borsa Yatırım Fonu (ETF)",
+    "name": "VanEck Semiconductor ETF",
+    "sector": "Küresel Yarı İletken & Çip",
     "exchange": "ABD",
     "assetClass": "fon",
-    "indexTag": "NASDAQ 100",
-    "price": 248,
+    "indexTag": "ETF",
+    "price": 248.6,
     "currency": "$",
-    "dailyChange": 2.85,
-    "recommendation": "AL",
-    "inWatchlist": true,
-    "description": "Nvidia, TSMC, ASML, Broadcom ve AMD ağırlıklı mikroçip ETF'i.",
-    "metrics": []
-  },
-  {
-    "id": "arkk",
-    "symbol": "ARKK",
-    "name": "ARK Innovation ETF (Cathie Wood)",
-    "sector": "Borsa Yatırım Fonu (ETF)",
-    "exchange": "ABD",
-    "assetClass": "fon",
-    "indexTag": "NASDAQ 100",
-    "price": 46.5,
-    "currency": "$",
-    "dailyChange": 3.45,
+    "dailyChange": 2.15,
     "recommendation": "AL",
     "inWatchlist": false,
-    "description": "Yıkıcı inovasyon, genomik ve yapay zeka odaklı aktif büyüme ETF'i.",
-    "metrics": []
+    "fundManager": "VanEck",
+    "fundType": "Sektör Endeks Fonu",
+    "expenseRatio": 0.35,
+    "aum": "$24B",
+    "riskLevel": 7,
+    "oneYearReturn": 58.4,
+    "threeYearReturn": 125,
+    "topHoldings": [
+      "NVDA %20.5",
+      "TSM %12.8",
+      "AVGO %8.4",
+      "ASML %5.2",
+      "QCOM %4.8"
+    ],
+    "description": "Yapay zeka devriminin yapı taşları olan küresel çip tasarımcıları ve dökümhanelerine odaklanır.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%58.4",
+        "peerAvg": "%35.0"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.35",
+        "peerAvg": "%0.45"
+      }
+    ]
+  },
+  {
+    "id": "soxx",
+    "symbol": "SOXX",
+    "name": "iShares Semiconductor ETF",
+    "sector": "Yarı İletken Sanayi",
+    "exchange": "ABD",
+    "assetClass": "fon",
+    "indexTag": "ETF",
+    "price": 228.4,
+    "currency": "$",
+    "dailyChange": 1.95,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "BlackRock iShares",
+    "fundType": "Sektör Fonu",
+    "expenseRatio": 0.35,
+    "aum": "$16B",
+    "riskLevel": 7,
+    "oneYearReturn": 52,
+    "threeYearReturn": 110,
+    "topHoldings": [
+      "NVDA %9.5",
+      "AVGO %8.8",
+      "AMD %7.2",
+      "QCOM %6.8",
+      "TXN %6.2"
+    ],
+    "description": "ABD borsalarında kote 30 lider mikroçip ve yarı iletken ekipman şirketini eşit ağırlıklıya yakın modeller.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%52.0",
+        "peerAvg": "%35.0"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.35",
+        "peerAvg": "%0.45"
+      }
+    ]
   },
   {
     "id": "dia",
     "symbol": "DIA",
     "name": "SPDR Dow Jones Industrial Average ETF",
-    "sector": "Borsa Yatırım Fonu (ETF)",
+    "sector": "Köklü 30 Mavi Çipli Sanayi",
     "exchange": "ABD",
     "assetClass": "fon",
-    "indexTag": "S&P 500",
-    "price": 412,
+    "indexTag": "ETF",
+    "price": 432.5,
+    "currency": "$",
+    "dailyChange": 0.45,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "State Street Global Advisors",
+    "fundType": "Mavi Çip Endeks Fonu",
+    "expenseRatio": 0.16,
+    "aum": "$36B",
+    "riskLevel": 4,
+    "oneYearReturn": 22.4,
+    "threeYearReturn": 32,
+    "topHoldings": [
+      "UNH %9.0",
+      "GS %8.2",
+      "MSFT %6.5",
+      "HD %6.0",
+      "CAT %5.8"
+    ],
+    "description": "Wall Street'in 130 yıllık köklü Dow Jones 30 sanayi ve finans lokomotifini izler.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%22.4",
+        "peerAvg": "%20.0"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.16",
+        "peerAvg": "%0.30"
+      }
+    ]
+  },
+  {
+    "id": "schd",
+    "symbol": "SCHD",
+    "name": "Schwab U.S. Dividend Equity ETF",
+    "sector": "Yüksek Temettü & Nakit Akışı",
+    "exchange": "ABD",
+    "assetClass": "fon",
+    "indexTag": "ETF",
+    "price": 84.2,
     "currency": "$",
     "dailyChange": 0.35,
     "recommendation": "AL",
     "inWatchlist": false,
-    "description": "ABD'nin köklü 30 sanayi ve finans devini içeren Dow Jones endeksi ETF'i.",
-    "metrics": []
+    "fundManager": "Charles Schwab",
+    "fundType": "Temettü Büyümesi Fonu",
+    "expenseRatio": 0.06,
+    "aum": "$62B",
+    "riskLevel": 3,
+    "oneYearReturn": 18.5,
+    "threeYearReturn": 28,
+    "topHoldings": [
+      "CSCO %4.2",
+      "ABBV %4.1",
+      "TXN %4.0",
+      "HD %3.9",
+      "AMGN %3.8"
+    ],
+    "description": "Son 10 yıldır aralıksız temettü artıran, yüksek kârlı ve borçsuz ABD şirketlerinin defansif sepeti.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%18.5",
+        "peerAvg": "%16.0"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.06",
+        "peerAvg": "%0.20"
+      }
+    ]
+  },
+  {
+    "id": "vym",
+    "symbol": "VYM",
+    "name": "Vanguard High Dividend Yield ETF",
+    "sector": "Yüksek Verimli Temettü",
+    "exchange": "ABD",
+    "assetClass": "fon",
+    "indexTag": "ETF",
+    "price": 128.5,
+    "currency": "$",
+    "dailyChange": 0.4,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "Vanguard Group",
+    "fundType": "Temettü Gelir Fonu",
+    "expenseRatio": 0.06,
+    "aum": "$58B",
+    "riskLevel": 3,
+    "oneYearReturn": 19.2,
+    "threeYearReturn": 29.5,
+    "topHoldings": [
+      "JPM %3.8",
+      "AVGO %3.5",
+      "XOM %3.2",
+      "JNJ %2.9",
+      "PG %2.8"
+    ],
+    "description": "Piyasa ortalamasının üzerinde nakit kâr payı dağıtan 450'den fazla ABD şirketini içerir.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%19.2",
+        "peerAvg": "%16.0"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.06",
+        "peerAvg": "%0.20"
+      }
+    ]
+  },
+  {
+    "id": "xlf",
+    "symbol": "XLF",
+    "name": "Financial Select Sector SPDR Fund",
+    "sector": "Finans & Bankacılık",
+    "exchange": "ABD",
+    "assetClass": "fon",
+    "indexTag": "ETF",
+    "price": 48.2,
+    "currency": "$",
+    "dailyChange": 0.55,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "State Street Global Advisors",
+    "fundType": "Sektör Fonu",
+    "expenseRatio": 0.09,
+    "aum": "$42B",
+    "riskLevel": 5,
+    "oneYearReturn": 36.8,
+    "threeYearReturn": 38,
+    "topHoldings": [
+      "BRK.B %13.5",
+      "JPM %10.2",
+      "V %7.8",
+      "MA %6.5",
+      "BAC %4.2"
+    ],
+    "description": "S&P 500 bünyesindeki tüm ticari/yatırım bankaları, sigortacılar ve ödeme sistemleri.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%36.8",
+        "peerAvg": "%24.0"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.09",
+        "peerAvg": "%0.25"
+      }
+    ]
+  },
+  {
+    "id": "xlk",
+    "symbol": "XLK",
+    "name": "Technology Select Sector SPDR Fund",
+    "sector": "Bilgi Teknolojileri & Donanım",
+    "exchange": "ABD",
+    "assetClass": "fon",
+    "indexTag": "ETF",
+    "price": 234,
+    "currency": "$",
+    "dailyChange": 1.25,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "State Street Global Advisors",
+    "fundType": "Sektör Fonu",
+    "expenseRatio": 0.09,
+    "aum": "$72B",
+    "riskLevel": 6,
+    "oneYearReturn": 32.5,
+    "threeYearReturn": 64,
+    "topHoldings": [
+      "AAPL %16.0",
+      "NVDA %15.5",
+      "MSFT %14.8",
+      "AVGO %5.2",
+      "CRM %3.1"
+    ],
+    "description": "ABD teknoloji sektörünün omurgasını oluşturan yazılım, yarı iletken ve bulut şirketleri.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%32.5",
+        "peerAvg": "%26.0"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.09",
+        "peerAvg": "%0.25"
+      }
+    ]
+  },
+  {
+    "id": "xle",
+    "symbol": "XLE",
+    "name": "Energy Select Sector SPDR Fund",
+    "sector": "Geleneksel Petrol & Doğalgaz",
+    "exchange": "ABD",
+    "assetClass": "fon",
+    "indexTag": "ETF",
+    "price": 92.4,
+    "currency": "$",
+    "dailyChange": 0.7,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "State Street Global Advisors",
+    "fundType": "Sektör Fonu",
+    "expenseRatio": 0.09,
+    "aum": "$38B",
+    "riskLevel": 6,
+    "oneYearReturn": 12.8,
+    "threeYearReturn": 48,
+    "topHoldings": [
+      "XOM %23.0",
+      "CVX %16.0",
+      "COP %8.5",
+      "EOG %5.2",
+      "SLB %4.8"
+    ],
+    "description": "Petrol fiyat artışlarına ve küresel jeopolitik gerilimlere karşı doğal portföy kalkanı.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%12.8",
+        "peerAvg": "%15.0"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.09",
+        "peerAvg": "%0.25"
+      }
+    ]
+  },
+  {
+    "id": "xlv",
+    "symbol": "XLV",
+    "name": "Health Care Select Sector SPDR Fund",
+    "sector": "Sağlık & İlaç Sektörü",
+    "exchange": "ABD",
+    "assetClass": "fon",
+    "indexTag": "ETF",
+    "price": 152,
+    "currency": "$",
+    "dailyChange": 0.25,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "State Street Global Advisors",
+    "fundType": "Sektör Fonu",
+    "expenseRatio": 0.09,
+    "aum": "$41B",
+    "riskLevel": 3,
+    "oneYearReturn": 16.4,
+    "threeYearReturn": 22,
+    "topHoldings": [
+      "LLY %12.5",
+      "UNH %9.8",
+      "JNJ %7.2",
+      "ABBV %6.8",
+      "MRK %5.5"
+    ],
+    "description": "Ekonomik durgunluklara (resesyon) karşı defansif nakit akışı sağlayan sağlık hizmetleri ve aşı üreticileri.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%16.4",
+        "peerAvg": "%18.0"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.09",
+        "peerAvg": "%0.25"
+      }
+    ]
+  },
+  {
+    "id": "xli",
+    "symbol": "XLI",
+    "name": "Industrial Select Sector SPDR Fund",
+    "sector": "Sanayi & Savunma Donanımı",
+    "exchange": "ABD",
+    "assetClass": "fon",
+    "indexTag": "ETF",
+    "price": 138.5,
+    "currency": "$",
+    "dailyChange": 0.8,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "State Street Global Advisors",
+    "fundType": "Sektör Fonu",
+    "expenseRatio": 0.09,
+    "aum": "$21B",
+    "riskLevel": 4,
+    "oneYearReturn": 29.5,
+    "threeYearReturn": 38,
+    "topHoldings": [
+      "GE %6.2",
+      "CAT %5.5",
+      "RTX %4.8",
+      "UNP %4.5",
+      "HON %4.2"
+    ],
+    "description": "Havacılık, savunma, demiryolu lojistiği ve ağır iş makineleri üreticilerini kapsar.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%29.5",
+        "peerAvg": "%22.0"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.09",
+        "peerAvg": "%0.25"
+      }
+    ]
+  },
+  {
+    "id": "xlp",
+    "symbol": "XLP",
+    "name": "Consumer Staples Select Sector SPDR",
+    "sector": "Defansif Temel Tüketim Malları",
+    "exchange": "ABD",
+    "assetClass": "fon",
+    "indexTag": "ETF",
+    "price": 82,
+    "currency": "$",
+    "dailyChange": 0.2,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "State Street Global Advisors",
+    "fundType": "Sektör Fonu",
+    "expenseRatio": 0.09,
+    "aum": "$18B",
+    "riskLevel": 2,
+    "oneYearReturn": 14.8,
+    "threeYearReturn": 18.5,
+    "topHoldings": [
+      "PG %14.5",
+      "COST %12.0",
+      "WMT %10.5",
+      "KO %9.2",
+      "PEP %8.5"
+    ],
+    "description": "Süpermarketler, hijyen ve temel gıda üreticileriyle dalgalı piyasalarda sermayeyi koruyan defansif fon.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%14.8",
+        "peerAvg": "%15.0"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.09",
+        "peerAvg": "%0.25"
+      }
+    ]
+  },
+  {
+    "id": "xly",
+    "symbol": "XLY",
+    "name": "Consumer Discretionary Select Sector",
+    "sector": "Tüketici Harcamaları & E-Ticaret",
+    "exchange": "ABD",
+    "assetClass": "fon",
+    "indexTag": "ETF",
+    "price": 198.5,
+    "currency": "$",
+    "dailyChange": 1.35,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "State Street Global Advisors",
+    "fundType": "Sektör Fonu",
+    "expenseRatio": 0.09,
+    "aum": "$22B",
+    "riskLevel": 5,
+    "oneYearReturn": 26.5,
+    "threeYearReturn": 28,
+    "topHoldings": [
+      "AMZN %24.0",
+      "TSLA %16.5",
+      "HD %9.2",
+      "MCD %4.8",
+      "NKE %3.2"
+    ],
+    "description": "E-ticaret, elektrikli araçlar, restoran zincirleri ve lüks tüketim harcamalarını yansıtır.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%26.5",
+        "peerAvg": "%22.0"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.09",
+        "peerAvg": "%0.25"
+      }
+    ]
+  },
+  {
+    "id": "xlu",
+    "symbol": "XLU",
+    "name": "Utilities Select Sector SPDR Fund",
+    "sector": "Elektrik, Gaz & Su Hizmetleri",
+    "exchange": "ABD",
+    "assetClass": "fon",
+    "indexTag": "ETF",
+    "price": 81.4,
+    "currency": "$",
+    "dailyChange": -0.15,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "State Street Global Advisors",
+    "fundType": "Sektör Fonu",
+    "expenseRatio": 0.09,
+    "aum": "$16B",
+    "riskLevel": 3,
+    "oneYearReturn": 24.5,
+    "threeYearReturn": 16,
+    "topHoldings": [
+      "NEE %13.5",
+      "SO %8.2",
+      "DUK %7.8",
+      "CEG %6.2",
+      "SRE %4.8"
+    ],
+    "description": "Yapay zeka veri merkezlerinin artan elektrik talebinden faydalanan kamu enerji altyapısı fonu.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%24.5",
+        "peerAvg": "%18.0"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.09",
+        "peerAvg": "%0.25"
+      }
+    ]
+  },
+  {
+    "id": "vnq",
+    "symbol": "VNQ",
+    "name": "Vanguard Real Estate ETF",
+    "sector": "Gayrimenkul Yatırım Ortaklıkları (GYO)",
+    "exchange": "ABD",
+    "assetClass": "fon",
+    "indexTag": "ETF",
+    "price": 92.5,
+    "currency": "$",
+    "dailyChange": 0.4,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "Vanguard Group",
+    "fundType": "GYO / Gayrimenkul Fonu",
+    "expenseRatio": 0.13,
+    "aum": "$34B",
+    "riskLevel": 5,
+    "oneYearReturn": 18.2,
+    "threeYearReturn": 8.5,
+    "topHoldings": [
+      "PLD Lojistik Depolar %7.2",
+      "AMT Telekom Kuleleri %6.8",
+      "EQIX Veri Merkezleri %6.4",
+      "SPG Alışveriş Merkezleri %4.1"
+    ],
+    "description": "Veri merkezleri, lojistik antrepolar ve ticari gayrimenkullerin kira gelirlerini temettü olarak dağıtır.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%18.2",
+        "peerAvg": "%14.0"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.13",
+        "peerAvg": "%0.30"
+      }
+    ]
+  },
+  {
+    "id": "tlt",
+    "symbol": "TLT",
+    "name": "iShares 20+ Year Treasury Bond ETF",
+    "sector": "ABD Uzun Vadeli Hazine Tahvilleri",
+    "exchange": "ABD",
+    "assetClass": "fon",
+    "indexTag": "ETF",
+    "price": 94.8,
+    "currency": "$",
+    "dailyChange": -0.3,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "BlackRock iShares",
+    "fundType": "Hazine Tahvil Fonu",
+    "expenseRatio": 0.15,
+    "aum": "$52B",
+    "riskLevel": 4,
+    "oneYearReturn": 8.5,
+    "threeYearReturn": -15,
+    "topHoldings": [
+      "20+ Yıl Vadeli ABD Hazine Tahvilleri 100%"
+    ],
+    "description": "FED'in faiz indirim döngüsünde değer kazanan, dünyanın en likit güvenli liman tahvil fonu.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%8.5",
+        "peerAvg": "%6.0"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.15",
+        "peerAvg": "%0.20"
+      }
+    ]
+  },
+  {
+    "id": "agg",
+    "symbol": "AGG",
+    "name": "iShares Core U.S. Aggregate Bond ETF",
+    "sector": "Tüm ABD Yatırım Düzeyi Tahvilleri",
+    "exchange": "ABD",
+    "assetClass": "fon",
+    "indexTag": "ETF",
+    "price": 99.2,
+    "currency": "$",
+    "dailyChange": 0.05,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "BlackRock iShares",
+    "fundType": "Geniş Tahvil Endeks Fonu",
+    "expenseRatio": 0.03,
+    "aum": "$115B",
+    "riskLevel": 2,
+    "oneYearReturn": 9.8,
+    "threeYearReturn": 2.5,
+    "topHoldings": [
+      "Hazine Bonosu %45.0",
+      "Mortgage Destekli Menkul %28.0",
+      "Şirket Tahvili %27.0"
+    ],
+    "description": "Portföy riskini sıfırlamaya yakın düzeyde dengeleyen ABD'nin en büyük sabit getirili tahvil çıpası.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%9.8",
+        "peerAvg": "%8.0"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.03",
+        "peerAvg": "%0.15"
+      }
+    ]
+  },
+  {
+    "id": "bnd",
+    "symbol": "BND",
+    "name": "Vanguard Total Bond Market ETF",
+    "sector": "Düşük Masraflı Toplam Tahvil Piyasası",
+    "exchange": "ABD",
+    "assetClass": "fon",
+    "indexTag": "ETF",
+    "price": 73.4,
+    "currency": "$",
+    "dailyChange": 0.04,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "Vanguard Group",
+    "fundType": "Sabit Getirili Menkul Fonu",
+    "expenseRatio": 0.03,
+    "aum": "$120B",
+    "riskLevel": 2,
+    "oneYearReturn": 9.9,
+    "threeYearReturn": 2.8,
+    "topHoldings": [
+      "ABD Hazine Senetleri %48.0",
+      "MBS Konut Tahvili %22.0",
+      "Kurumsal Tahviller %30.0"
+    ],
+    "description": "Vanguard'ın klasik %60 hisse / %40 tahvil portföy stratejisinin vazgeçilmez temel bileşeni.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%9.9",
+        "peerAvg": "%8.0"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.03",
+        "peerAvg": "%0.15"
+      }
+    ]
+  },
+  {
+    "id": "vea",
+    "symbol": "VEA",
+    "name": "Vanguard FTSE Developed Markets ETF",
+    "sector": "ABD Dışı Gelişmiş Ülke Hisseleri",
+    "exchange": "ABD",
+    "assetClass": "fon",
+    "indexTag": "ETF",
+    "price": 51.8,
+    "currency": "$",
+    "dailyChange": 0.45,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "Vanguard Group",
+    "fundType": "Uluslararası Hisse Fonu",
+    "expenseRatio": 0.06,
+    "aum": "$140B",
+    "riskLevel": 4,
+    "oneYearReturn": 16.5,
+    "threeYearReturn": 22,
+    "topHoldings": [
+      "Japonya %21.0",
+      "Birleşik Krallık %13.0",
+      "Fransa %9.5",
+      "İsviçre %8.8",
+      "Almanya %8.2"
+    ],
+    "description": "Avrupa, Japonya, Kanada ve Pasifik gelişmiş piyasalarındaki 4.000 şirkete tek fonda erişim sağlar.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%16.5",
+        "peerAvg": "%14.0"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.06",
+        "peerAvg": "%0.25"
+      }
+    ]
+  },
+  {
+    "id": "vwo",
+    "symbol": "VWO",
+    "name": "Vanguard FTSE Emerging Markets ETF",
+    "sector": "Gelişmekte Olan Piyasalar",
+    "exchange": "ABD",
+    "assetClass": "fon",
+    "indexTag": "ETF",
+    "price": 44.5,
+    "currency": "$",
+    "dailyChange": 0.8,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "Vanguard Group",
+    "fundType": "Gelişen Ülkeler Fonu",
+    "expenseRatio": 0.08,
+    "aum": "$82B",
+    "riskLevel": 6,
+    "oneYearReturn": 19.8,
+    "threeYearReturn": 12,
+    "topHoldings": [
+      "TSMC (Tayvan) %9.2",
+      "Tencent %4.1",
+      "Alibaba %2.5",
+      "Reliance (Hindistan) %1.8"
+    ],
+    "description": "Çin, Hindistan, Tayvan, Brezilya ve Suudi Arabistan şirketlerine yatırım yaparak küresel büyümeyi yakalar.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%19.8",
+        "peerAvg": "%15.0"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.08",
+        "peerAvg": "%0.35"
+      }
+    ]
+  },
+  {
+    "id": "efa",
+    "symbol": "EFA",
+    "name": "iShares MSCI EAFE ETF",
+    "sector": "Avrupa, Avustralasya & Uzak Doğu",
+    "exchange": "ABD",
+    "assetClass": "fon",
+    "indexTag": "ETF",
+    "price": 81.2,
+    "currency": "$",
+    "dailyChange": 0.5,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "BlackRock iShares",
+    "fundType": "Uluslararası Endeks Fonu",
+    "expenseRatio": 0.32,
+    "aum": "$54B",
+    "riskLevel": 4,
+    "oneYearReturn": 15.8,
+    "threeYearReturn": 20.5,
+    "topHoldings": [
+      "Novo Nordisk %2.8",
+      "ASML %2.4",
+      "Nestle %2.1",
+      "AstraZeneca %1.8",
+      "SAP %1.7"
+    ],
+    "description": "Kurumsal fonların uluslararası çeşitlendirmede en çok tercih ettiği gösterge MSCI EAFE fonu.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%15.8",
+        "peerAvg": "%14.0"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.32",
+        "peerAvg": "%0.35"
+      }
+    ]
+  },
+  {
+    "id": "iwm",
+    "symbol": "IWM",
+    "name": "iShares Russell 2000 ETF",
+    "sector": "ABD Küçük Ölçekli Şirketler (Small-Cap)",
+    "exchange": "ABD",
+    "assetClass": "fon",
+    "indexTag": "ETF",
+    "price": 224.5,
+    "currency": "$",
+    "dailyChange": 1.45,
+    "recommendation": "AL",
+    "inWatchlist": false,
+    "fundManager": "BlackRock iShares",
+    "fundType": "Küçük Şirketler Endeks Fonu",
+    "expenseRatio": 0.19,
+    "aum": "$72B",
+    "riskLevel": 6,
+    "oneYearReturn": 24.2,
+    "threeYearReturn": 18,
+    "topHoldings": [
+      "Russell 2000 Endeksindeki 2.000 Amerikan Büyüme Şirketi"
+    ],
+    "description": "Faiz indirim dönemlerinde dev şirketlerden daha yüksek kâr patlaması yaşayan 2.000 ABD KOBİ şirketi.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%24.2",
+        "peerAvg": "%18.0"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.19",
+        "peerAvg": "%0.28"
+      }
+    ]
+  },
+  {
+    "id": "arkk",
+    "symbol": "ARKK",
+    "name": "ARK Innovation ETF",
+    "sector": "Yıkıcı İnovasyon & Genomik",
+    "exchange": "ABD",
+    "assetClass": "fon",
+    "indexTag": "ETF",
+    "price": 49.8,
+    "currency": "$",
+    "dailyChange": 3.1,
+    "recommendation": "TUT",
+    "inWatchlist": false,
+    "fundManager": "ARK Invest (Cathie Wood)",
+    "fundType": "Aktif Tematik Büyüme Fonu",
+    "expenseRatio": 0.75,
+    "aum": "$6.5B",
+    "riskLevel": 7,
+    "oneYearReturn": 22,
+    "threeYearReturn": -24,
+    "topHoldings": [
+      "TSLA %11.2",
+      "ROKU %8.5",
+      "COIN %7.9",
+      "SQ %6.4",
+      "PATH %5.2"
+    ],
+    "description": "Otonom araçlar, yapay zeka, DNA dizileme ve blokzincir gibi yıkıcı inovasyonlara yüksek riskli aktif yatırım.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%22.0",
+        "peerAvg": "%26.0"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.75",
+        "peerAvg": "%0.65"
+      }
+    ]
+  },
+  {
+    "id": "sqqq",
+    "symbol": "SQQQ",
+    "name": "ProShares UltraPro Short QQQ (3x Ters)",
+    "sector": "Kaldıraçlı Ters Teknoloji (Hedge)",
+    "exchange": "ABD",
+    "assetClass": "fon",
+    "indexTag": "ETF",
+    "price": 8.4,
+    "currency": "$",
+    "dailyChange": -3.45,
+    "recommendation": "TUT",
+    "inWatchlist": false,
+    "fundManager": "ProShares",
+    "fundType": "3x Kaldıraçlı Ters ETF (Yüksek Risk)",
+    "expenseRatio": 0.95,
+    "aum": "$4.2B",
+    "riskLevel": 7,
+    "oneYearReturn": -68,
+    "threeYearReturn": -92,
+    "topHoldings": [
+      "NASDAQ 100 Swap ve Vadeli Kısa Pozisyon Sözleşmeleri (300%)"
+    ],
+    "description": "NASDAQ endeksindeki günlük düşüşlerden 3 kat getiri hedefleyen, yalnızca kısa vadeli koruma amaçlı yüksek riskli fon.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "-%68.0",
+        "peerAvg": "—"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.95",
+        "peerAvg": "%0.90"
+      }
+    ]
+  },
+  {
+    "id": "tqqq",
+    "symbol": "TQQQ",
+    "name": "ProShares UltraPro QQQ (3x Kaldıraçlı)",
+    "sector": "Kaldıraçlı NASDAQ 100",
+    "exchange": "ABD",
+    "assetClass": "fon",
+    "indexTag": "ETF",
+    "price": 76.5,
+    "currency": "$",
+    "dailyChange": 3.45,
+    "recommendation": "TUT",
+    "inWatchlist": false,
+    "fundManager": "ProShares",
+    "fundType": "3x Kaldıraçlı Boğa ETF (Yüksek Risk)",
+    "expenseRatio": 0.88,
+    "aum": "$22B",
+    "riskLevel": 7,
+    "oneYearReturn": 112,
+    "threeYearReturn": 140,
+    "topHoldings": [
+      "NASDAQ 100 Swap ve Türev Uzun Pozisyonları (300%)"
+    ],
+    "description": "NASDAQ 100 endeksinin günlük yükseliş performansını 3 kat kaldıraçla çarparak yüksek getiri/risk sunan fon.",
+    "metrics": [
+      {
+        "label": "1Y Getiri",
+        "value": "%112.0",
+        "peerAvg": "—"
+      },
+      {
+        "label": "Gider Oranı",
+        "value": "%0.88",
+        "peerAvg": "%0.90"
+      }
+    ]
   },
   {
     "id": "usdtry",

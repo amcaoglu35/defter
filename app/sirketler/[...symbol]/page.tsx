@@ -471,87 +471,169 @@ export default function SirketDetayPage() {
             </div>
           </div>
 
-          {/* Key Financial Metrics (Null-safe & Dynamic Sector Peers) */}
-          <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6">
-            <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--brass)] mb-4 font-semibold">
-              Finansal Kütük Değerleri &amp; Çarpanlar
-            </h3>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div className="bg-[var(--ink-3)] p-3.5 rounded border border-[var(--line)]">
-                <span className="text-[11px] font-mono text-[var(--mist)] uppercase">
-                  F/K Oranı
-                </span>
-                <div className="font-mono text-lg font-bold text-[var(--paper)] mt-1">
-                  {company.peRatio !== undefined && company.peRatio !== null ? `${company.peRatio}x` : "-"}
-                </div>
-                <span className="text-[10px] text-[var(--mist)]">
-                  {sectorMetrics.avgPe ? `Sektör: ${sectorMetrics.avgPe}x` : "Sektör: -"}
-                </span>
+          {/* Key Financial Metrics or Fund Analytics (AssetClass-Adaptive) */}
+          {company.assetClass === "fon" ? (
+            <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--brass)] font-semibold">
+                  Fon Kütük Değerleri &amp; Portföy Analizi
+                </h3>
+                {company.riskLevel && (
+                  <span className="font-mono text-xs px-2.5 py-0.5 rounded bg-[var(--ink-3)] border border-[var(--line)] text-[var(--brass)]">
+                    Risk Değeri: <strong>{company.riskLevel}/7</strong>
+                  </span>
+                )}
               </div>
 
-              <div className="bg-[var(--ink-3)] p-3.5 rounded border border-[var(--line)]">
-                <span className="text-[11px] font-mono text-[var(--mist)] uppercase">
-                  PD / DD
-                </span>
-                <div className="font-mono text-lg font-bold text-[var(--paper)] mt-1">
-                  {company.pbRatio !== undefined && company.pbRatio !== null ? `${company.pbRatio}x` : "-"}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="bg-[var(--ink-3)] p-3.5 rounded border border-[var(--line)]">
+                  <span className="text-[11px] font-mono text-[var(--mist)] uppercase">
+                    1 Yıllık Getiri
+                  </span>
+                  <div className={`font-mono text-lg font-bold mt-1 ${
+                    (company.oneYearReturn || 0) >= 0 ? "text-[var(--verdigris)]" : "text-[var(--loss)]"
+                  }`}>
+                    {company.oneYearReturn !== undefined ? `%${company.oneYearReturn}` : "-"}
+                  </div>
+                  <span className="text-[10px] text-[var(--mist)]">
+                    {company.threeYearReturn ? `3Y Getiri: %${company.threeYearReturn}` : "Yıllık Nominal"}
+                  </span>
                 </div>
-                <span className="text-[10px] text-[var(--mist)]">
-                  {sectorMetrics.avgPb ? `Sektör: ${sectorMetrics.avgPb}x` : "Sektör: -"}
-                </span>
+
+                <div className="bg-[var(--ink-3)] p-3.5 rounded border border-[var(--line)]">
+                  <span className="text-[11px] font-mono text-[var(--mist)] uppercase">
+                    Yönetim Gideri
+                  </span>
+                  <div className="font-mono text-lg font-bold text-[var(--paper)] mt-1">
+                    {company.expenseRatio !== undefined ? `%${company.expenseRatio}` : "-"}
+                  </div>
+                  <span className="text-[10px] text-[var(--mist)]">Yıllık Masraf Oranı</span>
+                </div>
+
+                <div className="bg-[var(--ink-3)] p-3.5 rounded border border-[var(--line)]">
+                  <span className="text-[11px] font-mono text-[var(--mist)] uppercase">
+                    Fon Büyüklüğü (AUM)
+                  </span>
+                  <div className="font-mono text-lg font-bold text-[var(--paper)] mt-1 truncate">
+                    {company.aum || "—"}
+                  </div>
+                  <span className="text-[10px] text-[var(--mist)]">Toplam Net Varlık</span>
+                </div>
+
+                <div className="bg-[var(--ink-3)] p-3.5 rounded border border-[var(--line)]">
+                  <span className="text-[11px] font-mono text-[var(--mist)] uppercase">
+                    Yönetici Kurum
+                  </span>
+                  <div className="font-mono text-sm font-bold text-[var(--paper)] mt-1 truncate">
+                    {company.fundManager || company.exchange}
+                  </div>
+                  <span className="text-[10px] text-[var(--mist)] truncate block">
+                    {company.fundType || "Portföy Fonu"}
+                  </span>
+                </div>
               </div>
 
-              <div className="bg-[var(--ink-3)] p-3.5 rounded border border-[var(--line)]">
-                <span className="text-[11px] font-mono text-[var(--mist)] uppercase">
-                  Temettü Verimi
-                </span>
-                <div className="font-mono text-lg font-bold text-[var(--verdigris)] mt-1">
-                  {company.dividendYield !== undefined && company.dividendYield !== null ? `%${company.dividendYield}` : "-"}
+              {/* Top Holdings / En Büyük Pozisyonlar */}
+              {company.topHoldings && company.topHoldings.length > 0 && (
+                <div className="pt-3 border-t border-[var(--line)]">
+                  <span className="text-[11px] font-mono text-[var(--mist)] uppercase tracking-wider block mb-2">
+                    En Yüksek Ağırlıklı Pozisyonlar (Top Holdings)
+                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    {company.topHoldings.map((h, idx) => (
+                      <span
+                        key={idx}
+                        className="bg-[var(--ink-3)] border border-[var(--line)] px-3 py-1.5 rounded text-xs font-mono text-[var(--paper)] font-semibold"
+                      >
+                        {h}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-                <span className="text-[10px] text-[var(--mist)]">Yıllık Dağıtım</span>
-              </div>
-
-              <div className="bg-[var(--ink-3)] p-3.5 rounded border border-[var(--line)]">
-                <span className="text-[11px] font-mono text-[var(--mist)] uppercase">
-                  Piyasa Değeri
-                </span>
-                <div className="font-mono text-lg font-bold text-[var(--paper)] mt-1 truncate">
-                  {company.marketCap || "Veri Girilmedi"}
-                </div>
-                <span className="text-[10px] text-[var(--mist)]">
-                  Beta: {company.beta !== undefined && company.beta !== null ? company.beta : "-"}
-                </span>
-              </div>
+              )}
             </div>
+          ) : (
+            <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6">
+              <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--brass)] mb-4 font-semibold">
+                Finansal Kütük Değerleri &amp; Çarpanlar
+              </h3>
 
-            {/* Additional Metrics from Kütük (Renders company.metrics) */}
-            {company.metrics && company.metrics.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-[var(--line)]">
-                <span className="text-[11px] font-mono text-[var(--mist)] uppercase tracking-wider block mb-2.5">
-                  Ek Finansal Rasyolar &amp; Sektör Kıyaslamaları
-                </span>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                  {company.metrics.map((m, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-[var(--ink-3)] border border-[var(--line)] p-2.5 rounded-lg flex items-center justify-between font-mono text-xs"
-                    >
-                      <span className="text-[var(--mist)]">{m.label}:</span>
-                      <div className="text-right">
-                        <span className="font-bold text-[var(--paper)]">{m.value}</span>
-                        {m.peerAvg && (
-                          <span className="text-[10px] text-[var(--mist)] block">
-                            Sektör: {m.peerAvg}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="bg-[var(--ink-3)] p-3.5 rounded border border-[var(--line)]">
+                  <span className="text-[11px] font-mono text-[var(--mist)] uppercase">
+                    F/K Oranı
+                  </span>
+                  <div className="font-mono text-lg font-bold text-[var(--paper)] mt-1">
+                    {company.peRatio !== undefined && company.peRatio !== null ? `${company.peRatio}x` : "-"}
+                  </div>
+                  <span className="text-[10px] text-[var(--mist)]">
+                    {sectorMetrics.avgPe ? `Sektör: ${sectorMetrics.avgPe}x` : "Sektör: -"}
+                  </span>
+                </div>
+
+                <div className="bg-[var(--ink-3)] p-3.5 rounded border border-[var(--line)]">
+                  <span className="text-[11px] font-mono text-[var(--mist)] uppercase">
+                    PD / DD
+                  </span>
+                  <div className="font-mono text-lg font-bold text-[var(--paper)] mt-1">
+                    {company.pbRatio !== undefined && company.pbRatio !== null ? `${company.pbRatio}x` : "-"}
+                  </div>
+                  <span className="text-[10px] text-[var(--mist)]">
+                    {sectorMetrics.avgPb ? `Sektör: ${sectorMetrics.avgPb}x` : "Sektör: -"}
+                  </span>
+                </div>
+
+                <div className="bg-[var(--ink-3)] p-3.5 rounded border border-[var(--line)]">
+                  <span className="text-[11px] font-mono text-[var(--mist)] uppercase">
+                    Temettü Verimi
+                  </span>
+                  <div className="font-mono text-lg font-bold text-[var(--verdigris)] mt-1">
+                    {company.dividendYield !== undefined && company.dividendYield !== null ? `%${company.dividendYield}` : "-"}
+                  </div>
+                  <span className="text-[10px] text-[var(--mist)]">Yıllık Dağıtım</span>
+                </div>
+
+                <div className="bg-[var(--ink-3)] p-3.5 rounded border border-[var(--line)]">
+                  <span className="text-[11px] font-mono text-[var(--mist)] uppercase">
+                    Piyasa Değeri
+                  </span>
+                  <div className="font-mono text-lg font-bold text-[var(--paper)] mt-1 truncate">
+                    {company.marketCap || "Veri Girilmedi"}
+                  </div>
+                  <span className="text-[10px] text-[var(--mist)]">
+                    Beta: {company.beta !== undefined && company.beta !== null ? company.beta : "-"}
+                  </span>
                 </div>
               </div>
-            )}
-          </div>
+
+              {/* Additional Metrics from Kütük (Renders company.metrics) */}
+              {company.metrics && company.metrics.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-[var(--line)]">
+                  <span className="text-[11px] font-mono text-[var(--mist)] uppercase tracking-wider block mb-2.5">
+                    Ek Finansal Rasyolar &amp; Sektör Kıyaslamaları
+                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                    {company.metrics.map((m, idx) => (
+                      <div
+                        key={idx}
+                        className="bg-[var(--ink-3)] border border-[var(--line)] p-2.5 rounded-lg flex items-center justify-between font-mono text-xs"
+                      >
+                        <span className="text-[var(--mist)]">{m.label}:</span>
+                        <div className="text-right">
+                          <span className="font-bold text-[var(--paper)]">{m.value}</span>
+                          {m.peerAvg && (
+                            <span className="text-[10px] text-[var(--mist)] block">
+                              Sektör: {m.peerAvg}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Orakul Deep Dive Diagnosis Box */}
           <div className="bg-[var(--ink-2)] border border-[var(--brass-dim)] rounded-xl p-6 space-y-4">

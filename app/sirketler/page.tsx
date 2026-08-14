@@ -424,7 +424,7 @@ export default function SirketlerPage() {
               : assetTab === "maden"
               ? "Kategori"
               : assetTab === "fon"
-              ? "Platform"
+              ? "1Y Getiri"
               : "Birim"}
           </span>
           <span className="text-right">
@@ -433,7 +433,7 @@ export default function SirketlerPage() {
               : assetTab === "maden"
               ? "Birim / Tip"
               : assetTab === "fon"
-              ? "Fon Türü"
+              ? "Masraf Oranı"
               : "Kur Türü"}
           </span>
           <span className="text-center">Karar</span>
@@ -516,7 +516,7 @@ export default function SirketlerPage() {
                       : assetTab === "maden"
                       ? (c.madenKategori === "altin" ? "Altın Grubu" : c.madenKategori === "gumus_platin" ? "Kıymetli Metal" : "Enerji / Emtia")
                       : assetTab === "fon"
-                      ? (c.exchange === "BIST" ? "🏛️ TEFAS" : "🇺🇸 ABD ETF")
+                      ? (c.oneYearReturn !== undefined ? `%${c.oneYearReturn}` : "-")
                       : (c.symbol.split("/")[0] || c.currency)}
                   </div>
 
@@ -527,7 +527,7 @@ export default function SirketlerPage() {
                       : assetTab === "maden"
                       ? (c.symbol.includes("/GR") ? "Gram" : c.symbol.includes("ONS") ? "Ons" : c.symbol.includes("OIL") || c.symbol.includes("BRENT") ? "Varil" : "Spot")
                       : assetTab === "fon"
-                      ? (c.indexTag || "Yatırım Fonu")
+                      ? (c.expenseRatio !== undefined ? `%${c.expenseRatio}` : "-")
                       : (c.symbol.includes("/TRY") ? "TL Kuru" : "Çapraz Kur")}
                   </div>
 
@@ -587,9 +587,21 @@ export default function SirketlerPage() {
                         </span>
                       )}
                       {assetTab === "fon" && (
-                        <span className="text-[var(--mist)]">
-                          {c.exchange === "BIST" ? "TEFAS" : "ETF"}
-                        </span>
+                        <>
+                          <span className="text-[var(--mist)]">
+                            {c.exchange === "BIST" ? "TEFAS" : "ETF"}
+                          </span>
+                          {c.oneYearReturn !== undefined && (
+                            <span className="text-[var(--mist)]">
+                              1Y: <strong className="text-[var(--verdigris)]">%{c.oneYearReturn}</strong>
+                            </span>
+                          )}
+                          {c.expenseRatio !== undefined && (
+                            <span className="text-[var(--mist)]">
+                              Gider: <strong className="text-[var(--paper)]">%{c.expenseRatio}</strong>
+                            </span>
+                          )}
+                        </>
                       )}
                       {assetTab === "doviz" && (
                         <span className="text-[var(--mist)]">
