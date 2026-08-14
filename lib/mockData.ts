@@ -83,6 +83,8 @@ export interface NotificationItem {
   message: string;
   time: string;
   read: boolean;
+  relatedCompanySymbol?: string;
+  relatedBasketId?: string;
 }
 
 export interface AiHistoryItem {
@@ -13122,14 +13124,16 @@ export const MOCK_NOTIFICATIONS: NotificationItem[] = [
     message: "BIST Temettü Kalesi sepetinizde FROTO ağırlığı %35'e ulaştı. Kâr realizasyonu ve TUPRS takviyesi önerilir.",
     time: "10 dk önce",
     read: false,
+    relatedBasketId: "temettu-kalesi",
   },
   {
     id: "notif-2",
     type: "ipo",
     title: "Halka Arz Talep Toplama Başladı",
-    message: "Doğu Lojistik (DSTIK) için 12-14 Ağustos talep toplama penceresi açıldı. Tahmini 20-24 lot dağıtım bekleniyor.",
+    message: "Horoz Lojistik (HOROZ) için talep toplama penceresi açıldı. Tahmini 20-24 lot dağıtım bekleniyor.",
     time: "2 saat önce",
     read: false,
+    relatedCompanySymbol: "HOROZ",
   },
   {
     id: "notif-3",
@@ -13138,6 +13142,7 @@ export const MOCK_NOTIFICATIONS: NotificationItem[] = [
     message: "Tüpraş (TUPRS) 27 Eylül tarihinde hisse başı net 10.74 ₺ nakit temettü dağıtacaktır.",
     time: "Dün",
     read: true,
+    relatedCompanySymbol: "TUPRS",
   },
 ];
 

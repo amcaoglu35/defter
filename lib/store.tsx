@@ -131,6 +131,7 @@ interface DefterStoreContextType {
   // Notifications
   notifications: NotificationItem[];
   markAllNotificationsRead: () => void;
+  markNotificationRead: (id: string) => void;
 
   // Utilities & Cloud
   isCloudConnected: boolean;
@@ -1227,6 +1228,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }).catch();
   };
 
+  const markNotificationRead = (id: string) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+    );
+    fetch("/api/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "mark_notification_read", payload: { id } }),
+    }).catch();
+  };
+
   const resetToDefaultData = () => {
     setCompanies(MOCK_COMPANIES);
     setBaskets(MOCK_BASKETS);
@@ -1306,6 +1318,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         usdRate,
         notifications,
         markAllNotificationsRead,
+        markNotificationRead,
         isCloudConnected: isSupabaseConfigured && isServerCloudConnected,
         syncWithSupabase,
         resetToDefaultData,
