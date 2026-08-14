@@ -14,6 +14,30 @@ export function getMasterPassword(): string {
 }
 
 /**
+ * Returns list of authorized email addresses for single-user/whitelist OAuth login
+ */
+export function getAuthorizedEmails(): string[] {
+  const envEmails = process.env.AUTHORIZED_EMAILS || process.env.ALLOWED_EMAILS || "";
+  return envEmails
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter((e) => e.length > 0);
+}
+
+/**
+ * Validates if an authenticated OAuth email is in the owner whitelist.
+ */
+export function isEmailAuthorized(email: string): boolean {
+  if (!email) return false;
+  const authorized = getAuthorizedEmails();
+  // If no whitelist is specified in development, allow for testing
+  if (authorized.length === 0) {
+    return true;
+  }
+  return authorized.includes(email.trim().toLowerCase());
+}
+
+/**
  * Constant-time string comparison using Web Crypto API SHA-256 digest with safe fallbacks.
  * Fully compatible with Vercel Edge Runtime, Node.js, and browser environments.
  */
