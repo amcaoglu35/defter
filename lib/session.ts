@@ -85,12 +85,7 @@ export async function verifySessionToken(
 ): Promise<boolean> {
   try {
     if (!token || !secret) return false;
-    const isValid = await verifyWithSecret(token, secret, maxAgeMs);
-    if (isValid) return true;
-    if (secret !== "defter2026") {
-      return await verifyWithSecret(token, "defter2026", maxAgeMs);
-    }
-    return false;
+    return await verifyWithSecret(token, secret, maxAgeMs);
   } catch {
     return false;
   }

@@ -70,8 +70,11 @@ export default function PrintReportModal({ basket, isOpen, onClose }: PrintRepor
             </div>
             <div>
               <div className="text-[11px] text-gray-500 uppercase">Kümülatif Getiri</div>
-              <div className="text-lg font-bold text-emerald-700">
-                +{activeBasket ? activeBasket.totalProfitPercent : "18.4"}%
+              <div className={`text-lg font-bold ${
+                (activeBasket ? activeBasket.totalProfitPercent : 18.4) >= 0 ? "text-emerald-700" : "text-rose-700"
+              }`}>
+                {(activeBasket ? activeBasket.totalProfitPercent : 18.4) >= 0 ? "+" : ""}
+                {activeBasket ? activeBasket.totalProfitPercent : "18.4"}%
               </div>
             </div>
             <div>

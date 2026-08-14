@@ -554,22 +554,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
   }, [baskets, companies]);
 
-  // Dynamic Dividends
+  // Dynamic Dividends (Calculated strictly based on user's actual owned holdings)
   const computedDividends = useMemo<DividendItem[]>(() => {
     const symbolLots: Record<string, number> = {};
     recalculatedBaskets.forEach((b) => {
       b.holdings.forEach((h) => {
         symbolLots[h.companySymbol] =
-          (symbolLots[h.companySymbol] || 0) + h.quantity;
+          (symbolLots[h.companySymbol] || 0) + (h.quantity || 0);
       });
     });
 
     return MOCK_DIVIDENDS.map((div) => {
-      const ownedQty = symbolLots[div.companySymbol] || 50;
+      const ownedQty = symbolLots[div.companySymbol] || 0;
       const estimatedTotal = ownedQty * div.netAmountPerShare;
 
       return {
         ...div,
+        ownedLots: ownedQty,
         totalEstimatedPayout: parseFloat(estimatedTotal.toFixed(2)),
       };
     });

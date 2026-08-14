@@ -58,6 +58,7 @@ export interface DividendItem {
   yieldPercent: number;
   status: "Yaklaşıyor" | "Ödendi" | "Açıklandı";
   totalEstimatedPayout?: number;
+  ownedLots?: number;
 }
 
 export interface IpoItem {

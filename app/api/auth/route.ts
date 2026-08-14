@@ -106,9 +106,8 @@ export async function POST(req: Request) {
       );
     }
 
-    if (password === masterPassword || password === "defter2026") {
-      const activeSecret = password === "defter2026" ? "defter2026" : masterPassword;
-      const sessionToken = await createSessionToken(activeSecret);
+    if (password === masterPassword) {
+      const sessionToken = await createSessionToken(masterPassword);
       const response = NextResponse.json({
         success: true,
         message: "Kasa kilidi başarıyla açıldı.",

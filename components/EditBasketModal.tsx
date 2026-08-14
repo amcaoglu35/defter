@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { X, Plus, Trash2, Sliders, Check, Sparkles, DollarSign } from "lucide-react";
+import React, { useState, useEffect, useMemo } from "react";
+import { X, Plus, Trash2, Sliders, Check, Sparkles, DollarSign, Scale, RefreshCw } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import { Basket, Company } from "@/lib/mockData";
 import { useToast } from "@/components/ToastProvider";
@@ -20,7 +20,6 @@ export default function EditBasketModal({
 }: EditBasketModalProps) {
   const {
     companies,
-    updateBasket,
     addHoldingToBasket,
     removeHoldingFromBasket,
     updateHolding,
@@ -31,21 +30,55 @@ export default function EditBasketModal({
     companies[0]?.symbol || ""
   );
   const [addQty, setAddQty] = useState("10");
+  const [addCost, setAddCost] = useState("");
   const [addWeight, setAddWeight] = useState("15");
 
+  // Keep cost in sync when selecting a company if cost wasn't manually set
   useEffect(() => {
     if (companies.length > 0) {
       if (!selectedAddSymbol || !companies.some((c) => c.symbol === selectedAddSymbol)) {
-        setSelectedAddSymbol(companies[0].symbol);
+        const first = companies[0].symbol;
+        setSelectedAddSymbol(first);
+        const co = companies.find((c) => c.symbol === first);
+        if (co) setAddCost(co.price.toString());
+      } else {
+        const co = companies.find((c) => c.symbol === selectedAddSymbol);
+        if (co && !addCost) setAddCost(co.price.toString());
       }
     }
-  }, [companies, selectedAddSymbol]);
+  }, [companies, selectedAddSymbol, addCost]);
+
+  const handleSelectCompany = (co: Company) => {
+    setSelectedAddSymbol(co.symbol);
+    setAddCost(co.price.toString());
+  };
+
+  const totalWeight = useMemo(() => {
+    return basket.holdings.reduce((acc, h) => acc + (h.weightPercent || 0), 0);
+  }, [basket.holdings]);
 
   if (!isOpen) return null;
 
   const currentCo = companies.find((c) => c.symbol === selectedAddSymbol);
   const parsedQty = parseFloat(addQty) || 0;
-  const estimatedCost = currentCo ? parsedQty * currentCo.price : 0;
+  const parsedCost = parseFloat(addCost) || currentCo?.price || 0;
+  const estimatedTotal = parsedQty * (currentCo ? currentCo.price : parsedCost);
+
+  const handleNormalizeWeights = () => {
+    if (basket.holdings.length === 0 || totalWeight <= 0) return;
+    
+    // Scale each holding weight so total is 100%
+    basket.holdings.forEach((h) => {
+      const scaled = Math.round(((h.weightPercent / totalWeight) * 100) * 10) / 10;
+      updateHolding(basket.id, h.companySymbol, { weightPercent: scaled });
+    });
+
+    showToast(
+      "Ağırlıklar Normalize Edildi",
+      "Sepet içi tüm varlıkların ağırlıkları %100 toplamına göre eşitlendi.",
+      "success"
+    );
+  };
 
   const handleAddHolding = (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,15 +88,18 @@ export default function EditBasketModal({
       companySymbol: currentCo.symbol,
       quantity: parsedQty,
       weightPercent: parseFloat(addWeight) || 15,
-      avgCost: currentCo.price,
+      avgCost: parsedCost,
       currentPrice: currentCo.price,
     });
 
     showToast(
       "Varlık Eklendi",
-      `${currentCo.symbol} (${parsedQty} Lot) ${basket.name} sepetine eklendi.`,
+      `${currentCo.symbol} (${parsedQty} Lot @ ${parsedCost.toFixed(2)} ₺) ${basket.name} sepetine eklendi.`,
       "success"
     );
+
+    // Reset inputs
+    setAddQty("10");
   };
 
   return (
@@ -73,10 +109,10 @@ export default function EditBasketModal({
         <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
           <div>
             <h3 className="font-serif text-xl font-bold text-[var(--paper)]">
-              {basket.name} — Varlık Yönetimi
+              {basket.name} — Varlık &amp; Ağırlık Yönetimi
             </h3>
             <p className="text-xs font-mono text-[var(--mist)] mt-0.5">
-              Sepet içi hisse ekle, çıkar ve ağırlık yüzdelerini düzenle.
+              Varlık ekle, çıkar, adet, maliyet ve hedef ağırlıkları optimize et.
             </p>
           </div>
           <button
@@ -89,13 +125,33 @@ export default function EditBasketModal({
 
         {/* Existing Holdings List */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h4 className="font-mono text-xs text-[var(--brass)] uppercase tracking-wider">
-              Mevcut Varlıklar ({basket.holdings.length})
-            </h4>
-            <span className="font-mono text-xs text-[var(--mist)]">
-              Toplam Değer: {basket.totalValue.toLocaleString("tr-TR")} ₺
-            </span>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <h4 className="font-mono text-xs text-[var(--brass)] uppercase tracking-wider font-semibold">
+                Mevcut Varlıklar ({basket.holdings.length})
+              </h4>
+              <span
+                className={`font-mono text-[11px] px-2 py-0.5 rounded font-bold border ${
+                  Math.round(totalWeight) === 100
+                    ? "bg-[rgba(91,140,123,0.15)] text-[var(--verdigris)] border-[var(--verdigris)]"
+                    : "bg-[rgba(201,162,75,0.15)] text-[var(--brass)] border-[var(--brass-dim)]"
+                }`}
+              >
+                Toplam Ağırlık: %{totalWeight.toFixed(1)} {Math.round(totalWeight) === 100 ? "✓" : "(!)"}
+              </span>
+            </div>
+
+            {basket.holdings.length > 0 && Math.round(totalWeight) !== 100 && (
+              <button
+                type="button"
+                onClick={handleNormalizeWeights}
+                className="font-mono text-[11px] bg-[var(--ink-3)] hover:bg-[var(--ink)] text-[var(--brass)] border border-[var(--brass-dim)] px-2.5 py-1 rounded flex items-center gap-1 cursor-pointer transition-all shadow"
+                title="Tüm varlıkların yüzdelerini oransal olarak %100'e dengeler"
+              >
+                <Scale className="w-3.5 h-3.5" />
+                <span>%100'e Eşitle (Normalize Et)</span>
+              </button>
+            )}
           </div>
 
           {basket.holdings.length === 0 ? (
@@ -103,27 +159,67 @@ export default function EditBasketModal({
               Bu sepette henüz varlık yok. Aşağıdan arama yaparak yeni hisse ekleyebilirsiniz.
             </p>
           ) : (
-            <div className="divide-y divide-dashed divide-[var(--line)] border border-[var(--line)] rounded-lg p-3 bg-[var(--ink-3)] max-h-48 overflow-y-auto">
+            <div className="divide-y divide-dashed divide-[var(--line)] border border-[var(--line)] rounded-lg p-3 bg-[var(--ink-3)] max-h-56 overflow-y-auto space-y-1">
               {basket.holdings.map((h) => (
                 <div
                   key={h.companySymbol}
-                  className="py-2.5 flex items-center justify-between gap-3 text-xs font-mono"
+                  className="py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono"
                 >
-                  <div>
-                    <span className="font-bold text-[var(--paper)] text-sm">
-                      {h.companySymbol}
-                    </span>
-                    <div className="text-[11px] text-[var(--mist)]">
-                      {h.quantity} Lot • Maliyet: {h.avgCost.toFixed(2)} ₺ • Anlık: {(h.quantity * (h.currentPrice || h.avgCost)).toLocaleString("tr-TR")} ₺
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-[var(--paper)] text-sm">
+                        {h.companySymbol}
+                      </span>
+                      <span className="text-[11px] text-[var(--brass)] font-semibold">
+                        Anlık: {((h.quantity || 0) * (h.currentPrice || h.avgCost)).toLocaleString("tr-TR")} ₺
+                      </span>
+                    </div>
+                    
+                    <div className="flex flex-wrap items-center gap-3 text-[11px] text-[var(--mist)] mt-1">
+                      <label className="flex items-center gap-1">
+                        <span>Adet:</span>
+                        <input
+                          type="number"
+                          min="1"
+                          value={h.quantity}
+                          onChange={(e) =>
+                            updateHolding(basket.id, h.companySymbol, {
+                              quantity: parseFloat(e.target.value) || 0,
+                            })
+                          }
+                          className="w-16 bg-[var(--ink-2)] border border-[var(--line)] rounded px-1.5 py-0.5 text-center text-[var(--paper)] outline-none"
+                        />
+                      </label>
+
+                      <label className="flex items-center gap-1">
+                        <span>Maliyet:</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          value={h.avgCost}
+                          onChange={(e) =>
+                            updateHolding(basket.id, h.companySymbol, {
+                              avgCost: parseFloat(e.target.value) || 0,
+                            })
+                          }
+                          className="w-18 bg-[var(--ink-2)] border border-[var(--line)] rounded px-1.5 py-0.5 text-center text-[var(--paper)] outline-none"
+                        />
+                        <span>₺</span>
+                      </label>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 self-end sm:self-center">
                     {/* Weight Input */}
                     <div className="flex items-center gap-1">
+                      <span className="text-[10px] text-[var(--mist)] uppercase">Ağırlık:</span>
                       <span className="text-[10px] text-[var(--mist)]">%</span>
                       <input
                         type="number"
+                        min="0"
+                        max="100"
+                        step="0.5"
                         value={h.weightPercent}
                         onChange={(e) =>
                           updateHolding(basket.id, h.companySymbol, {
@@ -139,7 +235,7 @@ export default function EditBasketModal({
                       onClick={() =>
                         removeHoldingFromBasket(basket.id, h.companySymbol)
                       }
-                      className="text-[var(--mist)] hover:text-[var(--loss)] p-1 transition-colors cursor-pointer"
+                      className="text-[var(--mist)] hover:text-[var(--loss)] p-1.5 transition-colors cursor-pointer rounded hover:bg-[rgba(163,59,59,0.1)]"
                       title="Sepetten Çıkar"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -163,7 +259,7 @@ export default function EditBasketModal({
             </div>
             {currentCo && (
               <span className="font-mono text-xs text-[var(--verdigris)] font-bold">
-                Tutar: ~{estimatedCost.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺
+                Piyasa Değeri: ~{estimatedTotal.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺
               </span>
             )}
           </div>
@@ -172,11 +268,11 @@ export default function EditBasketModal({
           <CompanyCombobox
             companies={companies}
             selectedSymbol={selectedAddSymbol}
-            onSelect={(co) => setSelectedAddSymbol(co.symbol)}
+            onSelect={handleSelectCompany}
             label="Şirket / Varlık Arayın veya Seçin"
           />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="text-[11px] font-mono text-[var(--mist)] uppercase">
@@ -184,12 +280,12 @@ export default function EditBasketModal({
                 </label>
                 {/* Quick lot increment chips */}
                 <div className="flex items-center gap-1">
-                  {[10, 50, 100, 500].map((quick) => (
+                  {[10, 50, 100].map((quick) => (
                     <button
                       key={quick}
                       type="button"
                       onClick={() => setAddQty(quick.toString())}
-                      className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--ink-2)] hover:bg-[var(--ink)] border border-[var(--line)] text-[var(--mist)] hover:text-[var(--brass)] cursor-pointer"
+                      className="text-[10px] font-mono px-1 py-0.5 rounded bg-[var(--ink-2)] hover:bg-[var(--ink)] border border-[var(--line)] text-[var(--mist)] hover:text-[var(--brass)] cursor-pointer"
                     >
                       +{quick}
                     </button>
@@ -199,6 +295,7 @@ export default function EditBasketModal({
               <input
                 type="number"
                 min="1"
+                required
                 value={addQty}
                 onChange={(e) => setAddQty(e.target.value)}
                 className="w-full bg-[var(--ink-2)] border border-[var(--line)] rounded p-2 text-xs text-[var(--paper)] font-mono outline-none focus:border-[var(--brass)]"
@@ -207,7 +304,23 @@ export default function EditBasketModal({
 
             <div>
               <label className="block text-[11px] font-mono text-[var(--mist)] uppercase mb-1">
-                Hedef Portföy Ağırlığı (%)
+                Alış Maliyeti (₺)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                required
+                value={addCost}
+                onChange={(e) => setAddCost(e.target.value)}
+                placeholder={currentCo?.price.toString() || "0.00"}
+                className="w-full bg-[var(--ink-2)] border border-[var(--line)] rounded p-2 text-xs text-[var(--paper)] font-mono outline-none focus:border-[var(--brass)]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-mono text-[var(--mist)] uppercase mb-1">
+                Hedef Ağırlık (%)
               </label>
               <input
                 type="number"

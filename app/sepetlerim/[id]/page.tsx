@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -8,6 +8,7 @@ import {
   Layers,
   Sparkles,
   TrendingUp,
+  TrendingDown,
   Plus,
   Shield,
   PieChart,
@@ -15,6 +16,8 @@ import {
   Trash2,
   Edit,
   Share2,
+  Printer,
+  Scale,
 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import EditBasketModal from "@/components/EditBasketModal";
@@ -22,38 +25,137 @@ import ShareCardModal from "@/components/ShareCardModal";
 import PrintReportModal from "@/components/PrintReportModal";
 import DataStatusBadge from "@/components/DataStatusBadge";
 import { isLiveSymbol } from "@/lib/liveSymbols";
-import { Printer } from "lucide-react";
+
+type PeriodType = "1A" | "3A" | "6A" | "1Y";
 
 export default function SepetDetayPage() {
   const params = useParams();
   const router = useRouter();
   const basketId = params.id as string;
 
-  const { baskets, removeHoldingFromBasket } = useDefterStore();
+  const { baskets, companies, removeHoldingFromBasket } = useDefterStore();
 
-  const basket =
-    baskets.find((b) => b.id === basketId);
+  const basket = baskets.find((b) => b.id === basketId);
 
-  const [period, setPeriod] = useState<"1A" | "3A" | "6A" | "1Y">("6A");
+  const [period, setPeriod] = useState<PeriodType>("6A");
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [printModalOpen, setPrintModalOpen] = useState(false);
 
+  // Dynamic Weighted Dividend Yield Calculation
+  const weightedDivYield = useMemo(() => {
+    if (!basket || basket.holdings.length === 0) return "0.0";
+    let totalWeight = 0;
+    let weightedSum = 0;
+    basket.holdings.forEach((h) => {
+      const co = companies.find((c) => c.symbol === h.companySymbol);
+      const yieldPct = co?.dividendYield || 0;
+      const w = h.weightPercent || 1;
+      weightedSum += w * yieldPct;
+      totalWeight += w;
+    });
+    return totalWeight > 0 ? (weightedSum / totalWeight).toFixed(1) : "0.0";
+  }, [basket, companies]);
+
+  // Dynamic Chart Points & Date Labels based on Period
+  const chartData = useMemo(() => {
+    if (!basket) return { points: [], pathD: "", areaD: "", labels: [] };
+
+    const totalVal = basket.totalValue || 100000;
+    const profitPct = basket.totalProfitPercent || 0;
+    const costVal = basket.totalCost || (totalVal / (1 + profitPct / 100));
+
+    // Number of steps based on period
+    let periodsCount = 6;
+    let labels: string[] = [];
+    const now = new Date();
+
+    if (period === "1A") {
+      periodsCount = 5;
+      labels = ["30 Gün Önce", "21 Gün Önce", "14 Gün Önce", "7 Gün Önce", "Bugün"];
+    } else if (period === "3A") {
+      periodsCount = 6;
+      labels = ["90 Gün Önce", "70 Gün", "50 Gün", "30 Gün", "15 Gün", "Bugün"];
+    } else if (period === "6A") {
+      periodsCount = 6;
+      const months = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"];
+      const currentMonthIdx = now.getMonth();
+      labels = Array.from({ length: 6 }).map((_, i) => {
+        const mIdx = (currentMonthIdx - 5 + i + 12) % 12;
+        return i === 5 ? `${months[mIdx]} (Son)` : months[mIdx];
+      });
+    } else {
+      periodsCount = 7;
+      labels = ["12 Ay Önce", "10 Ay", "8 Ay", "6 Ay", "4 Ay", "2 Ay", "Bugün"];
+    }
+
+    // Generate realistic curve from cost basis to current value
+    const baseProfitFactor = period === "1A" ? 0.3 : period === "3A" ? 0.6 : period === "6A" ? 1.0 : 1.4;
+    const startVal = totalVal - (totalVal - costVal) * baseProfitFactor;
+
+    const values: number[] = [];
+    for (let i = 0; i < periodsCount; i++) {
+      const progress = i / (periodsCount - 1);
+      // Add subtle natural fluctuation
+      const wave = Math.sin(progress * Math.PI * 1.5) * 0.08 * (1 - progress);
+      const val = startVal + (totalVal - startVal) * (progress + wave);
+      values.push(Math.round(val));
+    }
+    values[values.length - 1] = totalVal;
+
+    const minV = Math.min(...values) * 0.95;
+    const maxV = Math.max(...values) * 1.05;
+    const range = maxV - minV || 1;
+
+    const svgWidth = 500;
+    const svgHeight = 120;
+
+    const coords = values.map((v, idx) => {
+      const x = (idx / (periodsCount - 1)) * svgWidth;
+      const y = svgHeight - ((v - minV) / range) * (svgHeight - 20) - 10;
+      return { x, y, val: v };
+    });
+
+    // Build smooth path
+    let pathD = `M ${coords[0].x},${coords[0].y}`;
+    for (let i = 0; i < coords.length - 1; i++) {
+      const curr = coords[i];
+      const next = coords[i + 1];
+      const cpX = (curr.x + next.x) / 2;
+      pathD += ` C ${cpX},${curr.y} ${cpX},${next.y} ${next.x},${next.y}`;
+    }
+
+    const areaD = `${pathD} L ${svgWidth},${svgHeight} L 0,${svgHeight} Z`;
+
+    return { points: coords, pathD, areaD, labels, minVal: minV, maxVal: maxV };
+  }, [basket, period]);
+
   if (!basket) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-16 text-center">
-        <h2 className="font-serif text-2xl">Sepet bulunamadı.</h2>
-        <Link href="/sepetlerim" className="text-xs font-mono text-[var(--brass)] mt-4 inline-block">
+        <h2 className="font-serif text-2xl text-[var(--paper)]">Sepet bulunamadı.</h2>
+        <Link href="/sepetlerim" className="text-xs font-mono text-[var(--brass)] mt-4 inline-block hover:underline">
           Sepetlerime Dön
         </Link>
       </div>
     );
   }
 
+  const isProfitPositive = basket.totalProfitPercent >= 0;
+  const netProfit = basket.totalValue - basket.totalCost;
+  const isNetProfitPositive = netProfit >= 0;
+
+  const riskBadgeClass =
+    basket.riskLevel === "Düşük"
+      ? "bg-[rgba(91,140,123,0.2)] text-[var(--verdigris)] border border-[rgba(91,140,123,0.3)]"
+      : basket.riskLevel === "Orta"
+      ? "bg-[rgba(201,162,75,0.2)] text-[var(--brass-dim)] border border-[rgba(201,162,75,0.3)]"
+      : "bg-[rgba(163,59,59,0.2)] text-[var(--loss)] border border-[rgba(163,59,59,0.3)]";
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-8">
       {/* 1. Back Nav & Actions */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <button
           onClick={() => router.push("/sepetlerim")}
           className="flex items-center gap-2 text-xs font-mono text-[var(--mist)] hover:text-[var(--paper)] transition-colors cursor-pointer"
@@ -62,7 +164,7 @@ export default function SepetDetayPage() {
           <span>Sepetlerime Dön</span>
         </button>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={() => setPrintModalOpen(true)}
             className="border border-[var(--line)] hover:border-[var(--brass)] text-[var(--paper)] bg-[var(--ink-2)] px-3 py-1.5 rounded text-xs font-mono flex items-center gap-1.5 transition-colors cursor-pointer"
@@ -89,7 +191,7 @@ export default function SepetDetayPage() {
           </button>
 
           <Link
-            href="/orakul"
+            href={`/orakul?basketId=${basket.id}`}
             className="border border-[var(--brass-dim)] hover:border-[var(--brass)] text-[var(--brass)] bg-[var(--brass-glow)] px-3.5 py-1.5 rounded text-xs font-mono flex items-center gap-1.5 transition-all shadow"
           >
             <Sparkles className="w-3.5 h-3.5" />
@@ -105,13 +207,7 @@ export default function SepetDetayPage() {
             <h1 className="font-serif text-2xl sm:text-3xl font-bold text-[var(--paper)]">
               {basket.name}
             </h1>
-            <span
-              className={`font-mono text-[10px] font-bold px-2 py-0.5 rounded-xs uppercase ${
-                basket.riskColor === "low"
-                  ? "bg-[rgba(91,140,123,0.2)] text-[var(--verdigris)]"
-                  : "bg-[rgba(201,162,75,0.2)] text-[var(--brass-dim)]"
-              }`}
-            >
+            <span className={`font-mono text-[10px] font-bold px-2 py-0.5 rounded uppercase ${riskBadgeClass}`}>
               {basket.riskLevel} Risk
             </span>
           </div>
@@ -125,9 +221,16 @@ export default function SepetDetayPage() {
           <div className="font-serif text-3xl sm:text-4xl font-bold text-[var(--paper)]">
             {basket.totalValue.toLocaleString("tr-TR")} ₺
           </div>
-          <div className="font-mono text-sm font-semibold text-[var(--verdigris)] mt-1 flex items-center md:justify-end gap-1">
-            <TrendingUp className="w-4 h-4" />
-            <span>+{basket.totalProfitPercent}% Toplam Kazanç</span>
+          <div
+            className={`font-mono text-sm font-semibold mt-1 flex items-center md:justify-end gap-1 ${
+              isProfitPositive ? "text-[var(--verdigris)]" : "text-[var(--loss)]"
+            }`}
+          >
+            {isProfitPositive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+            <span>
+              {isProfitPositive ? "+" : ""}
+              {basket.totalProfitPercent}% Toplam Kazanç
+            </span>
           </div>
         </div>
       </div>
@@ -136,17 +239,17 @@ export default function SepetDetayPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--brass)]">
-              Sepet Performans Eğrisi
+            <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--brass)] font-semibold">
+              Sepet Performans Eğrisi (Dinamik)
             </h3>
             <div className="flex gap-1.5 font-mono text-[11px]">
               {(["1A", "3A", "6A", "1Y"] as const).map((p) => (
                 <button
                   key={p}
                   onClick={() => setPeriod(p)}
-                  className={`px-2.5 py-1 rounded cursor-pointer ${
+                  className={`px-2.5 py-1 rounded cursor-pointer transition-colors ${
                     period === p
-                      ? "bg-[var(--brass)] text-[var(--ink)] font-bold"
+                      ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow"
                       : "text-[var(--mist)] hover:text-[var(--paper)] bg-[var(--ink-3)]"
                   }`}
                 >
@@ -156,62 +259,90 @@ export default function SepetDetayPage() {
             </div>
           </div>
 
+          {/* Dynamic SVG Chart */}
           <div className="h-44 w-full relative flex items-end pt-6 pb-2">
             <svg className="w-full h-full overflow-visible" viewBox="0 0 500 120">
               <defs>
                 <linearGradient id="basket-grad" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#5B8C7B" stopOpacity="0.35" />
-                  <stop offset="100%" stopColor="#5B8C7B" stopOpacity="0.0" />
+                  <stop
+                    offset="0%"
+                    stopColor={isProfitPositive ? "#5B8C7B" : "#A33B3B"}
+                    stopOpacity="0.4"
+                  />
+                  <stop
+                    offset="100%"
+                    stopColor={isProfitPositive ? "#5B8C7B" : "#A33B3B"}
+                    stopOpacity="0.0"
+                  />
                 </linearGradient>
               </defs>
+              
+              {/* Filled Area */}
+              <path d={chartData.areaD} fill="url(#basket-grad)" />
+
+              {/* Stroke Line */}
               <path
-                d="M0,80 Q100,60 200,65 T400,25 T500,10 L500,120 L0,120 Z"
-                fill="url(#basket-grad)"
-              />
-              <path
-                d="M0,80 Q100,60 200,65 T400,25 T500,10"
+                d={chartData.pathD}
                 fill="none"
-                stroke="#5B8C7B"
+                stroke={isProfitPositive ? "#5B8C7B" : "#A33B3B"}
                 strokeWidth="2.5"
               />
-              <circle cx="0" cy="80" r="4" fill="#5B8C7B" />
-              <circle cx="200" cy="65" r="4" fill="#5B8C7B" />
-              <circle cx="400" cy="25" r="4" fill="#5B8C7B" />
-              <circle cx="500" cy="10" r="5" fill="#C9A24B" />
+
+              {/* Data Points */}
+              {chartData.points.map((pt, idx) => (
+                <circle
+                  key={idx}
+                  cx={pt.x}
+                  cy={pt.y}
+                  r={idx === chartData.points.length - 1 ? 5 : 3.5}
+                  fill={idx === chartData.points.length - 1 ? "#C9A24B" : (isProfitPositive ? "#5B8C7B" : "#A33B3B")}
+                  className="transition-all"
+                />
+              ))}
             </svg>
           </div>
+
+          {/* Dynamic X-Axis Date Labels */}
           <div className="flex justify-between font-mono text-[11px] text-[var(--mist)] pt-2 border-t border-dashed border-[var(--line)]">
-            <span>Ocak</span>
-            <span>Şubat</span>
-            <span>Mart</span>
-            <span>Nisan</span>
-            <span>Mayıs</span>
-            <span className="text-[var(--brass)] font-semibold">Haziran (Son Değer)</span>
+            {chartData.labels.map((lbl, idx) => (
+              <span
+                key={idx}
+                className={idx === chartData.labels.length - 1 ? "text-[var(--brass)] font-semibold" : ""}
+              >
+                {lbl}
+              </span>
+            ))}
           </div>
         </div>
 
         {/* Risk meter & summary info */}
         <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 space-y-5 flex flex-col justify-between">
           <div>
-            <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--brass)] mb-3">
+            <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--brass)] mb-3 font-semibold">
               Risk &amp; Çeşitlendirme Dengesi
             </h3>
 
             <div className="space-y-2">
               <div className="flex justify-between text-xs font-mono">
                 <span className="text-[var(--mist)]">Risk Derecesi</span>
-                <span className="text-[var(--verdigris)] font-bold">{basket.riskLevel} Volatilite</span>
+                <span className="text-[var(--paper)] font-bold">{basket.riskLevel} Volatilite</span>
               </div>
               <div className="h-2 w-full bg-[var(--ink-3)] rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-gradient-to-r from-[var(--verdigris)] to-[var(--brass)] rounded-full"
+                  className={`h-full rounded-full ${
+                    basket.riskLevel === "Düşük"
+                      ? "bg-[var(--verdigris)]"
+                      : basket.riskLevel === "Orta"
+                      ? "bg-[var(--brass)]"
+                      : "bg-[var(--loss)]"
+                  }`}
                   style={{
                     width:
                       basket.riskLevel === "Düşük"
                         ? "35%"
                         : basket.riskLevel === "Orta"
-                        ? "60%"
-                        : "85%",
+                        ? "65%"
+                        : "90%",
                   }}
                 />
               </div>
@@ -223,14 +354,15 @@ export default function SepetDetayPage() {
                 <span className="text-[var(--paper)]">{basket.totalCost.toLocaleString("tr-TR")} ₺</span>
               </div>
               <div className="flex justify-between border-b border-dashed border-[var(--line)] pb-2">
-                <span>Net Kâr</span>
-                <span className="text-[var(--verdigris)] font-bold">
-                  +{(basket.totalValue - basket.totalCost).toLocaleString("tr-TR")} ₺
+                <span>Net Kâr / Zarar</span>
+                <span className={`font-bold ${isNetProfitPositive ? "text-[var(--verdigris)]" : "text-[var(--loss)]"}`}>
+                  {isNetProfitPositive ? "+" : ""}
+                  {netProfit.toLocaleString("tr-TR")} ₺
                 </span>
               </div>
               <div className="flex justify-between">
-                <span>Tahmini Temettü Verimi</span>
-                <span className="text-[var(--brass)] font-bold">%5.4 Yıllık</span>
+                <span>Ağırlıklı Temettü Verimi</span>
+                <span className="text-[var(--brass)] font-bold">%{weightedDivYield} Yıllık</span>
               </div>
             </div>
           </div>
@@ -242,7 +374,7 @@ export default function SepetDetayPage() {
             </div>
             <p className="text-xs text-[var(--paper)] leading-relaxed font-sans">
               {basket.aiNote ||
-                "Sepet dengesi mevcut makroekonomik koşullarda yüksek koruma ve istikrarlı nakit getirisi sağlamaktadır."}
+                "Sepet varlık dengesi seçili risk profiline uygun olarak sermaye koruması ve sürdürülebilir büyüme sağlamaktadır."}
             </p>
           </div>
         </div>
@@ -272,7 +404,7 @@ export default function SepetDetayPage() {
               </p>
               <button
                 onClick={() => setEditModalOpen(true)}
-                className="bg-[var(--brass)] text-[var(--ink)] font-bold text-xs px-4 py-2 rounded"
+                className="bg-[var(--brass)] text-[var(--ink)] font-bold text-xs px-4 py-2 rounded cursor-pointer"
               >
                 İlk Varlığı Ekle
               </button>
@@ -315,7 +447,7 @@ export default function SepetDetayPage() {
                         <div className="w-full bg-[var(--ink-3)] h-1.5 rounded-full overflow-hidden mt-1.5 max-w-xs">
                           <div
                             className="bg-[var(--brass)] h-full rounded-full"
-                            style={{ width: `${h.weightPercent}%` }}
+                            style={{ width: `${Math.min(h.weightPercent, 100)}%` }}
                           />
                         </div>
                       </div>
@@ -383,7 +515,7 @@ export default function SepetDetayPage() {
           primaryLabel: "Sepet Değeri",
           primaryMetric: `${basket.totalValue.toLocaleString("tr-TR")} ₺`,
           secondaryLabel: "Kümülatif Kâr",
-          secondaryMetric: `+${basket.totalProfitPercent}%`,
+          secondaryMetric: `${basket.totalProfitPercent >= 0 ? "+" : ""}${basket.totalProfitPercent}%`,
           tags: basket.holdings.map((h) => `${h.companySymbol} (%${h.weightPercent})`),
           note: basket.subtitle,
         }}
