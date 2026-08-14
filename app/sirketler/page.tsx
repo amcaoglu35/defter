@@ -16,7 +16,7 @@ import {
   SlidersHorizontal,
   RotateCcw,
 } from "lucide-react";
-import { useDefterStore } from "@/lib/store";
+import { useDefterStore, inferAssetClass } from "@/lib/store";
 import { Company } from "@/lib/mockData";
 import StampBadge from "@/components/StampBadge";
 import DataStatusBadge from "@/components/DataStatusBadge";
@@ -101,6 +101,7 @@ export default function SirketlerPage() {
   const [newSector, setNewSector] = useState("Sanayi & Üretim");
   const [newPrice, setNewPrice] = useState("");
   const [newAssetClass, setNewAssetClass] = useState<"hisse" | "maden" | "fon" | "doviz">("hisse");
+  const [newMadenKategori, setNewMadenKategori] = useState<"altin" | "gumus_platin" | "enerji_sanayi">("altin");
   const [newExchange, setNewExchange] = useState<"BIST" | "ABD" | "Avrupa" | "Emtia" | "Döviz">("BIST");
   const [newRecommendation, setNewRecommendation] = useState<"AL" | "SAT" | "TUT" | "NÖTR">("AL");
   
@@ -153,6 +154,7 @@ export default function SirketlerPage() {
       sector: newSector,
       exchange: newExchange,
       assetClass: newAssetClass,
+      madenKategori: newAssetClass === "maden" ? newMadenKategori : undefined,
       indexTag: newExchange === "BIST" ? "BIST 100" : newExchange === "ABD" ? "S&P 500" : "DAX 40",
       price: parsedPrice,
       currency: currencyForExchange(newExchange),
@@ -178,6 +180,7 @@ export default function SirketlerPage() {
     setNewSymbol("");
     setNewName("");
     setNewPrice("");
+    setNewMadenKategori("altin");
     setNewPeRatio("");
     setNewPbRatio("");
     setNewDividendYield("");
@@ -217,22 +220,7 @@ export default function SirketlerPage() {
   // Filtered dataset
   const filteredCompanies = useMemo(() => {
     return companies.filter((c) => {
-      const currentAssetClass =
-        c.assetClass ||
-        (c.exchange === "Emtia" ||
-        c.symbol?.includes("ALTIN") ||
-        c.symbol?.includes("GÜMÜŞ") ||
-        c.symbol?.includes("PLATIN") ||
-        ["CEYREK", "TAM", "ATA", "BRENT", "BAKIR"].includes(c.symbol)
-          ? "maden"
-          : c.exchange === "Döviz" ||
-            c.symbol?.includes("/TRY") ||
-            c.symbol?.includes("/USD")
-          ? "doviz"
-          : c.sector?.includes("Fon") ||
-            ["AFT", "TTE", "MAC", "QQQ", "SPY", "GLD"].includes(c.symbol)
-          ? "fon"
-          : "hisse");
+      const currentAssetClass = inferAssetClass(c);
 
       if (currentAssetClass !== assetTab) return false;
 
@@ -512,7 +500,11 @@ export default function SirketlerPage() {
                       }`}
                       title={c.inWatchlist ? "İzleme Listesinde" : "İzlemeye Al"}
                     >
-                      <Bookmark className="w-3.5 h-3.5" />
+                      {c.inWatchlist ? (
+                        <BookmarkCheck className="w-3.5 h-3.5" />
+                      ) : (
+                        <Bookmark className="w-3.5 h-3.5" />
+                      )}
                     </button>
 
                     <button
@@ -699,6 +691,24 @@ export default function SirketlerPage() {
                   />
                 </div>
               </div>
+
+              {/* Maden / Emtia Category (for maden) */}
+              {newAssetClass === "maden" && (
+                <div className="p-3.5 bg-[var(--ink-3)] border border-[var(--line)] rounded-lg space-y-2">
+                  <label className="block text-[11px] font-mono text-[var(--brass)] uppercase font-semibold">
+                    Maden / Emtia Alt Kategorisi
+                  </label>
+                  <select
+                    value={newMadenKategori}
+                    onChange={(e) => setNewMadenKategori(e.target.value as "altin" | "gumus_platin" | "enerji_sanayi")}
+                    className="w-full bg-[var(--ink-2)] border border-[var(--line)] rounded p-2 text-xs text-[var(--paper)] font-mono outline-none focus:border-[var(--brass)] cursor-pointer"
+                  >
+                    <option value="altin">Altın Çeşitleri (Gram, Çeyrek, Ata, vb.)</option>
+                    <option value="gumus_platin">Gümüş, Platin &amp; Paladyum</option>
+                    <option value="enerji_sanayi">Enerji &amp; Sanayi Emtiası (Petrol, Gaz, Bakır)</option>
+                  </select>
+                </div>
+              )}
 
               {/* Optional Financial Metrics (for stocks) */}
               {newAssetClass === "hisse" && (

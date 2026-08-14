@@ -26,7 +26,9 @@ export default function CompanyCombobox({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const selectedCompany = companies.find((c) => c.symbol === selectedSymbol) || companies[0];
+  const selectedCompany = selectedSymbol
+    ? companies.find((c) => c.symbol.toUpperCase() === selectedSymbol.toUpperCase())
+    : undefined;
 
   // Close dropdown on outside click
   useEffect(() => {

@@ -19,20 +19,15 @@ export function getMasterPassword(): string {
     );
   }
 
-  // Development mode: Generate and persist an in-memory random password for this runtime session
+  // Development mode: Fallback to standard dev password with warning so local instance is never locked
   if (!devFallbackPassword) {
-    const randomBytes = new Uint8Array(16);
-    crypto.getRandomValues(randomBytes);
-    devFallbackPassword = Array.from(randomBytes)
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
-
+    devFallbackPassword = "defter2026";
     console.warn(
       "\n" +
         "================================================================================\n" +
-        "⚠️  [GÜVENLİK UYARISI] DEFTER_ACCESS_PASSWORD ORTAM DEĞİŞKENİ TANIMLI DEĞİL!\n" +
-        `🔑  GEÇİCİ LOCAL DEV ŞİFRENİZ: ${devFallbackPassword}\n` +
-        "💡  Kalıcı şifre için .env.local dosyanıza DEFTER_ACCESS_PASSWORD ekleyin.\n" +
+        "⚠️  [GÜVENLİK UYARISI] DEFTER_ACCESS_PASSWORD ortam değişkeni bulunamadı.\n" +
+        "🔑  Local geliştirme için varsayılan şifre kullanılıyor: defter2026\n" +
+        "💡  Kalıcı ve özel şifre için .env.local dosyanıza DEFTER_ACCESS_PASSWORD ekleyin.\n" +
         "================================================================================\n"
     );
   }

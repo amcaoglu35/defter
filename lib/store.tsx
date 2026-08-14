@@ -177,26 +177,55 @@ const DEFAULT_INDICES: Record<string, MarketIndexData> = {
   "NASDAQ": { price: 17683.9, dailyChange: 0.84, formattedPrice: "17.683,90", isPositive: true },
 };
 
-function normalizeCompany(c: Record<string, unknown>): Company {
-  const symbol = (c.symbol as string) || "";
-  let assetClass: "hisse" | "maden" | "fon" | "doviz" = (c.assetClass || c.asset_class) as "hisse" | "maden" | "fon" | "doviz";
-  if (!assetClass) {
-    if (
-      c.exchange === "Emtia" ||
-      symbol.includes("ALTIN") ||
-      symbol.includes("GÜMÜŞ") ||
-      symbol.includes("PLATIN") ||
-      ["CEYREK", "TAM", "ATA", "BRENT", "BAKIR"].includes(symbol)
-    ) {
-      assetClass = "maden";
-    } else if (c.exchange === "Serbest Piyasa" || symbol.includes("USD") || symbol.includes("EUR") || symbol.includes("GBP")) {
-      assetClass = "doviz";
-    } else if (c.exchange === "TEFAS" || symbol.includes("FON") || symbol.includes("PORTFÖY")) {
-      assetClass = "fon";
-    } else {
-      assetClass = "hisse";
-    }
+export function inferAssetClass(c: {
+  symbol?: string;
+  assetClass?: string;
+  asset_class?: string;
+  exchange?: string;
+  sector?: string;
+}): "hisse" | "maden" | "fon" | "doviz" {
+  const symbol = c.symbol || "";
+  const existing = (c.assetClass || c.asset_class) as "hisse" | "maden" | "fon" | "doviz" | undefined;
+  if (existing && ["hisse", "maden", "fon", "doviz"].includes(existing)) {
+    return existing;
   }
+  if (
+    c.exchange === "Emtia" ||
+    symbol.includes("ALTIN") ||
+    symbol.includes("GÜMÜŞ") ||
+    symbol.includes("GUMUS") ||
+    symbol.includes("PLATIN") ||
+    symbol.includes("PALADYUM") ||
+    ["CEYREK", "YARIM", "TAM", "ATA", "BILEZIK22", "BRENT", "WTI_OIL", "DOGALGAZ", "BAKIR"].includes(symbol)
+  ) {
+    return "maden";
+  }
+  if (
+    c.exchange === "Döviz" ||
+    c.exchange === "Serbest Piyasa" ||
+    symbol.includes("/TRY") ||
+    symbol.includes("/USD") ||
+    symbol.includes("USD") ||
+    symbol.includes("EUR") ||
+    symbol.includes("GBP")
+  ) {
+    return "doviz";
+  }
+  if (
+    c.sector?.includes("Fon") ||
+    c.exchange === "TEFAS" ||
+    symbol.includes("FON") ||
+    symbol.includes("PORTFÖY") ||
+    ["AFT", "TTE", "MAC", "TI1", "YAY", "IIH", "GMR", "KZL", "TCD", "BIO", "BUY", "IHK", "QQQ", "SPY", "VOO", "GLD", "SLV", "SMH", "ARKK", "DIA"].includes(symbol)
+  ) {
+    return "fon";
+  }
+  return "hisse";
+}
+
+export function normalizeCompany(c: Record<string, unknown>): Company {
+  const symbol = (c.symbol as string) || "";
+  const assetClass = inferAssetClass(c as { symbol?: string; assetClass?: string; asset_class?: string; exchange?: string; sector?: string });
 
   let madenKategori: "altin" | "gumus_platin" | "enerji_sanayi" | undefined =
     (c.madenKategori || c.maden_kategori) as "altin" | "gumus_platin" | "enerji_sanayi" | undefined;

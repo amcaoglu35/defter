@@ -372,10 +372,18 @@ export default function SirketDetayPage() {
           {/* Price Trend Chart Card (Dynamic & Responsive to Period) */}
           <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-              <div className="flex items-center gap-2">
-                <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--brass)] font-semibold">
-                  Fiyat Eğrisi &amp; Trend ({period})
-                </h3>
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5">
+                  <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--brass)] font-semibold">
+                    Fiyat Eğrisi &amp; Trend ({period})
+                  </h3>
+                  <span
+                    className="inline-flex items-center text-[var(--mist)] hover:text-[var(--paper)] transition-colors cursor-help"
+                    title="Bu grafik gösterge amaçlı simüle edilmiştir, gerçek geçmiş fiyat verisi değildir."
+                  >
+                    <Info className="w-3.5 h-3.5" />
+                  </span>
+                </div>
                 <span className="text-[10px] font-mono text-[var(--mist)]">
                   Min: {chartData.minPrice.toFixed(2)} {company.currency} • Maks: {chartData.maxPrice.toFixed(2)} {company.currency}
                 </span>
@@ -451,6 +459,12 @@ export default function SirketDetayPage() {
                   {lbl}
                 </span>
               ))}
+            </div>
+
+            {/* Simulation Disclaimer Note */}
+            <div className="flex items-center gap-1.5 text-[10px] font-mono text-[var(--mist)] mt-3 pt-2 border-t border-[var(--line)]/50">
+              <Info className="w-3 h-3 text-[var(--mist)] shrink-0" />
+              <span>Bu grafik gösterge amaçlı simüle edilmiştir, gerçek geçmiş fiyat verisi değildir.</span>
             </div>
           </div>
 

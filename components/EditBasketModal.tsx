@@ -26,24 +26,17 @@ export default function EditBasketModal({
   } = useDefterStore();
   const { showToast } = useToast();
 
-  const [selectedAddSymbol, setSelectedAddSymbol] = useState(
-    companies[0]?.symbol || ""
-  );
+  const [selectedAddSymbol, setSelectedAddSymbol] = useState("");
   const [addQty, setAddQty] = useState("10");
   const [addCost, setAddCost] = useState("");
   const [addWeight, setAddWeight] = useState("15");
 
   // Keep cost in sync when selecting a company if cost wasn't manually set
   useEffect(() => {
-    if (companies.length > 0) {
-      if (!selectedAddSymbol || !companies.some((c) => c.symbol === selectedAddSymbol)) {
-        const first = companies[0].symbol;
-        setSelectedAddSymbol(first);
-        const co = companies.find((c) => c.symbol === first);
-        if (co) setAddCost(co.price.toString());
-      } else {
-        const co = companies.find((c) => c.symbol === selectedAddSymbol);
-        if (co && !addCost) setAddCost(co.price.toString());
+    if (selectedAddSymbol) {
+      const co = companies.find((c) => c.symbol.toUpperCase() === selectedAddSymbol.toUpperCase());
+      if (co && !addCost) {
+        setAddCost(co.price.toString());
       }
     }
   }, [companies, selectedAddSymbol, addCost]);
@@ -335,10 +328,13 @@ export default function EditBasketModal({
 
           <button
             type="submit"
-            className="w-full bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold text-xs py-2.5 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer shadow transition-all active:scale-[0.99]"
+            disabled={!selectedAddSymbol || !currentCo || parsedQty <= 0}
+            className="w-full bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold text-xs py-2.5 rounded-lg flex items-center justify-center gap-1.5 cursor-pointer shadow transition-all active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="w-4 h-4" />
-            <span>{selectedAddSymbol} ({addQty} Lot) Sepete Ekle</span>
+            <span>
+              {selectedAddSymbol ? `${selectedAddSymbol} (${addQty} Lot) Sepete Ekle` : "Sepete Eklemek İçin Varlık Seçin"}
+            </span>
           </button>
         </form>
 

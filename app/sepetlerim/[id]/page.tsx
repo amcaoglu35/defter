@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useId } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -32,6 +32,8 @@ export default function SepetDetayPage() {
   const params = useParams();
   const router = useRouter();
   const basketId = params.id as string;
+  const chartUid = useId();
+  const basketGradId = `basket-chart-grad-${chartUid}`;
 
   const { baskets, companies, removeHoldingFromBasket } = useDefterStore();
 
@@ -263,7 +265,7 @@ export default function SepetDetayPage() {
           <div className="h-44 w-full relative flex items-end pt-6 pb-2">
             <svg className="w-full h-full overflow-visible" viewBox="0 0 500 120">
               <defs>
-                <linearGradient id="basket-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <linearGradient id={basketGradId} x1="0%" y1="0%" x2="0%" y2="100%">
                   <stop
                     offset="0%"
                     stopColor={isProfitPositive ? "#5B8C7B" : "#A33B3B"}
@@ -278,7 +280,7 @@ export default function SepetDetayPage() {
               </defs>
               
               {/* Filled Area */}
-              <path d={chartData.areaD} fill="url(#basket-grad)" />
+              <path d={chartData.areaD} fill={`url(#${basketGradId})`} />
 
               {/* Stroke Line */}
               <path
