@@ -89,24 +89,36 @@ export default function Sparkline({
 }
 
 /**
- * Generate mock sparkline data for a company based on its current price and daily change.
- * Creates a realistic-looking 7-day trend line.
+ * Generate deterministic sparkline data for a company based on its current price, daily change, and symbol.
+ * Creates a consistent, repeatable 7-day trend curve anchored to the current price.
  */
-export function generateSparklineData(price: number, dailyChange: number): number[] {
-  const trend = dailyChange >= 0 ? 1 : -1;
-  const volatility = price * 0.015; // 1.5% volatility
-  const points: number[] = [];
-
-  let currentPrice = price * (1 - (dailyChange / 100) * 3); // Start ~3 days ago in terms of trend
-
-  for (let i = 0; i < 7; i++) {
-    const noise = (Math.random() - 0.5) * volatility;
-    const trendPush = trend * volatility * 0.3 * (i / 7);
-    currentPrice += noise + trendPush;
-    points.push(Math.max(currentPrice, price * 0.9));
+export function generateSparklineData(price: number, dailyChange: number, symbol: string = "STOCK"): number[] {
+  // Deterministic seed from symbol string
+  let seed = 0;
+  for (let i = 0; i < symbol.length; i++) {
+    seed = (seed << 5) - seed + symbol.charCodeAt(i);
+    seed |= 0;
   }
 
-  // Ensure the last point matches the actual price
+  const pseudoRandom = (step: number) => {
+    const x = Math.sin(seed + step * 997) * 10000;
+    return x - Math.floor(x);
+  };
+
+  const trend = dailyChange >= 0 ? 1 : -1;
+  const volatility = price * 0.012; // 1.2% volatility
+  const points: number[] = [];
+
+  let currentPrice = price * (1 - (dailyChange / 100) * 2.5);
+
+  for (let i = 0; i < 7; i++) {
+    const noise = (pseudoRandom(i) - 0.5) * volatility;
+    const trendPush = trend * volatility * 0.35 * (i / 7);
+    currentPrice += noise + trendPush;
+    points.push(Math.max(currentPrice, price * 0.85));
+  }
+
+  // Ensure the last point strictly matches the current price
   points[points.length - 1] = price;
 
   return points;

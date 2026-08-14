@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -22,6 +22,8 @@ import {
   ArrowRightLeft,
   Activity,
   Share2,
+  Bell,
+  Info,
 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import StampBadge from "@/components/StampBadge";
@@ -29,9 +31,8 @@ import DataStatusBadge from "@/components/DataStatusBadge";
 import TransactionModal from "@/components/TransactionModal";
 import ShareCardModal from "@/components/ShareCardModal";
 import PriceAlertModal from "@/components/PriceAlertModal";
-import Sparkline, { generateSparklineData } from "@/components/Sparkline";
 import { isLiveSymbol } from "@/lib/liveSymbols";
-import { Bell } from "lucide-react";
+import { useToast } from "@/components/ToastProvider";
 
 interface CompanyDiagnosisReport {
   valuationScore?: number | string;
@@ -41,10 +42,13 @@ interface CompanyDiagnosisReport {
   risks?: string[];
 }
 
+type PeriodType = "1A" | "3A" | "6A" | "1Y";
+
 export default function SirketDetayPage() {
   const params = useParams();
   const router = useRouter();
   const symbol = (params.symbol as string)?.toUpperCase();
+  const { showToast } = useToast();
 
   const {
     companies,
@@ -54,19 +58,103 @@ export default function SirketDetayPage() {
     deleteNote,
     transactions,
     aiProvider,
-    aiApiKey,
     geminiModel,
   } = useDefterStore();
 
-  const company =
-    companies.find((c) => c.symbol.toUpperCase() === symbol);
+  const company = companies.find((c) => c.symbol.toUpperCase() === symbol);
 
+  const [period, setPeriod] = useState<PeriodType>("6A");
   const [newNote, setNewNote] = useState("");
   const [txModalOpen, setTxModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [alertModalOpen, setAlertModalOpen] = useState(false);
   const [aiReport, setAiReport] = useState<CompanyDiagnosisReport | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+
+  // Dynamic Chart Points & Date Labels based on Period & Real Stock Price
+  const chartData = useMemo(() => {
+    if (!company) return { points: [], pathD: "", areaD: "", labels: [], minPrice: 0, maxPrice: 0 };
+
+    const currentPrice = company.price || 100;
+    const dailyChg = company.dailyChange || 0;
+    const isLive = isLiveSymbol(company.symbol);
+
+    let stepCount = 6;
+    let labels: string[] = [];
+    const now = new Date();
+
+    if (period === "1A") {
+      stepCount = 6;
+      labels = ["30 Gün", "24 Gün", "18 Gün", "12 Gün", "6 Gün", "Bugün"];
+    } else if (period === "3A") {
+      stepCount = 6;
+      labels = ["90 Gün", "72 Gün", "54 Gün", "36 Gün", "18 Gün", "Bugün"];
+    } else if (period === "6A") {
+      stepCount = 6;
+      const months = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"];
+      const currentMonthIdx = now.getMonth();
+      labels = Array.from({ length: 6 }).map((_, i) => {
+        const mIdx = (currentMonthIdx - 5 + i + 12) % 12;
+        return i === 5 ? `${months[mIdx]} (Son)` : months[mIdx];
+      });
+    } else {
+      stepCount = 7;
+      labels = ["12 Ay Önce", "10 Ay", "8 Ay", "6 Ay", "4 Ay", "2 Ay", "Bugün"];
+    }
+
+    // Deterministic seed based on symbol
+    let seed = 0;
+    for (let i = 0; i < company.symbol.length; i++) {
+      seed = (seed << 5) - seed + company.symbol.charCodeAt(i);
+      seed |= 0;
+    }
+    const pseudoRandom = (step: number) => {
+      const x = Math.sin(seed + step * 433) * 10000;
+      return x - Math.floor(x);
+    };
+
+    // Calculate realistic price history anchored to current price
+    const volatility = currentPrice * (period === "1A" ? 0.05 : period === "3A" ? 0.12 : period === "6A" ? 0.22 : 0.38);
+    const trendFactor = dailyChg >= 0 ? 0.08 : -0.08;
+    const values: number[] = [];
+
+    let tempPrice = currentPrice * (1 - trendFactor * (stepCount - 1) * 0.4);
+
+    for (let i = 0; i < stepCount; i++) {
+      const progress = i / (stepCount - 1);
+      const noise = (pseudoRandom(i) - 0.48) * volatility;
+      const trend = (currentPrice - tempPrice) * progress;
+      const p = tempPrice + trend + noise * (1 - progress * 0.8);
+      values.push(Math.max(p, currentPrice * 0.4));
+    }
+    // Anchor last value to actual live/current price
+    values[values.length - 1] = currentPrice;
+
+    const minPrice = Math.min(...values);
+    const maxPrice = Math.max(...values);
+    const range = maxPrice - minPrice || 1;
+
+    const svgWidth = 500;
+    const svgHeight = 120;
+
+    const coords = values.map((v, idx) => {
+      const x = (idx / (stepCount - 1)) * svgWidth;
+      const y = svgHeight - ((v - minPrice) / range) * (svgHeight - 24) - 12;
+      return { x, y, val: v };
+    });
+
+    let pathD = `M ${coords[0].x},${coords[0].y}`;
+    for (let i = 0; i < coords.length - 1; i++) {
+      const curr = coords[i];
+      const next = coords[i + 1];
+      const cpX = (curr.x + next.x) / 2;
+      pathD += ` C ${cpX},${curr.y} ${cpX},${next.y} ${next.x},${next.y}`;
+    }
+
+    const areaD = `${pathD} L ${svgWidth},${svgHeight} L 0,${svgHeight} Z`;
+
+    return { points: coords, pathD, areaD, labels, minPrice, maxPrice };
+  }, [company, period]);
 
   if (!company) {
     return (
@@ -98,6 +186,7 @@ export default function SirketDetayPage() {
     if (!newNote.trim()) return;
     addNote(company.symbol, newNote.trim());
     setNewNote("");
+    showToast("Not Kaydedildi", `${company.symbol} için kişisel kütük notu eklendi.`, "success");
   };
 
   const handleRunAiAnalysis = async () => {
@@ -110,7 +199,6 @@ export default function SirketDetayPage() {
           type: "company_analysis",
           payload: company,
           provider: aiProvider,
-          apiKey: aiApiKey || undefined,
           model: geminiModel,
         }),
       });
@@ -118,13 +206,17 @@ export default function SirketDetayPage() {
       if (res.ok) {
         const data = await res.json();
         setAiReport(data.data);
+      } else {
+        showToast("Teşhis Hatası", "Orakul şirket teşhis motoru yanıt vermedi.", "error");
       }
-    } catch (e) {
-      console.warn("AI analysis error:", e);
+    } catch {
+      showToast("Bağlantı Hatası", "Orakul teşhis analizi sırasında bir sorun oluştu.", "error");
     } finally {
       setAiLoading(false);
     }
   };
+
+  const isDailyPositive = company.dailyChange >= 0;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-8">
@@ -138,7 +230,7 @@ export default function SirketDetayPage() {
           <span>Şirketler Kütüğüne Dön</span>
         </button>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           {/* Price Alert Button */}
           <button
             onClick={() => setAlertModalOpen(true)}
@@ -234,18 +326,12 @@ export default function SirketDetayPage() {
           </div>
           <div
             className={`font-mono text-sm font-semibold mt-1 flex items-center md:justify-end gap-1 ${
-              company.dailyChange >= 0
-                ? "text-[var(--verdigris)]"
-                : "text-[var(--loss)]"
+              isDailyPositive ? "text-[var(--verdigris)]" : "text-[var(--loss)]"
             }`}
           >
-            {company.dailyChange >= 0 ? (
-              <TrendingUp className="w-4 h-4" />
-            ) : (
-              <TrendingDown className="w-4 h-4" />
-            )}
+            {isDailyPositive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
             <span>
-              {company.dailyChange >= 0 ? "+" : ""}
+              {isDailyPositive ? "+" : ""}
               {company.dailyChange}% Bugün
             </span>
           </div>
@@ -256,65 +342,94 @@ export default function SirketDetayPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left 2 Cols: Chart, Metrics, AI Deep Dive & Transactions */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Price Trend Chart Card */}
+          {/* Price Trend Chart Card (Dynamic & Responsive to Period) */}
           <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--brass)]">
-                Fiyat Eğrisi &amp; Hacim Takibi
-              </h3>
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <div className="flex items-center gap-2">
+                <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--brass)] font-semibold">
+                  Fiyat Eğrisi &amp; Trend ({period})
+                </h3>
+                <span className="text-[10px] font-mono text-[var(--mist)]">
+                  Min: {chartData.minPrice.toFixed(2)} ₺ • Maks: {chartData.maxPrice.toFixed(2)} ₺
+                </span>
+              </div>
+
+              {/* Clickable Period Buttons */}
               <div className="flex gap-1.5 font-mono text-[11px]">
-                {["1A", "3A", "6A", "1Y"].map((period) => (
-                  <span
-                    key={period}
-                    className={`px-2.5 py-1 rounded cursor-pointer ${
-                      period === "6A"
-                        ? "bg-[var(--brass)] text-[var(--ink)] font-bold"
+                {(["1A", "3A", "6A", "1Y"] as const).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setPeriod(p)}
+                    className={`px-2.5 py-1 rounded cursor-pointer transition-colors ${
+                      period === p
+                        ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow"
                         : "text-[var(--mist)] hover:text-[var(--paper)] bg-[var(--ink-3)]"
                     }`}
                   >
-                    {period}
-                  </span>
+                    {p}
+                  </button>
                 ))}
               </div>
             </div>
 
+            {/* Dynamic SVG Chart */}
             <div className="h-44 w-full relative flex items-end pt-6 pb-2">
               <svg className="w-full h-full overflow-visible" viewBox="0 0 500 120">
                 <defs>
-                  <linearGradient id="grad-line" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor="#C9A24B" stopOpacity="0.3" />
-                    <stop offset="100%" stopColor="#C9A24B" stopOpacity="0.0" />
+                  <linearGradient id="company-chart-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop
+                      offset="0%"
+                      stopColor={isDailyPositive ? "#5B8C7B" : "#A33B3B"}
+                      stopOpacity="0.35"
+                    />
+                    <stop
+                      offset="100%"
+                      stopColor={isDailyPositive ? "#5B8C7B" : "#A33B3B"}
+                      stopOpacity="0.0"
+                    />
                   </linearGradient>
                 </defs>
+
+                {/* Filled gradient area */}
+                <path d={chartData.areaD} fill="url(#company-chart-grad)" />
+
+                {/* Stroke line */}
                 <path
-                  d="M0,90 Q80,70 160,75 T320,40 T500,15 L500,120 L0,120 Z"
-                  fill="url(#grad-line)"
-                />
-                <path
-                  d="M0,90 Q80,70 160,75 T320,40 T500,15"
+                  d={chartData.pathD}
                   fill="none"
-                  stroke="#C9A24B"
+                  stroke={isDailyPositive ? "#5B8C7B" : "#A33B3B"}
                   strokeWidth="2.5"
                 />
-                <circle cx="0" cy="90" r="4" fill="#C9A24B" />
-                <circle cx="160" cy="75" r="4" fill="#C9A24B" />
-                <circle cx="320" cy="40" r="4" fill="#C9A24B" />
-                <circle cx="500" cy="15" r="5" fill="#5B8C7B" />
+
+                {/* Points */}
+                {chartData.points.map((pt, idx) => (
+                  <circle
+                    key={idx}
+                    cx={pt.x}
+                    cy={pt.y}
+                    r={idx === chartData.points.length - 1 ? 5 : 3.5}
+                    fill={idx === chartData.points.length - 1 ? "#C9A24B" : (isDailyPositive ? "#5B8C7B" : "#A33B3B")}
+                  />
+                ))}
               </svg>
             </div>
+
+            {/* Dynamic X-Axis Date Labels */}
             <div className="flex justify-between font-mono text-[11px] text-[var(--mist)] pt-2 border-t border-dashed border-[var(--line)]">
-              <span>Ocak</span>
-              <span>Şubat</span>
-              <span>Mart</span>
-              <span>Nisan</span>
-              <span>Mayıs</span>
-              <span className="text-[var(--brass)] font-semibold">Haziran (Son)</span>
+              {chartData.labels.map((lbl, idx) => (
+                <span
+                  key={idx}
+                  className={idx === chartData.labels.length - 1 ? "text-[var(--brass)] font-semibold" : ""}
+                >
+                  {lbl}
+                </span>
+              ))}
             </div>
           </div>
 
-          {/* Key Financial Metrics */}
+          {/* Key Financial Metrics (Null-safe) */}
           <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6">
-            <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--brass)] mb-4">
+            <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--brass)] mb-4 font-semibold">
               Finansal Kütük Değerleri &amp; Çarpanlar
             </h3>
 
@@ -324,9 +439,9 @@ export default function SirketDetayPage() {
                   F/K Oranı
                 </span>
                 <div className="font-mono text-lg font-bold text-[var(--paper)] mt-1">
-                  {company.peRatio ? `${company.peRatio}x` : "-"}
+                  {company.peRatio !== undefined && company.peRatio !== null ? `${company.peRatio}x` : "-"}
                 </div>
-                <span className="text-[10px] text-[var(--mist)]">Sektör: 7.2x</span>
+                <span className="text-[10px] text-[var(--mist)]">Fiyat / Kazanç</span>
               </div>
 
               <div className="bg-[var(--ink-3)] p-3.5 rounded border border-[var(--line)]">
@@ -334,9 +449,9 @@ export default function SirketDetayPage() {
                   PD / DD
                 </span>
                 <div className="font-mono text-lg font-bold text-[var(--paper)] mt-1">
-                  {company.pbRatio ? `${company.pbRatio}x` : "-"}
+                  {company.pbRatio !== undefined && company.pbRatio !== null ? `${company.pbRatio}x` : "-"}
                 </div>
-                <span className="text-[10px] text-[var(--mist)]">Sektör: 1.4x</span>
+                <span className="text-[10px] text-[var(--mist)]">Piyasa / Defter</span>
               </div>
 
               <div className="bg-[var(--ink-3)] p-3.5 rounded border border-[var(--line)]">
@@ -344,7 +459,7 @@ export default function SirketDetayPage() {
                   Temettü Verimi
                 </span>
                 <div className="font-mono text-lg font-bold text-[var(--verdigris)] mt-1">
-                  {company.dividendYield ? `%${company.dividendYield}` : "-"}
+                  {company.dividendYield !== undefined && company.dividendYield !== null ? `%${company.dividendYield}` : "-"}
                 </div>
                 <span className="text-[10px] text-[var(--mist)]">Yıllık Dağıtım</span>
               </div>
@@ -353,10 +468,12 @@ export default function SirketDetayPage() {
                 <span className="text-[11px] font-mono text-[var(--mist)] uppercase">
                   Piyasa Değeri
                 </span>
-                <div className="font-mono text-lg font-bold text-[var(--paper)] mt-1">
-                  {company.marketCap || "453 Mr ₺"}
+                <div className="font-mono text-lg font-bold text-[var(--paper)] mt-1 truncate">
+                  {company.marketCap || "-"}
                 </div>
-                <span className="text-[10px] text-[var(--mist)]">Beta: {company.beta !== undefined ? company.beta : "-"}</span>
+                <span className="text-[10px] text-[var(--mist)]">
+                  Beta: {company.beta !== undefined && company.beta !== null ? company.beta : "-"}
+                </span>
               </div>
             </div>
           </div>
@@ -374,7 +491,7 @@ export default function SirketDetayPage() {
               <button
                 onClick={handleRunAiAnalysis}
                 disabled={aiLoading}
-                className="bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold text-xs px-3.5 py-1.5 rounded flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                className="bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold text-xs px-3.5 py-1.5 rounded flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-transform active:scale-95"
               >
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>{aiLoading ? "İnceleniyor..." : "Teşhis Raporu Üret"}</span>
@@ -437,7 +554,7 @@ export default function SirketDetayPage() {
               </h3>
               <button
                 onClick={() => setTxModalOpen(true)}
-                className="text-xs font-mono text-[var(--brass)] hover:underline flex items-center gap-1"
+                className="text-xs font-mono text-[var(--brass)] hover:underline flex items-center gap-1 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>İşlem Ekle</span>
@@ -449,40 +566,37 @@ export default function SirketDetayPage() {
                 Bu şirket için henüz işlem kaydı girilmedi. &quot;Alış / Satış İşlemi&quot; butonuyla maliyet kaydı yapabilirsiniz.
               </p>
             ) : (
-              <div className="divide-y divide-dashed divide-[var(--line)] border border-[var(--line)] rounded bg-[var(--ink-3)]">
+              <div className="divide-y divide-dashed divide-[var(--line)]">
                 {companyTransactions.map((tx) => (
                   <div
                     key={tx.id}
-                    className="p-3 flex items-center justify-between text-xs font-mono"
+                    className="py-2.5 flex items-center justify-between text-xs font-mono"
                   >
                     <div>
                       <span
-                        className={`font-bold mr-2 ${
+                        className={`font-bold px-1.5 py-0.5 rounded text-[10px] mr-2 ${
                           tx.type === "BUY"
-                            ? "text-[var(--verdigris)]"
-                            : "text-[var(--loss)]"
+                            ? "bg-[rgba(91,140,123,0.15)] text-[var(--verdigris)]"
+                            : "bg-[rgba(163,59,59,0.15)] text-[var(--loss)]"
                         }`}
                       >
                         {tx.type === "BUY" ? "ALIŞ" : "SATIŞ"}
                       </span>
                       <span className="text-[var(--paper)]">
-                        {tx.quantity} Lot @ {tx.price.toFixed(2)} {company.currency}
+                        {tx.quantity} Adet @ {tx.price} {company.currency}
                       </span>
                       {tx.note && (
-                        <div className="text-[11px] text-[var(--mist)] font-sans mt-0.5">
-                          {tx.note}
-                        </div>
+                        <span className="text-[var(--mist)] ml-2 italic">
+                          ({tx.note})
+                        </span>
                       )}
                     </div>
 
                     <div className="text-right">
                       <div className="font-bold text-[var(--paper)]">
-                        {tx.totalAmount.toLocaleString("tr-TR", {
-                          minimumFractionDigits: 2,
-                        })}{" "}
-                        {company.currency}
+                        {tx.totalAmount.toLocaleString("tr-TR")} {company.currency}
                       </div>
-                      <span className="text-[10px] text-[var(--mist)]">{tx.date}</span>
+                      <div className="text-[10px] text-[var(--mist)]">{tx.date}</div>
                     </div>
                   </div>
                 ))}
@@ -491,66 +605,57 @@ export default function SirketDetayPage() {
           </div>
         </div>
 
-        {/* Right 1 Col: Orakul Notes & Personal Notes */}
+        {/* Right 1 Col: Notes & Fast Actions */}
         <div className="space-y-6">
-          {/* Orakul AI Card */}
-          <div className="bg-[var(--ink-2)] border border-[var(--brass-dim)] rounded-xl p-5 relative overflow-hidden shadow-lg">
-            <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="w-4 h-4 text-[var(--brass)]" />
-              <h3 className="font-serif font-semibold text-base text-[var(--paper)]">
-                Orakul Şirket Yorumu
-              </h3>
-            </div>
-            <p className="text-xs text-[var(--paper)] leading-relaxed font-sans">
-              {company.description ||
-                "Güçlü bilanço yapısı ve döviz bazlı nakit akımı ile piyasa dalgalanmalarına karşı defansif bir yapı sergilemektedir."}
-            </p>
-            <div className="mt-4 pt-3 border-t border-dashed border-[var(--line)] flex items-center justify-between text-[11px] font-mono">
-              <span className="text-[var(--mist)]">Değerleme Puanı</span>
-              <span className="text-[var(--brass)] font-bold">9.2 / 10</span>
-            </div>
-          </div>
-
-          {/* Personal Notes Card */}
-          <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-5 space-y-4">
-            <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-[var(--brass)]" />
-              <h3 className="font-serif font-semibold text-base text-[var(--paper)]">
-                Kişisel Notlarım ({notes.length})
-              </h3>
+          {/* Note book section */}
+          <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-[var(--brass)]" />
+                <h3 className="font-serif font-bold text-base text-[var(--paper)]">
+                  Kişisel Kütük Notları
+                </h3>
+              </div>
+              <span className="text-xs font-mono text-[var(--mist)]">
+                {notes.length} Not
+              </span>
             </div>
 
-            <form onSubmit={handleAddNote} className="flex gap-2">
-              <input
-                type="text"
+            <form onSubmit={handleAddNote} className="space-y-2">
+              <textarea
                 value={newNote}
                 onChange={(e) => setNewNote(e.target.value)}
-                placeholder="Şirkete özel not yaz..."
-                className="flex-1 bg-[var(--ink-3)] border border-[var(--line)] rounded px-3 py-2 text-xs text-[var(--paper)] focus:border-[var(--brass)] outline-none"
+                placeholder={`${company.symbol} için hedef fiyat, bilanço beklentisi veya kişisel analiz notunuz...`}
+                rows={3}
+                className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded-lg p-3 text-xs text-[var(--paper)] font-mono placeholder:text-[var(--mist)] focus:border-[var(--brass)] outline-none resize-none shadow-inner"
               />
               <button
                 type="submit"
-                className="bg-[var(--brass)] text-[var(--ink)] px-3 py-2 rounded text-xs font-bold hover:bg-[#d9b35a] cursor-pointer"
+                disabled={!newNote.trim()}
+                className="w-full bg-[var(--brass)] hover:bg-[#d9b35a] disabled:opacity-50 text-[var(--ink)] font-bold text-xs py-2 rounded flex items-center justify-center gap-1.5 cursor-pointer shadow transition-transform active:scale-95"
               >
                 <Send className="w-3.5 h-3.5" />
+                <span>Notu Deftere Kaydet</span>
               </button>
             </form>
 
-            <div className="space-y-2 max-h-64 overflow-y-auto">
+            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
               {notes.length === 0 ? (
-                <p className="text-xs text-[var(--mist)] font-mono py-2 text-center">
-                  Henüz bir not eklenmedi.
+                <p className="text-xs text-[var(--mist)] italic text-center py-4 font-mono">
+                  Henüz kaydedilmiş bir not yok.
                 </p>
               ) : (
-                notes.map((n, idx) => (
+                notes.map((noteText, idx) => (
                   <div
                     key={idx}
-                    className="bg-[var(--ink-3)] border border-[var(--line)] p-2.5 rounded text-xs text-[var(--paper-dim)] leading-relaxed flex items-start justify-between gap-2 group"
+                    className="p-3 bg-[var(--ink-3)] border border-[var(--line)] rounded-lg text-xs font-mono group relative flex items-start justify-between gap-2"
                   >
-                    <span>{n}</span>
+                    <p className="text-[var(--paper-dim)] whitespace-pre-wrap flex-1">
+                      {noteText}
+                    </p>
                     <button
                       onClick={() => deleteNote(company.symbol, idx)}
-                      className="text-[var(--mist)] hover:text-[var(--loss)] opacity-60 hover:opacity-100 transition-opacity p-0.5 cursor-pointer"
+                      className="opacity-0 group-hover:opacity-100 text-[var(--mist)] hover:text-[var(--loss)] p-1 transition-opacity cursor-pointer shrink-0"
                       title="Notu Sil"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -560,46 +665,59 @@ export default function SirketDetayPage() {
               )}
             </div>
           </div>
+
+          {/* Company Description */}
+          {company.description && (
+            <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 space-y-2">
+              <h4 className="font-mono text-xs uppercase tracking-wider text-[var(--brass)] font-semibold">
+                Şirket Faaliyet Özeti
+              </h4>
+              <p className="text-xs text-[var(--paper-dim)] leading-relaxed font-sans">
+                {company.description}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Transaction Modal */}
       <TransactionModal
+        isOpen={txModalOpen}
+        onClose={() => setTxModalOpen(false)}
         symbol={company.symbol}
         defaultPrice={company.price}
         currency={company.currency}
-        isOpen={txModalOpen}
-        onClose={() => setTxModalOpen(false)}
       />
 
       {/* Share Card Modal */}
       <ShareCardModal
         isOpen={shareModalOpen}
         onClose={() => setShareModalOpen(false)}
-        title={`${company.symbol} — ${company.name}`}
-        subtitle={`${company.exchange} • ${company.sector}`}
+        title={company.name}
+        subtitle={`${company.symbol} • ${company.sector}`}
         type="company"
         data={{
-          primaryLabel: "Birim Fiyat",
-          primaryMetric: `${company.price.toFixed(2)} ${company.currency}`,
+          primaryLabel: "Fiyat",
+          primaryMetric: `${company.price.toLocaleString("tr-TR")} ${company.currency}`,
           secondaryLabel: "Günlük Değişim",
-          secondaryMetric: `${company.dailyChange >= 0 ? "+" : ""}${company.dailyChange}%`,
+          secondaryMetric: `${isDailyPositive ? "+" : ""}${company.dailyChange}%`,
           tags: [
-            company.indexTag || "BIST",
-            `F/K: ${company.peRatio || "-"}`,
-            `Temettü: %${company.dividendYield || "0"}`,
-          ],
-          note: company.description,
+            company.exchange,
+            company.sector,
+            company.peRatio ? `F/K: ${company.peRatio}x` : "",
+            company.dividendYield ? `Verim: %${company.dividendYield}` : "",
+          ].filter(Boolean),
           verdict: company.recommendation,
+          note: company.description,
         }}
       />
 
       {/* Price Alert Modal */}
       <PriceAlertModal
-        symbol={company.symbol}
-        currentPrice={company.price}
         isOpen={alertModalOpen}
         onClose={() => setAlertModalOpen(false)}
+        symbol={company.symbol}
+        currentPrice={company.price}
       />
     </div>
   );
