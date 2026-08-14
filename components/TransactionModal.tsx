@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, ArrowDownRight, ArrowUpRight, DollarSign, Layers } from "lucide-react";
+import { X, ArrowDownRight, ArrowUpRight, AlertTriangle, Info, CheckCircle2 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import { useToast } from "@/components/ToastProvider";
 import Confetti from "@/components/Confetti";
@@ -47,11 +47,27 @@ export default function TransactionModal({
   const numPrice = parseFloat(price) || 0;
   const totalAmount = (numQty * numPrice).toFixed(2);
 
+  // Available lots validation for SELL
+  const selectedBasket = baskets.find((b) => b.id === targetBasketId);
+  const existingHolding = selectedBasket?.holdings.find(
+    (h) => h.companySymbol === symbol
+  );
+  const availableLots = existingHolding ? existingHolding.quantity : 0;
+  const isSellingTooMuch = type === "SELL" && numQty > availableLots;
+  const isSellingWithNoHolding = type === "SELL" && availableLots <= 0;
+
+  const isFormInvalid =
+    !targetBasketId ||
+    numQty <= 0 ||
+    numPrice <= 0 ||
+    isSellingTooMuch ||
+    isSellingWithNoHolding;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!targetBasketId || numQty <= 0 || numPrice <= 0) return;
+    if (isFormInvalid) return;
 
-    addTransaction(
+    const result = addTransaction(
       {
         companySymbol: symbol,
         type: type,
@@ -64,11 +80,16 @@ export default function TransactionModal({
       targetBasketId
     );
 
+    if (!result.success) {
+      showToast("İşlem Reddedildi", result.error || "İşlem kaydedilemedi.", "error");
+      return;
+    }
+
     setConfettiActive(true);
 
     showToast(
       "İşlem Kaydedildi",
-      `${symbol} ${type === "BUY" ? "Alış" : "Satış"} işlemi başarıyla eklendi.`,
+      `${symbol} ${type === "BUY" ? "Alış" : "Satış"} işlemi (${numQty} adet) başarıyla işlendi.`,
       "success"
     );
 
@@ -154,11 +175,14 @@ export default function TransactionModal({
                       -- Hedef Sepet Seçin --
                     </option>
                   )}
-                  {baskets.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
+                  {baskets.map((b) => {
+                    const h = b.holdings.find((holding) => holding.companySymbol === symbol);
+                    return (
+                      <option key={b.id} value={b.id}>
+                        {b.name} {h ? `(${h.quantity} lot mevcut)` : "(Bu varlık yok)"}
+                      </option>
+                    );
+                  })}
                 </>
               )}
             </select>
@@ -172,16 +196,27 @@ export default function TransactionModal({
                 </label>
                 {/* Quick lot increment chips */}
                 <div className="flex items-center gap-1">
-                  {[10, 50, 100].map((quick) => (
+                  {type === "SELL" && availableLots > 0 ? (
                     <button
-                      key={quick}
                       type="button"
-                      onClick={() => setQuantity((prev) => ((parseFloat(prev) || 0) + quick).toString())}
-                      className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--ink-3)] hover:bg-[var(--ink)] border border-[var(--line)] text-[var(--mist)] hover:text-[var(--brass)] cursor-pointer"
+                      onClick={() => setQuantity(availableLots.toString())}
+                      className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--brass-glow)] border border-[var(--brass-dim)] text-[var(--brass)] cursor-pointer"
+                      title="Tümünü Sat"
                     >
-                      +{quick}
+                      Tümü ({availableLots})
                     </button>
-                  ))}
+                  ) : (
+                    [10, 50, 100].map((quick) => (
+                      <button
+                        key={quick}
+                        type="button"
+                        onClick={() => setQuantity((prev) => ((parseFloat(prev) || 0) + quick).toString())}
+                        className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--ink-3)] hover:bg-[var(--ink)] border border-[var(--line)] text-[var(--mist)] hover:text-[var(--brass)] cursor-pointer"
+                      >
+                        +{quick}
+                      </button>
+                    ))
+                  )}
                 </div>
               </div>
               <input
@@ -191,7 +226,11 @@ export default function TransactionModal({
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
                 placeholder="10"
-                className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 text-xs text-[var(--paper)] font-mono focus:border-[var(--brass)] outline-none"
+                className={`w-full bg-[var(--ink-3)] border rounded p-2.5 text-xs text-[var(--paper)] font-mono outline-none ${
+                  isSellingTooMuch || isSellingWithNoHolding
+                    ? "border-[var(--loss)] focus:border-[var(--loss)] text-[var(--loss)]"
+                    : "border-[var(--line)] focus:border-[var(--brass)]"
+                }`}
               />
             </div>
 
@@ -211,6 +250,37 @@ export default function TransactionModal({
             </div>
           </div>
 
+          {/* Sell Warning / Holding Feedback Box */}
+          {type === "SELL" && (
+            <div className="animate-in fade-in">
+              {isSellingWithNoHolding ? (
+                <div className="p-2.5 bg-[rgba(163,59,59,0.12)] border border-[var(--loss)] rounded-lg text-xs font-mono text-[var(--loss)] flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>
+                    Seçili sepette elinizde hiç <strong>{symbol}</strong> lotu bulunmuyor. Satış işlemi yapamazsınız.
+                  </span>
+                </div>
+              ) : isSellingTooMuch ? (
+                <div className="p-2.5 bg-[rgba(163,59,59,0.12)] border border-[var(--loss)] rounded-lg text-xs font-mono text-[var(--loss)] flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>
+                    Elinizde bu sepette sadece <strong>{availableLots} lot</strong> var. {numQty} lot satamazsınız.
+                  </span>
+                </div>
+              ) : (
+                <div className="p-2.5 bg-[var(--ink-3)] border border-[var(--line)] rounded-lg text-xs font-mono text-[var(--paper-dim)] flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-[var(--mist)]">
+                    <Info className="w-3.5 h-3.5 text-[var(--brass)]" />
+                    Mevcut Varlık:
+                  </span>
+                  <span className="text-[var(--brass)] font-semibold">
+                    {availableLots} lot &rarr; Kalan: {availableLots - numQty} lot
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
           <div>
             <label className="block text-xs font-mono text-[var(--mist)] uppercase mb-1">
               İşlem Notu (Opsiyonel)
@@ -219,7 +289,7 @@ export default function TransactionModal({
               type="text"
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Örn: Aylık düzenli tasarruf alımı"
+              placeholder="Örn: Kâr realizasyonu veya düzenli alım"
               className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 text-xs text-[var(--paper)] focus:border-[var(--brass)] outline-none"
             />
           </div>
@@ -239,16 +309,16 @@ export default function TransactionModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 border border-[var(--line)] py-2.5 rounded text-xs font-mono text-[var(--mist)] hover:text-[var(--paper)]"
+              className="flex-1 border border-[var(--line)] py-2.5 rounded text-xs font-mono text-[var(--mist)] hover:text-[var(--paper)] cursor-pointer"
             >
               İptal
             </button>
             <button
               type="submit"
-              disabled={!targetBasketId || numQty <= 0 || numPrice <= 0}
-              className="flex-1 bg-[var(--brass)] hover:bg-[#d9b35a] disabled:opacity-50 disabled:cursor-not-allowed text-[var(--ink)] font-bold py-2.5 rounded text-xs transition-transform active:scale-95 cursor-pointer"
+              disabled={isFormInvalid}
+              className="flex-1 bg-[var(--brass)] hover:bg-[#d9b35a] disabled:opacity-40 disabled:cursor-not-allowed text-[var(--ink)] font-bold py-2.5 rounded text-xs transition-transform active:scale-95 cursor-pointer shadow"
             >
-              İşlemi Kaydet &amp; Maliyeti Güncelle
+              {type === "BUY" ? "Alış İşlemini Kaydet" : "Satış İşlemini Kaydet"}
             </button>
           </div>
         </form>

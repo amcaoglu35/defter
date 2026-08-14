@@ -91,7 +91,7 @@ interface DefterStoreContextType {
   addTransaction: (
     tx: Omit<Transaction, "id">,
     targetBasketId?: string
-  ) => void;
+  ) => { success: boolean; error?: string };
 
   // Notes
   companyNotes: Record<string, string[]>;
@@ -965,15 +965,34 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const addTransaction = (
     tx: Omit<Transaction, "id">,
     targetBasketId?: string
-  ) => {
+  ): { success: boolean; error?: string } => {
     if (!targetBasketId) {
       console.warn("addTransaction: targetBasketId is required");
-      return;
+      return { success: false, error: "İşlem yapılacak hedef sepet seçilmedi." };
     }
     const basketToUpdate = baskets.find((b) => b.id === targetBasketId);
     if (!basketToUpdate) {
       console.warn("addTransaction: Target basket not found:", targetBasketId);
-      return;
+      return { success: false, error: "Seçilen sepet kütükte bulunamadı." };
+    }
+
+    if (tx.quantity <= 0 || tx.price <= 0) {
+      return { success: false, error: "Lütfen geçerli bir lot ve birim fiyat girin." };
+    }
+
+    const existingHolding = basketToUpdate.holdings.find(
+      (h) => h.companySymbol === tx.companySymbol
+    );
+
+    // 1) Validate SELL condition
+    if (tx.type === "SELL") {
+      if (!existingHolding || existingHolding.quantity < tx.quantity) {
+        const availableLots = existingHolding ? existingHolding.quantity : 0;
+        return {
+          success: false,
+          error: `Yetersiz bakiye! "${basketToUpdate.name}" sepetinde yalnızca ${availableLots} adet ${tx.companySymbol} bulunmaktadır.`,
+        };
+      }
     }
 
     const newTx: Transaction = {
@@ -992,16 +1011,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       prev.map((b) => {
         if (b.id !== basketToUpdate.id) return b;
 
-        const existingHolding = b.holdings.find(
+        const currentHolding = b.holdings.find(
           (h) => h.companySymbol === tx.companySymbol
         );
 
         let newHoldings = [...b.holdings];
 
         if (tx.type === "BUY") {
-          if (existingHolding) {
-            const oldQty = existingHolding.quantity;
-            const oldCost = existingHolding.avgCost;
+          if (currentHolding) {
+            const oldQty = currentHolding.quantity;
+            const oldCost = currentHolding.avgCost;
             const newQty = oldQty + tx.quantity;
             const newAvgCost =
               newQty > 0
@@ -1029,8 +1048,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               },
             ];
           }
-        } else if (tx.type === "SELL" && existingHolding) {
-          const newQty = Math.max(0, existingHolding.quantity - tx.quantity);
+        } else if (tx.type === "SELL" && currentHolding) {
+          const newQty = Math.max(0, currentHolding.quantity - tx.quantity);
           if (newQty === 0) {
             newHoldings = b.holdings.filter((h) => h.companySymbol !== tx.companySymbol);
           } else {
@@ -1049,14 +1068,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            action: "update_basket_holding",
-            payload: {
-              basketId: b.id,
-              companySymbol: tx.companySymbol,
-              weightPercent: targetH ? targetH.weightPercent : 0,
-              quantity: targetH ? targetH.quantity : 0,
-              avgCost: targetH ? targetH.avgCost : tx.price,
-            },
+            action: targetH ? "upsert_holding" : "delete_holding",
+            payload: targetH
+              ? {
+                  basketId: b.id,
+                  companySymbol: tx.companySymbol,
+                  weightPercent: targetH.weightPercent,
+                  quantity: targetH.quantity,
+                  avgCost: targetH.avgCost,
+                }
+              : { basketId: b.id, companySymbol: tx.companySymbol },
           }),
         }).catch((err) => console.warn("[Sync] transaction holding sync error:", err));
 
@@ -1072,6 +1093,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         return updatedB;
       })
     );
+
+    return { success: true };
   };
 
   const addNote = (symbol: string, noteText: string) => {
