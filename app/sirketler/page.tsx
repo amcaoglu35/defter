@@ -411,14 +411,31 @@ export default function SirketlerPage() {
 
       {/* 5. Company Table */}
       <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl overflow-hidden shadow-lg">
-        <div className="hidden md:grid grid-cols-[36px_1.5fr_100px_90px_100px_90px_80px_100px_70px] gap-3 px-6 py-3 border-b border-[var(--line)] bg-[var(--ink-3)] font-mono text-[11px] uppercase tracking-wider text-[var(--mist)] items-center">
+        {/* Dynamic Desktop Header */}
+        <div className="hidden md:grid grid-cols-[36px_1.5fr_100px_90px_100px_110px_100px_90px_70px] gap-3 px-6 py-3 border-b border-[var(--line)] bg-[var(--ink-3)] font-mono text-[11px] uppercase tracking-wider text-[var(--mist)] items-center">
           <span>Seç</span>
           <span>Şirket / Varlık</span>
           <span className="text-right">Fiyat</span>
           <span className="text-right">Günlük %</span>
           <span className="text-center">7G Trend</span>
-          <span className="text-right">F/K</span>
-          <span className="text-right">Temettü</span>
+          <span className="text-right">
+            {assetTab === "hisse"
+              ? "F/K"
+              : assetTab === "maden"
+              ? "Kategori"
+              : assetTab === "fon"
+              ? "Platform"
+              : "Birim"}
+          </span>
+          <span className="text-right">
+            {assetTab === "hisse"
+              ? "Temettü"
+              : assetTab === "maden"
+              ? "Birim / Tip"
+              : assetTab === "fon"
+              ? "Fon Türü"
+              : "Kur Türü"}
+          </span>
           <span className="text-center">Karar</span>
           <span className="text-right">İşlem</span>
         </div>
@@ -437,7 +454,7 @@ export default function SirketlerPage() {
               return (
                 <div
                   key={c.id}
-                  className={`grid grid-cols-2 md:grid-cols-[36px_1.5fr_100px_90px_100px_90px_80px_100px_70px] gap-3 p-4 md:px-6 md:py-3.5 items-center hover:bg-[rgba(201,162,75,0.03)] transition-colors ${
+                  className={`grid grid-cols-2 md:grid-cols-[36px_1.5fr_100px_90px_100px_110px_100px_90px_70px] gap-3 p-4 md:px-6 md:py-3.5 items-center hover:bg-[rgba(201,162,75,0.03)] transition-colors ${
                     isSelected ? "bg-[rgba(201,162,75,0.06)]" : ""
                   }`}
                 >
@@ -487,28 +504,40 @@ export default function SirketlerPage() {
                     {c.dailyChange}%
                   </div>
 
-                  {/* 7-Day Sparkline */}
+                  {/* 7-Day Sparkline (Desktop) */}
                   <div className="hidden md:flex justify-center">
                     <Sparkline data={sparkData} width={75} height={24} />
                   </div>
 
-                  {/* PE */}
+                  {/* Dynamic Col 5 (Desktop) */}
                   <div className="hidden md:block text-right font-mono text-xs text-[var(--mist)]">
-                    {c.peRatio !== undefined && c.peRatio !== null ? `${c.peRatio}x` : "-"}
+                    {assetTab === "hisse"
+                      ? (c.peRatio !== undefined && c.peRatio !== null ? `${c.peRatio}x` : "-")
+                      : assetTab === "maden"
+                      ? (c.madenKategori === "altin" ? "Altın Grubu" : c.madenKategori === "gumus_platin" ? "Kıymetli Metal" : "Enerji / Emtia")
+                      : assetTab === "fon"
+                      ? (c.exchange === "BIST" ? "🏛️ TEFAS" : "🇺🇸 ABD ETF")
+                      : (c.symbol.split("/")[0] || c.currency)}
                   </div>
 
-                  {/* Dividend */}
+                  {/* Dynamic Col 6 (Desktop) */}
                   <div className="hidden md:block text-right font-mono text-xs text-[var(--paper-dim)]">
-                    {c.dividendYield !== undefined && c.dividendYield !== null ? `%${c.dividendYield}` : "-"}
+                    {assetTab === "hisse"
+                      ? (c.dividendYield !== undefined && c.dividendYield !== null ? `%${c.dividendYield}` : "-")
+                      : assetTab === "maden"
+                      ? (c.symbol.includes("/GR") ? "Gram" : c.symbol.includes("ONS") ? "Ons" : c.symbol.includes("OIL") || c.symbol.includes("BRENT") ? "Varil" : "Spot")
+                      : assetTab === "fon"
+                      ? (c.indexTag || "Yatırım Fonu")
+                      : (c.symbol.includes("/TRY") ? "TL Kuru" : "Çapraz Kur")}
                   </div>
 
-                  {/* Stamp Verdict */}
+                  {/* Stamp Verdict (Desktop) */}
                   <div className="hidden md:flex justify-center">
                     <StampBadge verdict={c.recommendation} />
                   </div>
 
-                  {/* Action buttons */}
-                  <div className="col-span-2 md:col-span-1 flex items-center justify-end gap-2 pt-2 md:pt-0 border-t md:border-t-0 border-dashed border-[var(--line)]">
+                  {/* Desktop Action buttons */}
+                  <div className="hidden md:flex items-center justify-end gap-2">
                     <button
                       onClick={() => toggleWatchlist(c.symbol)}
                       className={`p-1.5 rounded transition-colors cursor-pointer ${
@@ -532,6 +561,68 @@ export default function SirketlerPage() {
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
+                  </div>
+
+                  {/* Mobile Enriched Sub-Card Row */}
+                  <div className="col-span-2 md:hidden flex items-center justify-between gap-2 pt-2.5 mt-1 border-t border-dashed border-[var(--line)] font-mono text-[11px]">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <StampBadge verdict={c.recommendation} />
+                      {assetTab === "hisse" && (
+                        <>
+                          {c.peRatio ? (
+                            <span className="text-[var(--mist)]">
+                              F/K: <strong className="text-[var(--paper)]">{c.peRatio}x</strong>
+                            </span>
+                          ) : null}
+                          {c.dividendYield ? (
+                            <span className="text-[var(--mist)]">
+                              Tem: <strong className="text-[var(--verdigris)]">%{c.dividendYield}</strong>
+                            </span>
+                          ) : null}
+                        </>
+                      )}
+                      {assetTab === "maden" && (
+                        <span className="text-[var(--mist)]">
+                          {c.madenKategori === "altin" ? "Altın" : c.madenKategori === "gumus_platin" ? "Metal" : "Emtia"}
+                        </span>
+                      )}
+                      {assetTab === "fon" && (
+                        <span className="text-[var(--mist)]">
+                          {c.exchange === "BIST" ? "TEFAS" : "ETF"}
+                        </span>
+                      )}
+                      {assetTab === "doviz" && (
+                        <span className="text-[var(--mist)]">
+                          {c.symbol.includes("/TRY") ? "TL Kuru" : "Çapraz"}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => toggleWatchlist(c.symbol)}
+                        className={`p-1.5 rounded transition-colors cursor-pointer ${
+                          c.inWatchlist
+                            ? "text-[var(--brass)] bg-[var(--brass-glow)]"
+                            : "text-[var(--mist)] hover:text-[var(--paper)]"
+                        }`}
+                        title={c.inWatchlist ? "İzleme Listesinde" : "İzlemeye Al"}
+                      >
+                        {c.inWatchlist ? (
+                          <BookmarkCheck className="w-3.5 h-3.5" />
+                        ) : (
+                          <Bookmark className="w-3.5 h-3.5" />
+                        )}
+                      </button>
+
+                      <button
+                        onClick={(e) => handleRequestDelete(c.symbol, e)}
+                        className="p-1.5 text-[var(--mist)] hover:text-[var(--loss)] transition-colors cursor-pointer"
+                        title="Varlığı Kütükten Sil"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               );

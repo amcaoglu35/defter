@@ -524,6 +524,33 @@ export default function SirketDetayPage() {
                 </span>
               </div>
             </div>
+
+            {/* Additional Metrics from Kütük (Renders company.metrics) */}
+            {company.metrics && company.metrics.length > 0 && (
+              <div className="mt-4 pt-4 border-t border-[var(--line)]">
+                <span className="text-[11px] font-mono text-[var(--mist)] uppercase tracking-wider block mb-2.5">
+                  Ek Finansal Rasyolar &amp; Sektör Kıyaslamaları
+                </span>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                  {company.metrics.map((m, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-[var(--ink-3)] border border-[var(--line)] p-2.5 rounded-lg flex items-center justify-between font-mono text-xs"
+                    >
+                      <span className="text-[var(--mist)]">{m.label}:</span>
+                      <div className="text-right">
+                        <span className="font-bold text-[var(--paper)]">{m.value}</span>
+                        {m.peerAvg && (
+                          <span className="text-[10px] text-[var(--mist)] block">
+                            Sektör: {m.peerAvg}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Orakul Deep Dive Diagnosis Box */}
