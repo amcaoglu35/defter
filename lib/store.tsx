@@ -523,36 +523,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     userSettings,
   ]);
 
-  // Recalculate basket totals dynamically
+  // Recalculate basket totals dynamically using single canonical recalculateBasket function
   const recalculatedBaskets = useMemo(() => {
-    return baskets.map((basket) => {
-      let totalVal = 0;
-      let totalCst = 0;
-
-      basket.holdings.forEach((h) => {
-        const co = companies.find((c) => c.symbol === h.companySymbol);
-        const curPrice = co ? co.price : h.currentPrice;
-        totalVal += h.quantity * curPrice;
-        totalCst += h.quantity * h.avgCost;
-      });
-
-      const profitPercent =
-        totalCst > 0 ? ((totalVal - totalCst) / totalCst) * 100 : 0;
-
-      return {
-        ...basket,
-        totalValue: Math.round(totalVal),
-        totalCost: Math.round(totalCst),
-        totalProfitPercent: parseFloat(profitPercent.toFixed(1)),
-        holdings: basket.holdings.map((h) => {
-          const co = companies.find((c) => c.symbol === h.companySymbol);
-          return {
-            ...h,
-            currentPrice: co ? co.price : h.currentPrice,
-          };
-        }),
-      };
-    });
+    return baskets.map((basket) => recalculateBasket(basket, companies));
   }, [baskets, companies]);
 
   // Dynamic Dividends (Calculated strictly based on user's actual owned holdings)
