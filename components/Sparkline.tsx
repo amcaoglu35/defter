@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { memo } from "react";
 
 interface SparklineProps {
   data: number[];
@@ -12,7 +12,7 @@ interface SparklineProps {
   showDot?: boolean;
 }
 
-export default function Sparkline({
+function SparklineComponent({
   data,
   width = 80,
   height = 28,
@@ -87,6 +87,9 @@ export default function Sparkline({
     </svg>
   );
 }
+
+const Sparkline = memo(SparklineComponent);
+export default Sparkline;
 
 /**
  * Generate deterministic sparkline data for a company based on its current price, daily change, and symbol.

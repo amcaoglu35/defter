@@ -25,6 +25,12 @@ import ConfirmModal from "@/components/ConfirmModal";
 import { useToast } from "@/components/ToastProvider";
 import { isLiveSymbol } from "@/lib/liveSymbols";
 
+export const currencyForExchange = (exchange: string): string => {
+  if (exchange === "ABD") return "$";
+  if (exchange === "Avrupa") return "€";
+  return "₺";
+};
+
 export default function SirketlerPage() {
   const { companies, addCompany, deleteCompany, toggleWatchlist, transactions, baskets } =
     useDefterStore();
@@ -147,9 +153,9 @@ export default function SirketlerPage() {
       sector: newSector,
       exchange: newExchange,
       assetClass: newAssetClass,
-      indexTag: newExchange === "BIST" ? "BIST 100" : "S&P 500",
+      indexTag: newExchange === "BIST" ? "BIST 100" : newExchange === "ABD" ? "S&P 500" : "DAX 40",
       price: parsedPrice,
-      currency: newExchange === "ABD" ? "$" : "₺",
+      currency: currencyForExchange(newExchange),
       dailyChange: 0.0,
       peRatio: pe,
       pbRatio: pb,
@@ -601,6 +607,37 @@ export default function SirketlerPage() {
                 </div>
               </div>
 
+              {/* Exchange / Market Selector */}
+              <div>
+                <label className="block text-xs font-mono text-[var(--mist)] uppercase mb-1">
+                  Borsa / Pazar &amp; Para Birimi
+                </label>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {(
+                    [
+                      { id: "BIST", label: "BIST (₺)" },
+                      { id: "ABD", label: "ABD ($)" },
+                      { id: "Avrupa", label: "Avrupa (€)" },
+                      { id: "Emtia", label: "Emtia (₺)" },
+                      { id: "Döviz", label: "Döviz (₺)" },
+                    ] as const
+                  ).map((ex) => (
+                    <button
+                      key={ex.id}
+                      type="button"
+                      onClick={() => setNewExchange(ex.id)}
+                      className={`py-1.5 text-[11px] font-mono rounded border transition-all cursor-pointer ${
+                        newExchange === ex.id
+                          ? "bg-[var(--brass)] text-[var(--ink)] font-bold border-[var(--brass)]"
+                          : "bg-[var(--ink-3)] text-[var(--mist)] border-[var(--line)]"
+                      }`}
+                    >
+                      {ex.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Symbol & Name */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -649,7 +686,7 @@ export default function SirketlerPage() {
 
                 <div>
                   <label className="block text-xs font-mono text-[var(--mist)] uppercase mb-1">
-                    Güncel Fiyat (₺ / $) <span className="text-[var(--loss)]">*</span>
+                    Güncel Fiyat ({currencyForExchange(newExchange)}) <span className="text-[var(--loss)]">*</span>
                   </label>
                   <input
                     type="number"
