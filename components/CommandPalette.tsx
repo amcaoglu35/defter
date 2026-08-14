@@ -141,7 +141,7 @@ export default function CommandPalette() {
               {filteredCompanies.slice(0, 5).map((c) => (
                 <button
                   key={c.id}
-                  onClick={() => navigateTo(`/sirketler/${c.symbol}`)}
+                  onClick={() => navigateTo(`/sirketler/${encodeURIComponent(c.symbol)}`)}
                   className="w-full p-2 rounded-lg flex items-center justify-between hover:bg-[var(--ink-3)] text-left group cursor-pointer"
                 >
                   <div className="flex items-center gap-2.5">

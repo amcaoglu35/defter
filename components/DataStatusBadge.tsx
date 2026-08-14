@@ -1,4 +1,5 @@
 import React from "react";
+import { MOCK_COMPANIES } from "@/lib/mockData";
 
 interface DataStatusBadgeProps {
   symbol: string;
@@ -6,7 +7,14 @@ interface DataStatusBadgeProps {
   className?: string;
 }
 
-const TEFAS_FUNDS = new Set(["AFT", "TTE", "MAC", "TI1", "YAY", "AFO", "TJB", "IPB"]);
+// Dynamically derive BIST TEFAS fund symbols from canonical ledger data
+const TEFAS_FUNDS = new Set(
+  MOCK_COMPANIES.filter(
+    (c) =>
+      (c.assetClass === "fon" || c.sector?.includes("Fon")) &&
+      c.exchange === "BIST"
+  ).map((c) => c.symbol.toUpperCase())
+);
 
 export default function DataStatusBadge({ symbol, isLive = false, className = "" }: DataStatusBadgeProps) {
   if (isLive) return null;

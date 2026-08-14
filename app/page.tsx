@@ -360,7 +360,7 @@ export default function HomePage() {
             {watchlistCompanies.slice(0, 6).map((c) => (
               <Link
                 key={c.id}
-                href={`/sirketler/${c.symbol}`}
+                href={`/sirketler/${encodeURIComponent(c.symbol)}`}
                 className="bg-[var(--ink-3)] border border-[var(--line)] hover:border-[var(--brass-dim)] p-3 rounded flex flex-col justify-between transition-all group"
               >
                 <div className="flex items-center justify-between">
@@ -436,7 +436,7 @@ export default function HomePage() {
                   <div>
                     <div className="flex items-center gap-1.5">
                       <Link
-                        href={`/sirketler/${c.symbol}`}
+                        href={`/sirketler/${encodeURIComponent(c.symbol)}`}
                         className="font-medium text-sm text-[var(--paper)] hover:text-[var(--brass)] transition-colors"
                       >
                         {c.name}
@@ -486,7 +486,7 @@ export default function HomePage() {
                 {/* Action Link */}
                 <div className="col-span-2 md:col-span-1 flex justify-end md:text-right pt-2 md:pt-0 border-t md:border-t-0 border-dashed border-[var(--line)]">
                   <Link
-                    href={`/sirketler/${c.symbol}`}
+                    href={`/sirketler/${encodeURIComponent(c.symbol)}`}
                     className="inline-flex items-center gap-1 text-xs font-mono text-[var(--brass)] hover:underline"
                   >
                     <span>İncele</span>

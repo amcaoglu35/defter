@@ -439,7 +439,7 @@ export default function SepetDetayPage() {
                       <div>
                         <div className="flex items-center gap-2">
                           <Link
-                            href={`/sirketler/${h.companySymbol}`}
+                            href={`/sirketler/${encodeURIComponent(h.companySymbol)}`}
                             className="font-bold text-sm text-[var(--paper)] hover:text-[var(--brass)] transition-colors font-mono"
                           >
                             {h.companySymbol}

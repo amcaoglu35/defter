@@ -47,7 +47,10 @@ type PeriodType = "1A" | "3A" | "6A" | "1Y";
 export default function SirketDetayPage() {
   const params = useParams();
   const router = useRouter();
-  const symbol = (params.symbol as string)?.toUpperCase();
+  const rawSymbol = Array.isArray(params?.symbol)
+    ? params.symbol.join("/")
+    : (params?.symbol as string) || "";
+  const symbol = decodeURIComponent(rawSymbol).toUpperCase();
   const { showToast } = useToast();
 
   const {

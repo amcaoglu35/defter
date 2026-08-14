@@ -441,7 +441,7 @@ export default function SirketlerPage() {
                     <div>
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <Link
-                          href={`/sirketler/${c.symbol}`}
+                          href={`/sirketler/${encodeURIComponent(c.symbol)}`}
                           className="font-bold text-sm text-[var(--paper)] hover:text-[var(--brass)] transition-colors font-mono"
                         >
                           {c.name}
@@ -878,7 +878,7 @@ export default function SirketlerPage() {
 
                     <div className="pt-2">
                       <Link
-                        href={`/sirketler/${co.symbol}`}
+                        href={`/sirketler/${encodeURIComponent(co.symbol)}`}
                         className="w-full bg-[var(--ink-2)] hover:bg-[var(--ink)] border border-[var(--line)] text-[var(--brass)] py-2 rounded text-xs flex items-center justify-center gap-1"
                       >
                         <span>Detaylı Kütüğe Git</span>

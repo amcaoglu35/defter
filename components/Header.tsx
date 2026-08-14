@@ -77,7 +77,7 @@ export default function Header() {
     setNotifOpen(false);
 
     if (n.relatedCompanySymbol) {
-      router.push(`/sirketler/${n.relatedCompanySymbol}`);
+      router.push(`/sirketler/${encodeURIComponent(n.relatedCompanySymbol)}`);
     } else if (n.relatedBasketId) {
       router.push(`/sepetlerim/${n.relatedBasketId}`);
     } else if (n.type === "ipo") {

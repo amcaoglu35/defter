@@ -1483,12 +1483,12 @@ interface CompanyAnalysisResult {
                       </p>
                     </div>
 
-                    <a
-                      href={`/sirketler/${pick.symbol}`}
+                    <Link
+                      href={`/sirketler/${encodeURIComponent(pick.symbol)}`}
                       className="text-xs font-mono text-[var(--brass)] hover:text-[var(--paper)] flex items-center gap-1.5 transition-colors pt-2 border-t border-[var(--line)]"
                     >
                       <span>Şirket Kütüğünü Aç</span>
-                    </a>
+                    </Link>
                   </div>
                 ))}
               </div>
