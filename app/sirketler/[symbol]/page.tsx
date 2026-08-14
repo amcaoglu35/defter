@@ -71,13 +71,38 @@ export default function SirketDetayPage() {
   const [aiReport, setAiReport] = useState<CompanyDiagnosisReport | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
 
+  // Dynamic Sector Peer Averages (Real calculation from kütük)
+  const sectorMetrics = useMemo(() => {
+    if (!company) return { avgPe: null, avgPb: null, peerCount: 0 };
+    const peers = companies.filter(
+      (c) => c.sector === company.sector && c.symbol !== company.symbol
+    );
+    const pePeers = peers.filter(
+      (c) => c.peRatio !== undefined && c.peRatio !== null && (c.peRatio || 0) > 0
+    );
+    const pbPeers = peers.filter(
+      (c) => c.pbRatio !== undefined && c.pbRatio !== null && (c.pbRatio || 0) > 0
+    );
+
+    const avgPe =
+      pePeers.length >= 2
+        ? (pePeers.reduce((s, c) => s + (c.peRatio || 0), 0) / pePeers.length).toFixed(1)
+        : null;
+
+    const avgPb =
+      pbPeers.length >= 2
+        ? (pbPeers.reduce((s, c) => s + (c.pbRatio || 0), 0) / pbPeers.length).toFixed(1)
+        : null;
+
+    return { avgPe, avgPb, peerCount: peers.length };
+  }, [companies, company]);
+
   // Dynamic Chart Points & Date Labels based on Period & Real Stock Price
   const chartData = useMemo(() => {
     if (!company) return { points: [], pathD: "", areaD: "", labels: [], minPrice: 0, maxPrice: 0 };
 
     const currentPrice = company.price || 100;
     const dailyChg = company.dailyChange || 0;
-    const isLive = isLiveSymbol(company.symbol);
 
     let stepCount = 6;
     let labels: string[] = [];
@@ -350,7 +375,7 @@ export default function SirketDetayPage() {
                   Fiyat Eğrisi &amp; Trend ({period})
                 </h3>
                 <span className="text-[10px] font-mono text-[var(--mist)]">
-                  Min: {chartData.minPrice.toFixed(2)} ₺ • Maks: {chartData.maxPrice.toFixed(2)} ₺
+                  Min: {chartData.minPrice.toFixed(2)} {company.currency} • Maks: {chartData.maxPrice.toFixed(2)} {company.currency}
                 </span>
               </div>
 
@@ -427,7 +452,7 @@ export default function SirketDetayPage() {
             </div>
           </div>
 
-          {/* Key Financial Metrics (Null-safe) */}
+          {/* Key Financial Metrics (Null-safe & Dynamic Sector Peers) */}
           <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6">
             <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--brass)] mb-4 font-semibold">
               Finansal Kütük Değerleri &amp; Çarpanlar
@@ -441,7 +466,9 @@ export default function SirketDetayPage() {
                 <div className="font-mono text-lg font-bold text-[var(--paper)] mt-1">
                   {company.peRatio !== undefined && company.peRatio !== null ? `${company.peRatio}x` : "-"}
                 </div>
-                <span className="text-[10px] text-[var(--mist)]">Fiyat / Kazanç</span>
+                <span className="text-[10px] text-[var(--mist)]">
+                  {sectorMetrics.avgPe ? `Sektör: ${sectorMetrics.avgPe}x` : "Sektör: -"}
+                </span>
               </div>
 
               <div className="bg-[var(--ink-3)] p-3.5 rounded border border-[var(--line)]">
@@ -451,7 +478,9 @@ export default function SirketDetayPage() {
                 <div className="font-mono text-lg font-bold text-[var(--paper)] mt-1">
                   {company.pbRatio !== undefined && company.pbRatio !== null ? `${company.pbRatio}x` : "-"}
                 </div>
-                <span className="text-[10px] text-[var(--mist)]">Piyasa / Defter</span>
+                <span className="text-[10px] text-[var(--mist)]">
+                  {sectorMetrics.avgPb ? `Sektör: ${sectorMetrics.avgPb}x` : "Sektör: -"}
+                </span>
               </div>
 
               <div className="bg-[var(--ink-3)] p-3.5 rounded border border-[var(--line)]">
@@ -469,7 +498,7 @@ export default function SirketDetayPage() {
                   Piyasa Değeri
                 </span>
                 <div className="font-mono text-lg font-bold text-[var(--paper)] mt-1 truncate">
-                  {company.marketCap || "-"}
+                  {company.marketCap || "Veri Girilmedi"}
                 </div>
                 <span className="text-[10px] text-[var(--mist)]">
                   Beta: {company.beta !== undefined && company.beta !== null ? company.beta : "-"}
@@ -502,10 +531,10 @@ export default function SirketDetayPage() {
               <div className="bg-[var(--ink-3)] p-4 rounded-lg space-y-3 font-sans text-xs border border-[var(--line)] animate-in fade-in">
                 <div className="flex items-center justify-between text-xs font-mono border-b border-dashed border-[var(--line)] pb-2">
                   <span className="text-[var(--brass)] font-bold">
-                    Değerleme Puanı: {aiReport.valuationScore}
+                    Değerleme Puanı: {aiReport.valuationScore || "Hesaplandı"}
                   </span>
                   <span className="text-[var(--verdigris)] font-bold">
-                    Karar: {aiReport.verdict}
+                    Karar: {aiReport.verdict || "NÖTR"}
                   </span>
                 </div>
 
@@ -540,8 +569,8 @@ export default function SirketDetayPage() {
                 </div>
               </div>
             ) : (
-              <p className="text-xs text-[var(--mist)] font-sans">
-                Orakul yapay zekasını çalıştırarak bilançodaki gizli avantajları, &quot;Neden Düştü / Yükseldi?&quot; sebeplerini ve risk faktörlerini tek tıkla analiz edebilirsiniz.
+              <p className="text-xs text-[var(--mist)] font-sans leading-relaxed">
+                Orakul yapay zekasını çalıştırarak bilançodaki gizli avantajları, &quot;Neden Düştü / Yükseldi?&quot; sebeplerini ve risk faktörlerini tek tıkla analiz edebilirsiniz. Henüz bu şirket için teşhis çalıştırılmadı.
               </p>
             )}
           </div>
