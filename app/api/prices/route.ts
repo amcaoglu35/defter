@@ -111,7 +111,7 @@ const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 export async function GET(request: Request) {
   // 1. Rate Limiting (30 requests per minute per IP)
   const clientIp = getClientIp(request);
-  const rateLimit = checkRateLimit(`prices:${clientIp}`, 30, 60000);
+  const rateLimit = await checkRateLimit(`prices:${clientIp}`, 30, 60000);
   if (!rateLimit.allowed) {
     return createRateLimitResponse(rateLimit.resetInSeconds);
   }

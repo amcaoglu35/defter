@@ -46,7 +46,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   // Rate limiting (10 auth attempts per minute per IP)
   const clientIp = getClientIp(req);
-  const rateLimit = checkRateLimit(`auth:${clientIp}`, 10, 60000);
+  const rateLimit = await checkRateLimit(`auth:${clientIp}`, 10, 60000);
   if (!rateLimit.allowed) {
     return createRateLimitResponse(rateLimit.resetInSeconds);
   }

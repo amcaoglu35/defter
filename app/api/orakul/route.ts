@@ -20,7 +20,7 @@ import {
 export async function POST(req: Request) {
   // 1. Rate Limiting (10 requests per minute per IP)
   const clientIp = getClientIp(req);
-  const rateLimit = checkRateLimit(`orakul:${clientIp}`, 10, 60000);
+  const rateLimit = await checkRateLimit(`orakul:${clientIp}`, 10, 60000);
   if (!rateLimit.allowed) {
     return createRateLimitResponse(rateLimit.resetInSeconds);
   }

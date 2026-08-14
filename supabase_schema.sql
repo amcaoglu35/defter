@@ -136,7 +136,15 @@ CREATE TABLE notifications (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- 10. Row Level Security (RLS) - Kişisel Kullanıcı İzinleri
+-- 10. Dağıtık Rate Limiting Tablosu
+CREATE TABLE IF NOT EXISTS rate_limits (
+    id TEXT PRIMARY KEY,
+    count INT NOT NULL DEFAULT 1,
+    reset_time BIGINT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 11. Row Level Security (RLS) - Kişisel Kullanıcı İzinleri
 ALTER TABLE companies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE baskets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE basket_holdings ENABLE ROW LEVEL SECURITY;

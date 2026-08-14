@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
+import { supabaseAdmin, isSupabaseAdminConfigured } from "@/lib/supabaseAdmin";
 
 interface RateLimitStore {
   count: number;
   resetTime: number;
 }
 
-// In-memory store for rate limiting
+// In-memory store for rate limiting (fallback when Supabase is not configured or offline)
 const ipRequestMap = new Map<string, RateLimitStore>();
 
 /**
@@ -23,17 +24,10 @@ export function getClientIp(req: Request): string {
   return "127.0.0.1";
 }
 
-/**
- * In-memory sliding window rate limiter
- * @param identifier Unique identifier (e.g. IP address + route name)
- * @param maxRequests Maximum allowed requests in window
- * @param windowMs Time window in milliseconds (default 60000ms = 1 minute)
- * @returns { allowed: boolean, remaining: number, resetInSeconds: number }
- */
-export function checkRateLimit(
+function checkInMemoryRateLimit(
   identifier: string,
-  maxRequests: number = 10,
-  windowMs: number = 60000
+  maxRequests: number,
+  windowMs: number
 ): { allowed: boolean; remaining: number; resetInSeconds: number } {
   const now = Date.now();
   const record = ipRequestMap.get(identifier);
@@ -80,6 +74,90 @@ export function checkRateLimit(
     remaining,
     resetInSeconds: resetInSeconds > 0 ? resetInSeconds : 1,
   };
+}
+
+/**
+ * Distributed rate limiter with Supabase persistence (table: rate_limits: id, count, reset_time)
+ * with in-memory Map fallback.
+ * @param identifier Unique identifier (e.g. IP address + route name)
+ * @param maxRequests Maximum allowed requests in window
+ * @param windowMs Time window in milliseconds (default 60000ms = 1 minute)
+ * @returns Promise<{ allowed: boolean, remaining: number, resetInSeconds: number }>
+ */
+export async function checkRateLimit(
+  identifier: string,
+  maxRequests: number = 10,
+  windowMs: number = 60000
+): Promise<{ allowed: boolean; remaining: number; resetInSeconds: number }> {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+    return checkInMemoryRateLimit(identifier, maxRequests, windowMs);
+  }
+
+  try {
+    const now = Date.now();
+
+    // 1. Fetch current record from Supabase
+    const { data: record, error: fetchErr } = await supabaseAdmin
+      .from("rate_limits")
+      .select("id, count, reset_time")
+      .eq("id", identifier)
+      .maybeSingle();
+
+    if (fetchErr) {
+      console.warn("[RateLimit] Supabase query failed, falling back to memory:", fetchErr.message);
+      return checkInMemoryRateLimit(identifier, maxRequests, windowMs);
+    }
+
+    const resetTimeNum = record?.reset_time ? Number(record.reset_time) : 0;
+
+    // 2. New or expired window
+    if (!record || now > resetTimeNum) {
+      const newResetTime = now + windowMs;
+      await supabaseAdmin.from("rate_limits").upsert(
+        {
+          id: identifier,
+          count: 1,
+          reset_time: newResetTime,
+        },
+        { onConflict: "id" }
+      );
+
+      return {
+        allowed: true,
+        remaining: maxRequests - 1,
+        resetInSeconds: Math.ceil(windowMs / 1000),
+      };
+    }
+
+    // 3. Limit exceeded
+    if (record.count >= maxRequests) {
+      const resetInSeconds = Math.max(1, Math.ceil((resetTimeNum - now) / 1000));
+      return {
+        allowed: false,
+        remaining: 0,
+        resetInSeconds,
+      };
+    }
+
+    // 4. Increment count
+    const nextCount = (record.count || 0) + 1;
+    await supabaseAdmin
+      .from("rate_limits")
+      .update({ count: nextCount })
+      .eq("id", identifier);
+
+    const remaining = Math.max(0, maxRequests - nextCount);
+    const resetInSeconds = Math.max(1, Math.ceil((resetTimeNum - now) / 1000));
+
+    return {
+      allowed: true,
+      remaining,
+      resetInSeconds,
+    };
+  } catch (err) {
+    console.warn("[RateLimit] Unexpected error, falling back to memory:", err);
+    return checkInMemoryRateLimit(identifier, maxRequests, windowMs);
+  }
 }
 
 /**
