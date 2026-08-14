@@ -5,12 +5,68 @@
 
 export const SESSION_COOKIE_NAME = "defter_session";
 
+let devFallbackPassword: string | null = null;
+
 export function getMasterPassword(): string {
   const pwd = process.env.DEFTER_ACCESS_PASSWORD;
   if (pwd && pwd.trim().length > 0) {
     return pwd.trim();
   }
-  return "defter2026";
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "FATAL: DEFTER_ACCESS_PASSWORD ortam değişkeni tanımlı değil. Production ortamında bir kasa erişim şifresi zorunludur."
+    );
+  }
+
+  // Development mode: Generate and persist an in-memory random password for this runtime session
+  if (!devFallbackPassword) {
+    const randomBytes = new Uint8Array(16);
+    crypto.getRandomValues(randomBytes);
+    devFallbackPassword = Array.from(randomBytes)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+
+    console.warn(
+      "\n" +
+        "================================================================================\n" +
+        "⚠️  [GÜVENLİK UYARISI] DEFTER_ACCESS_PASSWORD ORTAM DEĞİŞKENİ TANIMLI DEĞİL!\n" +
+        `🔑  GEÇİCİ LOCAL DEV ŞİFRENİZ: ${devFallbackPassword}\n` +
+        "💡  Kalıcı şifre için .env.local dosyanıza DEFTER_ACCESS_PASSWORD ekleyin.\n" +
+        "================================================================================\n"
+    );
+  }
+
+  return devFallbackPassword;
+}
+
+/**
+ * Constant-time string comparison using Web Crypto API SHA-256 digest and XOR loop.
+ * Fully compatible with Vercel Edge Runtime and Node.js.
+ */
+export async function timingSafeEqualStrings(
+  a: string,
+  b: string
+): Promise<boolean> {
+  if (typeof a !== "string" || typeof b !== "string") {
+    return false;
+  }
+
+  const enc = new TextEncoder();
+  const [hashA, hashB] = await Promise.all([
+    crypto.subtle.digest("SHA-256", enc.encode(a)),
+    crypto.subtle.digest("SHA-256", enc.encode(b)),
+  ]);
+
+  const bufA = new Uint8Array(hashA);
+  const bufB = new Uint8Array(hashB);
+
+  let mismatch = 0;
+  for (let i = 0; i < bufA.length; i++) {
+    mismatch |= bufA[i] ^ bufB[i];
+  }
+
+  return mismatch === 0;
 }
 
 async function getHmacKey(secret: string): Promise<CryptoKey> {

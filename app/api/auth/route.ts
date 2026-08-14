@@ -9,6 +9,7 @@ import {
   createSessionToken,
   verifySessionToken,
   getMasterPassword,
+  timingSafeEqualStrings,
   SESSION_COOKIE_NAME,
 } from "@/lib/session";
 
@@ -17,21 +18,25 @@ import {
  * Checks if current user has a valid httpOnly session cookie.
  */
 export async function GET(req: Request) {
-  const masterPassword = getMasterPassword();
+  try {
+    const masterPassword = getMasterPassword();
 
-  const cookieHeader = req.headers.get("cookie") || "";
-  const match = cookieHeader.match(new RegExp(`(?:^|; )\\s*${SESSION_COOKIE_NAME}\\s*=\\s*([^;]+)`));
-  const token = match ? decodeURIComponent(match[1]) : "";
+    const cookieHeader = req.headers.get("cookie") || "";
+    const match = cookieHeader.match(new RegExp(`(?:^|; )\\s*${SESSION_COOKIE_NAME}\\s*=\\s*([^;]+)`));
+    const token = match ? decodeURIComponent(match[1]) : "";
 
-  const isValid = await verifySessionToken(token, masterPassword);
-  if (isValid) {
-    return NextResponse.json({ success: true, authenticated: true });
+    const isValid = await verifySessionToken(token, masterPassword);
+    if (isValid) {
+      return NextResponse.json({ success: true, authenticated: true });
+    }
+
+    return NextResponse.json(
+      { success: false, authenticated: false, error: "Oturum süresi dolmuş veya geçersiz." },
+      { status: 401 }
+    );
+  } catch (error: unknown) {
+    return formatApiError(error, "Kimlik doğrulama durumu kontrol edilirken bir hata oluştu.");
   }
-
-  return NextResponse.json(
-    { success: false, authenticated: false, error: "Oturum süresi dolmuş veya geçersiz." },
-    { status: 401 }
-  );
 }
 
 /**
@@ -46,9 +51,8 @@ export async function POST(req: Request) {
     return createRateLimitResponse(rateLimit.resetInSeconds);
   }
 
-  const masterPassword = getMasterPassword();
-
   try {
+    const masterPassword = getMasterPassword();
     const body = await req.json();
 
     // Logout Action
@@ -83,7 +87,9 @@ export async function POST(req: Request) {
         );
       }
 
-      if (currentPassword !== masterPassword) {
+      // Timing-safe comparison for current password
+      const isCurrentValid = await timingSafeEqualStrings(currentPassword, masterPassword);
+      if (!isCurrentValid) {
         return NextResponse.json(
           { success: false, error: "Mevcut şifre hatalı. Lütfen tekrar deneyin." },
           { status: 401 }
@@ -106,7 +112,9 @@ export async function POST(req: Request) {
       );
     }
 
-    if (password === masterPassword) {
+    // Timing-safe constant-time comparison for login password
+    const isPasswordValid = await timingSafeEqualStrings(password, masterPassword);
+    if (isPasswordValid) {
       const sessionToken = await createSessionToken(masterPassword);
       const response = NextResponse.json({
         success: true,
