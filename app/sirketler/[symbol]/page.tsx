@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useId } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -62,6 +62,8 @@ export default function SirketDetayPage() {
   } = useDefterStore();
 
   const company = companies.find((c) => c.symbol.toUpperCase() === symbol);
+  const chartUid = useId();
+  const chartGradId = `company-chart-grad-${chartUid}`;
 
   const [period, setPeriod] = useState<PeriodType>("6A");
   const [newNote, setNewNote] = useState("");
@@ -401,7 +403,7 @@ export default function SirketDetayPage() {
             <div className="h-44 w-full relative flex items-end pt-6 pb-2">
               <svg className="w-full h-full overflow-visible" viewBox="0 0 500 120">
                 <defs>
-                  <linearGradient id="company-chart-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <linearGradient id={chartGradId} x1="0%" y1="0%" x2="0%" y2="100%">
                     <stop
                       offset="0%"
                       stopColor={isDailyPositive ? "#5B8C7B" : "#A33B3B"}
@@ -416,7 +418,7 @@ export default function SirketDetayPage() {
                 </defs>
 
                 {/* Filled gradient area */}
-                <path d={chartData.areaD} fill="url(#company-chart-grad)" />
+                <path d={chartData.areaD} fill={`url(#${chartGradId})`} />
 
                 {/* Stroke line */}
                 <path

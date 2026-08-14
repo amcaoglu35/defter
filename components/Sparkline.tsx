@@ -1,6 +1,6 @@
 "use client";
 
-import React, { memo } from "react";
+import React, { memo, useId } from "react";
 
 interface SparklineProps {
   data: number[];
@@ -21,6 +21,7 @@ function SparklineComponent({
   strokeWidth = 1.5,
   showDot = true,
 }: SparklineProps) {
+  const uid = useId();
   if (!data || data.length < 2) return null;
 
   const min = Math.min(...data);
@@ -44,6 +45,7 @@ function SparklineComponent({
   // Determine if the trend is positive or negative
   const isPositive = data[data.length - 1] >= data[0];
   const lineColor = isPositive ? color : negativeColor;
+  const gradId = `sparkGrad-${isPositive ? "pos" : "neg"}-${uid}`;
 
   // Gradient fill path
   const lastPoint = points[points.length - 1];
@@ -53,7 +55,7 @@ function SparklineComponent({
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="shrink-0">
       <defs>
-        <linearGradient id={`sparkGrad-${isPositive ? "pos" : "neg"}`} x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={lineColor} stopOpacity="0.25" />
           <stop offset="100%" stopColor={lineColor} stopOpacity="0.02" />
         </linearGradient>
@@ -62,7 +64,7 @@ function SparklineComponent({
       {/* Fill area */}
       <path
         d={fillD}
-        fill={`url(#sparkGrad-${isPositive ? "pos" : "neg"})`}
+        fill={`url(#${gradId})`}
       />
 
       {/* Line */}
