@@ -7,6 +7,7 @@ import {
 } from "@/lib/rateLimit";
 import { supabaseAdmin, isSupabaseAdminConfigured } from "@/lib/supabaseAdmin";
 import { SYMBOL_MAP, getSymbolTicker } from "@/lib/liveSymbols";
+import { MOCK_COMPANIES } from "@/lib/mockData";
 
 // Initialize yahoo-finance2 instance with suppressed notices
 const yf = typeof YahooFinance === "function" ? new (YahooFinance as unknown as new (opts: { suppressNotices: string[] }) => typeof YahooFinance)({ suppressNotices: ["yahooSurvey"] }) : YahooFinance;
@@ -198,6 +199,14 @@ interface YahooQuote {
   try {
     const combinedSymbolMap: Record<string, string> = { ...SYMBOL_MAP };
 
+    // Include all companies from ledger
+    for (const c of MOCK_COMPANIES) {
+      const sym = c.symbol.toUpperCase().trim();
+      if (sym && !combinedSymbolMap[sym]) {
+        combinedSymbolMap[sym] = getSymbolTicker(sym);
+      }
+    }
+
     // Dynamically include all symbols registered in the companies table
     if (isSupabaseAdminConfigured && supabaseAdmin) {
       try {
@@ -219,41 +228,42 @@ interface YahooQuote {
     const symbolEntries = Object.entries(combinedSymbolMap);
     const yfSymbols = Array.from(new Set(Object.values(combinedSymbolMap)));
 
-    // 1. High-Performance Batch Request (Single HTTP Request to Yahoo Finance)
-    try {
-      const batchQuotes = (await yf.quote(yfSymbols)) as unknown as YahooQuote[];
-      if (Array.isArray(batchQuotes)) {
-        const yfQuoteMap = new Map<string, YahooQuote>();
-        for (const q of batchQuotes) {
-          if (q && q.symbol) {
-            yfQuoteMap.set(q.symbol.toUpperCase(), q);
+    // Chunked Batch Requests (50 symbols per chunk to respect Yahoo limits)
+    const CHUNK_SIZE = 50;
+    for (let i = 0; i < yfSymbols.length; i += CHUNK_SIZE) {
+      const chunk = yfSymbols.slice(i, i + CHUNK_SIZE);
+      try {
+        const batchQuotes = (await yf.quote(chunk)) as unknown as YahooQuote[];
+        if (Array.isArray(batchQuotes)) {
+          const yfQuoteMap = new Map<string, YahooQuote>();
+          for (const q of batchQuotes) {
+            if (q && q.symbol) {
+              yfQuoteMap.set(q.symbol.toUpperCase(), q);
+            }
+          }
+
+          for (const [key, yfSymbol] of symbolEntries) {
+            if (chunk.includes(yfSymbol)) {
+              const quote = yfQuoteMap.get(yfSymbol.toUpperCase());
+              if (quote) {
+                rawQuotes[key] = quote;
+              }
+            }
           }
         }
-
-        // Map back to internal keys
-        for (const [key, yfSymbol] of symbolEntries) {
-          const quote = yfQuoteMap.get(yfSymbol.toUpperCase());
-          if (quote) {
-            rawQuotes[key] = quote;
-          }
-        }
-      }
-    } catch (batchErr: unknown) {
-      console.warn("[YahooFinance] Batch fetch error, falling back to parallel requests:", (batchErr as Error)?.message || batchErr);
-      
-      const fetchPromises = symbolEntries.map(async ([key, yfSymbol]) => {
-        try {
-          const quote = (await yf.quote(yfSymbol)) as unknown as YahooQuote;
-          return { key, quote };
-        } catch {
-          return { key, quote: null };
-        }
-      });
-
-      const results = await Promise.allSettled(fetchPromises);
-      for (const res of results) {
-        if (res.status === "fulfilled" && res.value.quote) {
-          rawQuotes[res.value.key] = res.value.quote;
+      } catch (chunkErr) {
+        console.warn(`[YahooFinance] Chunk ${i} warning, trying fallback:`, chunkErr);
+        for (const sym of chunk) {
+          try {
+            const q = (await yf.quote(sym)) as unknown as YahooQuote;
+            if (q && q.symbol) {
+              for (const [key, yfSymbol] of symbolEntries) {
+                if (yfSymbol.toUpperCase() === sym.toUpperCase()) {
+                  rawQuotes[key] = q;
+                }
+              }
+            }
+          } catch {}
         }
       }
     }

@@ -510,10 +510,33 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           try {
             const parsed = JSON.parse(storedCompanies);
             if (Array.isArray(parsed) && parsed.length > 0) {
-              const normalized = parsed.map(normalizeCompany);
-              const existingSymbols = new Set(normalized.map((c) => c.symbol));
+              const mockMap = new Map(MOCK_COMPANIES.map(m => [m.symbol.toUpperCase(), m]));
+              const merged = parsed.map(c => {
+                const norm = normalizeCompany(c);
+                const freshSeed = mockMap.get(norm.symbol.toUpperCase());
+                if (freshSeed) {
+                  return {
+                    ...norm,
+                    price: freshSeed.price,
+                    dailyChange: freshSeed.dailyChange,
+                    high52: freshSeed.high52 ?? norm.high52,
+                    low52: freshSeed.low52 ?? norm.low52,
+                    dayHigh: freshSeed.dayHigh ?? norm.dayHigh,
+                    dayLow: freshSeed.dayLow ?? norm.dayLow,
+                    openPrice: freshSeed.openPrice ?? norm.openPrice,
+                    volume: freshSeed.volume ?? norm.volume,
+                    avgVolume: freshSeed.avgVolume ?? norm.avgVolume,
+                    volumeRatio: freshSeed.volumeRatio ?? norm.volumeRatio,
+                    athDiscountPct: freshSeed.athDiscountPct ?? norm.athDiscountPct,
+                    peRatio: freshSeed.peRatio ?? norm.peRatio,
+                    marketCap: freshSeed.marketCap ?? norm.marketCap,
+                  };
+                }
+                return norm;
+              });
+              const existingSymbols = new Set(merged.map((c) => c.symbol));
               const missing = MOCK_COMPANIES.filter((m) => !existingSymbols.has(m.symbol));
-              setCompanies([...normalized, ...missing]);
+              setCompanies([...merged, ...missing]);
             } else {
               setCompanies(MOCK_COMPANIES);
             }
