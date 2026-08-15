@@ -836,6 +836,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                   athDiscountPct: athDiscount,
                   peRatio: live.peRatio ?? c.peRatio,
                   marketCap: live.marketCap ?? c.marketCap,
+                  eps: live.eps ?? c.eps,
+                  sharesOutstanding: live.sharesOutstanding ?? c.sharesOutstanding,
+                  yearChangePct: live.yearChangePct ?? c.yearChangePct,
                 };
               }
               return c;

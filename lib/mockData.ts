@@ -46,6 +46,9 @@ export interface Company {
   avgVolume?: number;          // 3 Aylık Ortalama Günlük Hacim
   volumeRatio?: number;        // Güncel Hacim / Ortalama Hacim (Hacim Patlaması Katı)
   athDiscountPct?: number;     // 52 Haftalık Zirveye Göre İskonto Oranı (%)
+  eps?: number;                // Hisse Başına Kâr (HBK / EPS in TL/USD)
+  sharesOutstanding?: string;  // Toplam Ödenmiş Sermaye / Dolaşımdaki Lot
+  yearChangePct?: number;      // 52 Haftalık / 1 Yıllık Yüzde Değişim
 }
 
 export interface BasketHolding {

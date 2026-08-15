@@ -24,6 +24,11 @@ import {
   Target,
   BarChart2,
   Flame,
+  Newspaper,
+  ExternalLink,
+  Coins,
+  Building,
+  Clock,
 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import StampBadge from "@/components/StampBadge";
@@ -77,13 +82,70 @@ export default function SirketDetayPage() {
   const [aiReport, setAiReport] = useState<CompanyDiagnosisReport | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
 
+  // Live Historical Chart & News State
+  const [historyData, setHistoryData] = useState<{ date: string; close: number }[] | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [newsItems, setNewsItems] = useState<{ id: string; title: string; link: string; publisher: string; timeAgo: string }[]>([]);
+  const [newsLoading, setNewsLoading] = useState(false);
+
   // Reset state when navigating between companies without full page reload
   useEffect(() => {
     setAiReport(null);
     setNewNote("");
     setPeriod("6A");
     setAiLoading(false);
+    setHistoryData(null);
   }, [symbol]);
+
+  // Fetch Live Historical Candlesticks / Close Series
+  useEffect(() => {
+    if (!company) return;
+    let isCancelled = false;
+    setHistoryLoading(true);
+
+    fetch(`/api/prices/history?symbol=${encodeURIComponent(company.symbol)}&period=${period}`)
+      .then((res) => res.json())
+      .then((res) => {
+        if (!isCancelled && res.success && Array.isArray(res.data) && res.data.length >= 2) {
+          setHistoryData(res.data);
+        } else if (!isCancelled) {
+          setHistoryData(null);
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) setHistoryData(null);
+      })
+      .finally(() => {
+        if (!isCancelled) setHistoryLoading(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [company?.symbol, period]);
+
+  // Fetch Live Google Finance / KAP News Feed
+  useEffect(() => {
+    if (!company) return;
+    let isCancelled = false;
+    setNewsLoading(true);
+
+    fetch(`/api/prices/news?symbol=${encodeURIComponent(company.symbol)}&name=${encodeURIComponent(company.name)}`)
+      .then((res) => res.json())
+      .then((res) => {
+        if (!isCancelled && res.success && Array.isArray(res.data)) {
+          setNewsItems(res.data);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!isCancelled) setNewsLoading(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [company?.symbol, company?.name]);
 
   // Dynamic Sector Peer Averages (Real calculation from kütük)
   const sectorMetrics = useMemo(() => {
@@ -111,10 +173,53 @@ export default function SirketDetayPage() {
     return { avgPe, avgPb, peerCount: peers.length };
   }, [companies, company]);
 
-  // Dynamic Chart Points & Date Labels based on Period & Real Stock Price
+  // Dynamic Chart Points & Date Labels (Uses 100% Real Live History if available, else smooth calibrated curve)
   const chartData = useMemo(() => {
-    if (!company) return { points: [], pathD: "", areaD: "", labels: [], minPrice: 0, maxPrice: 0 };
+    if (!company) return { points: [], pathD: "", areaD: "", labels: [], minPrice: 0, maxPrice: 0, isLive: false };
 
+    const svgWidth = 500;
+    const svgHeight = 120;
+
+    // IF REAL HISTORICAL DATA IS AVAILABLE
+    if (historyData && historyData.length >= 2) {
+      const values = historyData.map((d) => d.close);
+      const minPrice = Math.min(...values);
+      const maxPrice = Math.max(...values);
+      const range = maxPrice - minPrice || 1;
+
+      const coords = values.map((v, idx) => {
+        const x = (idx / (values.length - 1)) * svgWidth;
+        const y = svgHeight - ((v - minPrice) / range) * (svgHeight - 24) - 12;
+        return { x, y, val: v, date: historyData[idx].date };
+      });
+
+      let pathD = `M ${coords[0].x},${coords[0].y}`;
+      for (let i = 0; i < coords.length - 1; i++) {
+        const curr = coords[i];
+        const next = coords[i + 1];
+        const cpX = (curr.x + next.x) / 2;
+        pathD += ` C ${cpX},${curr.y} ${cpX},${next.y} ${next.x},${next.y}`;
+      }
+
+      const areaD = `${pathD} L ${svgWidth},${svgHeight} L 0,${svgHeight} Z`;
+
+      // Generate 5-6 date labels evenly spaced
+      const labelIndices = [0, Math.floor(historyData.length * 0.25), Math.floor(historyData.length * 0.5), Math.floor(historyData.length * 0.75), historyData.length - 1];
+      const labels = labelIndices.map((idx) => {
+        const d = historyData[idx];
+        if (!d) return "";
+        try {
+          const dt = new Date(d.date);
+          return dt.toLocaleDateString("tr-TR", { day: "numeric", month: "short" });
+        } catch {
+          return d.date;
+        }
+      });
+
+      return { points: coords, pathD, areaD, labels, minPrice, maxPrice, isLive: true };
+    }
+
+    // FALLBACK CALIBRATED CURVE
     const currentPrice = company.price || 100;
     const dailyChg = company.dailyChange || 0;
 
@@ -152,7 +257,6 @@ export default function SirketDetayPage() {
       return x - Math.floor(x);
     };
 
-    // Calculate realistic price history anchored to current price and actual reported returns
     const betaFactor = company.beta && company.beta > 0 ? company.beta : 1.0;
     const volatility = currentPrice * (period === "1A" ? 0.04 : period === "3A" ? 0.09 : period === "6A" ? 0.16 : 0.28) * betaFactor;
     
@@ -165,7 +269,6 @@ export default function SirketDetayPage() {
     }
 
     const values: number[] = [];
-
     for (let i = 0; i < stepCount; i++) {
       const progress = i / (stepCount - 1);
       const noise = (pseudoRandom(i) - 0.5) * volatility * (1 - progress * 0.75);
@@ -173,15 +276,11 @@ export default function SirketDetayPage() {
       const p = Math.max(trend + noise, currentPrice * 0.15);
       values.push(p);
     }
-    // Anchor last value precisely to actual live/current price
     values[values.length - 1] = currentPrice;
 
     const minPrice = Math.min(...values);
     const maxPrice = Math.max(...values);
     const range = maxPrice - minPrice || 1;
-
-    const svgWidth = 500;
-    const svgHeight = 120;
 
     const coords = values.map((v, idx) => {
       const x = (idx / (stepCount - 1)) * svgWidth;
@@ -199,8 +298,8 @@ export default function SirketDetayPage() {
 
     const areaD = `${pathD} L ${svgWidth},${svgHeight} L 0,${svgHeight} Z`;
 
-    return { points: coords, pathD, areaD, labels, minPrice, maxPrice };
-  }, [company, period]);
+    return { points: coords, pathD, areaD, labels, minPrice, maxPrice, isLive: false };
+  }, [company, period, historyData]);
 
   if (!company) {
     return (
@@ -392,16 +491,20 @@ export default function SirketDetayPage() {
           <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <div className="flex items-center gap-2 flex-wrap">
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                   <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--brass)] font-semibold">
-                    Fiyat Eğrisi &amp; Trend ({period})
+                    Fiyat Eğilimi &amp; Performans ({period})
                   </h3>
-                  <span
-                    className="inline-flex items-center text-[var(--mist)] hover:text-[var(--paper)] transition-colors cursor-help"
-                    title="Bu grafik gösterge amaçlı simüle edilmiştir, gerçek geçmiş fiyat verisi değildir."
-                  >
-                    <Info className="w-3.5 h-3.5" />
-                  </span>
+                  {chartData.isLive ? (
+                    <span className="font-mono text-[9px] text-[var(--verdigris)] bg-[rgba(91,140,123,0.15)] border border-[var(--verdigris)] px-1.5 py-0.2 rounded font-bold flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[var(--verdigris)] animate-pulse"></span>
+                      Canlı Kapanışlar
+                    </span>
+                  ) : historyLoading ? (
+                    <span className="font-mono text-[9px] text-[var(--mist)] animate-pulse">
+                      Yükleniyor...
+                    </span>
+                  ) : null}
                 </div>
                 <span className="text-[10px] font-mono text-[var(--mist)]">
                   Min: {chartData.minPrice.toFixed(2)} {company.currency} • Maks: {chartData.maxPrice.toFixed(2)} {company.currency}
@@ -480,10 +583,14 @@ export default function SirketDetayPage() {
               ))}
             </div>
 
-            {/* Simulation Disclaimer Note */}
+            {/* Disclaimer / Source Note */}
             <div className="flex items-center gap-1.5 text-[10px] font-mono text-[var(--mist)] mt-3 pt-2 border-t border-[var(--line)]/50">
               <Info className="w-3 h-3 text-[var(--mist)] shrink-0" />
-              <span>Bu grafik gösterge amaçlı simüle edilmiştir, gerçek geçmiş fiyat verisi değildir.</span>
+              <span>
+                {chartData.isLive
+                  ? `Google / Yahoo Finance kaynaklı son ${period} gerçek günlük kapanış fiyatlarıdır.`
+                  : "Bu grafik gösterge amaçlı simüle edilmiştir."}
+              </span>
             </div>
           </div>
 
@@ -693,11 +800,11 @@ export default function SirketDetayPage() {
           ) : (
             <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6">
               <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--brass)] mb-4 font-semibold">
-                Finansal Kütük Değerleri &amp; Çarpanlar
+                Finansal Kütük Değerleri &amp; Temel Çarpanlar
               </h3>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <div className="bg-[var(--ink-3)] p-3.5 rounded border border-[var(--line)]">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div className="bg-[var(--ink-3)] p-3 rounded border border-[var(--line)]">
                   <span className="text-[11px] font-mono text-[var(--mist)] uppercase">
                     F/K Oranı
                   </span>
@@ -709,7 +816,7 @@ export default function SirketDetayPage() {
                   </span>
                 </div>
 
-                <div className="bg-[var(--ink-3)] p-3.5 rounded border border-[var(--line)]">
+                <div className="bg-[var(--ink-3)] p-3 rounded border border-[var(--line)]">
                   <span className="text-[11px] font-mono text-[var(--mist)] uppercase">
                     PD / DD
                   </span>
@@ -721,7 +828,7 @@ export default function SirketDetayPage() {
                   </span>
                 </div>
 
-                <div className="bg-[var(--ink-3)] p-3.5 rounded border border-[var(--line)]">
+                <div className="bg-[var(--ink-3)] p-3 rounded border border-[var(--line)]">
                   <span className="text-[11px] font-mono text-[var(--mist)] uppercase">
                     Temettü Verimi
                   </span>
@@ -731,7 +838,7 @@ export default function SirketDetayPage() {
                   <span className="text-[10px] text-[var(--mist)]">Yıllık Dağıtım</span>
                 </div>
 
-                <div className="bg-[var(--ink-3)] p-3.5 rounded border border-[var(--line)]">
+                <div className="bg-[var(--ink-3)] p-3 rounded border border-[var(--line)]">
                   <span className="text-[11px] font-mono text-[var(--mist)] uppercase">
                     Piyasa Değeri
                   </span>
@@ -741,6 +848,26 @@ export default function SirketDetayPage() {
                   <span className="text-[10px] text-[var(--mist)]">
                     Beta: {company.beta !== undefined && company.beta !== null ? company.beta : "-"}
                   </span>
+                </div>
+
+                <div className="bg-[var(--ink-3)] p-3 rounded border border-[var(--line)]">
+                  <span className="text-[11px] font-mono text-[var(--mist)] uppercase">
+                    HBK (Hisse Başı Kâr)
+                  </span>
+                  <div className="font-mono text-lg font-bold text-[var(--brass)] mt-1">
+                    {company.eps !== undefined && company.eps !== null ? `${company.eps} ₺` : "—"}
+                  </div>
+                  <span className="text-[10px] text-[var(--mist)]">12 Aylık Net EPS</span>
+                </div>
+
+                <div className="bg-[var(--ink-3)] p-3 rounded border border-[var(--line)]">
+                  <span className="text-[11px] font-mono text-[var(--mist)] uppercase">
+                    Ödenmiş Sermaye
+                  </span>
+                  <div className="font-mono text-sm font-bold text-[var(--paper)] mt-1.5 truncate">
+                    {company.sharesOutstanding || "—"}
+                  </div>
+                  <span className="text-[10px] text-[var(--mist)]">Dolaşımdaki Lot</span>
                 </div>
               </div>
 
@@ -772,6 +899,63 @@ export default function SirketDetayPage() {
               )}
             </div>
           )}
+
+          {/* Live Google Finance & KAP News Feed Card */}
+          <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+              <div className="flex items-center gap-2">
+                <Newspaper className="w-4 h-4 text-[var(--brass)]" />
+                <h3 className="font-serif font-bold text-base text-[var(--paper)]">
+                  {company.symbol} Canlı Şirket Haberleri &amp; KAP Akışı
+                </h3>
+              </div>
+              <div className="flex items-center gap-2">
+                {newsLoading ? (
+                  <span className="font-mono text-[10px] text-[var(--mist)] animate-pulse">
+                    Haberler taranıyor...
+                  </span>
+                ) : (
+                  <span className="font-mono text-[10px] text-[var(--verdigris)] bg-[rgba(91,140,123,0.15)] border border-[var(--verdigris)] px-2 py-0.5 rounded font-bold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--verdigris)] animate-pulse"></span>
+                    Google Finance &amp; KAP
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {newsItems.length > 0 ? (
+              <div className="space-y-2.5">
+                {newsItems.map((n) => (
+                  <a
+                    key={n.id}
+                    href={n.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block p-3 bg-[var(--ink-3)] hover:bg-[rgba(201,162,75,0.05)] border border-[var(--line)] hover:border-[var(--brass-dim)] rounded-lg transition-all group"
+                  >
+                    <div className="flex items-center justify-between text-[11px] font-mono text-[var(--mist)] mb-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[var(--brass)] font-semibold">{n.publisher}</span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-[var(--mist)]" />
+                          {n.timeAgo}
+                        </span>
+                      </div>
+                      <ExternalLink className="w-3.5 h-3.5 text-[var(--mist)] group-hover:text-[var(--brass)] group-hover:translate-x-0.5 transition-all" />
+                    </div>
+                    <h4 className="text-xs font-semibold text-[var(--paper)] group-hover:text-[var(--brass)] transition-colors line-clamp-2 leading-relaxed">
+                      {n.title}
+                    </h4>
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <div className="py-6 text-center text-xs font-mono text-[var(--mist)]">
+                Şirketle ilgili güncel haber ve KAP duyuruları taranıyor...
+              </div>
+            )}
+          </div>
 
           {/* Orakul Deep Dive Diagnosis Box */}
           <div className="bg-[var(--ink-2)] border border-[var(--brass-dim)] rounded-xl p-6 space-y-4">

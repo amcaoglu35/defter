@@ -116,6 +116,9 @@ export interface EnrichedPriceItem {
   volumeRatio?: number;
   peRatio?: number;
   marketCap?: string;
+  eps?: number;
+  sharesOutstanding?: string;
+  yearChangePct?: number;
 }
 
 // Cache structure (TTL: 10 minutes)
@@ -293,6 +296,16 @@ interface YahooQuote {
           : (quote.averageDailyVolume10Day != null ? Number(quote.averageDailyVolume10Day) : undefined);
         const volumeRatio = (volume && avgVol && avgVol > 0) ? Number((volume / avgVol).toFixed(2)) : undefined;
         const peRatio = quote.trailingPE != null && Number(quote.trailingPE) > 0 ? Number(Number(quote.trailingPE).toFixed(1)) : undefined;
+        const eps = quote.epsTrailingTwelveMonths != null ? Number(Number(quote.epsTrailingTwelveMonths).toFixed(2)) : undefined;
+        const yearChangePct = quote["52WeekChange"] != null ? Number((Number(quote["52WeekChange"]) * 100).toFixed(1)) : undefined;
+
+        let sharesOutstandingStr: string | undefined = undefined;
+        if (quote.sharesOutstanding != null && Number(quote.sharesOutstanding) > 0) {
+          const so = Number(quote.sharesOutstanding);
+          if (so >= 1e9) sharesOutstandingStr = `${(so / 1e9).toFixed(2)} Mr Lot`;
+          else if (so >= 1e6) sharesOutstandingStr = `${(so / 1e6).toFixed(1)} M Lot`;
+          else sharesOutstandingStr = `${so.toLocaleString("tr-TR")} Lot`;
+        }
 
         let marketCapStr: string | undefined = undefined;
         if (quote.marketCap != null && Number(quote.marketCap) > 0) {
@@ -334,6 +347,9 @@ interface YahooQuote {
             volumeRatio,
             peRatio,
             marketCap: marketCapStr,
+            eps,
+            sharesOutstanding: sharesOutstandingStr,
+            yearChangePct,
           };
         }
       }
