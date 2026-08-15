@@ -31,24 +31,7 @@ export default function PriceAlertModal({
   const [alerts, setAlerts] = useState<PriceAlert[]>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("defter_price_alerts");
-      return saved ? JSON.parse(saved) : [
-        {
-          id: "1",
-          symbol: "THYAO",
-          targetPrice: 350.0,
-          condition: "ABOVE",
-          createdAt: "2026-08-14",
-          active: true,
-        },
-        {
-          id: "2",
-          symbol: "ALTIN/GR",
-          targetPrice: 3500.0,
-          condition: "ABOVE",
-          createdAt: "2026-08-14",
-          active: true,
-        },
-      ];
+      return saved ? JSON.parse(saved) : [];
     }
     return [];
   });

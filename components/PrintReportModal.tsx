@@ -20,8 +20,14 @@ export default function PrintReportModal({ basket, isOpen, onClose }: PrintRepor
     window.print();
   };
 
-  const activeBasket = basket || baskets[0];
+  const activeBasket = basket || (baskets.length > 0 ? baskets[0] : null);
   const totalPortfolioValue = baskets.reduce((acc, b) => acc + b.totalValue, 0);
+  const totalPortfolioCost = baskets.reduce((acc, b) => acc + b.totalCost, 0);
+  const totalPortfolioProfitPct = totalPortfolioCost > 0 
+    ? Number((((totalPortfolioValue - totalPortfolioCost) / totalPortfolioCost) * 100).toFixed(1))
+    : 0;
+
+  const displayProfitPct = activeBasket ? activeBasket.totalProfitPercent : totalPortfolioProfitPct;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
@@ -71,10 +77,10 @@ export default function PrintReportModal({ basket, isOpen, onClose }: PrintRepor
             <div>
               <div className="text-[11px] text-gray-500 uppercase">Kümülatif Getiri</div>
               <div className={`text-lg font-bold ${
-                (activeBasket ? activeBasket.totalProfitPercent : 18.4) >= 0 ? "text-emerald-700" : "text-rose-700"
+                displayProfitPct >= 0 ? "text-emerald-700" : "text-rose-700"
               }`}>
-                {(activeBasket ? activeBasket.totalProfitPercent : 18.4) >= 0 ? "+" : ""}
-                {activeBasket ? activeBasket.totalProfitPercent : "18.4"}%
+                {displayProfitPct >= 0 ? "+" : ""}
+                {displayProfitPct}%
               </div>
             </div>
             <div>
