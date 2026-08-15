@@ -37,6 +37,10 @@ const GEMINI_CANDIDATES = [
   "gemini-1.0-pro",
 ];
 
+export function getResolvedApiKey(provider: string = "gemini"): string | undefined {
+  return provider === "openai" ? process.env.OPENAI_API_KEY : process.env.GEMINI_API_KEY;
+}
+
 async function fetchGeminiWithFallback(
   apiKey: string,
   bodyObj: Record<string, unknown>,
@@ -62,6 +66,16 @@ async function fetchGeminiWithFallback(
     }
   }
   return null;
+}
+
+export function getPersonaInstruction(persona?: string): string {
+  if (persona === "temkinli") {
+    return "ANALİZ ÜSLUBU: 'Temkinli Danışman' tonu. Riskleri, borç yükünü, döviz açık pozisyonunu ve olumsuz senaryoları (downside risk) özellikle öne çıkar; aşırı iyimser varsayımlardan kaçın ve sermaye koruma odaklı ölçülü bir dil kullan.";
+  }
+  if (persona === "cesur") {
+    return "ANALİZ ÜSLUBU: 'Cesur Fırsat Avcısı' tonu. Yüksek büyüme potansiyelini, trend ve momentum ivmesini, katalizörleri ve sektör üzeri getiri ihtimallerini cesurca ve vizyoner bir dille vurgula.";
+  }
+  return "ANALİZ ÜSLUBU: 'Klasik Değer Yatırımcısı' (Buffett & Graham) tonu. Güvenlik marjı (margin of safety), nakit akış kalitesi, kalıcı rekabet avantajı (moat), ucuz çarpanlar ve uzun vadeli sabırlı birikim perspektifini esas al.";
 }
 
 export function stripJsonFences(text: string): string {
@@ -94,6 +108,7 @@ export interface CompanyDiagnosisReport {
   verdict: "GÜÇLÜ AL" | "AL" | "TUT" | "SAT" | "GÜÇLÜ SAT" | "NÖTR" | "DENGELİ" | "YÜKSEK RİSK";
   confidence: string;
   pastFeedbackSummary?: string;
+  evidenceChain?: string[];
 }
 
 /**
@@ -103,15 +118,17 @@ export interface CompanyDiagnosisReport {
 export async function generateCompanyAnalysis(
   company: CompanyAnalysisRequest,
   pastHistory: AiHistoryItem[] = [],
-  apiKey?: string,
+  _apiKey?: string,
   provider: string = "gemini",
-  customModel?: string
+  customModel?: string,
+  persona: string = "deger"
 ): Promise<CompanyDiagnosisReport> {
   const symbol = company.symbol.toUpperCase();
   const price = company.price || 100;
   const pe = company.peRatio || 7.5;
   const pb = company.pbRatio || 1.8;
   const divYield = company.dividendYield || 0;
+  const personaInstruction = getPersonaInstruction(persona);
 
   // 1. Build feedback context from past predictions on this symbol
   const symbolPastHistory = pastHistory.filter(
@@ -132,19 +149,25 @@ export async function generateCompanyAnalysis(
     feedbackContext = `\nBu şirket için geçmiş analizlerin ve sonuçların:\n${feedbackItems.join("\n")}\nBu geçmiş deneyimi göz önüne alarak tutarlı, temellendirilmiş ve kendini doğrulayan bir analiz yap.`;
   }
 
-  // Resolve API Key
-  const resolvedApiKey =
-    (apiKey && apiKey.trim().length > 10)
-      ? apiKey
-      : provider === "openai"
-      ? process.env.OPENAI_API_KEY
-      : process.env.GEMINI_API_KEY;
+  // Strictly resolve API key from server environment (never overridden by client)
+  // Pre-calculate deterministic past feedback summary from authentic symbol history
+  let calculatedPastFeedbackSummary = "";
+  if (symbolPastHistory.length > 0) {
+    const correctCount = symbolPastHistory.filter((h) => h.outcomeCorrect === true).length;
+    calculatedPastFeedbackSummary = `Orakul geçmişte ${symbol} için ${symbolPastHistory.length} analiz gerçekleştirdi (${correctCount} isabetli). Bu teşhis, geçmiş fiyat hareketleri ve değerleme çarpanları kütüğe işlenerek oluşturuldu.`;
+  } else {
+    calculatedPastFeedbackSummary = `${symbol} için ilk kurumsal Orakul teşhis kaydı oluşturuldu. Bu karar kütük hafızasında saklandı.`;
+  }
+
+  const resolvedApiKey = getResolvedApiKey(provider);
 
   if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
     try {
       if (provider === "gemini") {
         const prompt = `Sen Borsa İstanbul ve küresel piyasalarda uzmanlaşmış Baş Finansal Analist (CFA) seviyesinde 'Orakul' yapay zekasısın.
-Aşağıdaki şirket verilerini derinlemesine inceleyerek kurumsal bir değerleme ve teşhis raporu üret:
+${personaInstruction}
+
+Aşağıdaki şirket verilerini derinlemesine inceleyerek kurumsal bir değerleme, teşhis ve kanıt zinciri raporu üret:
 
 Şirket: ${symbol} (${company.name})
 Fiyat: ${price} ${company.currency || "₺"}
@@ -153,7 +176,7 @@ Sektör: ${company.sector}
 F/K: ${pe} | PD/DD: ${pb} | Temettü Verimi: %${divYield}
 ${feedbackContext}
 
-İndirgenmiş Nakit Akımı (DCF), Çarpan İskontosu, Piotroski F-Score ve DuPont analizi yaparak aşağıdaki JSON formatında YALNIZCA geçerli JSON olarak dön:
+İndirgenmiş Nakit Akımı (DCF), Çarpan İskontosu, Piotroski F-Score, DuPont analizi ve 4-5 adımlı şeffaf Kanıt Zinciri (evidenceChain) oluşturarak aşağıdaki JSON formatında YALNIZCA geçerli JSON olarak dön:
 {
   "valuationScore": "9.2 / 10",
   "fairValue": 445.00,
@@ -168,7 +191,14 @@ ${feedbackContext}
   "risks": ["Risk 1", "Risk 2", "Risk 3"],
   "verdict": "GÜÇLÜ AL" | "AL" | "TUT" | "SAT" | "GÜÇLÜ SAT",
   "confidence": "%92",
-  "pastFeedbackSummary": "string"
+  "pastFeedbackSummary": "string",
+  "evidenceChain": [
+    "① F/K (5.8) sektör ortalamasının %35 altında → İskonto sinyali",
+    "② Piotroski Skoru 8/9 → Güçlü operasyonel bilanço sağlığı",
+    "③ Altman Z-Score 3.42 → Sıfır finansal temerrüt ve iflas riski",
+    "④ DuPont ROE %32.4 → Yüksek sermaye ve varlık kârlılığı",
+    "⑤ Sonuç Kararı: GÜÇLÜ AL"
+  ]
 }`;
 
         const res = await fetchGeminiWithFallback(
@@ -186,7 +216,7 @@ ${feedbackContext}
           if (rawText) {
             try {
               const parsed = JSON.parse(stripJsonFences(rawText));
-              return { symbol, ...parsed };
+              return { symbol, ...parsed, pastFeedbackSummary: calculatedPastFeedbackSummary };
             } catch (pErr) {
               console.warn(`[AI Service] JSON parse error in company_analysis:`, pErr);
             }
@@ -205,11 +235,11 @@ ${feedbackContext}
               {
                 role: "system",
                 content:
-                  "Sen Borsa İstanbul ve küresel piyasalarda uzmanlaşmış Baş Finansal Analist (CFA) seviyesinde 'Orakul' yapay zekasısın. Yanıtları JSON formatında ver.",
+                  `Sen Borsa İstanbul ve küresel piyasalarda uzmanlaşmış Baş Finansal Analist (CFA) seviyesinde 'Orakul' yapay zekasısın. ${personaInstruction} Yanıtları JSON formatında ver.`,
               },
               {
                 role: "user",
-                content: `Şirket: ${symbol} (${company.name}), Fiyat: ${price} ₺, F/K: ${pe}, PD/DD: ${pb}, Temettü: %${divYield}. Kurumsal DCF, Piotroski F-Score ve DuPont analizi içeren JSON teşhis raporu üret. Format: { "valuationScore": string, "fairValue": number, "targetPrice12M": number, "upsidePotential": string, "piotroskiScore": number, "altmanZScore": string, "dupontRoe": string, "peVsSector": string, "whyMoved": string, "pros": string[], "risks": string[], "verdict": string, "confidence": string, "pastFeedbackSummary": string }`,
+                content: `Şirket: ${symbol} (${company.name}), Fiyat: ${price} ₺, F/K: ${pe}, PD/DD: ${pb}, Temettü: %${divYield}, Sektör: ${company.sector}.${feedbackContext ? " " + feedbackContext : ""} Kurumsal DCF, Piotroski F-Score, DuPont ve 4-5 adımlı evidenceChain içeren JSON teşhis raporu üret. Format: { "valuationScore": string, "fairValue": number, "targetPrice12M": number, "upsidePotential": string, "piotroskiScore": number, "altmanZScore": string, "dupontRoe": string, "peVsSector": string, "whyMoved": string, "pros": string[], "risks": string[], "verdict": string, "confidence": string, "pastFeedbackSummary": string, "evidenceChain": string[] }`,
               },
             ],
             response_format: { type: "json_object" },
@@ -222,7 +252,7 @@ ${feedbackContext}
           if (rawContent) {
             try {
               const parsed = JSON.parse(stripJsonFences(rawContent));
-              return { symbol, ...parsed };
+              return { symbol, ...parsed, pastFeedbackSummary: calculatedPastFeedbackSummary };
             } catch (pErr) {}
           }
         }
@@ -352,6 +382,14 @@ ${feedbackContext}
     pastFeedbackSummary = `${symbol} için ilk kurumsal Orakul teşhis kaydı oluşturuldu. Bu karar kütük hafızasında saklandı.`;
   }
 
+  const evidenceChain = [
+    `① Çarpan Analizi: F/K (${pe}) ve PD/DD (${pb}) rasyoları ${pDisc} seviyesinde`,
+    `② Bilanço Gücü: Piotroski F-Skoru ${pScore}/9 ile kârlılık ve operasyonel kalite teyitli`,
+    `③ İflas & Temerrüt Kalkanı: Altman Z-Skoru ${zScore}`,
+    `④ Sermaye Verimliliği: DuPont ROE ${dRoe}`,
+    `⑤ Nihai Orakul Kararı: ${verdict} (${calcUpside} 12 Aylık Hedef Potansiyel)`,
+  ];
+
   return {
     symbol,
     valuationScore: vScore,
@@ -368,22 +406,20 @@ ${feedbackContext}
     verdict,
     confidence,
     pastFeedbackSummary,
+    evidenceChain,
   };
 }
 
 export async function generateOrakulRecipe(
-  req: AiRecipeRequest,
+  req: AiRecipeRequest & { rebalanceContext?: any },
   allCompanies: CompanyAnalysisRequest[] = [],
-  apiKey?: string,
+  _apiKey?: string,
   provider: string = "gemini",
-  customModel?: string
+  customModel?: string,
+  persona: string = "deger"
 ) {
-  const resolvedApiKey =
-    (apiKey && apiKey.trim().length > 10)
-      ? apiKey
-      : provider === "openai"
-      ? process.env.OPENAI_API_KEY
-      : process.env.GEMINI_API_KEY;
+  const resolvedApiKey = getResolvedApiKey(provider);
+  const personaInstruction = getPersonaInstruction(persona);
 
   // Filter candidate pool from allCompanies based on selected Universe
   let pool = allCompanies.length > 0 ? [...allCompanies] : [];
@@ -402,7 +438,9 @@ export async function generateOrakulRecipe(
       const candidatesSample = pool.slice(0, 35).map((c) => `${c.symbol} (${c.name}, ${c.sector}, Fiyat: ${c.price} ₺, F/K: ${c.peRatio || "-"}, Temettü: %${c.dividendYield || 0})`).join("; ");
 
       if (provider === "gemini") {
-        const prompt = `Sen 'Orakul' adında elit bir Türk finans ve portföy optimizasyon yapay zekasısın. 
+        const prompt = `Sen 'Orakul' adında elit bir Türk finans ve portföy optimizasyon yapay zekasısın.
+${personaInstruction}
+
 Kullanıcı Parametreleri:
 - Hedef: ${req.goal}
 - Risk Profili: ${req.risk}
@@ -589,18 +627,12 @@ Bu parametrelere ve aday şirketlere göre en optimal 4-5 varlıktan oluşan den
 export async function askOrakulChat(
   messages: ChatMessage[],
   contextData: Record<string, unknown>,
-  apiKey?: string,
+  _apiKey?: string,
   provider: string = "gemini",
   customModel?: string
 ): Promise<string> {
   const lastUserMessage = messages[messages.length - 1]?.content || "";
-
-  const resolvedApiKey =
-    (apiKey && apiKey.trim().length > 10)
-      ? apiKey
-      : provider === "openai"
-      ? process.env.OPENAI_API_KEY
-      : process.env.GEMINI_API_KEY;
+  const resolvedApiKey = getResolvedApiKey(provider);
 
   if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
     try {
@@ -706,16 +738,11 @@ export interface EarningsFlashResult {
 
 export async function generateEarningsFlash(
   company: CompanyAnalysisRequest,
-  apiKey?: string,
+  _apiKey?: string,
   provider: string = "gemini",
   customModel?: string
 ): Promise<EarningsFlashResult> {
-  const resolvedApiKey =
-    apiKey && apiKey.trim().length > 10
-      ? apiKey
-      : provider === "openai"
-      ? process.env.OPENAI_API_KEY
-      : process.env.GEMINI_API_KEY;
+  const resolvedApiKey = getResolvedApiKey(provider);
 
   if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
     try {
@@ -777,6 +804,33 @@ export async function generateEarningsFlash(
   const growth = pe < 10 ? "+%48.5" : "+%22.4";
   const margin = pe < 10 ? "%24.8" : "%16.2";
 
+  const sector = (company.sector || "").toLowerCase();
+  let keyCatalyst = "İhracat pazarlarındaki toparlanma ve kapasite artış yatırımları.";
+  let keyRisk = "Girdi maliyetleri ve hammadde fiyat oynaklığı.";
+
+  if (sector.includes("teknoloji") || sector.includes("yazılım") || sector.includes("bilişim")) {
+    keyCatalyst = "Yüksek marjlı Ar-Ge projeleri, bulut dönüşümü ve kurumsal lisans anlaşmaları.";
+    keyRisk = "Sektörel yetenek maliyetleri ve küresel teknoloji harcamalarındaki dönemsel daralma.";
+  } else if (sector.includes("havacılık") || sector.includes("ulaştırma") || sector.includes("lojistik")) {
+    keyCatalyst = "Uluslararası yolcu doluluk oranları, yeni hat açılışları ve kargo gelir ivmesi.";
+    keyRisk = "Jet yakıtı (Brent petrol) fiyat oynaklığı ve bölgesel jeopolitik hava sahası kısıtları.";
+  } else if (sector.includes("savunma") || sector.includes("elektronik")) {
+    keyCatalyst = "Uzun vadeli devlet ve ihracat bakiye sipariş teslimatları (Backlog büyümesi).";
+    keyRisk = "Kritik komponent tedarik süreleri ve kamu ödeme vadelerindeki dalgalanmalar.";
+  } else if (sector.includes("banka") || sector.includes("finans") || sector.includes("holding")) {
+    keyCatalyst = "Net faiz marjı genişlemesi, komisyon gelirleri artışı ve aktif kalitesi.";
+    keyRisk = "TCMB faiz patikası, kredi büyüme sınırları ve fonlama maliyetleri baskısı.";
+  } else if (sector.includes("enerji") || sector.includes("petrol") || sector.includes("rafineri")) {
+    keyCatalyst = "Yüksek rafineri/üretim marjları ve yenilenebilir enerji kapasite artışları.";
+    keyRisk = "Düzenleyici tarife tavanları ve uluslararası emtia fiyat çevrimleri.";
+  } else if (sector.includes("perakende") || sector.includes("gıda") || sector.includes("tüketim")) {
+    keyCatalyst = "Mağaza ağı genişlemesi, sepet hacmi büyümesi ve güçlü nakit akımı.";
+    keyRisk = "Asgari ücret ve mağaza kira maliyeti enflasyonu ile tüketici alım gücü baskısı.";
+  } else if (sector.includes("otomotiv")) {
+    keyCatalyst = "Elektrikli ve hibrit araç dönüşümü, ihracat sözleşmeleri ve filo yenileme talebi.";
+    keyRisk = "Avrupa pazarında talep yavaşlaması ve gümrük/emisyon regülasyonları.";
+  }
+
   return {
     symbol: company.symbol,
     quarter: "Son Dönem Bilançosu",
@@ -785,8 +839,8 @@ export async function generateEarningsFlash(
     netProfitGrowth: growth,
     ebitdaMargin: margin,
     debtStatus: pe < 12 ? "Düşük Borçluluk / Net Nakit Pozisyonu" : "Yönetilebilir Borç Yükü",
-    keyCatalyst: "İhracat pazarlarındaki toparlanma ve kapasite artış yatırımları.",
-    keyRisk: "Girdi maliyetleri ve hammadde fiyat oynaklığı.",
+    keyCatalyst,
+    keyRisk,
     verdict: health >= 8 ? "GÜÇLÜ" : "BEKLENTİYE PARALEL",
   };
 }
@@ -806,16 +860,11 @@ export interface ValueTrapResult {
 
 export async function detectValueTraps(
   company: CompanyAnalysisRequest,
-  apiKey?: string,
+  _apiKey?: string,
   provider: string = "gemini",
   customModel?: string
 ): Promise<ValueTrapResult> {
-  const resolvedApiKey =
-    apiKey && apiKey.trim().length > 10
-      ? apiKey
-      : provider === "openai"
-      ? process.env.OPENAI_API_KEY
-      : process.env.GEMINI_API_KEY;
+  const resolvedApiKey = getResolvedApiKey(provider);
 
   if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
     try {
@@ -1014,20 +1063,32 @@ export async function runBacktestSimulation(
   const goldReturn = parseFloat((((finalGold - budget) / budget) * 100).toFixed(1));
   const alpha = parseFloat((portReturn - bistReturn).toFixed(1));
 
-  let aiVerdict = `Son ${months} aylık simülasyonda bu sepet **%${portReturn}** nominal getiri üreterek BIST 100 endeksini **+%${alpha} Alfa marjı** ile geride bırakmıştır. Temettü nakit akışı ve ihracatçı şirket ağırlığı düşüş aylarında portföyün maksimum değer kaybını (Max Drawdown) %7.4 ile sınırlandırmıştır.`;
+  // Calculate dynamic Max Drawdown from timeline
+  let maxPeak = budget;
+  let maxDrawdownPct = 0;
+  for (const pt of timeline) {
+    if (pt.portfolioValue > maxPeak) {
+      maxPeak = pt.portfolioValue;
+    }
+    const dd = maxPeak > 0 ? ((maxPeak - pt.portfolioValue) / maxPeak) * 100 : 0;
+    if (dd > maxDrawdownPct) {
+      maxDrawdownPct = parseFloat(dd.toFixed(1));
+    }
+  }
 
-  // Try enriching with LLM if API Key available
-  const resolvedApiKey =
-    apiKey && apiKey.trim().length > 10
-      ? apiKey
-      : provider === "openai"
-      ? process.env.OPENAI_API_KEY
-      : process.env.GEMINI_API_KEY;
+  // Calculate approximate annualized Sharpe ratio
+  const estimatedVol = Math.max(0.08, (maxDrawdownPct / 100) * 1.2);
+  const annualizedReturn = (portReturn / months) * 12 / 100;
+  const sharpeRatio = parseFloat(Math.max(0.5, ((annualizedReturn - 0.25) / estimatedVol)).toFixed(2));
+
+  let aiVerdict = `Son ${months} aylık projeksiyonda bu sepet **%${portReturn}** getiri üreterek BIST 100 endeksine karşı **+%${alpha} Alfa** farkı oluşturmuştur. Simülasyonda hesaplanan maksimum tepe-dip değer kaybı (Max Drawdown) %${maxDrawdownPct} seviyesindedir.`;
+
+  const resolvedApiKey = getResolvedApiKey(provider);
 
   if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
     try {
       if (provider === "gemini") {
-        const prompt = `Sen Orakul portföy analistisin. ${months} aylık geçmiş simülasyon sonuçları: Başlangıç: ${budget} ₺, Portföy Bitiş: ${finalPort} ₺ (%${portReturn}), BIST 100 Bitiş: ${finalBist} ₺ (%${bistReturn}), Altın Bitiş: ${finalGold} ₺ (%${goldReturn}). Bana Fraunces bilge üslubuyla 2 cümlelik profesyonel sonuç değerlendirmesi üret.`;
+        const prompt = `Sen Orakul portföy analistisin. ${months} aylık geçmiş simülasyon sonuçları: Başlangıç: ${budget} ₺, Portföy Bitiş: ${finalPort} ₺ (%${portReturn}), BIST 100 Bitiş: ${finalBist} ₺ (%${bistReturn}), Altın Bitiş: ${finalGold} ₺ (%${goldReturn}), Max Drawdown: %${maxDrawdownPct}. Bana Fraunces bilge üslubuyla 2 cümlelik profesyonel sonuç değerlendirmesi üret.`;
         const res = await fetchGeminiWithFallback(
           resolvedApiKey,
           {
@@ -1056,8 +1117,8 @@ export async function runBacktestSimulation(
     bist100ReturnPct: bistReturn,
     goldReturnPct: goldReturn,
     alphaOverBist: alpha,
-    maxDrawdownPct: 7.4,
-    sharpeRatio: 1.84,
+    maxDrawdownPct,
+    sharpeRatio,
     timeline,
     aiAnalysisVerdict: aiVerdict,
   };
@@ -1087,20 +1148,68 @@ export interface StockScreenerResult {
 export async function screenStocksWithAI(
   userQuery: string,
   allCompanies: CompanyAnalysisRequest[],
-  apiKey?: string,
+  _apiKey?: string,
   provider: string = "gemini",
   customModel?: string
 ): Promise<StockScreenerResult> {
-  const resolvedApiKey =
-    apiKey && apiKey.trim().length > 10
-      ? apiKey
-      : provider === "openai"
-      ? process.env.OPENAI_API_KEY
-      : process.env.GEMINI_API_KEY;
+  const resolvedApiKey = getResolvedApiKey(provider);
+  const qLower = userQuery.toLowerCase();
+
+  // Intelligent Pre-Ranker across all 420+ companies
+  const scoredCompanies = allCompanies.map((c) => {
+    let score = 10;
+    const sym = c.symbol.toLowerCase();
+    const name = c.name.toLowerCase();
+    const sector = (c.sector || "").toLowerCase();
+
+    // 1. Direct Symbol or Name exact/partial match
+    if (qLower.includes(sym) || sym.includes(qLower)) score += 100;
+    if (qLower.includes(name) || name.includes(qLower)) score += 60;
+
+    // 2. Sector Match
+    if (sector && qLower.includes(sector)) score += 50;
+    if (qLower.includes("sanayi") && (sector.includes("sanayi") || sector.includes("imalat") || sector.includes("üretim") || sector.includes("metal"))) score += 35;
+    if (qLower.includes("teknoloji") && (sector.includes("teknoloji") || sector.includes("bilişim") || sector.includes("yazılım"))) score += 35;
+    if (qLower.includes("havacılık") && (sector.includes("havacılık") || sector.includes("ulaştırma") || sector.includes("hava"))) score += 35;
+    if (qLower.includes("savunma") && (sector.includes("savunma") || sector.includes("elektronik") || sym === "asels" || sym === "sdttr")) score += 40;
+    if (qLower.includes("banka") && (sector.includes("banka") || sector.includes("finans"))) score += 35;
+    if (qLower.includes("holding") && sector.includes("holding")) score += 35;
+    if (qLower.includes("otomotiv") && (sector.includes("oto") || sym === "froto" || sym === "toaso" || sym === "ttrak")) score += 35;
+    if (qLower.includes("enerji") && (sector.includes("enerji") || sector.includes("petrol") || sector.includes("rafineri"))) score += 35;
+    if (qLower.includes("perakende") && (sector.includes("perakende") || sector.includes("gıda") || sector.includes("mağaza"))) score += 35;
+
+    // 3. Dividend Query
+    if (qLower.includes("temettü") || qLower.includes("verim") || qLower.includes("temettu") || qLower.includes("gelir")) {
+      const div = c.dividendYield || 0;
+      if (div > 5) score += 40 + div * 3;
+      else if (div > 2) score += 20 + div * 2;
+    }
+
+    // 4. Valuation / Cheapness Query (F/K, PD/DD, Ucuz, İskonto)
+    if (qLower.includes("ucuz") || qLower.includes("f/k") || qLower.includes("fk") || qLower.includes("çarpan") || qLower.includes("iskonto")) {
+      const pe = c.peRatio;
+      if (pe && pe > 0 && pe < 6) score += 50;
+      else if (pe && pe > 0 && pe < 10) score += 30;
+      else if (pe && pe > 0 && pe < 15) score += 15;
+    }
+
+    // 5. Growth / Export Query
+    if (qLower.includes("büyüme") || qLower.includes("ihracat") || qLower.includes("döviz")) {
+      if (sector.includes("sanayi") || sector.includes("otomotiv") || sector.includes("savunma") || sector.includes("havacılık")) {
+        score += 25;
+      }
+    }
+
+    return { company: c, score };
+  });
+
+  // Sort all companies by query relevance score descending and take the top 45
+  scoredCompanies.sort((a, b) => b.score - a.score);
+  const relevantCandidates = scoredCompanies.slice(0, 45).map((sc) => sc.company);
 
   if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
     try {
-      const topCompanies = allCompanies.slice(0, 30).map((c) => ({
+      const compactCandidateList = relevantCandidates.map((c) => ({
         symbol: c.symbol,
         name: c.name,
         sector: c.sector,
@@ -1111,7 +1220,7 @@ export async function screenStocksWithAI(
       }));
 
       if (provider === "gemini") {
-        const prompt = `Sen 'Orakul' adında elit bir hisse filtreleme yapay zekasısın. Kullanıcının doğal dildeki aramasını analiz et ve mevcut şirketler arasından en uygun 3-4 adayı JSON formatında döndür.\nFormat: { "interpretation": "Kullanıcı kriterlerinin teknik özeti", "picks": [{ "symbol": string, "matchScore": number (0-100), "aiRationale": "Bu kriteri neden karşıladığı" }] }\n\nKullanıcı Araması: "${userQuery}"\nŞirketler Evreni:\n${JSON.stringify(topCompanies)}`;
+        const prompt = `Sen 'Orakul' adında elit bir hisse filtreleme yapay zekasısın. Kullanıcının doğal dildeki aramasını analiz et ve mevcut şirketler arasından en uygun 3-4 adayı JSON formatında döndür.\nFormat: { "interpretation": "Kullanıcı kriterlerinin teknik özeti", "picks": [{ "symbol": string, "matchScore": number (0-100), "aiRationale": "Bu kriteri neden karşıladığı" }] }\n\nKullanıcı Araması: "${userQuery}"\nŞirketler Evreni:\n${JSON.stringify(compactCandidateList)}`;
 
         const res = await fetchGeminiWithFallback(
           resolvedApiKey,
@@ -1128,14 +1237,66 @@ export async function screenStocksWithAI(
           if (raw) {
             const parsed = JSON.parse(stripJsonFences(raw));
             const enrichedPicks = (parsed.picks || []).map((p: { symbol: string; matchScore: number; aiRationale: string }) => {
-              const fullCo = allCompanies.find((c) => c.symbol === p.symbol) || {
+              const fullCo = allCompanies.find((c) => c.symbol.toUpperCase() === p.symbol.toUpperCase()) || {
                 symbol: p.symbol,
                 name: p.symbol,
                 sector: "Genel",
-                price: 100,
-                peRatio: 8,
-                pbRatio: 1.5,
-                dividendYield: 4.5,
+                price: 0,
+                peRatio: undefined,
+                pbRatio: undefined,
+                dividendYield: undefined,
+              };
+              return {
+                ...fullCo,
+                matchScore: p.matchScore || 90,
+                aiRationale: p.aiRationale,
+              };
+            });
+            return {
+              query: userQuery,
+              interpretation: parsed.interpretation || "Doğal dil filtre kriterleri başarıyla uygulandı.",
+              picks: enrichedPicks,
+            };
+          }
+        }
+      } else if (provider === "openai") {
+        const res = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${resolvedApiKey}`,
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              {
+                role: "system",
+                content:
+                  "Sen 'Orakul' adında hisse filtreleme yapay zekasısın. Yanıtları JSON formatında ver. Format: { interpretation: string, picks: [{ symbol: string, matchScore: number, aiRationale: string }] }",
+              },
+              {
+                role: "user",
+                content: `Kullanıcı Araması: "${userQuery}"\nŞirketler Evreni:\n${JSON.stringify(compactCandidateList)}`,
+              },
+            ],
+            response_format: { type: "json_object" },
+          }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const raw = data.choices?.[0]?.message?.content;
+          if (raw) {
+            const parsed = JSON.parse(stripJsonFences(raw));
+            const enrichedPicks = (parsed.picks || []).map((p: { symbol: string; matchScore: number; aiRationale: string }) => {
+              const fullCo = allCompanies.find((c) => c.symbol.toUpperCase() === p.symbol.toUpperCase()) || {
+                symbol: p.symbol,
+                name: p.symbol,
+                sector: "Genel",
+                price: 0,
+                peRatio: undefined,
+                pbRatio: undefined,
+                dividendYield: undefined,
               };
               return {
                 ...fullCo,
@@ -1204,6 +1365,7 @@ export interface DailyBriefingResult {
 
 export async function generateDailyBriefing(
   portfolioContext: {
+    userName?: string;
     totalValue: number;
     totalProfit: number;
     dailyChangePct?: number;
@@ -1218,20 +1380,20 @@ export async function generateDailyBriefing(
   const bistChange = 0.65;
   const isAlpha = portChange >= bistChange;
   const todayStr = new Date().toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" });
+  
+  const hour = new Date().getHours();
+  const timeGreeting = hour < 12 ? "Günaydın" : hour < 18 ? "İyi Günler" : "İyi Akşamlar";
+  const userName = portfolioContext.userName || "Defter Sahibi";
+  const greeting = `${timeGreeting}, ${userName}`;
 
-  const resolvedApiKey =
-    apiKey && apiKey.trim().length > 10
-      ? apiKey
-      : provider === "openai"
-      ? process.env.OPENAI_API_KEY
-      : process.env.GEMINI_API_KEY;
+  const resolvedApiKey = getResolvedApiKey(provider);
 
   let summary = `Bugün portföyünüz **+%${portChange.toFixed(2)}** prim yaparak BIST 100 endeksinin (+%${bistChange.toFixed(2)}) üzerinde güçlü bir reel getiri sağladı. Havacılık ve ihracatçı sanayi varlıklarınızdaki alımlar yükselişi sırtladı. Sepetlerinizin risk dağılımı piyasa dalgalanmalarına karşı sağlam kalmaya devam ediyor.`;
 
   if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
     try {
       if (provider === "gemini") {
-        const prompt = `Sen 'Orakul' adında Defter kişisel servet analistisin. Günlük borsa kapanış brifingi oluştur. Portföy Değeri: ${portfolioContext.totalValue.toLocaleString("tr-TR")} ₺, Günlük Değişim: %${portChange}, BIST 100 Değişim: %${bistChange}. Fraunces üslubunda, bilgece ve samimi 1 paragraflık net bir yönetici özeti yaz.`;
+        const prompt = `Sen 'Orakul' adında Defter kişisel servet analistisin. Günlük borsa kapanış brifingi oluştur. Kullanıcı: ${userName}, Portföy Değeri: ${portfolioContext.totalValue.toLocaleString("tr-TR")} ₺, Günlük Değişim: %${portChange}, BIST 100 Değişim: %${bistChange}. Fraunces üslubunda, bilgece ve samimi 1 paragraflık net bir yönetici özeti yaz.`;
         const res = await fetchGeminiWithFallback(
           resolvedApiKey,
           {
@@ -1251,7 +1413,7 @@ export async function generateDailyBriefing(
 
   return {
     date: todayStr,
-    greeting: "İyi Akşamlar, Defter Sahibi",
+    greeting,
     portfolioDayChangePct: portChange,
     bistDayChangePct: bistChange,
     outperformanceText: isAlpha
@@ -1261,6 +1423,225 @@ export async function generateDailyBriefing(
     topLoser: { symbol: "EREGL", changePct: -0.8 },
     executiveSummary: summary,
     tacticalTip: "Yarınki seans öncesinde temettü verimi yüksek holding pozisyonlarınızı koruyarak dengeli kalmanız önerilir.",
+  };
+}
+
+// -------------------------------------------------------------
+// 6. 📰 Orakul "Haber & Piyasa Duygu Analizi" (Sentiment Radar)
+// -------------------------------------------------------------
+export interface SentimentNewsItem {
+  id: string;
+  title: string;
+  source: string;
+  date: string;
+  relatedSymbol: string;
+  sentimentScore: number; // -1.0 to +1.0
+  summary: string;
+  impactVerdict: "POZİTİF" | "NÖTR" | "NEGATİF";
+}
+
+export async function generateSentimentAnalysis(
+  companies: CompanyAnalysisRequest[] = [],
+  _baskets: any[] = [],
+  provider: string = "gemini",
+  customModel?: string
+): Promise<SentimentNewsItem[]> {
+  const resolvedApiKey = getResolvedApiKey(provider);
+  const targetSymbols = companies.slice(0, 10).map((c) => c.symbol);
+
+  if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
+    try {
+      if (provider === "gemini") {
+        const prompt = `Sen 'Orakul' adında uzman bir BIST ve Türk piyasaları finansal haber & duygu analisti yapay zekasısın.
+Aşağıdaki portföy şirketleri için en son piyasa algısını, KAP malzeme açıklamalarını, sektörel dinamikleri ve haber duygu puanlarını JSON formatında analiz et:
+Şirketler: ${targetSymbols.join(", ")}
+
+Format (YALNIZCA geçerli JSON dizisi):
+[
+  {
+    "id": "news-1",
+    "title": "Haber Başlığı",
+    "source": "KAP / Bloomberg HT / Finans Gündem",
+    "date": "Bugün",
+    "relatedSymbol": "THYAO",
+    "sentimentScore": 0.85,
+    "summary": "Haberin 1-2 cümlelik finansal özeti ve şirket operasyonlarına etkisi",
+    "impactVerdict": "POZİTİF"
+  }
+]`;
+
+        const res = await fetchGeminiWithFallback(
+          resolvedApiKey,
+          {
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: "application/json", temperature: 0.3 },
+          },
+          customModel
+        );
+
+        if (res && res.ok) {
+          const data = await res.json();
+          const raw = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (raw) {
+            const parsed = JSON.parse(stripJsonFences(raw));
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              return parsed;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("generateSentimentAnalysis error, using dynamic algorithm fallback:", e);
+    }
+  }
+
+  // Dynamic fallback based on actual active portfolio companies
+  const activeCos = companies.length > 0 ? companies : [
+    { symbol: "THYAO", name: "Türk Hava Yolları", dailyChange: 2.1, sector: "Havacılık", price: 310 },
+    { symbol: "FROTO", name: "Ford Otosan", dailyChange: 1.4, sector: "Otomotiv", price: 1040 },
+    { symbol: "ASELS", name: "Aselsan", dailyChange: 0.8, sector: "Savunma", price: 68 },
+    { symbol: "TUPRS", name: "Tüpraş", dailyChange: -0.5, sector: "Enerji", price: 165 },
+  ];
+
+  return activeCos.slice(0, 4).map((c, idx) => {
+    const isPos = (c.dailyChange ?? 0) >= 0;
+    const score = isPos
+      ? Math.min(0.4 + (c.dailyChange || 1) * 0.2, 0.95)
+      : Math.max(-0.4 + (c.dailyChange || -1) * 0.2, -0.9);
+    const verdict: "POZİTİF" | "NÖTR" | "NEGATİF" =
+      score > 0.2 ? "POZİTİF" : score < -0.2 ? "NEGATİF" : "NÖTR";
+
+    const summaries: Record<string, string> = {
+      THYAO: "Filo genişleme programı ve kargo gelirlerindeki artış analist beklentilerini yukarı yönlü revize ettiriyor.",
+      FROTO: "Avrupa pazarında yeni nesil elektrikli ticari araç teslimatları ihracat gelirlerini destekliyor.",
+      ASELS: "Savunma Sanayii Başkanlığı ile imzalanan yeni nesil haberleşme ve radar teslimat sözleşmesi kütüğe eklendi.",
+      TUPRS: "Rafineri marjlarındaki dönemsel normalleşme kâr marjlarını dengelerken temettü beklentisi korunuyor.",
+      EREGL: "Küresel çelik talebindeki toparlanma ve kapasite artış yatırımları operasyonel marjları güçlendiriyor.",
+      BIMAS: "Yüksek sepet ortalaması ve yeni mağaza açılışları nakit akışını enflasyona karşı koruyor.",
+    };
+
+    return {
+      id: `sentiment-${c.symbol}-${idx}`,
+      title: `${c.name} (${c.symbol}) için ${
+        verdict === "POZİTİF"
+          ? "Güçlü Operasyonel Gelişmeler & İvme"
+          : verdict === "NEGATİF"
+          ? "Maliyet Baskısı & Sektörel Düzeltme"
+          : "Dengeli Piyasa Seyri"
+      }`,
+      source: "KAP & Finans Analizi",
+      date: "Son 24 Saat",
+      relatedSymbol: c.symbol,
+      sentimentScore: parseFloat(score.toFixed(2)),
+      summary:
+        summaries[c.symbol] ||
+        `${c.name} için son çeyrek operasyonel göstergeleri ve piyasa duyarlılığı ${verdict.toLowerCase()} bölgede seyrediyor.`,
+      impactVerdict: verdict,
+    };
+  });
+}
+
+// -------------------------------------------------------------
+// 7. 📜 Orakul "Haftalık Kasa Mektubu" (Weekly Wealth Letter)
+// -------------------------------------------------------------
+export interface WeeklyLetterRequest {
+  userName?: string;
+  totalValue: number;
+  totalProfit: number;
+  basketsCount: number;
+  companiesCount: number;
+  topWinner?: { symbol: string; change: number };
+  topLoser?: { symbol: string; change: number };
+  weeklyChangePct?: number;
+  persona?: string;
+}
+
+export interface WeeklyLetterResult {
+  date: string;
+  greeting: string;
+  subject: string;
+  openingParagraph: string;
+  portfolioReview: string;
+  macroCommentary: string;
+  strategicGuidance: string;
+  signoff: string;
+}
+
+export async function generateWeeklyLetter(
+  req: WeeklyLetterRequest,
+  _apiKey?: string,
+  provider: string = "gemini",
+  customModel?: string,
+  persona: string = "deger"
+): Promise<WeeklyLetterResult> {
+  const userName = req.userName || "Defter Sahibi";
+  const todayStr = new Date().toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" });
+  const weeklyChange = req.weeklyChangePct ?? 2.45;
+  const isGain = weeklyChange >= 0;
+  const personaNote = getPersonaInstruction(persona);
+  const resolvedApiKey = getResolvedApiKey(provider);
+
+  let opening = `Sevgili ${userName},\n\nBu hafta kasanız genel piyasa dinamikleri karşısında **%${Math.abs(weeklyChange).toFixed(2)} ${isGain ? "değer kazandı" : "düzeltme yaşadı"}**. ${req.basketsCount} aktif sepetiniz ve takip kütüğünüzdeki varlıklar genel olarak sermaye koruma prensiplerinize sadık bir seyir izledi.`;
+
+  let review = `Haftanın öne çıkan hareketi ${req.topWinner?.symbol || "THYAO"} pozisyonunda gerçekleşti (+%${req.topWinner?.change || 3.8}). Öte yandan ${req.topLoser?.symbol || "EREGL"} tarafında yaşanan kâr realizasyonları portföy dengesini test etti. Ancak varlık çeşitlendirmesi sayesinde kasanızın toplam volatilitesi kontrol altında kaldı.`;
+
+  let macro = `Borsa İstanbul genelinde bilanço beklentileri ve küresel faiz patikasına dair haber akışı oynaklığı beslemeye devam ediyor. Enflasyon muhasebesi sonrası net nakit pozisyonu güçlü ve döviz kazandırıcı faaliyetleri bulunan sanayi ve ihracat liderleri piyasada pozitif ayrışmayı sürdürüyor.`;
+
+  let guidance = `Önümüzdeki hafta için tavsiyem; kısa vadeli gürültüye kapılmadan, kütüğünüzdeki yüksek Piotroski skorlu ve iskontolu temel şirketlerdeki ağırlıkları korumanızdır. Gerekirse kâr realizasyonu yapan varlıklardan elde edilen nakdi değer tuzağı riski taşımayan savunmacı kalemlere kademeli kaydırabilirsiniz.`;
+
+  if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
+    try {
+      if (provider === "gemini") {
+        const prompt = `Sen 'Orakul' adında elit bir Özel Bankacı ve Baş Varlık Danışmanısın. "Mürekkep & Pirinç" Defter uygulaması için müşterin '${userName}' adına edebi, bilgece, samimi ve derin finansal içgörü içeren haftalık bir "Kasa Mektubu" (Weekly Wealth Letter) hazırla.
+Portföy Verileri:
+- Toplam Değer: ${req.totalValue.toLocaleString("tr-TR")} ₺
+- Toplam Kâr/Zarar: ${req.totalProfit.toLocaleString("tr-TR")} ₺
+- Haftalık Değişim: %${weeklyChange}
+- Sepet Sayısı: ${req.basketsCount}
+- ${personaNote}
+
+Yanıtını YALNIZCA şu geçerli JSON olarak ver:
+{
+  "subject": "Haftalık Kasa & Sermaye Mektubu",
+  "openingParagraph": "Giriş ve haftalık genel performans paragrafı...",
+  "portfolioReview": "Portföyün detaylı analizi ve öne çıkan varlıklar paragrafı...",
+  "macroCommentary": "Makroekonomik piyasa ve BIST genel bakışı paragrafı...",
+  "strategicGuidance": "Gelecek haftaya dair stratejik ve bilgece tavsiye paragrafı..."
+}`;
+
+        const res = await fetchGeminiWithFallback(
+          resolvedApiKey,
+          {
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: "application/json", temperature: 0.4 },
+          },
+          customModel
+        );
+
+        if (res && res.ok) {
+          const data = await res.json();
+          const raw = data.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (raw) {
+            const parsed = JSON.parse(stripJsonFences(raw));
+            if (parsed.openingParagraph) opening = parsed.openingParagraph;
+            if (parsed.portfolioReview) review = parsed.portfolioReview;
+            if (parsed.macroCommentary) macro = parsed.macroCommentary;
+            if (parsed.strategicGuidance) guidance = parsed.strategicGuidance;
+          }
+        }
+      }
+    } catch {}
+  }
+
+  return {
+    date: todayStr,
+    greeting: `Sevgili ${userName},`,
+    subject: `Haftalık Kasa & Sermaye Mektubu — ${todayStr}`,
+    openingParagraph: opening,
+    portfolioReview: review,
+    macroCommentary: macro,
+    strategicGuidance: guidance,
+    signoff: "Hürmet ve Saygılarımla,\nOrakul 🖋️\nBaş Servet & Finans Danışmanı",
   };
 }
 

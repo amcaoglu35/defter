@@ -3,9 +3,10 @@ import React from "react";
 interface StampBadgeProps {
   verdict: "AL" | "GÜÇLÜ AL" | "SAT" | "GÜÇLÜ SAT" | "TUT" | "NÖTR" | "YÜKSEK RİSK" | "DENGELİ";
   className?: string;
+  animate?: boolean;
 }
 
-export default function StampBadge({ verdict, className = "" }: StampBadgeProps) {
+export default function StampBadge({ verdict, className = "", animate = true }: StampBadgeProps) {
   let styleClass = "stamp-notr";
   const label = verdict;
 
@@ -18,7 +19,7 @@ export default function StampBadge({ verdict, className = "" }: StampBadgeProps)
   }
 
   return (
-    <span className={`stamp ${styleClass} ${className}`}>
+    <span className={`stamp ${styleClass} ${animate ? "animate-stamp-in" : ""} ${className}`}>
       {label}
     </span>
   );

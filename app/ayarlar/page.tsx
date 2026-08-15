@@ -20,9 +20,14 @@ import {
   Brain,
   Key,
   RefreshCw,
+  Sparkles,
+  Rocket,
+  Scale,
+  ShieldCheck,
 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import { useToast } from "@/components/ToastProvider";
+import ConfirmModal from "@/components/ConfirmModal";
 
 export default function AyarlarPage() {
   const {
@@ -80,6 +85,7 @@ export default function AyarlarPage() {
 
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,6 +126,14 @@ export default function AyarlarPage() {
           message: data.message,
         });
         showToast("Bağlantı Testi", data.message, data.isConfigured ? "success" : "info");
+      } else {
+        const errData = await res.json().catch(() => null);
+        const errMsg = errData?.error || errData?.message || `Sunucu hatası (${res.status}).`;
+        setTestResult({
+          isConfigured: false,
+          message: errMsg,
+        });
+        showToast("Test Başarısız", errMsg, "error");
       }
     } catch (e) {
       setTestResult({
@@ -196,16 +210,11 @@ export default function AyarlarPage() {
     downloadAnchor.remove();
   };
 
-  const handleReset = () => {
-    if (
-      confirm(
-        "Tüm şirket, sepet, not ve işlem kayıtları başlangıç tohum verilerine döndürülecektir. Devam etmek istiyor musunuz?"
-      )
-    ) {
-      resetToDefaultData();
-      setResetSuccess(true);
-      setTimeout(() => setResetSuccess(false), 3000);
-    }
+  const handleConfirmReset = () => {
+    resetToDefaultData();
+    setIsResetModalOpen(false);
+    setResetSuccess(true);
+    setTimeout(() => setResetSuccess(false), 3000);
   };
 
   return (
@@ -380,6 +389,95 @@ export default function AyarlarPage() {
         </form>
       </section>
 
+      {/* 2.1 Orakul'un "Sesi" & Karar Kişiliği (Persona) */}
+      <section className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 sm:p-8 space-y-6 shadow-md">
+        <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+          <div className="flex items-center gap-2.5 text-[var(--brass)] font-serif text-xl font-medium">
+            <Sparkles className="w-5 h-5" />
+            <h2>Orakul&apos;un &quot;Sesi&quot; &amp; Karar Kişiliği</h2>
+          </div>
+          <span className="font-mono text-[11px] text-[var(--mist)] uppercase tracking-wider">
+            Prompt Kişiselleştirme
+          </span>
+        </div>
+
+        <p className="text-xs text-[var(--mist)] leading-relaxed">
+          Orakul&apos;un şirket değerleme, bilanço yorumlama ve sepet reçetesi üretirken takınacağı analiz üslubunu seçin.
+          Bu tercih, yapay zekanın sistem talimatını ve karar tonunu doğrudan değiştirir.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[
+            {
+              id: "temkinli" as const,
+              title: "Temkinli Danışman",
+              tag: "Korumacı & Ölçülü",
+              desc: "Riskleri, borç baskısını ve en kötü senaryoları (downside risk) öne çıkaran, sermaye koruma odaklı ölçülü dil.",
+              icon: ShieldCheck,
+              accent: "border-[var(--loss)] text-[var(--loss)]",
+              bg: "bg-[rgba(122,46,58,0.12)]",
+            },
+            {
+              id: "cesur" as const,
+              title: "Cesur Fırsat Avcısı",
+              tag: "Büyüme & Momentum",
+              desc: "Yüksek büyüme potansiyelini, katalizörleri, trend ivmesini ve sektör üzeri getiri ihtimallerini cesurca vurgulayan dinamik dil.",
+              icon: Rocket,
+              accent: "border-[var(--verdigris)] text-[var(--verdigris)]",
+              bg: "bg-[rgba(91,140,123,0.12)]",
+            },
+            {
+              id: "deger" as const,
+              title: "Klasik Değer Yatırımcısı",
+              tag: "Buffett & Graham Tarzı",
+              desc: "Güvenlik marjı (margin of safety), nakit akış kalitesi, kalıcı hendek (moat) ve sabırlı birikim perspektifini esas alan dil.",
+              icon: Scale,
+              accent: "border-[var(--brass)] text-[var(--brass)]",
+              bg: "bg-[rgba(201,162,75,0.12)]",
+            },
+          ].map((persona) => {
+            const Icon = persona.icon;
+            const isSelected = (userSettings?.orakulPersona || "deger") === persona.id;
+            return (
+              <div
+                key={persona.id}
+                onClick={() => {
+                  updateUserSettings({ orakulPersona: persona.id });
+                  showToast("Orakul Kişiliği Güncellendi", `Analiz üslubu "${persona.title}" olarak ayarlandı.`, "success");
+                }}
+                className={`p-5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between space-y-4 relative ${
+                  isSelected
+                    ? "border-[var(--brass)] bg-[var(--ink-3)] shadow-lg scale-[1.02]"
+                    : "border-[var(--line)] bg-[var(--ink-3)] opacity-70 hover:opacity-100 hover:border-[var(--line-strong)]"
+                }`}
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className={`p-2 rounded-lg ${persona.bg} ${persona.accent}`}>
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    {isSelected && (
+                      <span className="font-mono text-[10px] font-bold text-[var(--brass)] bg-[var(--brass-glow)] px-2 py-0.5 rounded border border-[var(--brass-dim)] flex items-center gap-1">
+                        <Check className="w-3 h-3" /> Seçili
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="font-serif text-base font-medium text-[var(--paper)]">
+                    {persona.title}
+                  </h3>
+                  <div className="font-mono text-[10px] text-[var(--brass)] uppercase">
+                    {persona.tag}
+                  </div>
+                  <p className="text-xs text-[var(--mist)] leading-relaxed">
+                    {persona.desc}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
       {/* 3. Canlı Piyasa Fiyat Güncelleme Periyodu */}
       <section className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 sm:p-8 space-y-4">
         <div className="flex items-center gap-2.5 text-[var(--brass)] font-serif text-xl font-medium border-b border-[var(--line)] pb-3">
@@ -452,7 +550,7 @@ export default function AyarlarPage() {
         <p className="text-xs text-[var(--mist)] leading-relaxed">
           {isCloudConnected
             ? "Tüm kütük, sepet ve işlem verileriniz Supabase PostgreSQL veritabanı ile otomatik senkronize edilmektedir."
-            : "Verileriniz şu an bu cihazın tarayıcısında şifreli ve kalıcı olarak saklanmaktadır. Supabase bulut veritabanına bağlamak için .env.local dosyanıza NEXT_PUBLIC_SUPABASE_URL ve NEXT_PUBLIC_SUPABASE_ANON_KEY eklemeniz yeterlidir."}
+            : "Verileriniz şu an bu cihazın tarayıcısında şifreli ve kalıcı olarak saklanmaktadır. Supabase bulut veritabanına bağlamak için .env.local dosyanıza NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY ve SUPABASE_SERVICE_ROLE_KEY eklemeniz yeterlidir."}
         </p>
 
         {isCloudConnected && (
@@ -616,7 +714,7 @@ export default function AyarlarPage() {
               disabled={passSaving}
               className="bg-[var(--brass)] text-[var(--ink)] font-bold text-xs px-4 py-2 rounded hover:bg-[#d9b35a] transition-all cursor-pointer disabled:opacity-50"
             >
-              {passSaving ? "Doğrulanıyor..." : isCloudConnected ? "Şifreyi Güncelle" : "Şifreyi Doğrula"}
+              {passSaving ? "Doğrulanıyor..." : "Mevcut Şifreyi Doğrula"}
             </button>
             {passSaved && (
               <span className="text-xs font-mono text-[var(--verdigris)]">
@@ -700,7 +798,7 @@ export default function AyarlarPage() {
           </button>
 
           <button
-            onClick={handleReset}
+            onClick={() => setIsResetModalOpen(true)}
             className="border border-[var(--line)] hover:border-[var(--loss)] text-[var(--mist)] hover:text-[var(--loss)] text-xs font-mono px-4 py-2.5 rounded flex items-center gap-2 transition-colors cursor-pointer"
           >
             <RotateCcw className="w-4 h-4" />
@@ -714,6 +812,18 @@ export default function AyarlarPage() {
           </p>
         )}
       </section>
+
+      {/* Confirm Reset Modal */}
+      <ConfirmModal
+        isOpen={isResetModalOpen}
+        onClose={() => setIsResetModalOpen(false)}
+        onConfirm={handleConfirmReset}
+        title="Veritabanını Fabrika Ayarlarına Sıfırla"
+        description="Tüm şirket, sepet, not ve işlem kayıtları başlangıç tohum verilerine döndürülecektir. Bu işlem geri alınamaz. Devam etmek istiyor musunuz?"
+        confirmText="Tüm Verileri Sıfırla"
+        cancelText="Vazgeç"
+        variant="danger"
+      />
     </div>
   );
 }

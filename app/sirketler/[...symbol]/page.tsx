@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useId } from "react";
+import React, { useState, useEffect, useMemo, useId } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -11,13 +11,9 @@ import {
   Sparkles,
   TrendingUp,
   TrendingDown,
-  Building,
-  DollarSign,
-  PieChart,
   FileText,
   Send,
   Trash2,
-  Calendar,
   Layers,
   ArrowRightLeft,
   Activity,
@@ -60,6 +56,7 @@ export default function SirketDetayPage() {
     addNote,
     deleteNote,
     transactions,
+    baskets,
     aiProvider,
     geminiModel,
   } = useDefterStore();
@@ -75,6 +72,14 @@ export default function SirketDetayPage() {
   const [alertModalOpen, setAlertModalOpen] = useState(false);
   const [aiReport, setAiReport] = useState<CompanyDiagnosisReport | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
+
+  // Reset state when navigating between companies without full page reload
+  useEffect(() => {
+    setAiReport(null);
+    setNewNote("");
+    setPeriod("6A");
+    setAiLoading(false);
+  }, [symbol]);
 
   // Dynamic Sector Peer Averages (Real calculation from kütük)
   const sectorMetrics = useMemo(() => {
@@ -148,7 +153,7 @@ export default function SirketDetayPage() {
     const trendFactor = dailyChg >= 0 ? 0.08 : -0.08;
     const values: number[] = [];
 
-    let tempPrice = currentPrice * (1 - trendFactor * (stepCount - 1) * 0.4);
+    const tempPrice = currentPrice * (1 - trendFactor * (stepCount - 1) * 0.4);
 
     for (let i = 0; i < stepCount; i++) {
       const progress = i / (stepCount - 1);
@@ -724,39 +729,47 @@ export default function SirketDetayPage() {
               </p>
             ) : (
               <div className="divide-y divide-dashed divide-[var(--line)]">
-                {companyTransactions.map((tx) => (
-                  <div
-                    key={tx.id}
-                    className="py-2.5 flex items-center justify-between text-xs font-mono"
-                  >
-                    <div>
-                      <span
-                        className={`font-bold px-1.5 py-0.5 rounded text-[10px] mr-2 ${
-                          tx.type === "BUY"
-                            ? "bg-[rgba(91,140,123,0.15)] text-[var(--verdigris)]"
-                            : "bg-[rgba(163,59,59,0.15)] text-[var(--loss)]"
-                        }`}
-                      >
-                        {tx.type === "BUY" ? "ALIŞ" : "SATIŞ"}
-                      </span>
-                      <span className="text-[var(--paper)]">
-                        {tx.quantity} Adet @ {tx.price} {company.currency}
-                      </span>
-                      {tx.note && (
-                        <span className="text-[var(--mist)] ml-2 italic">
-                          ({tx.note})
+                {companyTransactions.map((tx) => {
+                  const targetBasket = tx.basketId ? baskets.find((b) => b.id === tx.basketId) : null;
+                  return (
+                    <div
+                      key={tx.id}
+                      className="py-2.5 flex items-center justify-between text-xs font-mono"
+                    >
+                      <div className="flex items-center flex-wrap gap-1.5">
+                        <span
+                          className={`font-bold px-1.5 py-0.5 rounded text-[10px] ${
+                            tx.type === "BUY"
+                              ? "bg-[rgba(91,140,123,0.15)] text-[var(--verdigris)]"
+                              : "bg-[rgba(163,59,59,0.15)] text-[var(--loss)]"
+                          }`}
+                        >
+                          {tx.type === "BUY" ? "ALIŞ" : "SATIŞ"}
                         </span>
-                      )}
-                    </div>
-
-                    <div className="text-right">
-                      <div className="font-bold text-[var(--paper)]">
-                        {tx.totalAmount.toLocaleString("tr-TR")} {company.currency}
+                        <span className="text-[var(--paper)]">
+                          {tx.quantity} Adet @ {tx.price} {company.currency}
+                        </span>
+                        {targetBasket && (
+                          <span className="text-[10px] bg-[var(--ink-3)] text-[var(--brass)] border border-[var(--line)] px-1.5 py-0.5 rounded">
+                            {targetBasket.name}
+                          </span>
+                        )}
+                        {tx.note && (
+                          <span className="text-[var(--mist)] italic">
+                            ({tx.note})
+                          </span>
+                        )}
                       </div>
-                      <div className="text-[10px] text-[var(--mist)]">{tx.date}</div>
+
+                      <div className="text-right">
+                        <div className="font-bold text-[var(--paper)]">
+                          {tx.totalAmount.toLocaleString("tr-TR")} {company.currency}
+                        </div>
+                        <div className="text-[10px] text-[var(--mist)]">{tx.date}</div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

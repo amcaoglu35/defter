@@ -18,12 +18,18 @@ import {
   Share2,
   Printer,
   Scale,
+  Info,
+  History,
+  AlertTriangle,
 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
+import { BasketHolding } from "@/lib/mockData";
 import EditBasketModal from "@/components/EditBasketModal";
 import ShareCardModal from "@/components/ShareCardModal";
 import PrintReportModal from "@/components/PrintReportModal";
+import ConfirmModal from "@/components/ConfirmModal";
 import DataStatusBadge from "@/components/DataStatusBadge";
+import { useToast } from "@/components/ToastProvider";
 import { isLiveSymbol } from "@/lib/liveSymbols";
 
 type PeriodType = "1A" | "3A" | "6A" | "1Y";
@@ -34,8 +40,15 @@ export default function SepetDetayPage() {
   const basketId = params.id as string;
   const chartUid = useId();
   const basketGradId = `basket-chart-grad-${chartUid}`;
+  const { showToast } = useToast();
 
-  const { baskets, companies, removeHoldingFromBasket } = useDefterStore();
+  const {
+    baskets,
+    companies,
+    removeHoldingFromBasket,
+    transactions,
+    addTransaction,
+  } = useDefterStore();
 
   const basket = baskets.find((b) => b.id === basketId);
 
@@ -43,6 +56,7 @@ export default function SepetDetayPage() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [printModalOpen, setPrintModalOpen] = useState(false);
+  const [holdingToDelete, setHoldingToDelete] = useState<BasketHolding | null>(null);
 
   // Dynamic Weighted Dividend Yield Calculation
   const weightedDivYield = useMemo(() => {
@@ -240,10 +254,19 @@ export default function SepetDetayPage() {
       {/* 3. Performance Chart & Risk Meter */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--brass)] font-semibold">
-              Sepet Performans Eğrisi (Dinamik)
-            </h3>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--brass)] font-semibold">
+                Sepet Performans Eğrisi (Dinamik)
+              </h3>
+              <span
+                className="inline-flex items-center gap-1 font-mono text-[10px] bg-[var(--ink-3)] text-[var(--mist)] border border-[var(--line)] px-2 py-0.5 rounded cursor-help"
+                title="Grafik eğrisi, mevcut maliyet tabanı ile kümülatif getiri arasındaki dönemlik projeksiyon simülasyonunu temsil eder."
+              >
+                <Info className="w-3 h-3 text-[var(--brass)]" />
+                <span>~ Maliyet / Getiri Simülasyonu</span>
+              </span>
+            </div>
             <div className="flex gap-1.5 font-mono text-[11px]">
               {(["1A", "3A", "6A", "1Y"] as const).map((p) => (
                 <button
@@ -413,9 +436,9 @@ export default function SepetDetayPage() {
             </div>
           ) : (
             <>
-              <div className="hidden md:grid grid-cols-[1.5fr_100px_100px_100px_100px_110px_40px] gap-4 px-6 py-3 border-b border-[var(--line)] bg-[var(--ink-3)] font-mono text-[11px] uppercase tracking-wider text-[var(--mist)]">
+              <div className="hidden md:grid grid-cols-[1.4fr_120px_90px_95px_95px_95px_40px] gap-3 px-6 py-3 border-b border-[var(--line)] bg-[var(--ink-3)] font-mono text-[11px] uppercase tracking-wider text-[var(--mist)]">
                 <span>Varlık / Şirket</span>
-                <span className="text-right">Ağırlık %</span>
+                <span className="text-right">Ağırlık (Güncel / Hedef)</span>
                 <span className="text-right">Adet</span>
                 <span className="text-right">Ort. Maliyet</span>
                 <span className="text-right">Güncel Fiyat</span>
@@ -430,11 +453,13 @@ export default function SepetDetayPage() {
                       ? (((h.currentPrice - h.avgCost) / h.avgCost) * 100).toFixed(1)
                       : "0.0";
                   const isPositive = parseFloat(returnPct) >= 0;
+                  const targetW = h.targetWeightPercent ?? h.weightPercent;
+                  const deviation = Math.abs(h.weightPercent - targetW);
 
                   return (
                     <div
                       key={h.companySymbol}
-                      className="grid grid-cols-1 md:grid-cols-[1.5fr_100px_100px_100px_100px_110px_40px] gap-3 md:gap-4 p-4 md:px-6 md:py-4 items-center hover:bg-[rgba(201,162,75,0.03)]"
+                      className="grid grid-cols-1 md:grid-cols-[1.4fr_120px_90px_95px_95px_95px_40px] gap-3 p-4 md:px-6 md:py-4 items-center hover:bg-[rgba(201,162,75,0.03)]"
                     >
                       <div>
                         <div className="flex items-center gap-2">
@@ -445,6 +470,14 @@ export default function SepetDetayPage() {
                             {h.companySymbol}
                           </Link>
                           <DataStatusBadge symbol={h.companySymbol} isLive={isLiveSymbol(h.companySymbol)} />
+                          {deviation >= 5 && (
+                            <span
+                              className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[rgba(201,162,75,0.15)] text-[var(--brass)] border border-[var(--brass-dim)] hidden sm:inline-block"
+                              title={`Hedef sapması: %${deviation.toFixed(1)}. Rebalance önerilir.`}
+                            >
+                              Dengeleme
+                            </span>
+                          )}
                         </div>
                         <div className="w-full bg-[var(--ink-3)] h-1.5 rounded-full overflow-hidden mt-1.5 max-w-xs">
                           <div
@@ -454,8 +487,13 @@ export default function SepetDetayPage() {
                         </div>
                       </div>
 
-                      <div className="text-right font-mono text-sm font-bold text-[var(--brass)]">
-                        %{h.weightPercent}
+                      <div className="text-right font-mono text-xs">
+                        <div className="font-bold text-[var(--brass)] text-sm">
+                          %{h.weightPercent}
+                        </div>
+                        <div className="text-[10px] text-[var(--mist)]">
+                          Hedef: %{targetW}
+                        </div>
                       </div>
 
                       <div className="text-right font-mono text-xs text-[var(--paper)]">
@@ -481,11 +519,10 @@ export default function SepetDetayPage() {
 
                       <div className="text-right">
                         <button
-                          onClick={() =>
-                            removeHoldingFromBasket(basket.id, h.companySymbol)
-                          }
-                          className="text-[var(--mist)] hover:text-[var(--loss)] p-1 transition-colors cursor-pointer"
-                          title="Varlığı Sepetten Çıkar"
+                          type="button"
+                          onClick={() => setHoldingToDelete(h)}
+                          className="text-[var(--mist)] hover:text-[var(--loss)] p-1 transition-colors cursor-pointer rounded hover:bg-[rgba(163,59,59,0.1)]"
+                          title="Varlığı Sepetten Çıkar (Satış kaydı oluşturur)"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -495,6 +532,67 @@ export default function SepetDetayPage() {
                 })}
               </div>
             </>
+          )}
+        </div>
+      </section>
+
+      {/* 5. Basket Transactions History Section */}
+      <section className="space-y-4 pt-4 border-t border-[var(--line)]">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <History className="w-4 h-4 text-[var(--brass)]" />
+            <h2 className="font-serif text-xl text-[var(--paper)] font-medium">
+              Bu Sepete Ait İşlem Geçmişi ({transactions.filter((t) => t.basketId === basket.id).length})
+            </h2>
+          </div>
+        </div>
+
+        <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-lg p-4">
+          {transactions.filter((t) => t.basketId === basket.id).length === 0 ? (
+            <p className="text-xs text-[var(--mist)] font-mono py-3 text-center">
+              Bu sepet için henüz kaydedilmiş bir alış/satış işlem hareketi bulunmuyor. &quot;Alış / Satış İşlemi&quot; yaptıkça geçmiş burada listelenir.
+            </p>
+          ) : (
+            <div className="divide-y divide-dashed divide-[var(--line)]">
+              {transactions
+                .filter((t) => t.basketId === basket.id)
+                .map((tx) => (
+                  <div
+                    key={tx.id}
+                    className="py-2.5 flex items-center justify-between text-xs font-mono"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`font-bold px-1.5 py-0.5 rounded text-[10px] ${
+                          tx.type === "BUY"
+                            ? "bg-[rgba(91,140,123,0.15)] text-[var(--verdigris)]"
+                            : "bg-[rgba(163,59,59,0.15)] text-[var(--loss)]"
+                        }`}
+                      >
+                        {tx.type === "BUY" ? "ALIŞ" : "SATIŞ"}
+                      </span>
+                      <span className="font-bold text-[var(--paper)]">
+                        {tx.companySymbol}
+                      </span>
+                      <span className="text-[var(--paper-dim)]">
+                        {tx.quantity} Adet @ {tx.price} ₺
+                      </span>
+                      {tx.note && (
+                        <span className="text-[var(--mist)] italic hidden sm:inline-block">
+                          ({tx.note})
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="text-right">
+                      <div className="font-bold text-[var(--paper)]">
+                        {tx.totalAmount.toLocaleString("tr-TR")} ₺
+                      </div>
+                      <div className="text-[10px] text-[var(--mist)]">{tx.date}</div>
+                    </div>
+                  </div>
+                ))}
+            </div>
           )}
         </div>
       </section>
@@ -528,6 +626,56 @@ export default function SepetDetayPage() {
         basket={basket}
         isOpen={printModalOpen}
         onClose={() => setPrintModalOpen(false)}
+      />
+
+      {/* Confirmation Modal for Removing a Holding with SELL transaction */}
+      <ConfirmModal
+        isOpen={!!holdingToDelete}
+        onClose={() => setHoldingToDelete(null)}
+        onConfirm={() => {
+          if (!holdingToDelete) return;
+          const price = holdingToDelete.currentPrice || holdingToDelete.avgCost || 0;
+          const totalAmount = holdingToDelete.quantity * price;
+
+          addTransaction(
+            {
+              companySymbol: holdingToDelete.companySymbol,
+              type: "SELL",
+              quantity: holdingToDelete.quantity,
+              price: price,
+              totalAmount: parseFloat(totalAmount.toFixed(2)),
+              date: new Date().toISOString().split("T")[0],
+              note: `${basket.name} sepetinden varlık tasfiyesi / çıkarma`,
+            },
+            basket.id
+          );
+
+          removeHoldingFromBasket(basket.id, holdingToDelete.companySymbol);
+
+          showToast(
+            "Varlık Sepetten Çıkarıldı",
+            `${holdingToDelete.companySymbol} (${holdingToDelete.quantity} Lot) sepetten çıkarıldı ve ${price.toFixed(2)} ₺ fiyattan Satış işlemi olarak kütüğe işlendi.`,
+            "success"
+          );
+
+          setHoldingToDelete(null);
+        }}
+        title="Varlığı Sepetten Çıkar"
+        description={
+          holdingToDelete ? (
+            <div className="space-y-2">
+              <p>
+                <strong className="text-[var(--paper)]">{holdingToDelete.companySymbol}</strong> ({holdingToDelete.quantity} Lot) varlığını <strong className="text-[var(--paper)]">{basket.name}</strong> sepetinden çıkarmak istediğinize emin misiniz?
+              </p>
+              <div className="bg-[var(--ink-3)] p-2.5 rounded border border-[var(--line)] text-[11px] font-mono text-[var(--brass)]">
+                ℹ️ İşlem geçmişinin ve kâr/zarar hesabının bozulmaması için bu pozisyon <strong>{(holdingToDelete.currentPrice || holdingToDelete.avgCost || 0).toFixed(2)} ₺</strong> güncel fiyattan bir <strong>SATIŞ (SELL)</strong> işlemi olarak kütüğe işlenecektir.
+              </div>
+            </div>
+          ) : ""
+        }
+        confirmText="Varlığı Çıkar & Satışı Kaydet"
+        cancelText="Vazgeç"
+        variant="danger"
       />
     </div>
   );

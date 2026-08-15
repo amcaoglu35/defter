@@ -40,6 +40,7 @@ export interface Company {
 export interface BasketHolding {
   companySymbol: string;
   weightPercent: number;
+  targetWeightPercent?: number;
   quantity: number;
   avgCost: number;
   currentPrice: number;
@@ -79,6 +80,7 @@ export interface IpoItem {
   sector: string;
   status: "active" | "upcoming" | "listed";
   dateRange: string;
+  endDate?: string;
   priceRange: string;
   distributionType?: string;
   leadManager?: string;
@@ -110,10 +112,15 @@ export interface AiHistoryItem {
   verdictDate?: string;
   priceAtVerdict?: number;
   budgetAtCreation?: number;
+  bist100AtVerdict?: number;
+  alpha?: number;
+  confidence?: string;
   priceAfterPeriod?: number;
   outcomeCheckedAt?: string;
   outcomeCorrect?: boolean | null;
   targetPeriodDays?: number;
+  provider?: string;
+  model?: string;
 }
 
 // ---------------- INITIAL SEED DATA ----------------

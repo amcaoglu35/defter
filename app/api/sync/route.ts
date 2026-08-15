@@ -130,10 +130,11 @@ export async function POST(req: Request) {
       if (bErr) throw bErr;
 
       if (basket.holdings && basket.holdings.length > 0) {
-        const holdingsPayload = basket.holdings.map((h: { companySymbol: string; weightPercent: number; quantity: number; avgCost: number }) => ({
+        const holdingsPayload = basket.holdings.map((h: { companySymbol: string; weightPercent: number; targetWeightPercent?: number; quantity: number; avgCost: number }) => ({
           basket_id: basket.id,
           company_symbol: h.companySymbol,
           weight_percent: h.weightPercent,
+          target_weight_percent: h.targetWeightPercent ?? null,
           quantity: h.quantity,
           avg_cost: h.avgCost,
         }));
@@ -172,7 +173,7 @@ export async function POST(req: Request) {
     }
 
     if (action === "upsert_holding" || action === "update_basket_holding") {
-      const { basketId, companySymbol, weightPercent, quantity, avgCost } = payload;
+      const { basketId, companySymbol, weightPercent, targetWeightPercent, quantity, avgCost } = payload;
       if (quantity <= 0) {
         const { error } = await supabaseAdmin
           .from("basket_holdings")
@@ -185,6 +186,7 @@ export async function POST(req: Request) {
           basket_id: basketId,
           company_symbol: companySymbol,
           weight_percent: weightPercent || 0,
+          target_weight_percent: targetWeightPercent ?? null,
           quantity: quantity,
           avg_cost: avgCost,
         }, { onConflict: "basket_id,company_symbol" });
@@ -214,6 +216,7 @@ export async function POST(req: Request) {
         total_amount: payload.totalAmount,
         date: payload.date,
         note: payload.note,
+        basket_id: payload.basketId || null,
       });
 
       if (error) throw error;
@@ -234,6 +237,31 @@ export async function POST(req: Request) {
     if (action === "mark_notifications_read") {
       const { error } = await supabaseAdmin.from("notifications").update({ read: true }).neq("read", true);
       if (error) throw error;
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === "mark_notification_read") {
+      try {
+        await supabaseAdmin.from("notifications").update({ read: true }).eq("id", payload.id);
+      } catch (err) {
+        console.warn("[Sync] mark_notification_read warning:", err);
+      }
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === "add_notification") {
+      try {
+        await supabaseAdmin.from("notifications").insert({
+          id: payload.id,
+          type: payload.type,
+          title: payload.title,
+          message: payload.message,
+          time: payload.time || "Şimdi",
+          read: payload.read || false,
+        });
+      } catch (err) {
+        console.warn("[Sync] add_notification warning:", err);
+      }
       return NextResponse.json({ success: true });
     }
 
@@ -267,10 +295,78 @@ export async function POST(req: Request) {
           symbol: payload.symbol,
           verdict_date: payload.date || new Date().toISOString().split("T")[0],
           target_period_days: payload.targetPeriodDays || 30,
+          provider: payload.provider || null,
+          model: payload.model || null,
         });
       } catch (err) {
         console.warn("[Sync] ai_history insert warning:", err);
       }
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === "delete_ai_history") {
+      try {
+        await supabaseAdmin.from("ai_history").delete().eq("id", payload.id);
+      } catch (err) {
+        console.warn("[Sync] ai_history delete warning:", err);
+      }
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === "clear_ai_history") {
+      try {
+        await supabaseAdmin.from("ai_history").delete().neq("id", "0");
+      } catch (err) {
+        console.warn("[Sync] ai_history clear warning:", err);
+      }
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === "add_ipo") {
+      const ipo = payload.ipo;
+      const { error } = await supabaseAdmin.from("ipos").upsert({
+        id: ipo.id,
+        name: ipo.name,
+        code: ipo.code,
+        sector: ipo.sector,
+        date_range: ipo.dateRange,
+        price_range: ipo.priceRange,
+        offering_size: ipo.lotAmount || ipo.fundSize || null,
+        allocation_method: ipo.distributionType || "Bireysele Eşit",
+        broker: ipo.leadManager || null,
+        status: ipo.status || "upcoming",
+        ceiling_days: ipo.ceilingStreak || 0,
+      }, { onConflict: "code" });
+
+      if (error) throw error;
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === "update_ipo") {
+      const { id, ...updates } = payload;
+      const dbPayload: Record<string, unknown> = {};
+      if (updates.name !== undefined) dbPayload.name = updates.name;
+      if (updates.code !== undefined) dbPayload.code = updates.code;
+      if (updates.sector !== undefined) dbPayload.sector = updates.sector;
+      if (updates.status !== undefined) dbPayload.status = updates.status;
+      if (updates.dateRange !== undefined) dbPayload.date_range = updates.dateRange;
+      if (updates.priceRange !== undefined) dbPayload.price_range = updates.priceRange;
+      if (updates.distributionType !== undefined) dbPayload.allocation_method = updates.distributionType;
+      if (updates.leadManager !== undefined) dbPayload.broker = updates.leadManager;
+      if (updates.lotAmount !== undefined || updates.fundSize !== undefined) {
+        dbPayload.offering_size = updates.lotAmount || updates.fundSize;
+      }
+      if (updates.ceilingStreak !== undefined) dbPayload.ceiling_days = updates.ceilingStreak;
+
+      const { error } = await supabaseAdmin.from("ipos").update(dbPayload).eq("id", id);
+      if (error) throw error;
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === "delete_ipo") {
+      const { id } = payload;
+      const { error } = await supabaseAdmin.from("ipos").delete().eq("id", id);
+      if (error) throw error;
       return NextResponse.json({ success: true });
     }
 

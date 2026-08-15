@@ -8,6 +8,8 @@ import {
   runBacktestSimulation,
   screenStocksWithAI,
   generateDailyBriefing,
+  generateSentimentAnalysis,
+  generateWeeklyLetter,
   GEMINI_MODEL,
 } from "@/lib/aiService";
 import {
@@ -27,26 +29,24 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { type, payload, messages, context, history, provider, apiKey, model } = body;
+    const { type, payload, messages, context, history, provider, model, persona } = body;
     const selectedProvider = provider || "gemini";
+    const selectedPersona = persona || "deger";
     const reqModel = (model && typeof model === "string" && model.trim().length > 0) ? model.trim() : GEMINI_MODEL;
 
-    // 2. Connection Test endpoint with live API ping
+    // 2. Connection Test endpoint with live API ping (Server environment keys only)
     if (type === "test_connection") {
-      const envKey =
+      const effectiveKey =
         selectedProvider === "openai"
-          ? process.env.OPENAI_API_KEY
-          : process.env.GEMINI_API_KEY;
-
-      const rawKey = (apiKey && typeof apiKey === "string") ? apiKey.trim().replace(/^["']|["']$/g, "") : "";
-      const effectiveKey = rawKey.length > 10 ? rawKey : (envKey ? envKey.trim().replace(/^["']|["']$/g, "") : "");
+          ? process.env.OPENAI_API_KEY?.trim()
+          : process.env.GEMINI_API_KEY?.trim();
 
       if (!effectiveKey || effectiveKey.length <= 10) {
         return NextResponse.json({
           success: true,
           provider: selectedProvider,
           isConfigured: false,
-          message: `${selectedProvider.toUpperCase()} API anahtarı girilmedi veya sunucu ortamında bulunamadı. Yerel çevrimdışı motor aktif.`,
+          message: `${selectedProvider.toUpperCase()} API anahtarı sunucu ortamında (.env) bulunamadı. Güvenli yerel motor aktif.`,
         });
       }
 
@@ -107,23 +107,6 @@ export async function POST(req: Request) {
                 successModel = modelCandidate;
                 successVersion = version;
                 break;
-              } else {
-                const errData = await testRes.json().catch(() => ({}));
-                const msg = errData.error?.message || testRes.statusText || "Geçersiz API Anahtarı";
-                if (!rawGoogleError) rawGoogleError = msg;
-
-                if (msg.includes("API key not valid") || msg.includes("API_KEY_INVALID")) {
-                  rawGoogleError = `Google API Anahtarı Geçersiz (API_KEY_INVALID). Lütfen aistudio.google.com adresinden yeni bir API Key alıp yapıştırın.`;
-                  break;
-                }
-                if (msg.includes("RESOURCE_EXHAUSTED") || msg.includes("Quota")) {
-                  rawGoogleError = `Kota Aşımı (RESOURCE_EXHAUSTED): Anahtarın ücretsiz kullanım limiti veya dakikalık çağrı sınırı dolmuş.`;
-                  break;
-                }
-                if (msg.includes("PERMISSION_DENIED") || msg.includes("API has not been used")) {
-                  rawGoogleError = `Erişim Engellendi (PERMISSION_DENIED): Google Cloud konsolunuzda 'Generative Language API' servisi aktif değil.`;
-                  break;
-                }
               }
             }
             if (successModel) break;
@@ -132,16 +115,19 @@ export async function POST(req: Request) {
           if (successModel) {
             return NextResponse.json({
               success: true,
-              provider: selectedProvider,
+              provider: "gemini",
               isConfigured: true,
-              message: `Google Gemini API anahtarı doğrulandı ✓ (${successModel} @ ${successVersion} aktif)`,
+              testedModel: successModel,
+              apiVersion: successVersion,
+              availableModelsCount: discoveredModels.length,
+              message: `Google Gemini bağlantısı başarılı. (${successModel} @ ${successVersion})`,
             });
           } else {
             return NextResponse.json({
               success: true,
-              provider: selectedProvider,
+              provider: "gemini",
               isConfigured: false,
-              message: `Gemini API reddetti: ${rawGoogleError}`,
+              message: `Gemini API anahtarı doğrulanamadı (${rawGoogleError || "Model erişim hatası"}). Güvenli yerel şablon devrede.`,
             });
           }
         } else if (selectedProvider === "openai") {
@@ -151,40 +137,33 @@ export async function POST(req: Request) {
           if (testRes.ok) {
             return NextResponse.json({
               success: true,
-              provider: selectedProvider,
+              provider: "openai",
               isConfigured: true,
-              message: "OpenAI API anahtarı ve bağlantısı başarıyla doğrulandı ✓ (Gerçek AI Aktif)",
+              message: "OpenAI GPT-4o-mini bağlantısı başarılı.",
             });
           } else {
             return NextResponse.json({
               success: true,
-              provider: selectedProvider,
+              provider: "openai",
               isConfigured: false,
               message: "OpenAI API anahtarı geçersiz veya yetkisiz.",
             });
           }
         }
-      } catch (err: unknown) {
+      } catch (err) {
         return NextResponse.json({
           success: true,
           provider: selectedProvider,
           isConfigured: false,
-          message: `API sunucu bağlantı hatası: ${String(err)}`,
+          message: `Canlı test sırasında ağ hatası oluştu: ${err instanceof Error ? err.message : String(err)}`,
         });
       }
-
-      return NextResponse.json({
-        success: true,
-        provider: selectedProvider,
-        isConfigured: true,
-        message: `${selectedProvider.toUpperCase()} API anahtarı aktif.`,
-      });
     }
 
-    // 3. AI Service calls with optional custom user apiKey & model
+    // 3. AI Service calls (Secured with server-side environment variables)
     if (type === "recipe") {
       const companiesList = payload?.allCompanies || body.companies || [];
-      const recipe = await generateOrakulRecipe(payload, companiesList, apiKey, selectedProvider, reqModel);
+      const recipe = await generateOrakulRecipe(payload, companiesList, undefined, selectedProvider, reqModel, selectedPersona);
       return NextResponse.json({ success: true, data: recipe });
     }
 
@@ -192,7 +171,7 @@ export async function POST(req: Request) {
       const reply = await askOrakulChat(
         messages || [],
         context || {},
-        apiKey,
+        undefined,
         selectedProvider,
         reqModel
       );
@@ -203,9 +182,10 @@ export async function POST(req: Request) {
       const analysis = await generateCompanyAnalysis(
         payload,
         history || [],
-        apiKey,
+        undefined,
         selectedProvider,
-        reqModel
+        reqModel,
+        selectedPersona
       );
       return NextResponse.json({
         success: true,
@@ -216,7 +196,7 @@ export async function POST(req: Request) {
     if (type === "earnings_flash") {
       const flash = await generateEarningsFlash(
         payload,
-        apiKey,
+        undefined,
         selectedProvider,
         reqModel
       );
@@ -226,7 +206,7 @@ export async function POST(req: Request) {
     if (type === "value_trap") {
       const trap = await detectValueTraps(
         payload,
-        apiKey,
+        undefined,
         selectedProvider,
         reqModel
       );
@@ -236,7 +216,7 @@ export async function POST(req: Request) {
     if (type === "backtest") {
       const simulation = await runBacktestSimulation(
         payload,
-        apiKey,
+        undefined,
         selectedProvider,
         reqModel
       );
@@ -247,7 +227,7 @@ export async function POST(req: Request) {
       const screenerResult = await screenStocksWithAI(
         payload.query,
         payload.companies || [],
-        apiKey,
+        undefined,
         selectedProvider,
         reqModel
       );
@@ -257,11 +237,32 @@ export async function POST(req: Request) {
     if (type === "daily_brief") {
       const briefing = await generateDailyBriefing(
         payload || {},
-        apiKey,
+        undefined,
         selectedProvider,
         reqModel
       );
       return NextResponse.json({ success: true, data: briefing });
+    }
+
+    if (type === "weekly_letter") {
+      const letter = await generateWeeklyLetter(
+        payload || {},
+        undefined,
+        selectedProvider,
+        reqModel,
+        selectedPersona
+      );
+      return NextResponse.json({ success: true, data: letter });
+    }
+
+    if (type === "sentiment") {
+      const sentiment = await generateSentimentAnalysis(
+        payload?.companies || payload?.allCompanies || [],
+        payload?.baskets || [],
+        selectedProvider,
+        reqModel
+      );
+      return NextResponse.json({ success: true, data: sentiment });
     }
 
     return NextResponse.json(

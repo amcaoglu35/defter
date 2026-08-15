@@ -34,6 +34,7 @@ export interface Transaction {
   totalAmount: number;
   date: string;
   note?: string;
+  basketId?: string;
 }
 
 export interface MarketIndexData {
@@ -50,6 +51,7 @@ export interface UserSettings {
   ipoAlerts: boolean;
   dividendAlerts: boolean;
   oracleAlerts: boolean;
+  orakulPersona?: "temkinli" | "cesur" | "deger";
 }
 
 export interface AiAccuracyStats {
@@ -59,6 +61,16 @@ export interface AiAccuracyStats {
   incorrect: number;
   pending: number;
   accuracyRate: number;
+  alTotal: number;
+  alCorrect: number;
+  alAccuracy: number;
+  satTotal: number;
+  satCorrect: number;
+  satAccuracy: number;
+  tutTotal: number;
+  tutCorrect: number;
+  tutAccuracy: number;
+  avgAlpha: number;
 }
 
 interface DefterStoreContextType {
@@ -92,8 +104,7 @@ interface DefterStoreContextType {
     tx: Omit<Transaction, "id">,
     targetBasketId?: string
   ) => { success: boolean; error?: string };
-
-  // Notes
+  deleteTransaction: (id: string) => void;
   companyNotes: Record<string, string[]>;
   addNote: (symbol: string, noteText: string) => void;
   deleteNote: (symbol: string, index: number) => void;
@@ -112,7 +123,9 @@ interface DefterStoreContextType {
   // AI History, Feedback Loop & Accuracy
   aiHistory: AiHistoryItem[];
   addAiHistory: (item: AiHistoryItem) => void;
-  evaluateAiOutcomes: () => void;
+  deleteAiHistory: (id: string) => void;
+  clearAllAiHistory: () => void;
+  evaluateAiOutcomes: (freshCompanies?: Company[]) => void;
   aiAccuracyStats: AiAccuracyStats;
   aiProvider: string;
   aiApiKey: string;
@@ -130,10 +143,12 @@ interface DefterStoreContextType {
 
   // Notifications
   notifications: NotificationItem[];
+  addNotification: (item: NotificationItem) => void;
   markAllNotificationsRead: () => void;
   markNotificationRead: (id: string) => void;
 
   // Utilities & Cloud
+  isLoaded: boolean;
   isCloudConnected: boolean;
   syncWithSupabase: () => Promise<void>;
   resetToDefaultData: () => void;
@@ -163,6 +178,7 @@ const DEFAULT_USER_SETTINGS: UserSettings = {
   ipoAlerts: true,
   dividendAlerts: true,
   oracleAlerts: true,
+  orakulPersona: "deger",
 };
 
 const DEFAULT_INDICES: Record<string, MarketIndexData> = {
@@ -294,6 +310,7 @@ export function recalculateBasketHoldings(
       ...h,
       currentPrice: price,
       weightPercent: parseFloat(computedWeight.toFixed(1)),
+      targetWeightPercent: h.targetWeightPercent !== undefined ? h.targetWeightPercent : undefined,
     };
   });
 }
@@ -394,6 +411,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                   ? b.basket_holdings.map((h: Record<string, unknown>) => ({
                       companySymbol: (h.company_symbol as string) || "",
                       weightPercent: Number(h.weight_percent || 0),
+                      targetWeightPercent: h.target_weight_percent !== undefined && h.target_weight_percent !== null ? Number(h.target_weight_percent) : undefined,
                       quantity: Number(h.quantity || 0),
                       avgCost: Number(h.avg_cost || 0),
                       currentPrice: Number(h.avg_cost || 0),
@@ -414,6 +432,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 totalAmount: Number(t.total_amount),
                 date: (t.date as string) || "",
                 note: (t.note as string) || "",
+                basketId: (t.basket_id as string) || undefined,
               }))
             );
           }
@@ -425,7 +444,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 code: (i.code as string) || "",
                 name: (i.name as string) || "",
                 sector: (i.sector as string) || "",
-                status: (i.status as "upcoming" | "active" | "completed") || "upcoming",
+                status: ((i.status === "completed" || i.status === "listed") ? "listed" : i.status === "active" ? "active" : "upcoming") as "upcoming" | "active" | "listed",
                 dateRange: (i.date_range as string) || "",
                 priceRange: (i.price_range as string) || "",
                 distributionType: (i.allocation_method as string) || "Bireysele Eşit",
@@ -439,22 +458,30 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
           if (dbAi && dbAi.length > 0) {
             setAiHistory(
-              dbAi.map((a: Record<string, unknown>) => ({
-                id: (a.id as string) || "",
-                date: (a.verdict_date as string) || new Date(a.created_at as string).toLocaleDateString("tr-TR"),
-                type: (a.type as string) || "Şirket Değerleme",
-                title: (a.title as string) || "",
-                description: (a.description as string) || "",
-                verdictTag: (a.verdict_tag as "AL" | "SAT" | "TUT" | "NÖTR" | "YÜKSEK RİSK" | "DENGELİ") || "TUT",
-                symbol: (a.symbol as string) || undefined,
-                verdict: (a.verdict as "AL" | "SAT" | "TUT" | "NÖTR" | "YÜKSEK RİSK" | "DENGELİ") || "TUT",
-                verdictDate: (a.verdict_date as string) || "",
-                priceAtVerdict: a.price_at_verdict ? Number(a.price_at_verdict) : undefined,
-                priceAfterPeriod: a.price_after_period ? Number(a.price_after_period) : undefined,
-                outcomeCheckedAt: (a.outcome_checked_at as string) || undefined,
-                outcomeCorrect: typeof a.outcome_correct === "boolean" ? a.outcome_correct : undefined,
-                targetPeriodDays: Number(a.target_period_days || 30),
-              }))
+              dbAi.map((a: Record<string, unknown>) => {
+                const itemType = (a.type as string) || "Şirket Değerleme";
+                const isBasketType = itemType === "Sepet Önerisi" || itemType === "Reçete";
+                const rawPrice = a.price_at_verdict ? Number(a.price_at_verdict) : undefined;
+                const rawBudget = a.budget_at_creation ? Number(a.budget_at_creation) : undefined;
+
+                return {
+                  id: (a.id as string) || "",
+                  date: (a.verdict_date as string) || new Date(a.created_at as string).toLocaleDateString("tr-TR"),
+                  type: itemType as AiHistoryItem["type"],
+                  title: (a.title as string) || "",
+                  description: (a.description as string) || "",
+                  verdictTag: (a.verdict_tag as "AL" | "SAT" | "TUT" | "NÖTR" | "YÜKSEK RİSK" | "DENGELİ") || "TUT",
+                  symbol: (a.symbol as string) || undefined,
+                  verdict: (a.verdict as "AL" | "SAT" | "TUT" | "NÖTR" | "YÜKSEK RİSK" | "DENGELİ") || "TUT",
+                  verdictDate: (a.verdict_date as string) || "",
+                  budgetAtCreation: isBasketType ? (rawBudget || rawPrice) : rawBudget,
+                  priceAtVerdict: isBasketType ? undefined : rawPrice,
+                  priceAfterPeriod: a.price_after_period ? Number(a.price_after_period) : undefined,
+                  outcomeCheckedAt: (a.outcome_checked_at as string) || undefined,
+                  outcomeCorrect: typeof a.outcome_correct === "boolean" ? a.outcome_correct : undefined,
+                  targetPeriodDays: Number(a.target_period_days || 30),
+                };
+              })
             );
           }
         }
@@ -515,7 +542,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         } else {
           setIpos(MOCK_IPOS);
         }
-        if (storedAi) setAiHistory(JSON.parse(storedAi));
+        if (storedAi) {
+          try {
+            const parsedAi = JSON.parse(storedAi);
+            if (Array.isArray(parsedAi)) {
+              setAiHistory(
+                parsedAi.map((item: AiHistoryItem) => {
+                  const isBasketType = item.type === "Sepet Önerisi" || item.type === "Reçete";
+                  if (isBasketType && item.priceAtVerdict && !item.budgetAtCreation) {
+                    return {
+                      ...item,
+                      budgetAtCreation: item.priceAtVerdict,
+                      priceAtVerdict: undefined,
+                    };
+                  }
+                  return item;
+                })
+              );
+            }
+          } catch {}
+        }
         if (storedNotif) setNotifications(JSON.parse(storedNotif));
         if (storedProvider) setAiProvider(storedProvider);
         const storedApiKey = localStorage.getItem("defter_ai_api_key");
@@ -611,6 +657,28 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const pending = total - evaluatedItems.length;
     const accuracyRate = evaluatedItems.length > 0 ? Math.round((correct / evaluatedItems.length) * 100) : 0;
 
+    // Karar tipine göre ayrıştırma (Madde 2)
+    const alItems = evaluatedItems.filter((i) => (i.verdict || i.verdictTag || "").toUpperCase().includes("AL"));
+    const alCorrect = alItems.filter((i) => i.outcomeCorrect === true).length;
+    const alAccuracy = alItems.length > 0 ? Math.round((alCorrect / alItems.length) * 100) : 0;
+
+    const satItems = evaluatedItems.filter((i) => (i.verdict || i.verdictTag || "").toUpperCase().includes("SAT"));
+    const satCorrect = satItems.filter((i) => i.outcomeCorrect === true).length;
+    const satAccuracy = satItems.length > 0 ? Math.round((satCorrect / satItems.length) * 100) : 0;
+
+    const tutItems = evaluatedItems.filter((i) => {
+      const v = (i.verdict || i.verdictTag || "").toUpperCase();
+      return v.includes("TUT") || v.includes("DENGELİ") || v.includes("NÖTR");
+    });
+    const tutCorrect = tutItems.filter((i) => i.outcomeCorrect === true).length;
+    const tutAccuracy = tutItems.length > 0 ? Math.round((tutCorrect / tutItems.length) * 100) : 0;
+
+    // Ortalama üretilen alfa (Madde 1)
+    const itemsWithAlpha = evaluatedItems.filter((i) => typeof i.alpha === "number");
+    const avgAlpha = itemsWithAlpha.length > 0
+      ? parseFloat((itemsWithAlpha.reduce((acc, curr) => acc + (curr.alpha || 0), 0) / itemsWithAlpha.length).toFixed(2))
+      : 0;
+
     return {
       total,
       evaluated: evaluatedItems.length,
@@ -618,15 +686,27 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       incorrect,
       pending,
       accuracyRate,
+      alTotal: alItems.length,
+      alCorrect,
+      alAccuracy,
+      satTotal: satItems.length,
+      satCorrect,
+      satAccuracy,
+      tutTotal: tutItems.length,
+      tutCorrect,
+      tutAccuracy,
+      avgAlpha,
     };
   }, [aiHistory]);
 
   // Outcome Verification Engine (evaluates past AI predictions vs market movements)
   const evaluateAiOutcomes = useCallback((freshCompanies?: Company[]) => {
     const listToUse = freshCompanies || companies;
+    const currentBist100 = indices["BIST 100"]?.price || indices["XU100"]?.price || 9840.5;
+
     setAiHistory((prev) =>
       prev.map((item) => {
-        if (!item.symbol || !item.priceAtVerdict || item.outcomeCorrect !== null && item.outcomeCorrect !== undefined) {
+        if (!item.symbol || !item.priceAtVerdict || (item.outcomeCorrect !== null && item.outcomeCorrect !== undefined)) {
           return item;
         }
 
@@ -647,19 +727,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (!co) return item;
 
         const curPrice = co.price;
-        const priceDiffPercent = ((curPrice - item.priceAtVerdict) / item.priceAtVerdict) * 100;
+        const stockReturn = ((curPrice - item.priceAtVerdict) / item.priceAtVerdict) * 100;
+        
+        let benchmarkReturn = 0;
+        if (item.bist100AtVerdict && item.bist100AtVerdict > 0) {
+          benchmarkReturn = ((currentBist100 - item.bist100AtVerdict) / item.bist100AtVerdict) * 100;
+        }
+        
+        const alpha = parseFloat((stockReturn - benchmarkReturn).toFixed(2));
         let isCorrect: boolean | null = null;
 
         const v = (item.verdict || item.verdictTag || "").toUpperCase();
         if (v.includes("AL")) {
-          // If recommendation was BUY and price increased by >= 1% -> correct
-          isCorrect = priceDiffPercent > 0.5;
+          // If recommendation was BUY and alpha exceeded benchmark by >= 1.5% (or stockReturn >= 1.0% if no benchmark)
+          isCorrect = item.bist100AtVerdict ? alpha >= 1.5 : stockReturn >= 1.0;
         } else if (v.includes("SAT")) {
-          // If recommendation was SELL and price dropped -> correct
-          isCorrect = priceDiffPercent < -0.5;
+          // If recommendation was SELL and dropped or underperformed by <= -1.5%
+          isCorrect = item.bist100AtVerdict ? alpha <= -1.5 : stockReturn <= -1.0;
         } else if (v.includes("TUT") || v.includes("DENGELİ") || v.includes("NÖTR")) {
-          // If recommendation was HOLD and price stayed within range -> correct
-          isCorrect = Math.abs(priceDiffPercent) <= 6.0;
+          // If recommendation was HOLD and price performed within normal beta range (+-5%)
+          isCorrect = item.bist100AtVerdict ? Math.abs(alpha) <= 5.0 : Math.abs(stockReturn) <= 5.0;
         }
 
         if (isCorrect !== null) {
@@ -673,6 +760,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 id: item.id,
                 outcomeCorrect: isCorrect,
                 priceAfterPeriod: curPrice,
+                alpha,
                 outcomeCheckedAt: new Date().toISOString(),
               },
             }),
@@ -682,6 +770,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             ...item,
             outcomeCorrect: isCorrect,
             priceAfterPeriod: curPrice,
+            alpha,
             outcomeCheckedAt: new Date().toISOString().split("T")[0],
           };
         }
@@ -689,7 +778,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         return item;
       })
     );
-  }, [companies]);
+  }, [companies, indices]);
 
   // Live Refresh Prices Action (Yahoo Finance API)
   const refreshPrices = useCallback(async () => {
@@ -892,6 +981,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               basketId: b.id,
               companySymbol: holding.companySymbol,
               weightPercent: targetH?.weightPercent || 0,
+              targetWeightPercent: targetH?.targetWeightPercent ?? holding.targetWeightPercent ?? null,
               quantity: targetH ? targetH.quantity : 0,
               avgCost: targetH ? targetH.avgCost : holding.avgCost,
             },
@@ -966,6 +1056,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 basketId,
                 companySymbol: symbol,
                 weightPercent: updatedH.weightPercent,
+                targetWeightPercent: updatedH.targetWeightPercent ?? null,
                 quantity: updatedH.quantity,
                 avgCost: updatedH.avgCost,
               },
@@ -1023,6 +1114,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const newTx: Transaction = {
       ...tx,
       id: `tx-${Date.now()}`,
+      basketId: targetBasketId || tx.basketId,
     };
     setTransactions((prev) => [newTx, ...prev]);
 
@@ -1067,6 +1159,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               {
                 companySymbol: tx.companySymbol,
                 weightPercent: 0,
+                targetWeightPercent: 0,
                 quantity: tx.quantity,
                 avgCost: tx.price,
                 currentPrice: tx.price,
@@ -1099,6 +1192,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                   basketId: b.id,
                   companySymbol: tx.companySymbol,
                   weightPercent: targetH.weightPercent,
+                  targetWeightPercent: targetH.targetWeightPercent ?? null,
                   quantity: targetH.quantity,
                   avgCost: targetH.avgCost,
                 }
@@ -1120,6 +1214,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     );
 
     return { success: true };
+  };
+
+  const deleteTransaction = (id: string) => {
+    setTransactions((prev) => prev.filter((t) => t.id !== id));
+    fetch("/api/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete_transaction", payload: { id } }),
+    }).catch((err) => console.warn("[Sync] delete transaction error:", err));
   };
 
   const addNote = (symbol: string, noteText: string) => {
@@ -1147,6 +1250,33 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "add_ai_history", payload: item }),
     }).catch((err) => console.warn("[Sync] add ai history error:", err));
+  }, []);
+
+  const deleteAiHistory = useCallback((id: string) => {
+    setAiHistory((prev) => prev.filter((h) => h.id !== id));
+    fetch("/api/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete_ai_history", payload: { id } }),
+    }).catch((err) => console.warn("[Sync] delete ai history error:", err));
+  }, []);
+
+  const clearAllAiHistory = useCallback(() => {
+    setAiHistory([]);
+    fetch("/api/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "clear_ai_history" }),
+    }).catch((err) => console.warn("[Sync] clear ai history error:", err));
+  }, []);
+
+  const addNotification = useCallback((item: NotificationItem) => {
+    setNotifications((prev) => [item, ...prev]);
+    fetch("/api/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "add_notification", payload: item }),
+    }).catch((err) => console.warn("[Sync] add notification error:", err));
   }, []);
 
   const syncIpoToLedger = useCallback(
@@ -1198,14 +1328,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         time: "Şimdi",
         read: false,
       };
-      setNotifications((prev) => [newNotif, ...prev]);
+      addNotification(newNotif);
     },
-    [companies, addCompany]
+    [companies, addCompany, addNotification]
   );
 
   const addIpo = useCallback(
     (ipo: IpoItem, autoAddToLedger = true) => {
       setIpos((prev) => [ipo, ...prev]);
+
+      fetch("/api/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "add_ipo", payload: { ipo } }),
+      }).catch((err) => console.warn("[Sync] add ipo error:", err));
 
       if (autoAddToLedger) {
         syncIpoToLedger(ipo);
@@ -1219,6 +1355,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setIpos((prev) =>
         prev.map((i) => (i.id === id ? { ...i, ...partial } : i))
       );
+
+      fetch("/api/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "update_ipo", payload: { id, ...partial } }),
+      }).catch((err) => console.warn("[Sync] update ipo error:", err));
     },
     []
   );
@@ -1226,6 +1368,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const deleteIpo = useCallback(
     (id: string) => {
       setIpos((prev) => prev.filter((i) => i.id !== id));
+
+      fetch("/api/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "delete_ipo", payload: { id } }),
+      }).catch((err) => console.warn("[Sync] delete ipo error:", err));
     },
     []
   );
@@ -1290,6 +1438,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const resetToDefaultData = () => {
     setCompanies(MOCK_COMPANIES);
     setBaskets(MOCK_BASKETS);
+    setTransactions([]);
     setIpos(MOCK_IPOS);
     setAiHistory(MOCK_AI_HISTORY);
     setNotifications(MOCK_NOTIFICATIONS);
@@ -1302,7 +1451,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       ASELS: ["Savunma Sanayii Başkanlığı ile 450M TL sözleşme imzalandı."],
       FROTO: ["Yıllık düzenli temettü dağıtım politikası."],
     });
-    localStorage.clear();
+    // Target only financial data keys; preserve AI credentials, user preferences, and auth session
+    localStorage.removeItem(STORAGE_KEYS.COMPANIES);
+    localStorage.removeItem(STORAGE_KEYS.BASKETS);
+    localStorage.removeItem(STORAGE_KEYS.TRANSACTIONS);
+    localStorage.removeItem(STORAGE_KEYS.NOTES);
+    localStorage.removeItem(STORAGE_KEYS.IPOS);
+    localStorage.removeItem(STORAGE_KEYS.AI_HISTORY);
+    localStorage.removeItem(STORAGE_KEYS.NOTIFICATIONS);
+    localStorage.removeItem(STORAGE_KEYS.INDICES);
   };
 
   const exportStoreAsJson = () => {
@@ -1323,6 +1480,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   return (
     <DefterStoreContext.Provider
       value={{
+        isLoaded,
         userSettings,
         updateUserSettings,
         companies,
@@ -1339,6 +1497,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         updateHolding,
         transactions,
         addTransaction,
+        deleteTransaction,
         companyNotes,
         addNote,
         deleteNote,
@@ -1351,6 +1510,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         autoSyncNewIpos,
         aiHistory,
         addAiHistory,
+        deleteAiHistory,
+        clearAllAiHistory,
         evaluateAiOutcomes,
         aiAccuracyStats,
         aiProvider,
@@ -1365,6 +1526,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setUpdateInterval,
         usdRate,
         notifications,
+        addNotification,
         markAllNotificationsRead,
         markNotificationRead,
         isCloudConnected: isSupabaseConfigured && isServerCloudConnected,

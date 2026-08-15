@@ -92,6 +92,28 @@
 }
 
 /* Stamp Badges */
+@keyframes stamp-in {
+  0% {
+    opacity: 0;
+    transform: rotate(-10deg) scale(1.4);
+    filter: blur(0.5px);
+  }
+  60% {
+    opacity: 0.95;
+    transform: rotate(-1deg) scale(0.96);
+    filter: none;
+  }
+  100% {
+    opacity: 1;
+    transform: rotate(-2.5deg) scale(1);
+    filter: none;
+  }
+}
+
+.animate-stamp-in {
+  animation: stamp-in 0.28s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
 .stamp {
   font-family: var(--font-mono), monospace;
   font-size: 11px;

@@ -43,7 +43,45 @@ export const SYMBOL_MAP: Record<string, string> = {
   SOKM: "SOKM.IS",
   CCOLA: "CCOLA.IS",
   TCELL: "TCELL.IS",
-  TTKOM: "TTKOM.IS",
+  // BIST IPO & New Market Stocks
+  HOROZ: "HOROZ.IS",
+  KOTON: "KOTON.IS",
+  KOCMT: "KOCMT.IS",
+  MOGAN: "MOGAN.IS",
+  RGYAS: "RGYAS.IS",
+  ENTRA: "ENTRA.IS",
+  LILAK: "LILAK.IS",
+  HRKET: "HRKET.IS",
+  ALTNY: "ALTNY.IS",
+  OBAMS: "OBAMS.IS",
+  ICUGS: "ICUGS.IS",
+  TEKMN: "TEKMN.IS",
+  GUNDG: "GUNDG.IS",
+  BAHKM: "BAHKM.IS",
+  ARTMS: "ARTMS.IS",
+  ONRYT: "ONRYT.IS",
+  DURKN: "DURKN.IS",
+  DCTTR: "DCTTR.IS",
+  EFORC: "EFORC.IS",
+  AHSGY: "AHSGY.IS",
+  TABGD: "TABGD.IS",
+  BEGYO: "BEGYO.IS",
+  SURGY: "SURGY.IS",
+  BORLS: "BORLS.IS",
+  DOFER: "DOFER.IS",
+  MARBL: "MARBL.IS",
+  TARKM: "TARKM.IS",
+  HATSAN: "HATSAN.IS",
+  GOKNR: "GOKNR.IS",
+  CVKMD: "CVKMD.IS",
+  KOPOL: "KOPOL.IS",
+  IZENR: "IZENR.IS",
+  TATEN: "TATEN.IS",
+  ENERY: "ENERY.IS",
+  ASGYO: "ASGYO.IS",
+  OFSYM: "OFSYM.IS",
+  KTSKR: "KTSKR.IS",
+  DMRGD: "DMRGD.IS",
 
   // US & European Stocks
   NVDA: "NVDA",
@@ -112,5 +150,16 @@ export const LIVE_SYMBOLS = new Set<string>(Object.keys(SYMBOL_MAP));
 
 export function isLiveSymbol(symbol: string): boolean {
   if (!symbol) return false;
-  return LIVE_SYMBOLS.has(symbol.toUpperCase());
+  const upper = symbol.toUpperCase().trim();
+  return LIVE_SYMBOLS.has(upper) || /^[A-Z0-9]{3,6}$/.test(upper);
+}
+
+export function getSymbolTicker(symbol: string): string {
+  if (!symbol) return "";
+  const upper = symbol.toUpperCase().trim();
+  if (SYMBOL_MAP[upper]) return SYMBOL_MAP[upper];
+  if (/^[A-Z0-9]{3,6}$/.test(upper) && !upper.includes("/") && !upper.includes(".")) {
+    return `${upper}.IS`;
+  }
+  return upper;
 }

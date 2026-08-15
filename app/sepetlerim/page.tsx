@@ -20,6 +20,7 @@ import {
 import { useDefterStore } from "@/lib/store";
 import { Basket, BasketHolding } from "@/lib/mockData";
 import EditBasketModal from "@/components/EditBasketModal";
+import ConfirmModal from "@/components/ConfirmModal";
 
 interface StrategyTemplate {
   name: string;
@@ -90,6 +91,7 @@ export default function SepetlerimPage() {
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editingBasket, setEditingBasket] = useState<Basket | null>(null);
+  const [basketToDelete, setBasketToDelete] = useState<Basket | null>(null);
 
   // Form state
   const [basketName, setBasketName] = useState("");
@@ -117,6 +119,7 @@ export default function SepetlerimPage() {
         return {
           companySymbol: h.symbol,
           weightPercent: h.weight,
+          targetWeightPercent: h.weight,
           quantity: h.qty,
           avgCost: price,
           currentPrice: price,
@@ -336,11 +339,7 @@ export default function SepetlerimPage() {
                     </button>
 
                     <button
-                      onClick={() => {
-                        if (confirm(`"${basket.name}" sepetini silmek istediğinize emin misiniz?`)) {
-                          deleteBasket(basket.id);
-                        }
-                      }}
+                      onClick={() => setBasketToDelete(basket)}
                       className="p-1 text-[var(--loss)] opacity-60 hover:opacity-100 transition-opacity cursor-pointer"
                       title="Sepeti Sil"
                     >
@@ -614,6 +613,34 @@ export default function SepetlerimPage() {
           onClose={() => setEditingBasket(null)}
         />
       )}
+
+      {/* 7. Confirm Delete Basket Modal */}
+      <ConfirmModal
+        isOpen={!!basketToDelete}
+        onClose={() => setBasketToDelete(null)}
+        onConfirm={() => {
+          if (basketToDelete) {
+            deleteBasket(basketToDelete.id);
+            setBasketToDelete(null);
+          }
+        }}
+        title="Sepeti Sil"
+        description={
+          basketToDelete ? (
+            <div className="space-y-1">
+              <p>
+                <strong className="text-[var(--paper)]">&quot;{basketToDelete.name}&quot;</strong> sepetini kütükten tamamen silmek istediğinize emin misiniz?
+              </p>
+              <p className="text-[11px] text-[var(--mist)]">
+                Bu sepette kayıtlı {basketToDelete.holdings.length} adet varlık pozisyonu kaldırılacaktır.
+              </p>
+            </div>
+          ) : ""
+        }
+        confirmText="Sepeti Kalıcı Olarak Sil"
+        cancelText="Vazgeç"
+        variant="danger"
+      />
     </div>
   );
 }

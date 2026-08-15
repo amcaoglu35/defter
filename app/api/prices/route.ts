@@ -6,7 +6,7 @@ import {
   createRateLimitResponse,
 } from "@/lib/rateLimit";
 import { supabaseAdmin, isSupabaseAdminConfigured } from "@/lib/supabaseAdmin";
-import { SYMBOL_MAP } from "@/lib/liveSymbols";
+import { SYMBOL_MAP, getSymbolTicker } from "@/lib/liveSymbols";
 
 // Initialize yahoo-finance2 instance with suppressed notices
 const yf = typeof YahooFinance === "function" ? new (YahooFinance as unknown as new (opts: { suppressNotices: string[] }) => typeof YahooFinance)({ suppressNotices: ["yahooSurvey"] }) : YahooFinance;
@@ -164,9 +164,28 @@ interface YahooQuote {
 }
 
   try {
+    const combinedSymbolMap: Record<string, string> = { ...SYMBOL_MAP };
+
+    // Dynamically include all symbols registered in the companies table
+    if (isSupabaseAdminConfigured && supabaseAdmin) {
+      try {
+        const { data: dbCompanies } = await supabaseAdmin.from("companies").select("symbol");
+        if (dbCompanies) {
+          for (const c of dbCompanies) {
+            const sym = (c.symbol as string)?.toUpperCase().trim();
+            if (sym && !combinedSymbolMap[sym]) {
+              combinedSymbolMap[sym] = getSymbolTicker(sym);
+            }
+          }
+        }
+      } catch (dbErr) {
+        console.warn("[Prices API] Dynamic symbols DB query warning:", dbErr);
+      }
+    }
+
     const rawQuotes: Record<string, YahooQuote> = {};
-    const symbolEntries = Object.entries(SYMBOL_MAP);
-    const yfSymbols = Array.from(new Set(Object.values(SYMBOL_MAP)));
+    const symbolEntries = Object.entries(combinedSymbolMap);
+    const yfSymbols = Array.from(new Set(Object.values(combinedSymbolMap)));
 
     // 1. High-Performance Batch Request (Single HTTP Request to Yahoo Finance)
     try {
