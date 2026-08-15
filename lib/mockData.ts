@@ -107,7 +107,7 @@ export interface DividendItem {
   paymentDate: string;
   netAmountPerShare: number;
   yieldPercent: number;
-  status: "Yaklaşıyor" | "Ödendi" | "Açıklandı";
+  status: "Yaklaşıyor" | "Ödendi" | "Açıklandı" | "Portföyünüzde";
   totalEstimatedPayout?: number;
   ownedLots?: number;
 }
@@ -24532,8 +24532,8 @@ export const MOCK_IPOS: IpoItem[] = [
     code: "HOROZ",
     name: "Horoz Lojistik Kargo Hizmetleri",
     sector: "Lojistik & Taşımacılık",
-    status: "active",
-    dateRange: "29 - 31 Mayıs 2026",
+    status: "listed",
+    dateRange: "29 - 31 Mayıs",
     priceRange: "55.00 ₺",
     distributionType: "Bireysele Eşit Dağıtım",
     leadManager: "QNB Finans Yatırım",
@@ -24546,8 +24546,8 @@ export const MOCK_IPOS: IpoItem[] = [
     code: "YIGIT",
     name: "Yiğit Akü Malzemeleri Sanayi",
     sector: "Akü & Enerji Depolama",
-    status: "active",
-    dateRange: "05 - 07 Haziran 2026",
+    status: "listed",
+    dateRange: "05 - 07 Haziran",
     priceRange: "34.60 ₺",
     distributionType: "Bireysele Eşit Dağıtım",
     leadManager: "Halk Yatırım Menkul",
@@ -24560,8 +24560,8 @@ export const MOCK_IPOS: IpoItem[] = [
     code: "OZATD",
     name: "Özata Denizcilik Tersanesi",
     sector: "Tersane & Gemi İnşa",
-    status: "upcoming",
-    dateRange: "Tarih Bekleniyor",
+    status: "listed",
+    dateRange: "27 - 29 Ağustos",
     priceRange: "105.00 ₺",
     distributionType: "Bireysele Eşit Dağıtım",
     leadManager: "Vakıf Yatırım Menkul",
@@ -24574,8 +24574,8 @@ export const MOCK_IPOS: IpoItem[] = [
     code: "PASUR",
     name: "Pasifik Donanım ve Yazılım Bilgi",
     sector: "Bilişim & Siber Güvenlik",
-    status: "upcoming",
-    dateRange: "Tarih Bekleniyor",
+    status: "listed",
+    dateRange: "06 - 07 Şubat",
     priceRange: "35.00 ₺",
     distributionType: "Tamamı Eşit Dağıtım",
     leadManager: "Halk Yatırım Menkul",

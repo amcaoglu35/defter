@@ -649,7 +649,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return baskets.map((basket) => recalculateBasket(basket, companies));
   }, [baskets, companies]);
 
-  // Dynamic Dividends (Calculated strictly based on user's actual owned holdings)
+  // Dynamic Dividends (Calculated from real company dividend yields & user holdings)
   const computedDividends = useMemo<DividendItem[]>(() => {
     const symbolLots: Record<string, number> = {};
     recalculatedBaskets.forEach((b) => {
@@ -659,17 +659,46 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       });
     });
 
-    return MOCK_DIVIDENDS.map((div) => {
-      const ownedQty = symbolLots[div.companySymbol] || 0;
-      const estimatedTotal = ownedQty * div.netAmountPerShare;
+    const divCompanies = companies.filter(
+      (c) =>
+        (c.dividendYield && c.dividendYield > 0) ||
+        (c.dividendRate && c.dividendRate > 0) ||
+        symbolLots[c.symbol]
+    );
+
+    const sorted = [...divCompanies].sort((a, b) => {
+      const ownedA = symbolLots[a.symbol] || 0;
+      const ownedB = symbolLots[b.symbol] || 0;
+      if (ownedA > 0 && ownedB === 0) return -1;
+      if (ownedB > 0 && ownedA === 0) return 1;
+      return (b.dividendYield || 0) - (a.dividendYield || 0);
+    }).slice(0, 20);
+
+    return sorted.map((c) => {
+      const ownedQty = symbolLots[c.symbol] || 0;
+      const netPerShare =
+        c.dividendRate ||
+        Number((((c.price || 100) * (c.dividendYield || 3)) / 100).toFixed(2));
+      const estimatedTotal = ownedQty * netPerShare;
+      const paymentDate = c.exDividendDate || "2025/2026 Dönemi";
 
       return {
-        ...div,
+        id: `div-${c.symbol}`,
+        companySymbol: c.symbol,
+        companyName: c.name,
+        paymentDate,
+        netAmountPerShare: netPerShare,
+        yieldPercent:
+          c.dividendYield ||
+          (c.dividendRate && c.price
+            ? Number(((c.dividendRate / c.price) * 100).toFixed(1))
+            : 0),
+        status: ownedQty > 0 ? "Portföyünüzde" : "Açıklandı",
         ownedLots: ownedQty,
         totalEstimatedPayout: parseFloat(estimatedTotal.toFixed(2)),
       };
     });
-  }, [recalculatedBaskets]);
+  }, [recalculatedBaskets, companies]);
 
   // AI Accuracy Statistics Calculation
   const aiAccuracyStats = useMemo<AiAccuracyStats>(() => {
