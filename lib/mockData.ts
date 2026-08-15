@@ -49,6 +49,31 @@ export interface Company {
   eps?: number;                // Hisse Başına Kâr (HBK / EPS in TL/USD)
   sharesOutstanding?: string;  // Toplam Ödenmiş Sermaye / Dolaşımdaki Lot
   yearChangePct?: number;      // 52 Haftalık / 1 Yıllık Yüzde Değişim
+
+  // Analyst Consensus & Price Targets
+  targetMeanPrice?: number;         // Analist Ortalama 12 Aylık Hedef Fiyat (TL)
+  targetHighPrice?: number;         // En Yüksek Hedef Fiyat
+  targetLowPrice?: number;          // En Düşük Hedef Fiyat
+  recommendationKey?: string;       // Konsensüs Kararı (buy, strong_buy, hold, sell)
+  numberOfAnalystOpinions?: number; // Görüş Bildiren Analist Kurum Sayısı
+  targetUpsidePct?: number;         // Hedef Fiyata Göre Potansiyel Getiri Oranı (%)
+
+  // Corporate Calendar & Dividends
+  nextEarningsDate?: string;        // Gelecek Bilanço Açıklanma Tarihi
+  exDividendDate?: string;          // Temettü Hak Kullanım Tarihi
+  dividendRate?: number;            // Yıllık Hisse Başı Temettü Tutarı (TL)
+
+  // Financial Highlights (Income Statement & Balance Sheet)
+  totalRevenue?: string;            // Yıllık Toplam Hasılat / Ciro (Mr ₺)
+  netIncome?: string;               // Yıllık Net Kâr (Mr ₺)
+  operatingMargin?: number;         // Faaliyet Kâr Marjı (%)
+  returnOnEquity?: number;          // Özsermaye Kârlılığı / ROE (%)
+
+  // Corporate Profile
+  ceo?: string;                     // Genel Müdür / CEO Adı
+  fullTimeEmployees?: number;       // Toplam Çalışan Sayısı
+  website?: string;                 // Resmi Web Sitesi URL
+  city?: string;                    // Genel Merkez Şehri
 }
 
 export interface BasketHolding {

@@ -839,6 +839,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                   eps: live.eps ?? c.eps,
                   sharesOutstanding: live.sharesOutstanding ?? c.sharesOutstanding,
                   yearChangePct: live.yearChangePct ?? c.yearChangePct,
+                  targetMeanPrice: live.targetMeanPrice ?? c.targetMeanPrice,
+                  targetHighPrice: live.targetHighPrice ?? c.targetHighPrice,
+                  targetLowPrice: live.targetLowPrice ?? c.targetLowPrice,
+                  recommendationKey: live.recommendationKey ?? c.recommendationKey,
+                  numberOfAnalystOpinions: live.numberOfAnalystOpinions ?? c.numberOfAnalystOpinions,
+                  targetUpsidePct: live.targetUpsidePct ?? c.targetUpsidePct,
+                  nextEarningsDate: live.nextEarningsDate ?? c.nextEarningsDate,
+                  exDividendDate: live.exDividendDate ?? c.exDividendDate,
+                  dividendRate: live.dividendRate ?? c.dividendRate,
+                  totalRevenue: live.totalRevenue ?? c.totalRevenue,
+                  netIncome: live.netIncome ?? c.netIncome,
+                  operatingMargin: live.operatingMargin ?? c.operatingMargin,
+                  returnOnEquity: live.returnOnEquity ?? c.returnOnEquity,
                 };
               }
               return c;

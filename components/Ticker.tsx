@@ -21,6 +21,8 @@ export default function Ticker() {
     "S&P 500": { price: 5648.4, dailyChange: 0.45, formattedPrice: "5.648,40", isPositive: true },
     "NASDAQ": { price: 17683.9, dailyChange: 0.84, formattedPrice: "17.683,90", isPositive: true },
     "ABD 10Y": { price: 3.92, dailyChange: -0.05, formattedPrice: "%3,92", isPositive: false },
+    "VIX Korku": { price: 15.40, dailyChange: -2.10, formattedPrice: "15,40", isPositive: false },
+    "DXY Dolar": { price: 104.20, dailyChange: 0.15, formattedPrice: "104,20", isPositive: true },
   };
 
   const effectiveIndices = indices && Object.keys(indices).length > 0 ? indices : fallbackIndices;

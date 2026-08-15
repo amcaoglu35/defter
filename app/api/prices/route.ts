@@ -100,6 +100,8 @@ const FALLBACK_INDICES: Record<string, { price: number; dailyChange: number; for
   "S&P 500": { price: 5648.4, dailyChange: 0.45, formattedPrice: "5.648,40", isPositive: true },
   "NASDAQ": { price: 17683.9, dailyChange: 0.84, formattedPrice: "17.683,90", isPositive: true },
   "ABD 10Y Tahvil": { price: 3.92, dailyChange: -0.05, formattedPrice: "%3,92", isPositive: false },
+  "VIX Korku": { price: 15.40, dailyChange: -2.10, formattedPrice: "15,40", isPositive: false },
+  "DXY Dolar": { price: 104.20, dailyChange: 0.15, formattedPrice: "104,20", isPositive: true },
 };
 
 export interface EnrichedPriceItem {
@@ -119,6 +121,25 @@ export interface EnrichedPriceItem {
   eps?: number;
   sharesOutstanding?: string;
   yearChangePct?: number;
+
+  // Analyst & Consensus
+  targetMeanPrice?: number;
+  targetHighPrice?: number;
+  targetLowPrice?: number;
+  recommendationKey?: string;
+  numberOfAnalystOpinions?: number;
+  targetUpsidePct?: number;
+
+  // Calendar
+  nextEarningsDate?: string;
+  exDividendDate?: string;
+  dividendRate?: number;
+
+  // Financials & Margins
+  totalRevenue?: string;
+  netIncome?: string;
+  operatingMargin?: number;
+  returnOnEquity?: number;
 }
 
 // Cache structure (TTL: 10 minutes)
@@ -317,9 +338,49 @@ interface YahooQuote {
           }
         }
 
+        // Analyst Targets
+        const targetMeanPrice = quote.targetMeanPrice != null ? Number(Number(quote.targetMeanPrice).toFixed(2)) : undefined;
+        const targetHighPrice = quote.targetHighPrice != null ? Number(Number(quote.targetHighPrice).toFixed(2)) : undefined;
+        const targetLowPrice = quote.targetLowPrice != null ? Number(Number(quote.targetLowPrice).toFixed(2)) : undefined;
+        const recommendationKey = quote.recommendationKey ? String(quote.recommendationKey).toLowerCase() : undefined;
+        const numberOfAnalystOpinions = quote.numberOfAnalystOpinions != null ? Number(quote.numberOfAnalystOpinions) : undefined;
+        const targetUpsidePct = (targetMeanPrice && price > 0) ? Number((((targetMeanPrice - price) / price) * 100).toFixed(1)) : undefined;
+
+        // Calendar & Dividends
+        let nextEarningsDate: string | undefined = undefined;
+        if (quote.earningsTimestamp) {
+          try {
+            const dt = new Date(Number(quote.earningsTimestamp) * 1000);
+            nextEarningsDate = dt.toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" });
+          } catch {}
+        }
+        let exDividendDate: string | undefined = undefined;
+        if (quote.exDividendDate) {
+          try {
+            const dt = new Date(Number(quote.exDividendDate) * 1000);
+            exDividendDate = dt.toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" });
+          } catch {}
+        }
+        const dividendRate = quote.trailingAnnualDividendRate != null ? Number(Number(quote.trailingAnnualDividendRate).toFixed(2)) : undefined;
+
+        // Financial Highlights
+        let totalRevenueStr: string | undefined = undefined;
+        if (quote.totalRevenue != null && Number(quote.totalRevenue) > 0) {
+          const tr = Number(quote.totalRevenue);
+          totalRevenueStr = tr >= 1e9 ? `${(tr / 1e9).toFixed(2)} Mr ₺` : `${(tr / 1e6).toFixed(1)} M ₺`;
+        }
+        let netIncomeStr: string | undefined = undefined;
+        if (quote.netIncomeToCommon != null && Number(quote.netIncomeToCommon) !== 0) {
+          const ni = Number(quote.netIncomeToCommon);
+          netIncomeStr = Math.abs(ni) >= 1e9 ? `${(ni / 1e9).toFixed(2)} Mr ₺` : `${(ni / 1e6).toFixed(1)} M ₺`;
+        }
+        const operatingMargin = quote.operatingMargins != null ? Number((Number(quote.operatingMargins) * 100).toFixed(1)) : undefined;
+        const returnOnEquity = quote.returnOnEquity != null ? Number((Number(quote.returnOnEquity) * 100).toFixed(1)) : undefined;
+
         const isIndex = [
           "BIST 100", "BIST 30", "BIST Banka", "BIST Sınai", "BIST Teknoloji",
-          "BIST GYO", "BIST Temettü", "S&P 500", "NASDAQ", "ABD 10Y Tahvil"
+          "BIST GYO", "BIST Temettü", "S&P 500", "NASDAQ", "ABD 10Y Tahvil",
+          "VIX Korku", "DXY Dolar"
         ].includes(key);
 
         if (isIndex) {
@@ -350,6 +411,19 @@ interface YahooQuote {
             eps,
             sharesOutstanding: sharesOutstandingStr,
             yearChangePct,
+            targetMeanPrice,
+            targetHighPrice,
+            targetLowPrice,
+            recommendationKey,
+            numberOfAnalystOpinions,
+            targetUpsidePct,
+            nextEarningsDate,
+            exDividendDate,
+            dividendRate,
+            totalRevenue: totalRevenueStr,
+            netIncome: netIncomeStr,
+            operatingMargin,
+            returnOnEquity,
           };
         }
       }

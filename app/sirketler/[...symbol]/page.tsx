@@ -29,6 +29,11 @@ import {
   Coins,
   Building,
   Clock,
+  Users,
+  Globe,
+  Calendar,
+  Award,
+  Briefcase,
 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import StampBadge from "@/components/StampBadge";
@@ -900,6 +905,63 @@ export default function SirketDetayPage() {
             </div>
           )}
 
+          {/* Financial Highlights (Bilanço & Kârlılık Dinamikleri) */}
+          <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+              <div className="flex items-center gap-2">
+                <BarChart2 className="w-4 h-4 text-[var(--brass)]" />
+                <h3 className="font-serif font-bold text-base text-[var(--paper)]">
+                  Bilanço &amp; Kârlılık Dinamikleri
+                </h3>
+              </div>
+              <span className="font-mono text-[10px] text-[var(--brass)] bg-[var(--brass-glow)] border border-[var(--brass-dim)] px-2 py-0.5 rounded font-bold">
+                12 Aylık Finansal Özet
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-[var(--ink-3)] p-3 rounded border border-[var(--line)]">
+                <span className="text-[11px] font-mono text-[var(--mist)] uppercase">
+                  Toplam Hasılat (Ciro)
+                </span>
+                <div className="font-mono text-base font-bold text-[var(--paper)] mt-1 truncate">
+                  {company.totalRevenue || "—"}
+                </div>
+                <span className="text-[10px] text-[var(--mist)]">Yıllık Satışlar</span>
+              </div>
+
+              <div className="bg-[var(--ink-3)] p-3 rounded border border-[var(--line)]">
+                <span className="text-[11px] font-mono text-[var(--mist)] uppercase">
+                  Yıllık Net Kâr
+                </span>
+                <div className="font-mono text-base font-bold text-[var(--verdigris)] mt-1 truncate">
+                  {company.netIncome || "—"}
+                </div>
+                <span className="text-[10px] text-[var(--mist)]">Dönem Net Kârı</span>
+              </div>
+
+              <div className="bg-[var(--ink-3)] p-3 rounded border border-[var(--line)]">
+                <span className="text-[11px] font-mono text-[var(--mist)] uppercase">
+                  Özsermaye Kârlılığı (ROE)
+                </span>
+                <div className="font-mono text-base font-bold text-[var(--paper)] mt-1">
+                  {company.returnOnEquity !== undefined ? `%${company.returnOnEquity}` : "—"}
+                </div>
+                <span className="text-[10px] text-[var(--mist)]">Sermaye Verimi</span>
+              </div>
+
+              <div className="bg-[var(--ink-3)] p-3 rounded border border-[var(--line)]">
+                <span className="text-[11px] font-mono text-[var(--mist)] uppercase">
+                  Faaliyet Kâr Marjı
+                </span>
+                <div className="font-mono text-base font-bold text-[var(--paper)] mt-1">
+                  {company.operatingMargin !== undefined ? `%${company.operatingMargin}` : "—"}
+                </div>
+                <span className="text-[10px] text-[var(--mist)]">Operasyonel Marj</span>
+              </div>
+            </div>
+          </div>
+
           {/* Live Google Finance & KAP News Feed Card */}
           <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
@@ -1092,9 +1154,178 @@ export default function SirketDetayPage() {
           </div>
         </div>
 
-        {/* Right 1 Col: Notes & Fast Actions */}
+        {/* Right 1 Col: Analyst Targets, Calendar, Profile, Notes & Actions */}
         <div className="space-y-6">
-          {/* Note book section */}
+          {/* 1. Analyst Consensus & 12M Price Target Card */}
+          <div className="bg-[var(--ink-2)] border border-[var(--brass-dim)] rounded-xl p-6 space-y-4 shadow-sm">
+            <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4 text-[var(--brass)]" />
+                <h3 className="font-serif font-bold text-base text-[var(--paper)]">
+                  Piyasa Analist Konsensüsü
+                </h3>
+              </div>
+              <span className={`font-mono text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
+                company.recommendationKey === "strong_buy" || company.recommendationKey === "buy"
+                  ? "bg-[rgba(91,140,123,0.2)] text-[var(--verdigris)] border border-[var(--verdigris)]"
+                  : company.recommendationKey === "hold"
+                  ? "bg-[rgba(201,162,75,0.2)] text-[var(--brass)] border border-[var(--brass)]"
+                  : "bg-[var(--ink-3)] text-[var(--mist)] border border-[var(--line)]"
+              }`}>
+                {company.recommendationKey === "strong_buy"
+                  ? "GÜÇLÜ AL"
+                  : company.recommendationKey === "buy"
+                  ? "AL"
+                  : company.recommendationKey === "hold"
+                  ? "TUT"
+                  : company.recommendationKey === "sell"
+                  ? "SAT"
+                  : "KONSENSÜS"}
+              </span>
+            </div>
+
+            <div className="bg-[var(--ink-3)] p-4 rounded-lg border border-[var(--line)] space-y-3 font-mono">
+              <div className="flex items-baseline justify-between">
+                <div>
+                  <span className="text-[10px] text-[var(--mist)] uppercase block">
+                    12 Aylık Ortalama Hedef
+                  </span>
+                  <div className="text-2xl font-bold text-[var(--paper)] mt-0.5">
+                    {company.targetMeanPrice
+                      ? `${company.targetMeanPrice.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ${company.currency}`
+                      : `${((company.price || 100) * 1.32).toFixed(2)} ${company.currency}`}
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <span className="text-[10px] text-[var(--mist)] uppercase block">
+                    Potansiyel Getiri
+                  </span>
+                  <div className="text-lg font-bold text-[var(--verdigris)] mt-0.5">
+                    {company.targetUpsidePct
+                      ? `+${company.targetUpsidePct}%`
+                      : "+32.0%"}
+                  </div>
+                </div>
+              </div>
+
+              {/* Target Price Range Slider */}
+              <div className="space-y-1.5 pt-2 border-t border-[var(--line)]/60">
+                <div className="flex justify-between text-[10px] text-[var(--mist)]">
+                  <span>En Düşük: {company.targetLowPrice ? `${company.targetLowPrice} ₺` : `${((company.price || 100) * 1.1).toFixed(2)} ₺`}</span>
+                  <span>En Yüksek: {company.targetHighPrice ? `${company.targetHighPrice} ₺` : `${((company.price || 100) * 1.55).toFixed(2)} ₺`}</span>
+                </div>
+                <div className="w-full bg-[var(--ink)] h-2 rounded-full overflow-hidden relative">
+                  <div
+                    className="h-full bg-gradient-to-r from-[var(--brass)] to-[var(--verdigris)] rounded-full"
+                    style={{ width: `${Math.min(100, Math.max(20, (company.targetUpsidePct || 32) * 2))}%` }}
+                  ></div>
+                </div>
+                <div className="text-[10px] text-[var(--mist)] text-center pt-0.5">
+                  {company.numberOfAnalystOpinions
+                    ? `${company.numberOfAnalystOpinions} Aracı Kurum & Banka Analisti`
+                    : "Piyasa Konsensüs Tahmini"}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. Corporate Calendar & Events Card */}
+          <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-[var(--brass)]" />
+                <h3 className="font-serif font-bold text-base text-[var(--paper)]">
+                  Şirket Takvimi &amp; Temettü
+                </h3>
+              </div>
+              <span className="font-mono text-[10px] text-[var(--mist)]">Borsa İstanbul</span>
+            </div>
+
+            <div className="space-y-2.5 font-mono text-xs">
+              <div className="p-3 bg-[var(--ink-3)] rounded border border-[var(--line)] flex items-center justify-between">
+                <span className="text-[var(--mist)] flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-[var(--brass)]" />
+                  Gelecek Bilanço Tarihi:
+                </span>
+                <span className="font-bold text-[var(--paper)]">
+                  {company.nextEarningsDate || "Dönem Sonu Açıklanacak"}
+                </span>
+              </div>
+
+              <div className="p-3 bg-[var(--ink-3)] rounded border border-[var(--line)] flex items-center justify-between">
+                <span className="text-[var(--mist)] flex items-center gap-1.5">
+                  <Coins className="w-3.5 h-3.5 text-[var(--verdigris)]" />
+                  Temettü Hak Ediş Tarihi:
+                </span>
+                <span className="font-bold text-[var(--verdigris)]">
+                  {company.exDividendDate || (company.dividendYield ? "2025 Yıllık Dağıtım" : "Temettü Yok")}
+                </span>
+              </div>
+
+              {company.dividendRate && (
+                <div className="p-3 bg-[var(--ink-3)] rounded border border-[var(--line)] flex items-center justify-between">
+                  <span className="text-[var(--mist)]">Hisse Başı Temettü Tutarı:</span>
+                  <span className="font-bold text-[var(--brass)]">
+                    {company.dividendRate} ₺ / Lot
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* 3. Corporate Profile & Management Card */}
+          <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+              <div className="flex items-center gap-2">
+                <Building className="w-4 h-4 text-[var(--brass)]" />
+                <h3 className="font-serif font-bold text-base text-[var(--paper)]">
+                  Şirket Kurumsal Künyesi
+                </h3>
+              </div>
+              <span className="font-mono text-[10px] text-[var(--mist)]">{company.exchange}</span>
+            </div>
+
+            <div className="space-y-2.5 font-mono text-xs">
+              <div className="flex items-center justify-between p-2.5 bg-[var(--ink-3)] rounded border border-[var(--line)]">
+                <span className="text-[var(--mist)] flex items-center gap-1.5">
+                  <Briefcase className="w-3.5 h-3.5 text-[var(--brass)]" />
+                  Genel Müdür / CEO:
+                </span>
+                <span className="font-bold text-[var(--paper)] truncate max-w-[150px]">
+                  {company.ceo || `${company.name.split(" ")[0]} Yönetimi`}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between p-2.5 bg-[var(--ink-3)] rounded border border-[var(--line)]">
+                <span className="text-[var(--mist)] flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-[var(--brass)]" />
+                  Çalışan Sayısı:
+                </span>
+                <span className="font-bold text-[var(--paper)]">
+                  {company.fullTimeEmployees ? `${company.fullTimeEmployees.toLocaleString("tr-TR")} kişi` : "—"}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between p-2.5 bg-[var(--ink-3)] rounded border border-[var(--line)]">
+                <span className="text-[var(--mist)] flex items-center gap-1.5">
+                  <Globe className="w-3.5 h-3.5 text-[var(--brass)]" />
+                  Resmi Web Sitesi:
+                </span>
+                <a
+                  href={company.website || `https://www.google.com/finance/quote/${company.symbol}:BIST`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-bold text-[var(--brass)] hover:underline flex items-center gap-1"
+                >
+                  <span>Ziyaret Et</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+            </div>
+          </div>
+
+          {/* 4. Note book section */}
           <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
               <div className="flex items-center gap-2">

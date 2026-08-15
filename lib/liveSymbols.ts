@@ -150,6 +150,8 @@ export const SYMBOL_MAP: Record<string, string> = {
   "S&P 500": "^GSPC",
   NASDAQ: "^IXIC",
   "ABD 10Y Tahvil": "^TNX",
+  "VIX Korku": "^VIX",
+  "DXY Dolar": "DX-Y.NYB",
 };
 
 export const LIVE_SYMBOLS = new Set<string>(Object.keys(SYMBOL_MAP));
