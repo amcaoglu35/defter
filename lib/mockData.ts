@@ -19886,7 +19886,7 @@ export const MOCK_AI_HISTORY: AiHistoryItem[] = [
     verdictTag: "GÜÇLÜ KORUMA",
     verdict: "DENGELİ",
     verdictDate: "2026-08-12",
-    priceAtVerdict: 3120.4,
+    budgetAtCreation: 100000,
     outcomeCorrect: null,
     targetPeriodDays: 30,
   },

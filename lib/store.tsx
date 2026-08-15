@@ -823,6 +823,51 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           setUsdRate(data.prices["USD/TRY"].price);
         }
 
+        // Check and trigger Active Price Alerts (In-App Notification Engine)
+        if (data.prices && typeof window !== "undefined") {
+          try {
+            const rawAlerts = localStorage.getItem("defter_price_alerts");
+            if (rawAlerts) {
+              const parsedAlerts = JSON.parse(rawAlerts);
+              if (Array.isArray(parsedAlerts)) {
+                let alertChanged = false;
+                const newAlerts = parsedAlerts.map((alert: { id: string; symbol: string; targetPrice: number; condition: "ABOVE" | "BELOW"; active: boolean }) => {
+                  if (!alert.active) return alert;
+                  const priceObj = data.prices[alert.symbol];
+                  if (!priceObj) return alert;
+
+                  const curPrice = priceObj.price;
+                  const triggered =
+                    (alert.condition === "ABOVE" && curPrice >= alert.targetPrice) ||
+                    (alert.condition === "BELOW" && curPrice <= alert.targetPrice);
+
+                  if (triggered) {
+                    alertChanged = true;
+                    const notif: NotificationItem = {
+                      id: `alert-${Date.now()}-${alert.symbol}`,
+                      type: "signal",
+                      title: `🔔 Fiyat Alarmı: ${alert.symbol}`,
+                      message: `${alert.symbol} hissesi belirlediğiniz ${alert.targetPrice} ₺ seviyesine ulaştı. (Güncel Fiyat: ${curPrice.toFixed(2)} ₺).`,
+                      time: "Şimdi",
+                      read: false,
+                      relatedCompanySymbol: alert.symbol,
+                    };
+                    setNotifications((prev) => [notif, ...prev]);
+                    return { ...alert, active: false };
+                  }
+                  return alert;
+                });
+
+                if (alertChanged) {
+                  localStorage.setItem("defter_price_alerts", JSON.stringify(newAlerts));
+                }
+              }
+            }
+          } catch (alertErr) {
+            console.warn("[Store] Price alert check warning:", alertErr);
+          }
+        }
+
         setLastSyncTime(data.formattedTime || "Şimdi");
       }
     } catch (e) {

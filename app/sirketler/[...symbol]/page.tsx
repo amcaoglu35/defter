@@ -148,21 +148,28 @@ export default function SirketDetayPage() {
       return x - Math.floor(x);
     };
 
-    // Calculate realistic price history anchored to current price
-    const volatility = currentPrice * (period === "1A" ? 0.05 : period === "3A" ? 0.12 : period === "6A" ? 0.22 : 0.38);
-    const trendFactor = dailyChg >= 0 ? 0.08 : -0.08;
-    const values: number[] = [];
+    // Calculate realistic price history anchored to current price and actual reported returns
+    const betaFactor = company.beta && company.beta > 0 ? company.beta : 1.0;
+    const volatility = currentPrice * (period === "1A" ? 0.04 : period === "3A" ? 0.09 : period === "6A" ? 0.16 : 0.28) * betaFactor;
+    
+    let startPrice = currentPrice;
+    if (period === "1Y" && company.oneYearReturn !== undefined && company.oneYearReturn !== null) {
+      startPrice = currentPrice / (1 + (company.oneYearReturn / 100));
+    } else {
+      const trendFactor = (dailyChg >= 0 ? 0.06 : -0.06) * (period === "1A" ? 0.5 : period === "3A" ? 1.0 : 1.5);
+      startPrice = currentPrice * (1 - trendFactor);
+    }
 
-    const tempPrice = currentPrice * (1 - trendFactor * (stepCount - 1) * 0.4);
+    const values: number[] = [];
 
     for (let i = 0; i < stepCount; i++) {
       const progress = i / (stepCount - 1);
-      const noise = (pseudoRandom(i) - 0.48) * volatility;
-      const trend = (currentPrice - tempPrice) * progress;
-      const p = tempPrice + trend + noise * (1 - progress * 0.8);
-      values.push(Math.max(p, currentPrice * 0.4));
+      const noise = (pseudoRandom(i) - 0.5) * volatility * (1 - progress * 0.75);
+      const trend = startPrice + (currentPrice - startPrice) * progress;
+      const p = Math.max(trend + noise, currentPrice * 0.15);
+      values.push(p);
     }
-    // Anchor last value to actual live/current price
+    // Anchor last value precisely to actual live/current price
     values[values.length - 1] = currentPrice;
 
     const minPrice = Math.min(...values);

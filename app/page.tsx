@@ -288,9 +288,21 @@ export default function HomePage() {
                   <span className="font-mono text-[10px] text-[var(--brass)] uppercase font-bold tracking-wider">
                     {dailyBrief.date} • Akşam Kapanış Brifingi
                   </span>
-                  <span className="font-mono text-[10px] bg-[rgba(91,140,123,0.15)] text-[var(--verdigris)] border border-[var(--verdigris)] px-2 py-0.5 rounded font-bold">
-                    Alfa Getiri: +%{(dailyBrief.portfolioDayChangePct - dailyBrief.bistDayChangePct).toFixed(2)}
-                  </span>
+                  {(() => {
+                    const alphaDiff = parseFloat((dailyBrief.portfolioDayChangePct - dailyBrief.bistDayChangePct).toFixed(2));
+                    const isPositive = alphaDiff >= 0;
+                    return (
+                      <span
+                        className={`font-mono text-[10px] px-2 py-0.5 rounded font-bold border ${
+                          isPositive
+                            ? "bg-[rgba(91,140,123,0.15)] text-[var(--verdigris)] border-[var(--verdigris)]"
+                            : "bg-[rgba(122,46,58,0.15)] text-[var(--loss)] border-[var(--loss)]"
+                        }`}
+                      >
+                        Alfa Getiri: {isPositive ? `+${alphaDiff}` : `${alphaDiff}`}%
+                      </span>
+                    );
+                  })()}
                 </div>
                 <h3 className="font-serif text-xl font-bold text-[var(--paper)] mt-0.5">
                   {dailyBrief.greeting}

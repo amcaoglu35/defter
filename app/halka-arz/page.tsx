@@ -69,14 +69,32 @@ export function getRemainingDaysBadge(ipo: IpoItem): { text: string; color: stri
     return { text: `${diffDays} Gün Kaldı`, color: "text-[var(--verdigris)] border-[var(--verdigris)] bg-[rgba(91,140,123,0.1)]" };
   }
 
-  // Best-effort regex date parser from dateRange text (e.g. "18 - 20 Ağustos 2026")
+  // Robust date parser from dateRange text (e.g. "18 - 20 Ağustos 2026")
+  const trMonths: Record<string, number> = {
+    ocak: 0, subat: 1, şubat: 1, mart: 2, nisan: 3, mayis: 4, mayıs: 4,
+    haziran: 5, temmuz: 6, agustos: 7, ağustos: 7, eylul: 8, eylül: 8,
+    ekim: 9, kasim: 10, kasım: 10, aralik: 11, aralık: 11
+  };
+
+  const words = ipo.dateRange.toLowerCase().replace(/[^a-z0-9ğüşıöç\s]/g, " ").split(/\s+/).filter(Boolean);
   const numbers = ipo.dateRange.match(/\d+/g);
+  
   if (numbers && numbers.length >= 2) {
     const endDay = parseInt(numbers[1]);
-    const currentDay = new Date().getDate();
-    const diff = endDay - currentDay;
-    if (diff <= 0) return { text: "Son Gün!", color: "text-[var(--loss)] border-[var(--loss)] bg-[rgba(122,46,58,0.1)]" };
-    if (diff > 0 && diff <= 5) return { text: `${diff} Gün Kaldı`, color: "text-[var(--brass)] border-[var(--brass)] bg-[rgba(201,162,75,0.1)]" };
+    const year = numbers.length >= 3 ? parseInt(numbers[2]) : new Date().getFullYear();
+    let monthIdx = new Date().getMonth();
+    for (const w of words) {
+      if (trMonths[w] !== undefined) {
+        monthIdx = trMonths[w];
+        break;
+      }
+    }
+    const targetDate = new Date(year, monthIdx, endDay, 23, 59, 59).getTime();
+    const now = new Date().getTime();
+    const diffDays = Math.ceil((targetDate - now) / (1000 * 60 * 60 * 24));
+    if (diffDays <= 0) return { text: "Son Gün!", color: "text-[var(--loss)] border-[var(--loss)] bg-[rgba(122,46,58,0.1)]" };
+    if (diffDays === 1) return { text: "1 Gün Kaldı", color: "text-[var(--brass)] border-[var(--brass)] bg-[rgba(201,162,75,0.1)]" };
+    if (diffDays > 0 && diffDays <= 30) return { text: `${diffDays} Gün Kaldı`, color: "text-[var(--verdigris)] border-[var(--verdigris)] bg-[rgba(91,140,123,0.1)]" };
   }
 
   return { text: "Talep Açık", color: "text-[var(--verdigris)] border-[var(--verdigris)] bg-[rgba(91,140,123,0.1)]" };
