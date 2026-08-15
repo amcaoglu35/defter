@@ -139,11 +139,17 @@ export const SYMBOL_MAP: Record<string, string> = {
   BRENT: "BZ=F",
   BAKIR: "HG=F",
 
-  // Market Indices
+  // Market & Sector Indices
   "BIST 100": "XU100.IS",
   "BIST 30": "XU030.IS",
+  "BIST Banka": "XBANK.IS",
+  "BIST Sınai": "XUSIN.IS",
+  "BIST Teknoloji": "XTEK.IS",
+  "BIST GYO": "XGMYO.IS",
+  "BIST Temettü": "XTMTU.IS",
   "S&P 500": "^GSPC",
   NASDAQ: "^IXIC",
+  "ABD 10Y Tahvil": "^TNX",
 };
 
 export const LIVE_SYMBOLS = new Set<string>(Object.keys(SYMBOL_MAP));

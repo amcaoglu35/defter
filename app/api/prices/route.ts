@@ -86,6 +86,11 @@ const FALLBACK_PRICES: Record<string, { price: number; dailyChange: number; prev
 const FALLBACK_INDICES: Record<string, { price: number; dailyChange: number; formattedPrice: string; isPositive: boolean }> = {
   "BIST 100": { price: 9840.5, dailyChange: 1.42, formattedPrice: "9.840,50", isPositive: true },
   "BIST 30": { price: 10720.1, dailyChange: 1.65, formattedPrice: "10.720,10", isPositive: true },
+  "BIST Banka": { price: 13850.0, dailyChange: 2.10, formattedPrice: "13.850,00", isPositive: true },
+  "BIST Sınai": { price: 14200.4, dailyChange: 0.95, formattedPrice: "14.200,40", isPositive: true },
+  "BIST Teknoloji": { price: 12450.8, dailyChange: 3.20, formattedPrice: "12.450,80", isPositive: true },
+  "BIST GYO": { price: 3420.5, dailyChange: 1.15, formattedPrice: "3.420,50", isPositive: true },
+  "BIST Temettü": { price: 10890.2, dailyChange: 1.30, formattedPrice: "10.890,20", isPositive: true },
   "USD/TRY": { price: 38.45, dailyChange: 0.12, formattedPrice: "38,45 ₺", isPositive: true },
   "EUR/TRY": { price: 41.80, dailyChange: 0.25, formattedPrice: "41,80 ₺", isPositive: true },
   "Gram Altın": { price: 3420.0, dailyChange: 0.85, formattedPrice: "3.420,00 ₺", isPositive: true },
@@ -93,13 +98,30 @@ const FALLBACK_INDICES: Record<string, { price: number; dailyChange: number; for
   "Brent Petrol": { price: 74.20, dailyChange: -0.40, formattedPrice: "74,20 $", isPositive: false },
   "S&P 500": { price: 5648.4, dailyChange: 0.45, formattedPrice: "5.648,40", isPositive: true },
   "NASDAQ": { price: 17683.9, dailyChange: 0.84, formattedPrice: "17.683,90", isPositive: true },
+  "ABD 10Y Tahvil": { price: 3.92, dailyChange: -0.05, formattedPrice: "%3,92", isPositive: false },
 };
+
+export interface EnrichedPriceItem {
+  price: number;
+  dailyChange: number;
+  previousClose?: number;
+  high52?: number;
+  low52?: number;
+  dayHigh?: number;
+  dayLow?: number;
+  openPrice?: number;
+  volume?: number;
+  avgVolume?: number;
+  volumeRatio?: number;
+  peRatio?: number;
+  marketCap?: string;
+}
 
 // Cache structure (TTL: 10 minutes)
 interface PriceCache {
   timestamp: number;
   data: {
-    prices: Record<string, { price: number; dailyChange: number; previousClose?: number }>;
+    prices: Record<string, EnrichedPriceItem>;
     indices: Record<string, { price: number; dailyChange: number; formattedPrice: string; isPositive: boolean }>;
     formattedTime: string;
   };
@@ -160,6 +182,16 @@ interface YahooQuote {
   regularMarketPrice?: number;
   regularMarketChangePercent?: number;
   regularMarketPreviousClose?: number;
+  fiftyTwoWeekHigh?: number;
+  fiftyTwoWeekLow?: number;
+  regularMarketDayHigh?: number;
+  regularMarketDayLow?: number;
+  regularMarketOpen?: number;
+  regularMarketVolume?: number;
+  averageDailyVolume3Month?: number;
+  averageDailyVolume10Day?: number;
+  trailingPE?: number;
+  marketCap?: number;
   [key: string]: unknown;
 }
 
@@ -191,7 +223,6 @@ interface YahooQuote {
     try {
       const batchQuotes = (await yf.quote(yfSymbols)) as unknown as YahooQuote[];
       if (Array.isArray(batchQuotes)) {
-        // Create lookup map from Yahoo symbol to quote object
         const yfQuoteMap = new Map<string, YahooQuote>();
         for (const q of batchQuotes) {
           if (q && q.symbol) {
@@ -210,7 +241,6 @@ interface YahooQuote {
     } catch (batchErr: unknown) {
       console.warn("[YahooFinance] Batch fetch error, falling back to parallel requests:", (batchErr as Error)?.message || batchErr);
       
-      // Fallback: Individual parallel fetch with allSettled
       const fetchPromises = symbolEntries.map(async ([key, yfSymbol]) => {
         try {
           const quote = (await yf.quote(yfSymbol)) as unknown as YahooQuote;
@@ -228,7 +258,7 @@ interface YahooQuote {
       }
     }
 
-    const updatedPrices: Record<string, { price: number; dailyChange: number; previousClose?: number }> = {
+    const updatedPrices: Record<string, EnrichedPriceItem> = {
       ...FALLBACK_PRICES,
     };
 
@@ -236,18 +266,47 @@ interface YahooQuote {
       ...FALLBACK_INDICES,
     };
 
-    // 1. Process regular stock and FX quotes
+    // 1. Process regular stock, indices and FX quotes
     for (const [key, quote] of Object.entries(rawQuotes)) {
       if (quote?.regularMarketPrice != null) {
         const price = Number(quote.regularMarketPrice);
         const changePercent = quote.regularMarketChangePercent != null ? Number(quote.regularMarketChangePercent) : 0;
         const prevClose = quote.regularMarketPreviousClose != null ? Number(quote.regularMarketPreviousClose) : undefined;
+        const high52 = quote.fiftyTwoWeekHigh != null ? Number(Number(quote.fiftyTwoWeekHigh).toFixed(2)) : undefined;
+        const low52 = quote.fiftyTwoWeekLow != null ? Number(Number(quote.fiftyTwoWeekLow).toFixed(2)) : undefined;
+        const dayHigh = quote.regularMarketDayHigh != null ? Number(Number(quote.regularMarketDayHigh).toFixed(2)) : undefined;
+        const dayLow = quote.regularMarketDayLow != null ? Number(Number(quote.regularMarketDayLow).toFixed(2)) : undefined;
+        const openPrice = quote.regularMarketOpen != null ? Number(Number(quote.regularMarketOpen).toFixed(2)) : undefined;
+        const volume = quote.regularMarketVolume != null ? Number(quote.regularMarketVolume) : undefined;
+        const avgVol = quote.averageDailyVolume3Month != null
+          ? Number(quote.averageDailyVolume3Month)
+          : (quote.averageDailyVolume10Day != null ? Number(quote.averageDailyVolume10Day) : undefined);
+        const volumeRatio = (volume && avgVol && avgVol > 0) ? Number((volume / avgVol).toFixed(2)) : undefined;
+        const peRatio = quote.trailingPE != null && Number(quote.trailingPE) > 0 ? Number(Number(quote.trailingPE).toFixed(1)) : undefined;
 
-        if (["BIST 100", "BIST 30", "S&P 500", "NASDAQ"].includes(key)) {
+        let marketCapStr: string | undefined = undefined;
+        if (quote.marketCap != null && Number(quote.marketCap) > 0) {
+          const mc = Number(quote.marketCap);
+          if (mc >= 1e9) {
+            marketCapStr = `${(mc / 1e9).toFixed(2)} Mr ₺`;
+          } else if (mc >= 1e6) {
+            marketCapStr = `${(mc / 1e6).toFixed(1)} M ₺`;
+          }
+        }
+
+        const isIndex = [
+          "BIST 100", "BIST 30", "BIST Banka", "BIST Sınai", "BIST Teknoloji",
+          "BIST GYO", "BIST Temettü", "S&P 500", "NASDAQ", "ABD 10Y Tahvil"
+        ].includes(key);
+
+        if (isIndex) {
+          const isYield = key === "ABD 10Y Tahvil";
           updatedIndices[key] = {
             price: Number(price.toFixed(2)),
             dailyChange: Number(changePercent.toFixed(2)),
-            formattedPrice: price.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+            formattedPrice: isYield
+              ? `%${price.toFixed(2)}`
+              : price.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
             isPositive: changePercent >= 0,
           };
         } else {
@@ -255,6 +314,16 @@ interface YahooQuote {
             price: Number(price.toFixed(2)),
             dailyChange: Number(changePercent.toFixed(2)),
             previousClose: prevClose ? Number(prevClose.toFixed(2)) : undefined,
+            high52,
+            low52,
+            dayHigh,
+            dayLow,
+            openPrice,
+            volume,
+            avgVolume: avgVol,
+            volumeRatio,
+            peRatio,
+            marketCap: marketCapStr,
           };
         }
       }

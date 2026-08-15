@@ -794,10 +794,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             const updated = prev.map((c) => {
               const live = data.prices[c.symbol];
               if (live) {
+                const athDiscount = (live.high52 && live.high52 > 0)
+                  ? Number((((live.high52 - live.price) / live.high52) * 100).toFixed(1))
+                  : c.athDiscountPct;
+
                 return {
                   ...c,
                   price: live.price,
                   dailyChange: live.dailyChange,
+                  high52: live.high52 ?? c.high52,
+                  low52: live.low52 ?? c.low52,
+                  dayHigh: live.dayHigh ?? c.dayHigh,
+                  dayLow: live.dayLow ?? c.dayLow,
+                  openPrice: live.openPrice ?? c.openPrice,
+                  volume: live.volume ?? c.volume,
+                  avgVolume: live.avgVolume ?? c.avgVolume,
+                  volumeRatio: live.volumeRatio ?? c.volumeRatio,
+                  athDiscountPct: athDiscount,
+                  peRatio: live.peRatio ?? c.peRatio,
+                  marketCap: live.marketCap ?? c.marketCap,
                 };
               }
               return c;

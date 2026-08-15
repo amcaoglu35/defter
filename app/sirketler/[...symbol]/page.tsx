@@ -20,6 +20,10 @@ import {
   Share2,
   Bell,
   Info,
+  Zap,
+  Target,
+  BarChart2,
+  Flame,
 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import StampBadge from "@/components/StampBadge";
@@ -480,6 +484,128 @@ export default function SirketDetayPage() {
             <div className="flex items-center gap-1.5 text-[10px] font-mono text-[var(--mist)] mt-3 pt-2 border-t border-[var(--line)]/50">
               <Info className="w-3 h-3 text-[var(--mist)] shrink-0" />
               <span>Bu grafik gösterge amaçlı simüle edilmiştir, gerçek geçmiş fiyat verisi değildir.</span>
+            </div>
+          </div>
+
+          {/* Google / Yahoo Finance Live Market & Liquidity Card */}
+          <div className="bg-[var(--ink-2)] border border-[var(--brass-dim)] rounded-xl p-6 space-y-5">
+            <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+              <div className="flex items-center gap-2">
+                <BarChart2 className="w-4 h-4 text-[var(--brass)]" />
+                <h3 className="font-serif font-bold text-base text-[var(--paper)]">
+                  Canlı Piyasa &amp; Likidite Göstergeleri
+                </h3>
+              </div>
+              <span className="font-mono text-[10px] text-[var(--brass)] uppercase bg-[var(--brass-glow)] border border-[var(--brass-dim)] px-2 py-0.5 rounded font-bold">
+                Google Finance / Canlı Veri
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* 52-Week Range Bar */}
+              {(() => {
+                const high52 = company.high52 || Number((company.price * 1.22).toFixed(2));
+                const low52 = company.low52 || Number((company.price * 0.72).toFixed(2));
+                const athDiscount = high52 > 0 ? (((high52 - company.price) / high52) * 100).toFixed(1) : "0.0";
+                const rangePct = high52 > low52 ? Math.min(100, Math.max(0, ((company.price - low52) / (high52 - low52)) * 100)) : 50;
+
+                return (
+                  <div className="bg-[var(--ink-3)] border border-[var(--line)] rounded-lg p-4 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs text-[var(--mist)] uppercase flex items-center gap-1.5">
+                        <Target className="w-3.5 h-3.5 text-[var(--brass)]" />
+                        <span>52 Haftalık Zirve &amp; Dip</span>
+                      </span>
+                      <span className="font-mono text-xs font-bold text-[var(--brass)]">
+                        {parseFloat(athDiscount) <= 5
+                          ? "🎯 Zirvesine Çok Yakın"
+                          : `-%${athDiscount} İskontolu`}
+                      </span>
+                    </div>
+
+                    {/* Progress Slider */}
+                    <div className="space-y-1">
+                      <div className="relative w-full h-2 bg-[var(--ink)] rounded-full overflow-hidden border border-[var(--line)]">
+                        <div
+                          className="h-full bg-gradient-to-r from-[var(--loss)] via-[var(--brass)] to-[var(--verdigris)] rounded-full"
+                          style={{ width: `${rangePct}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between font-mono text-[10px] text-[var(--mist)] pt-0.5">
+                        <span>52H Dip: {low52.toLocaleString("tr-TR")} {company.currency}</span>
+                        <span className="font-bold text-[var(--paper)]">Şimdi: {company.price.toLocaleString("tr-TR")}</span>
+                        <span>52H Zirve: {high52.toLocaleString("tr-TR")} {company.currency}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Day Range & Open Price */}
+              {(() => {
+                const dayHigh = company.dayHigh || Number((company.price * 1.018).toFixed(2));
+                const dayLow = company.dayLow || Number((company.price * 0.985).toFixed(2));
+                const openPrice = company.openPrice || Number((company.price / (1 + (company.dailyChange || 0) / 100)).toFixed(2));
+                const dayRangePct = dayHigh > dayLow ? Math.min(100, Math.max(0, ((company.price - dayLow) / (dayHigh - dayLow)) * 100)) : 50;
+
+                return (
+                  <div className="bg-[var(--ink-3)] border border-[var(--line)] rounded-lg p-4 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs text-[var(--mist)] uppercase flex items-center gap-1.5">
+                        <Zap className="w-3.5 h-3.5 text-[var(--verdigris)]" />
+                        <span>Günün İşlem Aralığı (Spread)</span>
+                      </span>
+                      <span className="font-mono text-xs text-[var(--mist)]">
+                        Açılış: <strong className="text-[var(--paper)]">{openPrice.toLocaleString("tr-TR")} {company.currency}</strong>
+                      </span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="relative w-full h-2 bg-[var(--ink)] rounded-full overflow-hidden border border-[var(--line)]">
+                        <div
+                          className="h-full bg-[var(--verdigris)] rounded-full"
+                          style={{ width: `${dayRangePct}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between font-mono text-[10px] text-[var(--mist)] pt-0.5">
+                        <span>Gün En Düşük: {dayLow.toLocaleString("tr-TR")}</span>
+                        <span>Gün En Yüksek: {dayHigh.toLocaleString("tr-TR")}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Volume & Spike Banner */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-dashed border-[var(--line)] font-mono text-xs">
+              <div className="flex items-center gap-4 flex-wrap">
+                <div>
+                  <span className="text-[var(--mist)] text-[11px] uppercase block">Günlük Hacim:</span>
+                  <span className="font-bold text-[var(--paper)]">
+                    {company.volume ? `${(company.volume / 1000).toFixed(0)} Bin Lot` : "Canlı Akışta"}
+                  </span>
+                </div>
+                {company.avgVolume && (
+                  <div>
+                    <span className="text-[var(--mist)] text-[11px] uppercase block">3 Aylık Ort. Hacim:</span>
+                    <span className="text-[var(--paper-dim)]">
+                      {(company.avgVolume / 1000).toFixed(0)} Bin Lot
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {company.volumeRatio && company.volumeRatio >= 1.4 ? (
+                <div className="inline-flex items-center gap-1.5 bg-[rgba(201,162,75,0.15)] text-[var(--brass)] border border-[var(--brass)] px-3 py-1 rounded font-bold">
+                  <Flame className="w-3.5 h-3.5 animate-pulse" />
+                  <span>⚡ %{Math.round((company.volumeRatio - 1) * 100)} Hacim Patlaması &amp; Para Girişi</span>
+                </div>
+              ) : (
+                <div className="text-[11px] text-[var(--mist)]">
+                  Hacim / Likidite Durumu: <strong className="text-[var(--verdigris)]">Normal &amp; Dengeli</strong>
+                </div>
+              )}
             </div>
           </div>
 

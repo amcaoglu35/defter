@@ -35,6 +35,17 @@ export interface Company {
   oneYearReturn?: number;      // Son 1 yıllık getiri (%)
   threeYearReturn?: number;    // Son 3 yıllık getiri (%)
   topHoldings?: string[];      // Fonun en büyük 3-5 pozisyonu (örn. ["AAPL %8.2", "MSFT %7.1", ...])
+
+  // Google / Yahoo Finance Live Metrics
+  high52?: number;             // 52 Haftalık / 1 Yıllık En Yüksek Fiyat (ATH)
+  low52?: number;              // 52 Haftalık / 1 Yıllık En Düşük Fiyat (ATL)
+  dayHigh?: number;            // Günün En Yüksek Fiyatı
+  dayLow?: number;             // Günün En Düşük Fiyatı
+  openPrice?: number;          // Günün Açılış Fiyatı
+  volume?: number;             // Günlük İşlem Hacmi (Lot/Adet)
+  avgVolume?: number;          // 3 Aylık Ortalama Günlük Hacim
+  volumeRatio?: number;        // Güncel Hacim / Ortalama Hacim (Hacim Patlaması Katı)
+  athDiscountPct?: number;     // 52 Haftalık Zirveye Göre İskonto Oranı (%)
 }
 
 export interface BasketHolding {

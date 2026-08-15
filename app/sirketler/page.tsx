@@ -67,6 +67,9 @@ export default function SirketlerPage() {
           { id: "all", label: "Tümü" },
           { id: "bist30", label: "BIST 30" },
           { id: "bist100", label: "BIST 100" },
+          { id: "volumeSpike", label: "⚡ Hacim Liderleri (>1.4x)" },
+          { id: "athNear", label: "🎯 Zirvesine Yakın (<%10)" },
+          { id: "athDiscount", label: "📉 52H İskontolu (>%25)" },
           { id: "us", label: "ABD Borsası" },
           { id: "eu", label: "Avrupa" },
           { id: "highDividend", label: "Yüksek Temettü (>%3)" },
@@ -238,6 +241,9 @@ export default function SirketlerPage() {
       if (filterPill !== "all") {
         if (filterPill === "bist30" && c.indexTag !== "BIST 30") return false;
         if (filterPill === "bist100" && c.indexTag !== "BIST 100" && c.indexTag !== "BIST 30") return false;
+        if (filterPill === "volumeSpike" && (!c.volumeRatio || c.volumeRatio < 1.35)) return false;
+        if (filterPill === "athNear" && (c.athDiscountPct === undefined || c.athDiscountPct > 10.0)) return false;
+        if (filterPill === "athDiscount" && (c.athDiscountPct === undefined || c.athDiscountPct < 25.0)) return false;
         if (filterPill === "us" && c.exchange !== "ABD") return false;
         if (filterPill === "eu" && c.exchange !== "Avrupa") return false;
         if (filterPill === "highDividend" && (!c.dividendYield || c.dividendYield < 3.0)) return false;
@@ -482,9 +488,24 @@ export default function SirketlerPage() {
                           {c.name}
                         </Link>
                         <DataStatusBadge symbol={c.symbol} isLive={isLiveSymbol(c.symbol)} />
+                        {c.volumeRatio && c.volumeRatio >= 1.4 && (
+                          <span className="font-mono text-[9px] bg-[rgba(201,162,75,0.2)] text-[var(--brass)] border border-[var(--brass)] px-1.5 py-0.2 rounded font-bold">
+                            ⚡ Hacim +%{Math.round((c.volumeRatio - 1) * 100)}
+                          </span>
+                        )}
+                        {c.athDiscountPct !== undefined && c.athDiscountPct <= 5 && (
+                          <span className="font-mono text-[9px] bg-[rgba(91,140,123,0.2)] text-[var(--verdigris)] border border-[var(--verdigris)] px-1.5 py-0.2 rounded font-bold">
+                            🎯 Zirvede
+                          </span>
+                        )}
                       </div>
-                      <div className="text-[11px] text-[var(--mist)] font-mono">
-                        {c.symbol} • {c.sector}
+                      <div className="text-[11px] text-[var(--mist)] font-mono flex items-center gap-1.5 flex-wrap">
+                        <span>{c.symbol} • {c.sector}</span>
+                        {c.high52 && (
+                          <span className="text-[10px] text-[var(--mist)] opacity-80">
+                            (52H Zirve: {c.high52} ₺)
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
