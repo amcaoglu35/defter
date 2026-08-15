@@ -19,6 +19,7 @@ import {
 import { useDefterStore } from "@/lib/store";
 import OrakulChatModal from "@/components/OrakulChatModal";
 import ThemeToggle from "@/components/ThemeToggle";
+import ViewModeToggle from "@/components/ViewModeToggle";
 import { useToast } from "@/components/ToastProvider";
 
 export default function Header() {
@@ -210,6 +211,9 @@ export default function Header() {
 
             {/* Theme Toggle Button */}
             <ThemeToggle />
+
+            {/* View Mode & Display Scale Toggle */}
+            <ViewModeToggle />
 
             {/* Notification Button with Click-Outside Ref */}
             <div className="relative" ref={notifRef}>
