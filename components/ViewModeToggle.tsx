@@ -50,10 +50,22 @@ export default function ViewModeToggle() {
     try {
       localStorage.setItem("defter_view_zoom", zoomPercent.toString());
       
-      // Apply CSS zoom property to html tag
       const zoomValue = `${zoomPercent}%`;
-      document.documentElement.style.zoom = zoomPercent === 100 ? "" : `${zoomPercent / 100}`;
+      const baseFontSize = (16 * (zoomPercent / 100)).toFixed(1);
+
+      // 1. Set root font size (instantly reflows all rem units on iOS Safari and Android Chrome)
+      document.documentElement.style.fontSize = zoomPercent === 100 ? "" : `${baseFontSize}px`;
+      
+      // 2. Set data attributes for global responsive CSS
       document.documentElement.setAttribute("data-view-zoom", zoomValue);
+      if (zoomPercent < 100) {
+        document.documentElement.setAttribute("data-compact", "true");
+      } else {
+        document.documentElement.removeAttribute("data-compact");
+      }
+
+      // 3. Set standard CSS zoom if supported by engine
+      document.documentElement.style.zoom = zoomPercent === 100 ? "" : `${zoomPercent / 100}`;
       
       if (showFeedback) {
         showToast(

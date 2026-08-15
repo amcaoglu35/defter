@@ -63,6 +63,25 @@ export default function RootLayout({
       lang="tr"
       className={`${fraunces.variable} ${spaceGrotesk.variable} ${ibmPlexMono.variable} h-full antialiased`}
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                var z = localStorage.getItem('defter_view_zoom');
+                if (z) {
+                  var n = parseInt(z, 10);
+                  if (!isNaN(n) && n >= 70 && n <= 150 && n !== 100) {
+                    document.documentElement.style.fontSize = (16 * (n / 100)) + 'px';
+                    document.documentElement.setAttribute('data-view-zoom', n + '%');
+                    if (n < 100) document.documentElement.setAttribute('data-compact', 'true');
+                  }
+                }
+              } catch(e) {}
+            `,
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col bg-[var(--ink)] text-[var(--paper)] selection:bg-[var(--brass)] selection:text-[var(--ink)]">
         <StoreProvider>
           <ToastProvider>

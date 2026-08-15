@@ -56,6 +56,37 @@
   }
 }
 
+/* Responsive Zoom & Mobile Compact Scales (Full Cross-Browser Support) */
+html[data-view-zoom="75%"] { font-size: 12px !important; }
+html[data-view-zoom="80%"] { font-size: 12.8px !important; }
+html[data-view-zoom="85%"] { font-size: 13.6px !important; }
+html[data-view-zoom="90%"] { font-size: 14.4px !important; }
+html[data-view-zoom="100%"] { font-size: 16px !important; }
+html[data-view-zoom="110%"] { font-size: 17.6px !important; }
+html[data-view-zoom="115%"] { font-size: 18.4px !important; }
+html[data-view-zoom="125%"] { font-size: 20px !important; }
+
+/* Mobile Compact Mode Tighter Spacing */
+html[data-compact="true"] body {
+  letter-spacing: -0.01em;
+}
+
+html[data-compact="true"] .p-6 {
+  padding: 1rem !important;
+}
+
+html[data-compact="true"] .p-8 {
+  padding: 1.25rem !important;
+}
+
+html[data-compact="true"] .gap-6 {
+  gap: 0.875rem !important;
+}
+
+html[data-compact="true"] .gap-8 {
+  gap: 1rem !important;
+}
+
 /* Custom Typography Utility Classes */
 .font-serif {
   font-family: var(--font-fraunces), Georgia, serif;
