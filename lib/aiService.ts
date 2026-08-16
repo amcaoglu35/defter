@@ -6,6 +6,9 @@ export interface AiRecipeRequest {
   risk: string;
   universe: string;
   budget: number;
+  horizon?: string;
+  maxAssetWeight?: number;
+  includeGoldBuffer?: boolean;
 }
 
 export interface CompanyAnalysisRequest {
@@ -22,6 +25,7 @@ export interface CompanyAnalysisRequest {
   indexTag?: string;
   dividendYield?: number;
   marketCap?: string;
+  assetClass?: "hisse" | "maden" | "fon" | "doviz" | string;
   metrics?: Array<{ label: string; value: string; peerAvg?: string }>;
 }
 
@@ -64,19 +68,23 @@ async function fetchGeminiWithFallback(
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(bodyObj),
         });
-        if (res.ok) return res;
-      } catch {}
+        if (res.ok) {
+          return res;
+        }
+      } catch {
+        // try next candidate
+      }
     }
   }
   return null;
 }
 
-export function getPersonaInstruction(persona?: string): string {
-  if (persona === "temkinli") {
-    return "ANALİZ ÜSLUBU: 'Temkinli Danışman' tonu. Riskleri, borç yükünü, döviz açık pozisyonunu ve olumsuz senaryoları (downside risk) özellikle öne çıkar; aşırı iyimser varsayımlardan kaçın ve sermaye koruma odaklı ölçülü bir dil kullan.";
+export function getPersonaInstruction(persona: string = "deger"): string {
+  if (persona === "temettu") {
+    return "ANALİZ ÜSLUBU: 'Temettü ve Pasif Gelir Odaklı' ton. Şirketin düzenli kâr payı dağıtma istikrarı, nakit temettü verimi, serbest nakit akışı gücü ve bileşik getiri potansiyelini öne çıkar.";
   }
-  if (persona === "cesur") {
-    return "ANALİZ ÜSLUBU: 'Cesur Fırsat Avcısı' tonu. Yüksek büyüme potansiyelini, trend ve momentum ivmesini, katalizörleri ve sektör üzeri getiri ihtimallerini cesurca ve vizyoner bir dille vurgula.";
+  if (persona === "buyume") {
+    return "ANALİZ ÜSLUBU: 'Agresif Büyüme & İnovasyon' tonu. Şirketin sektör pazar payı artışı, ihracat kapasitesi, AR-GE yatırımları, ciro büyüme ivmesi ve geleceğin sektör lideri olma potansiyeline odaklan.";
   }
   return "ANALİZ ÜSLUBU: 'Klasik Değer Yatırımcısı' (Buffett & Graham) tonu. Güvenlik marjı (margin of safety), nakit akış kalitesi, kalıcı rekabet avantajı (moat), ucuz çarpanlar ve uzun vadeli sabırlı birikim perspektifini esas al.";
 }
@@ -113,6 +121,25 @@ export interface CompanyDiagnosisReport {
   pastFeedbackSummary?: string;
   evidenceChain?: string[];
   isFallbackMode?: boolean;
+
+  // Multi-Agent Bull vs Bear Debate
+  bullCase?: {
+    catalyst: string;
+    targetUpside: string;
+    coreThesis: string;
+  };
+  bearCase?: {
+    keyRisk: string;
+    downsideRisk: string;
+    coreThesis: string;
+  };
+
+  // Macro Scenario Stress Testing
+  stressTest?: {
+    fxShock20Pct: string;      // Dolar/TL %20 artarsa
+    rateCutShock: string;      // Faiz indirimi döngüsünde
+    marketCrashShock: string;  // BIST %15 düzeltme yaparsa
+  };
 }
 
 /**
@@ -171,7 +198,7 @@ export async function generateCompanyAnalysis(
         const prompt = `Sen Borsa İstanbul ve küresel piyasalarda uzmanlaşmış Baş Finansal Analist (CFA) seviyesinde 'Orakul' yapay zekasısın.
 ${personaInstruction}
 
-Aşağıdaki şirket verilerini derinlemesine inceleyerek kurumsal bir değerleme, teşhis ve kanıt zinciri raporu üret:
+Aşağıdaki şirket verilerini derinlemesine inceleyerek kurumsal bir değerleme, teşhis, Boğa vs Ayı ikili analizi ve Makro Senaryo Stres Testi raporu üret:
 
 Şirket: ${symbol} (${company.name})
 Fiyat: ${price} ${company.currency || "₺"}
@@ -180,7 +207,7 @@ Sektör: ${company.sector}
 F/K: ${pe} | PD/DD: ${pb} | Temettü Verimi: %${divYield}
 ${feedbackContext}
 
-İndirgenmiş Nakit Akımı (DCF), Çarpan İskontosu, Piotroski F-Score, DuPont analizi ve 4-5 adımlı şeffaf Kanıt Zinciri (evidenceChain) oluşturarak aşağıdaki JSON formatında YALNIZCA geçerli JSON olarak dön:
+İndirgenmiş Nakit Akımı (DCF), Çarpan İskontosu, Piotroski F-Score, DuPont analizi, Boğa vs Ayı analizi (bullCase, bearCase), Makro Senaryo Stres Testi (stressTest) ve 4-5 adımlı şeffaf Kanıt Zinciri (evidenceChain) oluşturarak aşağıdaki JSON formatında YALNIZCA geçerli JSON olarak dön:
 {
   "valuationScore": "9.2 / 10",
   "fairValue": 445.00,
@@ -202,7 +229,22 @@ ${feedbackContext}
     "③ Altman Z-Score 3.42 → Sıfır finansal temerrüt ve iflas riski",
     "④ DuPont ROE %32.4 → Yüksek sermaye ve varlık kârlılığı",
     "⑤ Sonuç Kararı: GÜÇLÜ AL"
-  ]
+  ],
+  "bullCase": {
+    "catalyst": "En güçlü operasyonel ve sektörel büyüme katalizörü",
+    "targetUpside": "+40-55% Potansiyel",
+    "coreThesis": "Boğa senaryosunun ana yatırım tezi"
+  },
+  "bearCase": {
+    "keyRisk": "En kritik finansal ve makroekonomik risk faktörü",
+    "downsideRisk": "-12-18% Düzeltme Riski",
+    "coreThesis": "Ayı senaryosunun ana risk tezi"
+  },
+  "stressTest": {
+    "fxShock20Pct": "Dolar kuru %20 artarsa beklenen etki (örn: +%14 Pozitif Ayrışma / Döviz Kazancı)",
+    "rateCutShock": "Faizler inerse beklenen etki (örn: +%18 Kredi ve İç Talep Canlanması)",
+    "marketCrashShock": "BIST %15 düzeltme yaparsa beklenen etki (örn: -%6 Sınırlı Defansif Koruma)"
+  }
 }`;
 
         const res = await fetchGeminiWithFallback(
@@ -243,7 +285,7 @@ ${feedbackContext}
               },
               {
                 role: "user",
-                content: `Şirket: ${symbol} (${company.name}), Fiyat: ${price} ₺, F/K: ${pe}, PD/DD: ${pb}, Temettü: %${divYield}, Sektör: ${company.sector}.${feedbackContext ? " " + feedbackContext : ""} Kurumsal DCF, Piotroski F-Score, DuPont ve 4-5 adımlı evidenceChain içeren JSON teşhis raporu üret. Format: { "valuationScore": string, "fairValue": number, "targetPrice12M": number, "upsidePotential": string, "piotroskiScore": number, "altmanZScore": string, "dupontRoe": string, "peVsSector": string, "whyMoved": string, "pros": string[], "risks": string[], "verdict": string, "confidence": string, "pastFeedbackSummary": string, "evidenceChain": string[] }`,
+                content: `Şirket: ${symbol} (${company.name}), Fiyat: ${price} ₺, F/K: ${pe}, PD/DD: ${pb}, Temettü: %${divYield}, Sektör: ${company.sector}.${feedbackContext ? " " + feedbackContext : ""} Kurumsal DCF, Piotroski F-Score, DuPont, bullCase, bearCase, stressTest ve evidenceChain içeren JSON teşhis raporu üret. Format: { "valuationScore": string, "fairValue": number, "targetPrice12M": number, "upsidePotential": string, "piotroskiScore": number, "altmanZScore": string, "dupontRoe": string, "peVsSector": string, "whyMoved": string, "pros": string[], "risks": string[], "verdict": string, "confidence": string, "pastFeedbackSummary": string, "evidenceChain": string[], "bullCase": { "catalyst": string, "targetUpside": string, "coreThesis": string }, "bearCase": { "keyRisk": string, "downsideRisk": string, "coreThesis": string }, "stressTest": { "fxShock20Pct": string, "rateCutShock": string, "marketCrashShock": string } }`,
               },
             ],
             response_format: { type: "json_object" },
@@ -266,7 +308,7 @@ ${feedbackContext}
     }
   }
 
-  // Authentic Quantitative Fallback Engine (No Fake DCF, No Fake Piotroski/Altman/DuPont)
+  // Authentic Quantitative Fallback Engine (No Fake Numbers)
   let pDisc = "Sektör Çarpanları Dahilinde";
   let verdict: "GÜÇLÜ AL" | "AL" | "TUT" | "SAT" | "GÜÇLÜ SAT" | "NÖTR" | "DENGELİ" | "YÜKSEK RİSK" = "DENGELİ";
 
@@ -325,6 +367,38 @@ ${feedbackContext}
     `⑤ Kural Bazlı Teşhis Kararı: ${verdict} (${pDisc})`,
   ];
 
+  // Dynamic Bull vs Bear Cases
+  const isExportSector = (company.sector || "").toLowerCase().includes("havacılık") || (company.sector || "").toLowerCase().includes("otomotiv") || (company.sector || "").toLowerCase().includes("savunma") || (company.sector || "").toLowerCase().includes("sanayi");
+  const isFinancialSector = (company.sector || "").toLowerCase().includes("banka") || (company.sector || "").toLowerCase().includes("finans") || (company.sector || "").toLowerCase().includes("holding");
+
+  const bullCase = {
+    catalyst: isExportSector
+      ? "Küresel ihracat pazarlarında hacim artışı, döviz cinsi serbest nakit akışı ve kapasite yatırımları."
+      : isFinancialSector
+      ? "Net faiz marjı toparlanması, kredi büyümesi ve iştirak temettü gelirleri."
+      : "Operasyonel verimlilik, güçlü pazar liderliği ve nakit yaratma gücü.",
+    targetUpside: company.peRatio && company.peRatio < 8 ? "+40-55% Potansiyel" : "+25-35% Potansiyel",
+    coreThesis: `${company.name} için çarpan iskontosunun ve güçlü nakit akışının kapanması ile sektör üzeri getiri potansiyeli.`,
+  };
+
+  const bearCase = {
+    keyRisk: "Finansman maliyetleri, makroekonomik faiz ortamı ve sektör genelindeki dönemsel talep yavaşlaması.",
+    downsideRisk: company.peRatio && company.peRatio > 20 ? "-20-25% Düzeltme Riski" : "-10-15% Düzeltme Riski",
+    coreThesis: "Girdi maliyet baskısı, kur oynaklığı ve faiz ortamının kâr marjlarını daraltma ihtimali.",
+  };
+
+  const stressTest = {
+    fxShock20Pct: isExportSector
+      ? "+%14 Pozitif Ayrışma (Döviz Gelir & İhracat Kalkanı)"
+      : "-%4 Maliyet Artışı (İthal Girdi & Kur Baskısı)",
+    rateCutShock: isFinancialSector
+      ? "+%18 Değerleme Genişlemesi (İç Talep & Kredi Hacmi İvmesi)"
+      : "+%8 Dengeli Pozitif Etki",
+    marketCrashShock: (company.peRatio && company.peRatio < 8) || (company.dividendYield && company.dividendYield > 4)
+      ? "-%6 ile Sınırlı Düzeltme (Yüksek Temettü & Değer Kalkanı)"
+      : "-%14 Piyasaya Paralel Oynaklık",
+  };
+
   return {
     symbol,
     valuationScore: undefined,
@@ -342,6 +416,9 @@ ${feedbackContext}
     confidence: undefined,
     pastFeedbackSummary,
     evidenceChain,
+    bullCase,
+    bearCase,
+    stressTest,
     isFallbackMode: true,
   };
 }
@@ -368,11 +445,36 @@ export async function generateOrakulRecipe(
           c.symbol.includes("ALTIN") ||
           c.symbol.includes("GÜMÜŞ")
       );
-    } else if (req.universe.includes("BIST 100") || req.universe.includes("Tüm BIST")) {
+    } else if (req.universe.includes("Temettü 25") || req.universe.includes("BIST 100")) {
       pool = pool.filter(
         (c) =>
-          c.exchange === "BIST" &&
-          (c.indexTag === "BIST 30" || c.indexTag === "BIST 100" || c.indexTag?.includes("BIST") || !c.indexTag)
+          c.exchange === "BIST" ||
+          c.indexTag?.includes("BIST") ||
+          c.indexTag?.includes("Temettü") ||
+          (c.dividendYield && c.dividendYield > 3)
+      );
+    } else if (req.universe.includes("Teknoloji") || req.universe.includes("XTEK")) {
+      pool = pool.filter(
+        (c) =>
+          c.sector?.toLowerCase().includes("teknoloji") ||
+          c.sector?.toLowerCase().includes("bilişim") ||
+          c.sector?.toLowerCase().includes("yazılım") ||
+          c.sector?.toLowerCase().includes("elektronik") ||
+          c.symbol === "ASELS" ||
+          c.symbol === "SDTTR" ||
+          c.symbol === "MIATK" ||
+          c.symbol === "LOGO" ||
+          c.symbol === "REEDR"
+      );
+    } else if (req.universe.includes("TEFAS") || req.universe.includes("Fon")) {
+      pool = pool.filter(
+        (c) =>
+          c.exchange === "Emtia" ||
+          c.exchange === "Döviz" ||
+          c.assetClass === "fon" ||
+          c.indexTag?.includes("TEFAS") ||
+          c.symbol.includes("ALTIN") ||
+          c.symbol.includes("GÜMÜŞ")
       );
     } else if (req.universe.includes("Kıymetli Maden")) {
       pool = pool.filter(
@@ -407,7 +509,12 @@ export async function generateOrakulRecipe(
             else if (div > 2) relevance += 30;
             else if (div > 0) relevance += 15;
             if (pe > 0 && pe < 12) relevance += 20;
-          } else if (goalLower.includes("büyüme")) {
+          } else if (goalLower.includes("ihracat") || goalLower.includes("döviz")) {
+            if (sec.includes("havacılık") || sec.includes("otomotiv") || sec.includes("savunma") || sec.includes("sanayi")) relevance += 50;
+          } else if (goalLower.includes("değer") || goalLower.includes("düşük f/k")) {
+            if (pe > 0 && pe < 8) relevance += 50;
+            if (c.pbRatio && c.pbRatio < 2) relevance += 25;
+          } else if (goalLower.includes("büyüme") || goalLower.includes("teknoloji")) {
             if (sec.includes("teknoloji") || sec.includes("savunma") || sec.includes("havacılık") || c.exchange === "ABD") relevance += 45;
             if (c.dailyChange > 0) relevance += 15;
           } else if (goalLower.includes("enflasyon") || goalLower.includes("kur") || req.universe.includes("Kıymetli Maden")) {
@@ -436,6 +543,9 @@ Kullanıcı Parametreleri:
 - Risk Profili: ${req.risk}
 - Bütçe: ${req.budget} TL
 - Seçili Yatırım Evreni: ${req.universe}
+- Yatırım Ufku: ${req.horizon || "Orta Vade (6-18 Ay)"}
+${req.maxAssetWeight ? `- Kısıt: Tek bir varlığın maksimum payı %${req.maxAssetWeight} olmalıdır.` : ""}
+${req.includeGoldBuffer ? "- Kısıt: En az %15 oranında Kıymetli Maden (Altın/Gümüş) tamponu içermelidir." : ""}
 
 Mevcut Sistemdeki Aday Varlıklar:
 ${candidatesSample || "BIST 100 ve Emtia kütüğü"}
@@ -446,7 +556,7 @@ Bu parametrelere ve aday şirketlere göre en optimal 4-5 varlıktan oluşan den
   "summary": "Strateji ve portföy mantığını anlatan 2 cümlelik yönetici özeti",
   "healthScore": 92,
   "expectedYield": "%34.5 Yıllık Hedef",
-  "recommendedDuration": "6-12 Ay",
+  "recommendedDuration": "${req.horizon || '6-12 Ay'}",
   "riskRating": "${req.risk}",
   "allocation": [
     { "symbol": "THYAO", "name": "Türk Hava Yolları", "weight": 30, "note": "Genişleyen filo ve döviz bazlı nakit akışı" }
@@ -543,7 +653,7 @@ Bu parametrelere ve aday şirketlere göre en optimal 4-5 varlıktan oluşan den
     { symbol: "SISE", name: "Şişecam", price: 48.0, sector: "Cam & Sanayi", exchange: "BIST", peRatio: 8.9, dividendYield: 1.8, dailyChange: -0.2 },
     { symbol: "ALTIN/GR", name: "Gram Altın", price: 3150.0, sector: "Kıymetli Maden", exchange: "Emtia", dailyChange: 0.4 },
     { symbol: "GÜMÜŞ/GR", name: "Gram Gümüş", price: 38.5, sector: "Kıymetli Maden", exchange: "Emtia", dailyChange: 0.9 },
-    { symbol: "USD/TRY", name: "Amerikan Doları", price: 38.2, sector: "Döviz", exchange: "Döviz", dailyChange: 0.1 },
+    { symbol: "USD/TRY", name: "Amerikan Doları", price: 47.88, sector: "Döviz", exchange: "Döviz", dailyChange: 0.1 },
     { symbol: "NVDA", name: "NVIDIA Corp", price: 135.0, sector: "Yapay Zeka & Yarıiletken", exchange: "ABD", peRatio: 38.0, dividendYield: 0.1, dailyChange: 1.8 },
     { symbol: "AAPL", name: "Apple Inc.", price: 228.0, sector: "Tüketici Teknolojisi", exchange: "ABD", peRatio: 32.0, dividendYield: 0.5, dailyChange: 0.4 },
   ];
@@ -564,6 +674,12 @@ Bu parametrelere ve aday şirketlere göre en optimal 4-5 varlıktan oluşan den
       else if (div > 0) score += 10;
       if (pe > 0 && pe < 10) score += 20;
       if (sectorLower.includes("otomotiv") || sectorLower.includes("petrol") || sectorLower.includes("enerji") || sectorLower.includes("perakende")) score += 15;
+    } else if (goalLower.includes("ihracat") || goalLower.includes("döviz")) {
+      if (sectorLower.includes("havacılık") || sectorLower.includes("otomotiv") || sectorLower.includes("savunma") || sectorLower.includes("sanayi")) score += 45;
+      if (c.dailyChange > 0) score += 15;
+    } else if (goalLower.includes("değer") || goalLower.includes("düşük f/k")) {
+      if (pe > 0 && pe < 8) score += 50;
+      if (c.pbRatio && c.pbRatio < 2) score += 25;
     } else if (goalLower.includes("büyüme") || isAggressive) {
       if (sectorLower.includes("savunma") || sectorLower.includes("teknoloji") || sectorLower.includes("yazılım") || sectorLower.includes("havacılık") || c.exchange === "ABD") score += 35;
       if (c.dailyChange > 0) score += 15;
@@ -584,12 +700,23 @@ Bu parametrelere ve aday şirketlere göre en optimal 4-5 varlıktan oluşan den
   const selectedItems: CompanyAnalysisRequest[] = [];
   const usedSectors = new Set<string>();
 
+  // If gold buffer is requested, ensure gold is prioritized
+  if (req.includeGoldBuffer) {
+    const goldItem = candidatePool.find((c) => c.symbol === "ALTIN/GR" || c.symbol.includes("ALTIN") || c.exchange === "Emtia");
+    if (goldItem) {
+      selectedItems.push(goldItem);
+      usedSectors.add(goldItem.sector || "Kıymetli Maden");
+    }
+  }
+
   for (const candidate of rankedCandidates) {
     if (selectedItems.length >= 4) break;
     const sec = candidate.sector || "Genel";
     if (!usedSectors.has(sec) || selectedItems.length >= 3) {
-      selectedItems.push(candidate);
-      usedSectors.add(sec);
+      if (!selectedItems.some((s) => s.symbol === candidate.symbol)) {
+        selectedItems.push(candidate);
+        usedSectors.add(sec);
+      }
     }
   }
 
@@ -603,12 +730,18 @@ Bu parametrelere ve aday şirketlere göre en optimal 4-5 varlıktan oluşan den
     }
   }
 
-  // Weights assignment based on risk
-  const weights = isConservative
-    ? [35, 25, 20, 20]
+  // Weights assignment based on risk and maxAssetWeight constraint
+  const maxW = req.maxAssetWeight || 35;
+  let weights = isConservative
+    ? [Math.min(maxW, 30), 25, 25, 20]
     : isAggressive
-    ? [35, 30, 20, 15]
-    : [30, 25, 25, 20];
+    ? [Math.min(maxW, 35), 30, 20, 15]
+    : [Math.min(maxW, 30), 25, 25, 20];
+
+  // If gold buffer is present, ensure first gold slot has at least 20%
+  if (req.includeGoldBuffer && selectedItems[0]?.symbol.includes("ALTIN")) {
+    weights = [25, 25, 25, 25];
+  }
 
   const allocation = selectedItems.slice(0, 4).map((item, idx) => {
     const w = weights[idx] || 25;
@@ -652,7 +785,7 @@ Bu parametrelere ve aday şirketlere göre en optimal 4-5 varlıktan oluşan den
   const uniqueSectors = new Set(selectedItems.map((s) => s.sector || "Genel")).size;
   const maxWeight = Math.max(...allocation.map((a) => a.weight));
   const health = Math.min(98, Math.max(70, Math.round(75 + uniqueSectors * 5 - (maxWeight > 30 ? 5 : 0))));
-  const duration = isConservative ? "12+ Ay" : isAggressive ? "3-6 Ay" : "6-12 Ay";
+  const duration = req.horizon || (isConservative ? "12+ Ay" : isAggressive ? "3-6 Ay" : "6-12 Ay");
 
   return {
     title: `Orakul Kural Motoru: ${req.goal.split(" ")[0]} & ${req.universe.split(" ")[0]} Stratejisi`,

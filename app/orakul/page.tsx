@@ -34,6 +34,10 @@ import {
   Layers,
   X,
   Mail,
+  Scale,
+  TrendingUp,
+  TrendingDown,
+  ShieldCheck,
 } from "lucide-react";
 import OracleSeal from "@/components/OracleSeal";
 import StampBadge from "@/components/StampBadge";
@@ -198,8 +202,11 @@ function OrakulContent() {
   const [prevPreselectedBasketId, setPrevPreselectedBasketId] = useState<string | null>(null);
   const [goal, setGoal] = useState("Temettü Odaklı Nakit Akışı");
   const [risk, setRisk] = useState("Dengeli (Orta Risk)");
-  const [universe, setUniverse] = useState("BIST 30 & Emtia");
+  const [universe, setUniverse] = useState("BIST 30 & Kıymetli Maden");
   const [budget, setBudget] = useState("100.000");
+  const [horizon, setHorizon] = useState<string>("Orta Vade (6-18 Ay)");
+  const [maxAssetWeight, setMaxAssetWeight] = useState<number>(35);
+  const [includeGoldBuffer, setIncludeGoldBuffer] = useState<boolean>(false);
 
   // Sync preselected basket to wizard state during render
   if (preselectedBasketId && preselectedBasketId !== prevPreselectedBasketId && baskets.length > 0) {
@@ -266,6 +273,21 @@ interface CompanyAnalysisResult {
   confidence?: string;
   pastFeedbackSummary?: string;
   evidenceChain?: string[];
+  bullCase?: {
+    catalyst: string;
+    targetUpside: string;
+    coreThesis: string;
+  };
+  bearCase?: {
+    keyRisk: string;
+    downsideRisk: string;
+    coreThesis: string;
+  };
+  stressTest?: {
+    fxShock20Pct: string;
+    rateCutShock: string;
+    marketCrashShock: string;
+  };
 }
 
 interface WeeklyLetterResult {
@@ -543,6 +565,9 @@ interface WeeklyLetterResult {
             risk,
             universe,
             budget: parseFloat(budget.replace(/\./g, "")) || 100000,
+            horizon,
+            maxAssetWeight,
+            includeGoldBuffer,
             allCompanies: companies,
             rebalanceContext: rebalanceBasket ? {
               basketId: rebalanceBasket.id,
@@ -1491,8 +1516,11 @@ interface WeeklyLetterResult {
               <div className="flex flex-wrap gap-2.5">
                 {[
                   "Temettü Odaklı Nakit Akışı",
+                  "Döviz Kazançlı İhracat Şampiyonları",
+                  "Derin Değer & Düşük F/K Avı",
                   "Enflasyon & Kur Koruması",
-                  "Büyüme & Teknoloji İhracatı",
+                  "Büyüme & Teknoloji İnovasyonu",
+                  "TEFAS Fon & Hisse Hibrit Portföyü",
                   "Defansif Kıymetli Maden",
                 ].map((opt) => (
                   <button
@@ -1543,11 +1571,13 @@ interface WeeklyLetterResult {
               <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)] mb-2">
                 3. Yatırım Evreni
               </label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {[
-                  "BIST 30 & Emtia",
-                  "Tüm BIST 100",
-                  "Kıymetli Maden & Döviz",
+                  "BIST 30 & Kıymetli Maden",
+                  "Tüm BIST 100 & Temettü 25",
+                  "BIST Teknoloji & Bilişim (XTEK)",
+                  "TEFAS Fonları & Emtia",
+                  "Tüm Defter Kütüğü (Hisse + Fon + Döviz)",
                   "Küresel Piyasalar (ABD & BIST)",
                 ].map((u) => (
                   <button
@@ -1566,14 +1596,96 @@ interface WeeklyLetterResult {
               </div>
             </div>
 
-            {/* 4. Başlangıç Bütçesi */}
+            {/* 4. Yatırım Ufku (Vade) */}
+            <div>
+              <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)] mb-2">
+                4. Yatırım Ufku (Hedef Vade)
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {[
+                  "Kısa Vade (1-6 Ay)",
+                  "Orta Vade (6-18 Ay)",
+                  "Uzun Vade (3-5+ Yıl)",
+                ].map((hOpt) => (
+                  <button
+                    key={hOpt}
+                    type="button"
+                    onClick={() => setHorizon(hOpt)}
+                    className={`p-2.5 rounded-lg text-xs font-mono border transition-all cursor-pointer ${
+                      horizon === hOpt
+                        ? "border-[var(--brass)] bg-[var(--brass-glow)] text-[var(--brass)] font-bold shadow-sm"
+                        : "border-[var(--line)] bg-[var(--ink-3)] text-[var(--mist)] hover:text-[var(--paper)]"
+                    }`}
+                  >
+                    {hOpt}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 5. Portföy Güvenlik Kalkanı & Kısıtlar */}
+            <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-3 font-mono text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-[var(--brass)] font-bold uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-[var(--brass)]" />
+                  <span>5. Portföy Kural Kısıtları &amp; Güvenlik Kalkanı</span>
+                </span>
+                <span className="text-[10px] text-[var(--mist)]">Opsiyonel</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                {/* Max single asset weight */}
+                <div className="p-3 bg-[var(--ink-2)] rounded-lg border border-[var(--line)] space-y-2">
+                  <span className="text-[11px] text-[var(--mist)] block">Maksimum Tek Varlık Ağırlığı</span>
+                  <div className="flex items-center gap-1.5">
+                    {[25, 35, 50].map((wLimit) => (
+                      <button
+                        key={wLimit}
+                        type="button"
+                        onClick={() => setMaxAssetWeight(wLimit)}
+                        className={`flex-1 py-1.5 rounded text-xs border transition-all cursor-pointer ${
+                          maxAssetWeight === wLimit
+                            ? "bg-[var(--brass)] text-[var(--ink)] font-bold border-[var(--brass)] shadow-sm"
+                            : "bg-[var(--ink-3)] text-[var(--mist)] border-[var(--line)] hover:text-[var(--paper)]"
+                        }`}
+                      >
+                        %{wLimit}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Gold buffer toggle */}
+                <div
+                  onClick={() => setIncludeGoldBuffer(!includeGoldBuffer)}
+                  className={`p-3 rounded-lg border transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                    includeGoldBuffer
+                      ? "bg-[var(--brass-glow)] border-[var(--brass)] text-[var(--brass)]"
+                      : "bg-[var(--ink-2)] border-[var(--line)] text-[var(--mist)] hover:text-[var(--paper)]"
+                  }`}
+                >
+                  <div>
+                    <span className="text-[11px] font-bold block">Altın / Emtia Sigortası</span>
+                    <span className="text-[10px] opacity-80 block">En az %15 Kıymetli Maden tamponu ekle</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={includeGoldBuffer}
+                    onChange={(e) => setIncludeGoldBuffer(e.target.checked)}
+                    className="w-4 h-4 accent-[var(--brass)] rounded cursor-pointer"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 6. Başlangıç Bütçesi */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="font-mono text-xs uppercase tracking-wider text-[var(--mist)]">
-                  4. Başlangıç Bütçesi (₺)
+                  6. Başlangıç Bütçesi (₺)
                 </label>
-                <div className="flex items-center gap-1.5">
-                  {["25.000", "50.000", "100.000", "250.000", "500.000"].map((bVal) => (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {["25.000", "50.000", "100.000", "250.000", "500.000", "1.000.000"].map((bVal) => (
                     <button
                       key={bVal}
                       type="button"
@@ -1943,6 +2055,113 @@ interface WeeklyLetterResult {
                     </ul>
                   </div>
                 </div>
+
+                {/* Boğa vs. Ayı İkili Analiz (Bull vs Bear Debate) */}
+                {(companyAnalysis.bullCase || companyAnalysis.bearCase) && (
+                  <div className="p-5 bg-[var(--ink-2)] rounded-xl border border-[var(--line)] space-y-4">
+                    <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+                      <div className="flex items-center gap-2">
+                        <Scale className="w-4 h-4 text-[var(--brass)]" />
+                        <span className="font-serif text-sm font-bold text-[var(--paper)]">
+                          🎭 Boğa vs. Ayı İkili Analiz (Çift Yönlü Değerleme)
+                        </span>
+                      </div>
+                      <span className="font-mono text-[10px] text-[var(--mist)] uppercase tracking-wider">
+                        İkili Argüman Dengesi
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Bull Case */}
+                      {companyAnalysis.bullCase && (
+                        <div className="p-4 rounded-xl bg-[rgba(91,140,123,0.08)] border border-[rgba(91,140,123,0.4)] space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono text-xs font-bold text-[var(--verdigris)] flex items-center gap-1.5 uppercase">
+                              <TrendingUp className="w-4 h-4" />
+                              <span>🟢 Boğa (Bullish) Tezi</span>
+                            </span>
+                            <span className="px-2 py-0.5 rounded bg-[rgba(91,140,123,0.2)] text-[var(--verdigris)] font-mono text-[10px] font-bold">
+                              {companyAnalysis.bullCase.targetUpside}
+                            </span>
+                          </div>
+                          <p className="text-xs text-[var(--paper)] leading-relaxed font-sans font-medium">
+                            {companyAnalysis.bullCase.coreThesis}
+                          </p>
+                          <div className="p-2.5 bg-[var(--ink-3)] rounded border border-[rgba(91,140,123,0.2)] text-[11px] font-mono text-[var(--paper-dim)]">
+                            <strong className="text-[var(--verdigris)]">Katalizör:</strong> {companyAnalysis.bullCase.catalyst}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Bear Case */}
+                      {companyAnalysis.bearCase && (
+                        <div className="p-4 rounded-xl bg-[rgba(201,124,124,0.08)] border border-[rgba(201,124,124,0.4)] space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono text-xs font-bold text-[var(--loss)] flex items-center gap-1.5 uppercase">
+                              <TrendingDown className="w-4 h-4" />
+                              <span>🔴 Ayı (Bearish) Tezi</span>
+                            </span>
+                            <span className="px-2 py-0.5 rounded bg-[rgba(201,124,124,0.2)] text-[var(--loss)] font-mono text-[10px] font-bold">
+                              {companyAnalysis.bearCase.downsideRisk}
+                            </span>
+                          </div>
+                          <p className="text-xs text-[var(--paper)] leading-relaxed font-sans font-medium">
+                            {companyAnalysis.bearCase.coreThesis}
+                          </p>
+                          <div className="p-2.5 bg-[var(--ink-3)] rounded border border-[rgba(201,124,124,0.2)] text-[11px] font-mono text-[var(--paper-dim)]">
+                            <strong className="text-[var(--loss)]">Kritik Risk:</strong> {companyAnalysis.bearCase.keyRisk}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Makro Senaryo Stres Testi (Macro Scenario Stress Testing) */}
+                {companyAnalysis.stressTest && (
+                  <div className="p-5 bg-[var(--ink-2)] rounded-xl border border-[var(--brass-dim)] space-y-4">
+                    <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+                      <div className="flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-[var(--brass)]" />
+                        <span className="font-serif text-sm font-bold text-[var(--paper)]">
+                          ⚡ Makro Senaryo Stres Testi Simülasyonu
+                        </span>
+                      </div>
+                      <span className="font-mono text-[10px] text-[var(--brass)] uppercase">
+                        Dinamik Duyarlılık
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 font-mono text-xs">
+                      <div className="p-3.5 bg-[var(--ink-3)] rounded-lg border border-[var(--line)] space-y-1.5">
+                        <span className="text-[10px] text-[var(--mist)] uppercase tracking-wider block">
+                          💵 Dolar/TL %20 Sıçrarsa
+                        </span>
+                        <div className="text-xs font-bold text-[var(--paper)] leading-snug">
+                          {companyAnalysis.stressTest.fxShock20Pct}
+                        </div>
+                      </div>
+
+                      <div className="p-3.5 bg-[var(--ink-3)] rounded-lg border border-[var(--line)] space-y-1.5">
+                        <span className="text-[10px] text-[var(--mist)] uppercase tracking-wider block">
+                          🏦 TCMB Faiz İndirimi Döngüsü
+                        </span>
+                        <div className="text-xs font-bold text-[var(--paper)] leading-snug">
+                          {companyAnalysis.stressTest.rateCutShock}
+                        </div>
+                      </div>
+
+                      <div className="p-3.5 bg-[var(--ink-3)] rounded-lg border border-[var(--line)] space-y-1.5">
+                        <span className="text-[10px] text-[var(--mist)] uppercase tracking-wider block">
+                          📉 BIST %15 Düzeltme Yaparsa
+                        </span>
+                        <div className="text-xs font-bold text-[var(--paper)] leading-snug">
+                          {companyAnalysis.stressTest.marketCrashShock}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {companyAnalysis.pastFeedbackSummary && (
                   <div className="p-3.5 bg-[var(--brass-glow)] border border-[var(--brass-dim)] rounded-xl text-xs font-mono text-[var(--paper)] flex items-start gap-2">
