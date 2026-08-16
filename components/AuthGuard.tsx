@@ -16,7 +16,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [showPasswordForm, setShowPasswordForm] = useState(true);
   const [error, setError] = useState(() => {
     if (typeof window === "undefined") return false;
     const urlParams = new URLSearchParams(window.location.search);
@@ -254,7 +254,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
                       setError(false);
                     }}
                     disabled={isSubmitting}
-                    placeholder="Şifrenizi girin..."
+                    placeholder="Kasa şifresi (varsayılan: defter2026)"
                     autoFocus
                     className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded-lg px-3.5 py-2.5 pr-10 text-xs text-[var(--paper)] placeholder-[var(--mist)] focus:outline-none focus:border-[var(--brass)] font-mono transition-colors disabled:opacity-50"
                   />
