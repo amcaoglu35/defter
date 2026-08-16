@@ -1,4 +1,4 @@
-import { AiHistoryItem } from "./mockData";
+import { AiHistoryItem, MOCK_COMPANIES, Basket } from "./mockData";
 import { getSymbolTicker } from "./liveSymbols";
 
 export interface AiRecipeRequest {
@@ -22,6 +22,7 @@ export interface CompanyAnalysisRequest {
   indexTag?: string;
   dividendYield?: number;
   marketCap?: string;
+  metrics?: Array<{ label: string; value: string; peerAvg?: string }>;
 }
 
 export interface ChatMessage {
@@ -735,31 +736,84 @@ export async function askOrakulChat(
   }
 
   const query = lastUserMessage.toLowerCase();
+  const allCos = (contextData?.companies as CompanyAnalysisRequest[]) || MOCK_COMPANIES;
+  const userBaskets = (contextData?.baskets as Basket[]) || [];
 
+  // 1. Dynamic Stock / Company Look-up in entire 420+ universe
+  const matchedCompany = allCos.find((c) => {
+    const sym = c.symbol.toLowerCase();
+    const name = c.name.toLowerCase();
+    return (
+      query.includes(` ${sym} `) ||
+      query.startsWith(`${sym} `) ||
+      query.endsWith(` ${sym}`) ||
+      query === sym ||
+      query.includes(name) ||
+      (name.length > 4 && query.includes(name.split(" ")[0].toLowerCase()))
+    );
+  });
+
+  if (matchedCompany) {
+    const pe = matchedCompany.peRatio;
+    const pb = matchedCompany.pbRatio;
+    const div = matchedCompany.dividendYield || 0;
+    const change = matchedCompany.dailyChange ?? 0;
+    const priceStr = matchedCompany.price ? `${matchedCompany.price.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺` : "—";
+    
+    let valuationComment = "";
+    if (pe && pe > 0) {
+      if (pe < 6) valuationComment = `**${pe}x F/K** çarpanıyla tarihsel ve sektörel ortalamalarının belirgin şekilde altında, yüksek güvenlik marjına sahip.`;
+      else if (pe < 12) valuationComment = `**${pe}x F/K** çarpanıyla dengeli ve makul bir değerleme aralığında işlem görüyor.`;
+      else if (pe < 25) valuationComment = `**${pe}x F/K** çarpanıyla büyüme potansiyelini kısmen fiyatlayan bir değerleme bölgesinde.`;
+      else valuationComment = `**${pe}x F/K** çarpanıyla yüksek büyüme beklentisini peşin fiyatlamakta olup kısa vadede dalgalanma riski taşıyor.`;
+    } else {
+      valuationComment = "Kütükte net dönem kârı veya F/K çarpanı henüz hesaplanmamış durumda.";
+    }
+
+    const verdict = (pe && pe < 8 && (!pb || pb < 3)) || div > 6 ? "GÜÇLÜ AL" : (pe && pe < 15) ? "AL" : "TUT";
+
+    return `**${matchedCompany.name} (${matchedCompany.symbol})** güncel analizi:\n\n• **Son Fiyat:** ${priceStr} (${change >= 0 ? "+" : ""}%${change.toFixed(2)})\n• **Sektör:** ${matchedCompany.sector || "Genel"}\n• **Değerleme:** ${valuationComment}\n• **Temettü Verimi:** %${div}\n${pb ? `• **PD/DD:** ${pb}x\n` : ""}\nOrakul Değerlendirmesi: Şirketin operasyonel nakit akışı ve sektörel konumu incelendiğinde karar **${verdict}** yönündedir.`;
+  }
+
+  // 2. Dynamic Accuracy & Success Record
   if (query.includes("isabet") || query.includes("başarı") || query.includes("karne") || query.includes("tahmin")) {
     const accuracyStats = contextData?.accuracyStats as { accuracyRate?: number; total?: number } | undefined;
-    const accuracy = accuracyStats?.accuracyRate ?? 75;
-    const total = accuracyStats?.total ?? 4;
-    return `Orakul geçmiş kararlar karnesi incelendiğinde; bugüne kadar üretilen **${total} analizin %${accuracy}'i** piyasa fiyatlaması tarafından doğrulanmıştır. Özellikle **THYAO** ve **FROTO** için verilen 'AL' kararları sonraki 30 günde çift haneli reel getiri üreterek isabetli sonuçlanmıştır.`;
+    const accuracy = accuracyStats?.accuracyRate ?? 78;
+    const total = accuracyStats?.total ?? (allCos.length > 10 ? 12 : 4);
+    return `Orakul geçmiş kararlar karnesi incelendiğinde; kütükteki varlıklar üzerinden üretilen **${total} analizin %${accuracy}'i** piyasa fiyatlaması tarafından doğrulanmıştır. Özellikle değerleme iskontosu yüksek sanayi ve ihracat şirketlerinde verilen 'AL' kararları sonraki 90 günde BIST 100 endeksine karşı pozitif alfa sağlamıştır.`;
   }
 
+  // 3. Dynamic Portfolio & Baskets Context
+  if (query.includes("portföy") || query.includes("sepet") || query.includes("kasa") || query.includes("varlık")) {
+    if (userBaskets.length > 0) {
+      const totalHoldings = userBaskets.reduce((acc, b) => acc + (b.holdings?.length || 0), 0);
+      const basketNames = userBaskets.map((b) => b.name).join(", ");
+      return `Kasanızda kayıtlı **${userBaskets.length} aktif sepet** (${basketNames}) ve toplam **${totalHoldings} pozisyon** bulunmaktadır. Sepetleriniz arasındaki varlık dağılımı korelasyon riskini sınırlamakta ve piyasa düzeltmelerine karşı dengeli bir nakit/hisse tamponu sunmaktadır. Detaylı analiz için ilgili sepet detay sayfasına veya Zaman Makinesi sekmesine göz atabilirsiniz.`;
+    }
+    return `Kasanızda henüz kayıtlı bir sepet veya pozisyon bulunmamaktadır. Sol menüden **Sepetlerim** sayfasına giderek ilk sepetinizi oluşturabilir ve Orakul'un otomatik portföy takip sistemini aktifleştirebilirsiniz.`;
+  }
+
+  // 4. Dynamic Dividend Query across all companies
   if (query.includes("temettü") || query.includes("verim")) {
-    return `Defter kütüğündeki varlıkların incelendiğinde **Tüpraş (TUPRS - %7.2)** ve **Ford Otomotiv (FROTO - %5.8)** en yüksek temettü verimine sahip şirketlerin olarak öne çıkıyor. Sepetlerindeki mevcut lot adetlerine göre yıllık yaklaşık **18.420 ₺ net temettü** geliri beklenmektedir. Düzenli temettü akışı portföyün nakit akışını ve düşüşlerde koruma katsayısını artırır.`;
+    const topDivs = [...allCos].filter((c) => (c.dividendYield || 0) > 4).sort((a, b) => (b.dividendYield || 0) - (a.dividendYield || 0)).slice(0, 4);
+    if (topDivs.length > 0) {
+      const listStr = topDivs.map((c) => `**${c.symbol}** (%${c.dividendYield})`).join(", ");
+      return `Kütükteki yüksek temettü potansiyeli taşıyan şirketler incelendiğinde ${listStr} öne çıkıyor. Düzenli temettü akışı sağlayan şirketler, yüksek faiz ve volatilite dönemlerinde portföyün düşüşlere karşı koruma katsayısını belirgin şekilde artırır.`;
+    }
+    return `Defter kütüğündeki şirketler incelendiğinde kâr payı dağıtım istikrarı yüksek sanayi ve perakende şirketleri temettü verimiyle öne çıkmaktadır.`;
   }
 
-  if (query.includes("faiz") || query.includes("enflasyon") || query.includes("makro")) {
-    return `Merkez bankalarının faiz indirim döngüsüne girmesi durumunda; portföyündeki **Kıymetli Madenler (Gram Altın ve Gümüş)** ile borçluluğu düşük sanayi ihracatçıları (**FROTO, ASELS**) en hızlı olumlu tepki veren varlıklar olacaktır. Faiz indirimi iç talebi ve BIST işlem hacimlerini canlandırır.`;
+  // 5. Macro / Inflation / FX Query
+  if (query.includes("faiz") || query.includes("enflasyon") || query.includes("dolar") || query.includes("altın") || query.includes("makro")) {
+    return `Merkez bankalarının para politikası ve faiz patikası değerlendirildiğinde; borçluluğu düşük, net nakit pozisyonu güçlü sanayi ihracatçıları ile **Kıymetli Madenler (Gram Altın ve Gümüş)** portföy koruma çıpası olarak öne çıkmaktadır. İç talep odaklı hisselerde ise brüt kâr marjı esnekliği yakından izlenmelidir.`;
   }
 
+  // 6. Risk & Health Query
   if (query.includes("risk") || query.includes("sağlık") || query.includes("oran")) {
-    return `Portföy sağlık skorun **88/100** seviyesinde oldukça dengeli. Havacılık, savunma sanayii, perakende ve kıymetli madenler arasında güzel bir korelasyon dengesi kurulmuş. Tek önerim; tek bir hissenin toplam portföydeki payının **%35'i geçmemesine** dikkat etmendir.`;
+    return `Portföy sağlığı değerlendirmesinde temel kural; tek bir hissenin toplam servet içindeki payının **%25-30'u aşmaması** ve en az 3 farklı sektör/varlık sınıfına (hisse, kıymetli maden, fon) dağıtılmasıdır. Bu dağılım beklenmedik şirket bazlı riskleri minimize eder.`;
   }
 
-  if (query.includes("thyao") || query.includes("hava")) {
-    return `**Türk Hava Yolları (THYAO)** 4.8x F/K çarpanı ile hem küresel hem de BIST ulaştırma sektör ortalamasının altında oldukça cazip işlem görmektedir. Yolcu doluluk oranları %84'ün üzerinde seyrediyor ve kargo gelirleri döviz cinsi nakit gücü sağlıyor. Geçmiş değerlendirmemiz de başarıyla teyit edilmiştir. Orakul kararı: **GÜÇLÜ AL**.`;
-  }
-
-  return `Orakul analizine göre; portföyündeki şirketlerin bilanço sağlığı ve çeşitlendirme rasyosu piyasa koşullarına karşı dirençli bir yapı sunuyor. Sormak istediğin hisse, sektör veya yeniden dengeleme senaryosu varsa memnuniyetle detaylandırabilirim.`;
+  return `Orakul analizine göre; kütüğünüzdeki şirketlerin bilanço çarpanları ve sektörel dağılımı piyasa dinamiklerine karşı dirençli bir yapı sunmaktadır. İncelemek istediğiniz özel bir hisse kodu (örn: THYAO, TUPRS, ASELS) veya sektör varsa memnuniyetle detaylı teşhisini sunabilirim.`;
 }
 
 // -------------------------------------------------------------
@@ -871,19 +925,34 @@ export async function generateEarningsFlash(
     keyRisk = "Avrupa pazarında talep yavaşlaması ve gümrük/emisyon regülasyonları.";
   }
 
-  return {
-    symbol: company.symbol,
-    quarter: "Son Dönem Bilançosu",
-    healthScore: health,
-    summary: `${company.name} son çeyrekte operasyonel kârlılığını koruyarak ${company.peRatio ? `${company.peRatio} F/K çarpanı ile` : "mevcut çarpanlarıyla"} sektör ortalamaları dahilinde bir performans sergilemiştir. Borçluluk ve likidite oranları finansal kütük kayıtlarına uygundur.`,
-    netProfitGrowth: undefined,
-    ebitdaMargin: undefined,
-    debtStatus: pe < 12 ? "Düşük Borçluluk / Net Nakit Pozisyonu" : "Yönetilebilir Borç Yükü",
-    keyCatalyst,
-    keyRisk,
-    verdict: health >= 8 ? "GÜÇLÜ" : "BEKLENTİYE PARALEL",
-  };
-}
+    // Extract genuine margin metrics if available from company.metrics
+    let extractedMargin: string | undefined = undefined;
+    let extractedGrowth: string | undefined = undefined;
+    if (company.metrics && Array.isArray(company.metrics)) {
+      for (const m of company.metrics) {
+        const lbl = (m.label || "").toLowerCase();
+        if (lbl.includes("marj") || lbl.includes("faaliyet") || lbl.includes("özkaynak") || lbl.includes("roe")) {
+          extractedMargin = m.value;
+        }
+        if (lbl.includes("büyüme") || lbl.includes("kâr") || lbl.includes("getiri")) {
+          extractedGrowth = m.value;
+        }
+      }
+    }
+
+    return {
+      symbol: company.symbol,
+      quarter: "Son Dönem Bilançosu",
+      healthScore: health,
+      summary: `${company.name} son çeyrekte operasyonel kârlılığını koruyarak ${company.peRatio ? `${company.peRatio} F/K çarpanı ile` : "mevcut çarpanlarıyla"} sektör ortalamaları dahilinde bir performans sergilemiştir. Borçluluk ve likidite oranları finansal kütük kayıtlarına uygundur.`,
+      netProfitGrowth: extractedGrowth,
+      ebitdaMargin: extractedMargin,
+      debtStatus: pe < 12 ? "Düşük Borçluluk / Net Nakit Pozisyonu" : "Yönetilebilir Borç Yükü",
+      keyCatalyst,
+      keyRisk,
+      verdict: health >= 8 ? "GÜÇLÜ" : "BEKLENTİYE PARALEL",
+    };
+  }
 
 // -------------------------------------------------------------
 // 2. ⚠️ Orakul "Tuzak & Anomali Radarı" (Value Trap Detector)
@@ -1791,6 +1860,33 @@ Format (YALNIZCA geçerli JSON dizisi):
       SISE: "Küresel cam talebi ve enerji verimliliği yatırımları marjları desteklemeyi sürdürüyor.",
     };
 
+    const getDynamicSummary = (co: CompanyAnalysisRequest, v: "POZİTİF" | "NÖTR" | "NEGATİF") => {
+      if (summaries[co.symbol]) return summaries[co.symbol];
+      const s = (co.sector || "").toLowerCase();
+      const chg = co.dailyChange ?? 0;
+      if (s.includes("teknoloji") || s.includes("yazılım")) {
+        return v === "POZİTİF"
+          ? `${co.name}, yeni kurumsal yazılım lisans anlaşmaları ve yüksek marjlı Ar-Ge teslimatlarıyla operasyonel kârlılığını (%${chg >= 0 ? "+" : ""}${chg.toFixed(2)}) artırmayı sürdürüyor.`
+          : `${co.name} tarafında sektörel kâr realizasyonları ve küresel teknoloji harcamalarındaki temkinli görünüm fiyatlamaya yansıyor.`;
+      }
+      if (s.includes("savunma") || s.includes("elektronik")) {
+        return v === "POZİTİF"
+          ? `${co.name}, yeni nesil teslimat sözleşmeleri ve savunma sanayii bakiye siparişlerindeki artışla güçlü nakit akışı sağlıyor.`
+          : `${co.name} için teslimat vadeleri ve girdi maliyetlerindeki dönemsel dalgalanmalar takip ediliyor.`;
+      }
+      if (s.includes("enerji") || s.includes("petrol") || s.includes("elektrik")) {
+        return v === "POZİTİF"
+          ? `${co.name}, kapasite artırımları ve enerji üretim marjlarındaki genişlemeyle piyasada pozitif ayrışıyor.`
+          : `${co.name} için uluslararası emtia fiyat oynaklığı ve tarife düzenlemeleri yakından izleniyor.`;
+      }
+      if (s.includes("banka") || s.includes("finans")) {
+        return v === "POZİTİF"
+          ? `${co.name}, net faiz marjı toparlanması ve komisyon gelirlerindeki ivmeyle kârlılık çıtasını koruyor.`
+          : `${co.name} tarafında kredi büyüme regülasyonları ve mevduat fonlama maliyetleri dengeleniyor.`;
+      }
+      return `${co.name} (${co.symbol}), son piyasa seansında %${chg.toFixed(2)} değişimle işlem görürken operasyonel nakit akışı ve sektörel konumu ${v.toLowerCase()} algı oluşturmaktadır.`;
+    };
+
     return {
       id: `sentiment-${c.symbol}-${idx}`,
       title: `${c.name} (${c.symbol}) için ${
@@ -1804,9 +1900,7 @@ Format (YALNIZCA geçerli JSON dizisi):
       date: "Son 24 Saat",
       relatedSymbol: c.symbol,
       sentimentScore: parseFloat(score.toFixed(2)),
-      summary:
-        summaries[c.symbol] ||
-        `${c.name} için son çeyrek operasyonel göstergeleri ve piyasa duyarlılığı ${verdict.toLowerCase()} bölgede seyrediyor.`,
+      summary: getDynamicSummary(c, verdict),
       impactVerdict: verdict,
     };
   });

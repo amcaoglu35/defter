@@ -148,6 +148,7 @@ function OrakulContent() {
     aiProvider,
     geminiModel,
     createBasket,
+    addTransaction,
     indices,
   } = useDefterStore();
   const { showToast } = useToast();
@@ -356,6 +357,48 @@ interface WeeklyLetterResult {
     try {
       localStorage.setItem("defter_saved_screener_queries", JSON.stringify(updated));
     } catch {}
+  };
+
+  // Screener Add to Basket Allocation State
+  const [allocatingPick, setAllocatingPick] = useState<{ symbol: string; name: string; price: number } | null>(null);
+  const [allocateBasketId, setAllocateBasketId] = useState<string>("");
+  const [allocateLotAmount, setAllocateLotAmount] = useState<string>("10");
+
+  const handleOpenAllocateModal = (pick: { symbol: string; name: string; price: number }) => {
+    setAllocatingPick(pick);
+    if (baskets.length > 0) {
+      setAllocateBasketId(baskets[0].id);
+    }
+  };
+
+  const handleConfirmAllocateToBasket = () => {
+    if (!allocatingPick || !allocateBasketId) {
+      showToast("Sepet Seçin", "Lütfen hisseyi eklemek istediğiniz sepeti seçin.", "warning");
+      return;
+    }
+    const lots = parseInt(allocateLotAmount, 10);
+    if (isNaN(lots) || lots <= 0) {
+      showToast("Geçersiz Lot", "Lütfen geçerli bir lot miktarı girin.", "warning");
+      return;
+    }
+
+    addTransaction(
+      {
+        type: "BUY",
+        companySymbol: allocatingPick.symbol,
+        quantity: lots,
+        price: allocatingPick.price || 100,
+        totalAmount: (allocatingPick.price || 100) * lots,
+        date: new Date().toISOString().split("T")[0],
+        note: "Orakul AI Hisse Tarayıcısı ile eklendi",
+        basketId: allocateBasketId,
+      },
+      allocateBasketId
+    );
+
+    const targetB = baskets.find((b) => b.id === allocateBasketId);
+    showToast("Sepete Eklendi", `${lots} lot ${allocatingPick.symbol}, ${targetB?.name || "sepetinize"} başarıyla eklendi.`, "success");
+    setAllocatingPick(null);
   };
 
   // Cross-Feature Quick Navigation Helper
@@ -2165,15 +2208,15 @@ interface WeeklyLetterResult {
                   {earningsResult.netProfitGrowth ? (
                     <span className="text-base font-bold text-[var(--verdigris)] mt-0.5 block">{earningsResult.netProfitGrowth}</span>
                   ) : (
-                    <span className="text-[11px] text-[var(--mist)] mt-1 block font-sans italic">Yalnızca AI motoru aktifken hesaplanır</span>
+                    <span className="text-[11px] text-[var(--mist)] mt-1 block font-sans">Kütükte belirtilmemiş</span>
                   )}
                 </div>
                 <div className="p-3.5 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg font-mono">
-                  <span className="text-[11px] text-[var(--mist)] uppercase block">FAVÖK Marjı</span>
+                  <span className="text-[11px] text-[var(--mist)] uppercase block">FAVÖK / Faaliyet Marjı</span>
                   {earningsResult.ebitdaMargin ? (
                     <span className="text-base font-bold text-[var(--paper)] mt-0.5 block">{earningsResult.ebitdaMargin}</span>
                   ) : (
-                    <span className="text-[11px] text-[var(--mist)] mt-1 block font-sans italic">Yalnızca AI motoru aktifken hesaplanır</span>
+                    <span className="text-[11px] text-[var(--mist)] mt-1 block font-sans">Kütükte belirtilmemiş</span>
                   )}
                 </div>
                 <div className="p-3.5 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg font-mono">
@@ -2785,7 +2828,22 @@ interface WeeklyLetterResult {
                         <ArrowRight className="w-3 h-3" />
                       </Link>
 
-                      <div className="flex items-center gap-1">
+                      <div className="flex flex-wrap items-center gap-1">
+                        <button
+                          onClick={() => handleOpenAllocateModal(pick)}
+                          className="px-2 py-0.5 rounded bg-[var(--brass)] text-[var(--ink)] font-bold text-[10px] font-mono hover:bg-[#d9b35a] transition-all cursor-pointer shadow-sm flex items-center gap-1"
+                          title="Bu hisseyi seçtiğiniz sepete ekleyin"
+                        >
+                          <BookmarkPlus className="w-3 h-3" />
+                          <span>Sepete Ekle</span>
+                        </button>
+                        <Link
+                          href={`/karsilastir?symbols=${encodeURIComponent(pick.symbol)}`}
+                          className="px-2 py-0.5 rounded bg-[var(--ink-2)] hover:bg-[var(--brass-glow)] text-[10px] font-mono text-[var(--paper-dim)] hover:text-[var(--brass)] border border-[var(--line)] transition-colors"
+                          title="Kıyaslama Modülünde İncele"
+                        >
+                          Kıyasla
+                        </Link>
                         <button
                           onClick={() => navigateToFeature("company", pick.symbol)}
                           className="px-2 py-0.5 rounded bg-[var(--ink-2)] hover:bg-[var(--brass-glow)] text-[10px] font-mono text-[var(--paper-dim)] hover:text-[var(--brass)] border border-[var(--line)] transition-colors cursor-pointer"
@@ -3724,6 +3782,94 @@ interface WeeklyLetterResult {
             cancelText="Vazgeç"
             variant="danger"
           />
+
+          {/* Screener Add to Basket Modal */}
+          {allocatingPick && (
+            <div className="fixed inset-0 bg-[rgba(10,14,13,0.8)] backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-[var(--ink-2)] border border-[var(--brass-dim)] rounded-xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in zoom-in-95">
+                <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+                  <div className="flex items-center gap-2">
+                    <BookmarkPlus className="w-5 h-5 text-[var(--brass)]" />
+                    <h3 className="font-serif text-lg font-bold text-[var(--paper)]">
+                      Sepete Hisse Ekle
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setAllocatingPick(null)}
+                    className="text-[var(--mist)] hover:text-[var(--paper)] transition-colors cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="p-3 bg-[var(--ink-3)] border border-[var(--line)] rounded-lg font-mono text-xs space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-[var(--mist)]">Varlık:</span>
+                    <span className="font-bold text-[var(--brass)]">{allocatingPick.symbol} — {allocatingPick.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[var(--mist)]">Birim Fiyat:</span>
+                    <span className="font-bold text-[var(--paper)]">{allocatingPick.price.toFixed(2)} ₺</span>
+                  </div>
+                </div>
+
+                <div className="space-y-3 font-mono text-xs">
+                  <div>
+                    <label className="block text-[var(--mist)] uppercase mb-1.5 text-[11px]">Hedef Sepet</label>
+                    <select
+                      value={allocateBasketId}
+                      onChange={(e) => setAllocateBasketId(e.target.value)}
+                      className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded-lg p-2.5 text-[var(--paper)] font-mono outline-none focus:border-[var(--brass)]"
+                    >
+                      {baskets.length === 0 && (
+                        <option value="">Henüz sepetiniz yok</option>
+                      )}
+                      {baskets.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name} ({b.holdings?.length || 0} Varlık)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[var(--mist)] uppercase mb-1.5 text-[11px]">Eklenecek Lot Miktarı</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={allocateLotAmount}
+                      onChange={(e) => setAllocateLotAmount(e.target.value)}
+                      className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded-lg p-2.5 text-[var(--paper)] font-mono outline-none focus:border-[var(--brass)]"
+                      placeholder="10"
+                    />
+                  </div>
+
+                  <div className="p-2.5 bg-[var(--ink)] rounded border border-[var(--line)] flex justify-between items-center text-[11px]">
+                    <span className="text-[var(--mist)]">Tahmini Toplam Tutar:</span>
+                    <span className="font-bold text-[var(--verdigris)]">
+                      {((parseFloat(allocateLotAmount) || 0) * allocatingPick.price).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--line)]">
+                  <button
+                    onClick={() => setAllocatingPick(null)}
+                    className="px-4 py-2 rounded-lg bg-[var(--ink-3)] hover:bg-[var(--ink)] text-xs font-mono text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)] cursor-pointer"
+                  >
+                    Vazgeç
+                  </button>
+                  <button
+                    onClick={handleConfirmAllocateToBasket}
+                    disabled={baskets.length === 0}
+                    className="px-5 py-2 rounded-lg bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold text-xs font-mono cursor-pointer disabled:opacity-50 transition-all shadow"
+                  >
+                    Sepete Ekle
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
       )}
     </div>
