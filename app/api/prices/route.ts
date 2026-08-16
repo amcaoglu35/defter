@@ -69,11 +69,11 @@ const FALLBACK_PRICES: Record<string, { price: number; dailyChange: number; prev
   QQQ: { price: 492.50, dailyChange: 1.25 },
   SPY: { price: 564.80, dailyChange: 0.45 },
   GLD: { price: 245.80, dailyChange: 0.42 },
-  "USD/TRY": { price: 36.45, dailyChange: 0.08 },
-  "EUR/TRY": { price: 39.80, dailyChange: 0.12 },
-  "GBP/TRY": { price: 47.10, dailyChange: 0.15 },
-  "CHF/TRY": { price: 41.85, dailyChange: 0.05 },
-  "EUR/USD": { price: 1.092, dailyChange: 0.05 },
+  "USD/TRY": { price: 47.88, dailyChange: 0.11 },
+  "EUR/TRY": { price: 55.38, dailyChange: 0.37 },
+  "GBP/TRY": { price: 64.80, dailyChange: 0.46 },
+  "CHF/TRY": { price: 58.90, dailyChange: 0.22 },
+  "EUR/USD": { price: 1.156, dailyChange: 0.05 },
   NVDA: { price: 138.25, dailyChange: 4.18 },
   AAPL: { price: 232.40, dailyChange: 0.92 },
   MSFT: { price: 448.50, dailyChange: 1.45 },
@@ -92,10 +92,10 @@ const FALLBACK_INDICES: Record<string, { price: number; dailyChange: number; for
   "BIST Teknoloji": { price: 12450.8, dailyChange: 3.20, formattedPrice: "12.450,80", isPositive: true },
   "BIST GYO": { price: 3420.5, dailyChange: 1.15, formattedPrice: "3.420,50", isPositive: true },
   "BIST Temettü": { price: 10890.2, dailyChange: 1.30, formattedPrice: "10.890,20", isPositive: true },
-  "USD/TRY": { price: 38.45, dailyChange: 0.12, formattedPrice: "38,45 ₺", isPositive: true },
-  "EUR/TRY": { price: 41.80, dailyChange: 0.25, formattedPrice: "41,80 ₺", isPositive: true },
-  "Gram Altın": { price: 3420.0, dailyChange: 0.85, formattedPrice: "3.420,00 ₺", isPositive: true },
-  "Gümüş/Gr": { price: 39.50, dailyChange: 1.40, formattedPrice: "39,50 ₺", isPositive: true },
+  "USD/TRY": { price: 47.88, dailyChange: 0.11, formattedPrice: "47,88 ₺", isPositive: true },
+  "EUR/TRY": { price: 55.38, dailyChange: 0.37, formattedPrice: "55,38 ₺", isPositive: true },
+  "Gram Altın": { price: 4078.0, dailyChange: 0.85, formattedPrice: "4.078,00 ₺", isPositive: true },
+  "Gümüş/Gr": { price: 48.50, dailyChange: 1.40, formattedPrice: "48,50 ₺", isPositive: true },
   "Brent Petrol": { price: 74.20, dailyChange: -0.40, formattedPrice: "74,20 $", isPositive: false },
   "S&P 500": { price: 5648.4, dailyChange: 0.45, formattedPrice: "5.648,40", isPositive: true },
   "NASDAQ": { price: 17683.9, dailyChange: 0.84, formattedPrice: "17.683,90", isPositive: true },
@@ -202,6 +202,41 @@ export async function GET(request: Request) {
     });
   }
 
+// Live FX Rate fetcher from global central banks exchange API
+async function fetchLiveFxRates(): Promise<{
+  usdTry?: number;
+  eurTry?: number;
+  gbpTry?: number;
+  chfTry?: number;
+  eurUsd?: number;
+}> {
+  try {
+    const res = await fetch("https://open.er-api.com/v6/latest/USD", {
+      next: { revalidate: 300 }, // 5 mins cache
+      headers: { Accept: "application/json" },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.rates && data.rates.TRY) {
+        const usdTry = Number(data.rates.TRY);
+        const eurRate = Number(data.rates.EUR) || 1;
+        const gbpRate = Number(data.rates.GBP) || 1;
+        const chfRate = Number(data.rates.CHF) || 1;
+        return {
+          usdTry: Number(usdTry.toFixed(4)),
+          eurTry: Number((usdTry / eurRate).toFixed(4)),
+          gbpTry: Number((usdTry / gbpRate).toFixed(4)),
+          chfTry: Number((usdTry / chfRate).toFixed(4)),
+          eurUsd: Number((1 / eurRate).toFixed(4)),
+        };
+      }
+    }
+  } catch (err) {
+    console.warn("[Prices API] Live FX API error:", err);
+  }
+  return {};
+}
+
 interface YahooQuote {
   symbol?: string;
   regularMarketPrice?: number;
@@ -221,6 +256,8 @@ interface YahooQuote {
 }
 
   try {
+    // Fetch live FX rates in parallel
+    const liveFxPromise = fetchLiveFxRates();
     const combinedSymbolMap: Record<string, string> = { ...SYMBOL_MAP };
 
     // Include all companies from ledger
@@ -439,16 +476,71 @@ interface YahooQuote {
       }
     }
 
-    // 2. Compute Gram Gold & Gram Silver in TRY dynamically
+    // 2. Await Live FX rates and merge
+    const liveFx = await liveFxPromise;
+
+    if (liveFx.usdTry && liveFx.usdTry > 0) {
+      const dailyChange = rawQuotes["USD/TRY"]?.regularMarketChangePercent != null
+        ? Number(Number(rawQuotes["USD/TRY"].regularMarketChangePercent).toFixed(2))
+        : 0.11;
+      updatedPrices["USD/TRY"] = {
+        price: liveFx.usdTry,
+        dailyChange,
+      };
+      updatedIndices["USD/TRY"] = {
+        price: liveFx.usdTry,
+        dailyChange,
+        formattedPrice: `${liveFx.usdTry.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺`,
+        isPositive: dailyChange >= 0,
+      };
+    }
+
+    if (liveFx.eurTry && liveFx.eurTry > 0) {
+      const dailyChange = rawQuotes["EUR/TRY"]?.regularMarketChangePercent != null
+        ? Number(Number(rawQuotes["EUR/TRY"].regularMarketChangePercent).toFixed(2))
+        : 0.37;
+      updatedPrices["EUR/TRY"] = {
+        price: liveFx.eurTry,
+        dailyChange,
+      };
+      updatedIndices["EUR/TRY"] = {
+        price: liveFx.eurTry,
+        dailyChange,
+        formattedPrice: `${liveFx.eurTry.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺`,
+        isPositive: dailyChange >= 0,
+      };
+    }
+
+    if (liveFx.gbpTry && liveFx.gbpTry > 0) {
+      updatedPrices["GBP/TRY"] = {
+        price: liveFx.gbpTry,
+        dailyChange: 0.46,
+      };
+    }
+
+    if (liveFx.chfTry && liveFx.chfTry > 0) {
+      updatedPrices["CHF/TRY"] = {
+        price: liveFx.chfTry,
+        dailyChange: 0.22,
+      };
+    }
+
+    if (liveFx.eurUsd && liveFx.eurUsd > 0) {
+      updatedPrices["EUR/USD"] = {
+        price: liveFx.eurUsd,
+        dailyChange: 0.05,
+      };
+    }
+
+    // 3. Compute Gram Gold & Gram Silver in TRY dynamically
     // 1 Troy Ounce = 31.1034768 Grams
-    const usdTryQuote = rawQuotes["USD/TRY"]?.regularMarketPrice || FALLBACK_PRICES["USD/TRY"].price;
+    const effectiveUsdTry = liveFx.usdTry || rawQuotes["USD/TRY"]?.regularMarketPrice || FALLBACK_PRICES["USD/TRY"].price;
     const goldOunceUsd = rawQuotes["GOLD_OUNCE"]?.regularMarketPrice || 2650.0;
     const silverOunceUsd = rawQuotes["SILVER_OUNCE"]?.regularMarketPrice || 31.5;
-
     const platinumOunceUsd = rawQuotes["PLATINUM_OUNCE"]?.regularMarketPrice || 980.0;
 
-    if (usdTryQuote && goldOunceUsd) {
-      const gramGoldTry = (Number(goldOunceUsd) * Number(usdTryQuote)) / 31.1034768;
+    if (effectiveUsdTry && goldOunceUsd) {
+      const gramGoldTry = (Number(goldOunceUsd) * Number(effectiveUsdTry)) / 31.1034768;
       const goldDailyChange = rawQuotes["GOLD_OUNCE"]?.regularMarketChangePercent != null
         ? Number(rawQuotes["GOLD_OUNCE"].regularMarketChangePercent)
         : FALLBACK_PRICES["ALTIN/GR"].dailyChange;
@@ -456,6 +548,13 @@ interface YahooQuote {
       updatedPrices["ALTIN/GR"] = {
         price: Number(gramGoldTry.toFixed(2)),
         dailyChange: Number(goldDailyChange.toFixed(2)),
+      };
+
+      updatedIndices["Gram Altın"] = {
+        price: Number(gramGoldTry.toFixed(2)),
+        dailyChange: Number(goldDailyChange.toFixed(2)),
+        formattedPrice: `${gramGoldTry.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺`,
+        isPositive: goldDailyChange >= 0,
       };
 
       // Gold derivatives (Çeyrek, Tam, Ata)
@@ -475,8 +574,8 @@ interface YahooQuote {
       };
     }
 
-    if (usdTryQuote && silverOunceUsd) {
-      const gramSilverTry = (Number(silverOunceUsd) * Number(usdTryQuote)) / 31.1034768;
+    if (effectiveUsdTry && silverOunceUsd) {
+      const gramSilverTry = (Number(silverOunceUsd) * Number(effectiveUsdTry)) / 31.1034768;
       const silverDailyChange = rawQuotes["SILVER_OUNCE"]?.regularMarketChangePercent != null
         ? Number(rawQuotes["SILVER_OUNCE"].regularMarketChangePercent)
         : FALLBACK_PRICES["GÜMÜŞ/GR"].dailyChange;
@@ -485,10 +584,17 @@ interface YahooQuote {
         price: Number(gramSilverTry.toFixed(2)),
         dailyChange: Number(silverDailyChange.toFixed(2)),
       };
+
+      updatedIndices["Gümüş/Gr"] = {
+        price: Number(gramSilverTry.toFixed(2)),
+        dailyChange: Number(silverDailyChange.toFixed(2)),
+        formattedPrice: `${gramSilverTry.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺`,
+        isPositive: silverDailyChange >= 0,
+      };
     }
 
-    if (usdTryQuote && platinumOunceUsd) {
-      const gramPlatinTry = (Number(platinumOunceUsd) * Number(usdTryQuote)) / 31.1034768;
+    if (effectiveUsdTry && platinumOunceUsd) {
+      const gramPlatinTry = (Number(platinumOunceUsd) * Number(effectiveUsdTry)) / 31.1034768;
       const platinDailyChange = rawQuotes["PLATINUM_OUNCE"]?.regularMarketChangePercent != null
         ? Number(rawQuotes["PLATINUM_OUNCE"].regularMarketChangePercent)
         : FALLBACK_PRICES["PLATIN/GR"].dailyChange;

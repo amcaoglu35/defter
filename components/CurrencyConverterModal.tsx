@@ -29,11 +29,11 @@ export default function CurrencyConverterModal({
   const assets = useMemo<ConvertibleAsset[]>(() => {
     const list: ConvertibleAsset[] = [
       { code: "TRY", name: "Türk Lirası (₺)", priceInTry: 1, symbolStr: "₺", category: "currency" },
-      { code: "USD", name: "Amerikan Doları ($)", priceInTry: indices["USD/TRY"]?.price || 38.45, symbolStr: "$", category: "currency" },
-      { code: "EUR", name: "Euro (€)", priceInTry: indices["EUR/TRY"]?.price || 41.80, symbolStr: "€", category: "currency" },
-      { code: "ALTIN_GR", name: "Gram Altın (24K)", priceInTry: indices["Gram Altın"]?.price || 3420.0, symbolStr: "Gr", category: "metal" },
-      { code: "GUMUS_GR", name: "Gram Gümüş", priceInTry: indices["Gümüş/Gr"]?.price || 39.50, symbolStr: "Gr", category: "metal" },
-      { code: "CEYREK", name: "Çeyrek Altın", priceInTry: (indices["Gram Altın"]?.price || 3420.0) * 1.63, symbolStr: "Adet", category: "metal" },
+      { code: "USD", name: "Amerikan Doları ($)", priceInTry: indices["USD/TRY"]?.price || 47.88, symbolStr: "$", category: "currency" },
+      { code: "EUR", name: "Euro (€)", priceInTry: indices["EUR/TRY"]?.price || 55.38, symbolStr: "€", category: "currency" },
+      { code: "ALTIN_GR", name: "Gram Altın (24K)", priceInTry: indices["Gram Altın"]?.price || 4078.0, symbolStr: "Gr", category: "metal" },
+      { code: "GUMUS_GR", name: "Gram Gümüş", priceInTry: indices["Gümüş/Gr"]?.price || 48.50, symbolStr: "Gr", category: "metal" },
+      { code: "CEYREK", name: "Çeyrek Altın", priceInTry: (indices["Gram Altın"]?.price || 4078.0) * 1.635, symbolStr: "Adet", category: "metal" },
     ];
 
     // Add top 20 BIST stocks
