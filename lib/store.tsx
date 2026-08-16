@@ -26,6 +26,7 @@ import {
   MOCK_DIVIDENDS,
 } from "./mockData";
 import { isSupabaseConfigured } from "./supabase";
+const isDev = process.env.NODE_ENV === "development";
 
 export interface Transaction {
   id: string;
@@ -1048,6 +1049,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }).catch((err) => console.warn("[Sync] clear ai history error:", err));
   }, []);
 
+  // Add AI history entry
+  const addAiHistory = useCallback((item: AiHistoryItem) => {
+    setAiHistory((prev) => [item, ...prev]);
+    try {
+      const stored = JSON.parse(localStorage.getItem(STORAGE_KEYS.AI_HISTORY) ?? "[]");
+      localStorage.setItem(STORAGE_KEYS.AI_HISTORY, JSON.stringify([item, ...stored]));
+    } catch {}
+    fetch("/api/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "add_ai_history", payload: item }),
+    }).catch((err) => console.warn("[Sync] add ai history error:", err));
+  }, []);
+
   const addNotification = useCallback((item: NotificationItem) => {
     setNotifications((prev) => [item, ...prev]);
     fetch("/api/sync", {
@@ -1055,6 +1070,194 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "add_notification", payload: item }),
     }).catch((err) => console.warn("[Sync] add notification error:", err));
+  }, []);
+  // Company CRUD operations
+  const addCompany = useCallback((company: Company) => {
+    setCompanies((prev) => [company, ...prev]);
+    fetch('/api/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'add_company', payload: company }),
+    }).catch((err) => console.warn('[Sync] add company error:', err));
+  }, []);
+
+  const updateCompany = useCallback((symbol: string, partial: Partial<Company>) => {
+    setCompanies((prev) =>
+      prev.map((c) => (c.symbol === symbol ? { ...c, ...partial } : c))
+    );
+    fetch('/api/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'update_company', payload: { symbol, partial } }),
+    }).catch((err) => console.warn('[Sync] update company error:', err));
+  }, []);
+
+  const deleteCompany = useCallback((symbol: string) => {
+    setCompanies((prev) => prev.filter((c) => c.symbol !== symbol));
+    fetch('/api/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete_company', payload: { symbol } }),
+    }).catch((err) => console.warn('[Sync] delete company error:', err));
+  }, []);
+
+  const toggleWatchlist = useCallback((symbol: string) => {
+    setCompanies((prev) =>
+      prev.map((c) =>
+        c.symbol === symbol ? { ...c, inWatchlist: !c.inWatchlist } : c
+      )
+    );
+    fetch('/api/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'toggle_watchlist', payload: { symbol } }),
+    }).catch((err) => console.warn('[Sync] toggle watchlist error:', err));
+  }, []);
+
+  // Basket CRUD operations
+  const createBasket = useCallback((newBasket: Basket) => {
+    setBaskets((prev) => [newBasket, ...prev]);
+    fetch('/api/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'add_basket', payload: newBasket }),
+    }).catch((err) => console.warn('[Sync] add basket error:', err));
+  }, []);
+
+  const updateBasket = useCallback((id: string, partial: Partial<Basket>) => {
+    setBaskets((prev) =>
+      prev.map((b) => (b.id === id ? { ...b, ...partial } : b))
+    );
+    fetch('/api/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'update_basket', payload: { id, partial } }),
+    }).catch((err) => console.warn('[Sync] update basket error:', err));
+  }, []);
+
+  const deleteBasket = useCallback((id: string) => {
+    setBaskets((prev) => prev.filter((b) => b.id !== id));
+    fetch('/api/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete_basket', payload: { id } }),
+    }).catch((err) => console.warn('[Sync] delete basket error:', err));
+  }, []);
+
+  const addHoldingToBasket = useCallback(
+    (basketId: string, holding: BasketHolding) => {
+      setBaskets((prev) =>
+        prev.map((b) =>
+          b.id === basketId
+            ? { ...b, holdings: [...b.holdings, holding] }
+            : b
+        )
+      );
+      fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'add_holding', payload: { basketId, holding } }),
+      }).catch((err) => console.warn('[Sync] add holding error:', err));
+    },
+    []
+  );
+
+  const removeHoldingFromBasket = useCallback(
+    (basketId: string, symbol: string) => {
+      setBaskets((prev) =>
+        prev.map((b) =>
+          b.id === basketId
+            ? {
+                ...b,
+                holdings: b.holdings.filter((h) => h.companySymbol !== symbol),
+              }
+            : b
+        )
+      );
+      fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'remove_holding', payload: { basketId, symbol } }),
+      }).catch((err) => console.warn('[Sync] remove holding error:', err));
+    },
+    []
+  );
+
+  const updateHolding = useCallback(
+    (
+      basketId: string,
+      symbol: string,
+      updates: Partial<BasketHolding>
+    ) => {
+      setBaskets((prev) =>
+        prev.map((b) => {
+          if (b.id !== basketId) return b;
+          const updatedHoldings = b.holdings.map((h) =>
+            h.companySymbol === symbol ? { ...h, ...updates } : h
+          );
+          return { ...b, holdings: updatedHoldings };
+        })
+      );
+      fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update_holding', payload: { basketId, symbol, updates } }),
+      }).catch((err) => console.warn('[Sync] update holding error:', err));
+    },
+    []
+  );
+
+  // Transaction operations
+  const addTransaction = useCallback(
+    (tx: Omit<Transaction, 'id'>, targetBasketId?: string) => {
+      const newTx: Transaction = { ...tx, id: `tx-${Date.now()}` };
+      if (targetBasketId) newTx.basketId = targetBasketId;
+      setTransactions((prev) => [newTx, ...prev]);
+      fetch('/api/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'add_transaction', payload: newTx }),
+      }).catch((err) => console.warn('[Sync] add transaction error:', err));
+      return { success: true };
+    },
+    []
+  );
+
+  const deleteTransaction = useCallback((id: string) => {
+    setTransactions((prev) => prev.filter((t) => t.id !== id));
+    fetch('/api/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete_transaction', payload: { id } }),
+    }).catch((err) => console.warn('[Sync] delete transaction error:', err));
+  }, []);
+
+  // Company notes operations
+  const addNote = useCallback((symbol: string, noteText: string) => {
+    setCompanyNotes((prev) => {
+      const existing = prev[symbol] || [];
+      return { ...prev, [symbol]: [...existing, noteText] };
+    });
+    fetch('/api/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'add_note', payload: { symbol, noteText } }),
+    }).catch((err) => console.warn('[Sync] add note error:', err));
+  }, []);
+
+  const deleteNote = useCallback((symbol: string, index: number) => {
+    setCompanyNotes((prev) => {
+      const existing = prev[symbol] || [];
+      return {
+        ...prev,
+        [symbol]: existing.filter((_, i) => i !== index),
+      };
+    });
+    fetch('/api/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete_note', payload: { symbol, index } }),
+    }).catch((err) => console.warn('[Sync] delete note error:', err));
   }, []);
 
   const syncIpoToLedger = useCallback(
@@ -1211,12 +1414,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   const resetToDefaultData = () => {
-    setCompanies(MOCK_COMPANIES);
-    setBaskets(MOCK_BASKETS);
-    setTransactions([]);
-    setIpos(MOCK_IPOS);
-    setAiHistory(MOCK_AI_HISTORY);
-    setNotifications(MOCK_NOTIFICATIONS);
+    if (isDev) {
+      setCompanies(MOCK_COMPANIES);
+      setBaskets(MOCK_BASKETS);
+      setTransactions([]);
+      setIpos(MOCK_IPOS);
+      setAiHistory(MOCK_AI_HISTORY);
+      setNotifications(MOCK_NOTIFICATIONS);
+    } else {
+      setCompanies([]);
+      setBaskets([]);
+      setTransactions([]);
+      setIpos([]);
+      setAiHistory([]);
+      setNotifications([]);
+    }
     setIndices(DEFAULT_INDICES);
     setCompanyNotes({
       THYAO: [
@@ -1227,6 +1439,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       FROTO: ["Yıllık düzenli temettü dağıtım politikası."],
     });
     // Target only financial data keys; preserve AI credentials, user preferences, and auth session
+    // Preserve AI credentials, user preferences, and auth session
     localStorage.removeItem(STORAGE_KEYS.COMPANIES);
     localStorage.removeItem(STORAGE_KEYS.BASKETS);
     localStorage.removeItem(STORAGE_KEYS.TRANSACTIONS);
