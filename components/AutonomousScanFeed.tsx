@@ -37,18 +37,22 @@ export function AutonomousScanFeed({ onAddHoldingToBasket }: Props) {
     companies,
     baskets,
     addHoldingToBasket,
+    aiApiKey,
   } = useDefterStore();
   const { showToast } = useToast();
 
   const [isScanning, setIsScanning] = useState(false);
+  const [scanCount, setScanCount] = useState<number>(15);
+  const [isAutoPilot, setIsAutoPilot] = useState(false);
   const [filterVerdict, setFilterVerdict] = useState<string>("ALL");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedScan, setSelectedScan] = useState<AutonomousScan | null>(null);
 
-  const handleRunManualScan = async (count = 10) => {
+  const handleRunManualScan = async (count = scanCount) => {
     setIsScanning(true);
     try {
-      const res = await fetch(`/api/cron/orakul-scanner?count=${count}`);
+      const keyParam = aiApiKey ? `&apiKey=${encodeURIComponent(aiApiKey)}` : "";
+      const res = await fetch(`/api/cron/orakul-scanner?count=${count}${keyParam}`);
       const data = await res.json();
       if (data.success && Array.isArray(data.scans)) {
         data.scans.forEach((scan: AutonomousScan) => {
@@ -68,6 +72,15 @@ export function AutonomousScanFeed({ onAddHoldingToBasket }: Props) {
       setIsScanning(false);
     }
   };
+
+  // Auto-Pilot periodic scanning interval (every 10 minutes if enabled)
+  React.useEffect(() => {
+    if (!isAutoPilot) return;
+    const interval = setInterval(() => {
+      handleRunManualScan(5);
+    }, 10 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [isAutoPilot, aiApiKey]);
 
   const filteredScans = autonomousScans.filter((scan) => {
     const matchesVerdict =
@@ -122,21 +135,64 @@ export function AutonomousScanFeed({ onAddHoldingToBasket }: Props) {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 self-stretch md:self-auto">
+          <div className="flex flex-wrap items-center gap-2 self-stretch md:self-auto">
+            {/* Scan Count Selector */}
+            <div className="flex items-center bg-[var(--ink-3)] border border-[var(--line)] rounded-xl p-0.5">
+              {[10, 15, 20].map((num) => (
+                <button
+                  key={num}
+                  type="button"
+                  onClick={() => setScanCount(num)}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all ${
+                    scanCount === num
+                      ? "bg-[var(--brass)] text-zinc-950 font-bold shadow"
+                      : "text-[var(--mist)] hover:text-[var(--paper)]"
+                  }`}
+                >
+                  {num}
+                </button>
+              ))}
+            </div>
+
+            {/* Auto-Pilot Toggle */}
             <button
-              onClick={() => handleRunManualScan(10)}
+              type="button"
+              onClick={() => {
+                const next = !isAutoPilot;
+                setIsAutoPilot(next);
+                showToast(
+                  next ? "Otomatik Tarayıcı Aktif" : "Otomatik Tarayıcı Durduruldu",
+                  next
+                    ? "Yapay zeka bu sayfa açıkken her 10 dakikada bir otomatik yeni şirketler tarayacak."
+                    : "Otomatik tarama durduruldu.",
+                  next ? "success" : "info"
+                );
+              }}
+              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-mono border transition-all ${
+                isAutoPilot
+                  ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow"
+                  : "bg-[var(--ink-3)] text-[var(--mist)] hover:text-[var(--paper)] border-[var(--line)]"
+              }`}
+              title="Sayfa açıkken her 10 dakikada bir otomatik arka plan taraması"
+            >
+              <span className={`w-2 h-2 rounded-full ${isAutoPilot ? "bg-emerald-400 animate-pulse" : "bg-zinc-500"}`} />
+              <span>{isAutoPilot ? "Oto-Pilot: Açık" : "Oto-Pilot"}</span>
+            </button>
+
+            <button
+              onClick={() => handleRunManualScan(scanCount)}
               disabled={isScanning}
               className="flex-1 md:flex-initial inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[var(--brass)] to-[var(--brass-glow)] text-zinc-950 font-medium text-xs shadow-lg hover:brightness-110 active:scale-95 transition-all disabled:opacity-50"
             >
               {isScanning ? (
                 <>
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  <span>Şirketler Taranıyor...</span>
+                  <span>{scanCount} Şirket Taranıyor...</span>
                 </>
               ) : (
                 <>
                   <Zap className="w-3.5 h-3.5 fill-current" />
-                  <span>10 Şirket Tara (AI)</span>
+                  <span>{scanCount} Şirket Tara (AI)</span>
                 </>
               )}
             </button>

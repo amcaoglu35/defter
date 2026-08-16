@@ -31,6 +31,7 @@ export function AiModelPortfolios() {
     evaluateAiModelBaskets,
     companies,
     createBasket,
+    aiApiKey,
   } = useDefterStore();
   const { showToast } = useToast();
 
@@ -39,7 +40,8 @@ export function AiModelPortfolios() {
   const handleGenerateBaskets = async () => {
     setIsGenerating(true);
     try {
-      const res = await fetch("/api/cron/orakul-auto-basket");
+      const keyParam = aiApiKey ? `?apiKey=${encodeURIComponent(aiApiKey)}` : "";
+      const res = await fetch(`/api/cron/orakul-auto-basket${keyParam}`);
       const data = await res.json();
       if (data.success && Array.isArray(data.baskets)) {
         data.baskets.forEach((basket: AiModelBasket) => {

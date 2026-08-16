@@ -12,6 +12,12 @@ export async function POST(req: Request) {
 }
 
 async function handleAutoBasket(req: Request) {
+  const url = new URL(req.url);
+  const queryKey = url.searchParams.get("apiKey")?.trim();
+  const headerKey = req.headers.get("x-gemini-key")?.trim();
+  const envKey = process.env.GEMINI_API_KEY?.trim();
+  const effectiveApiKey = queryKey || headerKey || envKey;
+
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret && authHeader && authHeader !== `Bearer ${cronSecret}`) {
@@ -27,9 +33,9 @@ async function handleAutoBasket(req: Request) {
       }
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = effectiveApiKey;
     const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
-    const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+    const model = process.env.GEMINI_MODEL || "gemini-1.5-flash";
 
     const themes = [
       {

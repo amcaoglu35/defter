@@ -16,6 +16,11 @@ async function handleAutonomousScan(req: Request) {
   const countParam = parseInt(url.searchParams.get("count") || "10", 10);
   const targetCount = Math.min(Math.max(countParam, 3), 20);
 
+  const queryKey = url.searchParams.get("apiKey")?.trim();
+  const headerKey = req.headers.get("x-gemini-key")?.trim();
+  const envKey = process.env.GEMINI_API_KEY?.trim();
+  const effectiveApiKey = queryKey || headerKey || envKey;
+
   // Optional CRON_SECRET verification if provided
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
@@ -37,9 +42,9 @@ async function handleAutonomousScan(req: Request) {
     const shuffled = [...companyPool].sort(() => 0.5 - Math.random());
     const selected = shuffled.slice(0, targetCount);
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = effectiveApiKey;
     const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
-    const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+    const model = process.env.GEMINI_MODEL || "gemini-1.5-flash";
 
     const scans: AutonomousScan[] = [];
 
