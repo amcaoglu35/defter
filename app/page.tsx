@@ -378,13 +378,13 @@ export default function HomePage() {
                   {dailyBrief.hasBistData !== false && (
                     <span
                       className={`font-mono text-[10px] px-2 py-0.5 rounded font-bold border ${
-                        dailyBrief.portfolioDayChangePct >= dailyBrief.bistDayChangePct
+                        (dailyBrief.portfolioDayChangePct ?? 0) >= (dailyBrief.bistDayChangePct ?? 0)
                           ? "bg-[rgba(91,140,123,0.15)] text-[var(--verdigris)] border-[var(--verdigris)]"
                           : "bg-[rgba(122,46,58,0.15)] text-[var(--loss)] border-[var(--loss)]"
                       }`}
                     >
-                      Alfa Getiri: {dailyBrief.portfolioDayChangePct >= dailyBrief.bistDayChangePct ? "+" : ""}
-                      {(dailyBrief.portfolioDayChangePct - dailyBrief.bistDayChangePct).toFixed(2)}%
+                      Alfa Getiri: {(dailyBrief.portfolioDayChangePct ?? 0) >= (dailyBrief.bistDayChangePct ?? 0) ? "+" : ""}
+                      {((dailyBrief.portfolioDayChangePct ?? 0) - (dailyBrief.bistDayChangePct ?? 0)).toFixed(2)}%
                     </span>
                   )}
                   {dailyBrief.topWinner && (
@@ -621,76 +621,102 @@ export default function HomePage() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {baskets.slice(0, 6).map((basket) => {
-              const isBasketProfit = basket.totalProfitPercent >= 0;
-
-              return (
+          {baskets.length === 0 ? (
+            <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-8 text-center space-y-3">
+              <Layers className="w-8 h-8 text-[var(--brass)] mx-auto opacity-70" />
+              <h4 className="font-serif text-lg font-bold text-[var(--paper)]">
+                Henüz Bir Sepetiniz Bulunmuyor
+              </h4>
+              <p className="text-xs text-[var(--mist)] max-w-md mx-auto font-sans">
+                Yatırımlarınızı hedeflerinize göre gruplamak ve Orakul ile optimize etmek için ilk sepetinizi oluşturun.
+              </p>
+              <div className="pt-2 flex flex-wrap justify-center gap-3">
                 <Link
-                  key={basket.id}
-                  href={`/sepetlerim/${basket.id}`}
-                  className="ticket-card p-5 block group"
+                  href="/orakul?category=strategy&tab=wizard"
+                  className="px-4 py-2 rounded bg-[var(--brass)] text-[var(--ink)] font-bold text-xs font-mono hover:bg-[#d9b35a] transition-all shadow cursor-pointer"
                 >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h4 className="font-serif font-bold text-lg text-[var(--ink)] group-hover:text-[var(--brass-dim)] transition-colors">
-                        {basket.name}
-                      </h4>
-                      <p className="font-mono text-[11px] uppercase tracking-wider text-[var(--brass-dim)] mt-0.5">
-                        {basket.subtitle}
-                      </p>
-                    </div>
-                    <span
-                      className={`font-mono text-[10px] font-bold px-2 py-0.5 rounded-xs uppercase ${
-                        basket.riskColor === "low"
-                          ? "bg-[rgba(91,140,123,0.2)] text-[var(--verdigris)]"
-                          : basket.riskColor === "high"
-                          ? "bg-[rgba(163,59,59,0.2)] text-[var(--loss)]"
-                          : "bg-[rgba(201,162,75,0.2)] text-[var(--brass-dim)]"
-                      }`}
-                    >
-                      {basket.riskLevel} Risk
-                    </span>
-                  </div>
+                  🧙‍♂️ Sepet Sihirbazı ile Başla
+                </Link>
+                <Link
+                  href="/sepetlerim"
+                  className="px-4 py-2 rounded bg-[var(--ink-3)] text-[var(--paper)] text-xs font-mono border border-[var(--line)] hover:border-[var(--brass)] transition-colors cursor-pointer"
+                >
+                  Manuel Sepet Oluştur
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {baskets.slice(0, 6).map((basket) => {
+                const isBasketProfit = basket.totalProfitPercent >= 0;
 
-                  <div className="border-t border-dashed border-[rgba(18,21,28,0.25)] my-4 pt-3 flex items-center justify-between">
-                    <div>
-                      <div className="text-[11px] text-[rgba(18,21,28,0.6)]">
-                        Sepet Değeri
+                return (
+                  <Link
+                    key={basket.id}
+                    href={`/sepetlerim/${basket.id}`}
+                    className="ticket-card p-5 block group"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h4 className="font-serif font-bold text-lg text-[var(--ink)] group-hover:text-[var(--brass-dim)] transition-colors">
+                          {basket.name}
+                        </h4>
+                        <p className="font-mono text-[11px] uppercase tracking-wider text-[var(--brass-dim)] mt-0.5">
+                          {basket.subtitle}
+                        </p>
                       </div>
-                      <div className="font-mono font-bold text-base text-[var(--ink)]">
-                        {basket.totalValue.toLocaleString("tr-TR")} ₺
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-[11px] text-[rgba(18,21,28,0.6)]">
-                        Toplam Getiri
-                      </div>
-                      <div
-                        className={`font-mono font-bold text-sm ${
-                          isBasketProfit ? "text-[var(--verdigris)]" : "text-[var(--loss)]"
+                      <span
+                        className={`font-mono text-[10px] font-bold px-2 py-0.5 rounded-xs uppercase ${
+                          basket.riskColor === "low"
+                            ? "bg-[rgba(91,140,123,0.2)] text-[var(--verdigris)]"
+                            : basket.riskColor === "high"
+                            ? "bg-[rgba(163,59,59,0.2)] text-[var(--loss)]"
+                            : "bg-[rgba(201,162,75,0.2)] text-[var(--brass-dim)]"
                         }`}
                       >
-                        {isBasketProfit ? "+" : ""}
-                        {basket.totalProfitPercent}%
+                        {basket.riskLevel} Risk
+                      </span>
+                    </div>
+
+                    <div className="border-t border-dashed border-[rgba(18,21,28,0.25)] my-4 pt-3 flex items-center justify-between">
+                      <div>
+                        <div className="text-[11px] text-[rgba(18,21,28,0.6)]">
+                          Sepet Değeri
+                        </div>
+                        <div className="font-mono font-bold text-base text-[var(--ink)]">
+                          {basket.totalValue.toLocaleString("tr-TR")} ₺
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-[11px] text-[rgba(18,21,28,0.6)]">
+                          Toplam Getiri
+                        </div>
+                        <div
+                          className={`font-mono font-bold text-sm ${
+                            isBasketProfit ? "text-[var(--verdigris)]" : "text-[var(--loss)]"
+                          }`}
+                        >
+                          {isBasketProfit ? "+" : ""}
+                          {basket.totalProfitPercent}%
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {basket.holdings.map((h) => (
-                      <span
-                        key={h.companySymbol}
-                        className="font-mono text-[10px] bg-[rgba(18,21,28,0.08)] px-2 py-0.5 rounded-full font-medium text-[var(--ink)]"
-                      >
-                        {h.companySymbol} %{h.weightPercent}
-                      </span>
-                    ))}
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {basket.holdings.map((h) => (
+                        <span
+                          key={h.companySymbol}
+                          className="font-mono text-[10px] bg-[rgba(18,21,28,0.08)] px-2 py-0.5 rounded-full font-medium text-[var(--ink)]"
+                        >
+                          {h.companySymbol} %{h.weightPercent}
+                        </span>
+                      ))}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
 
           {baskets.length > 6 && (
             <div className="pt-2 text-center">
@@ -720,39 +746,48 @@ export default function HomePage() {
           </div>
 
           <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-lg p-4 space-y-3">
-            {activeIpos.slice(0, 5).map((ipo) => (
-              <div
-                key={ipo.id}
-                className="p-3 rounded bg-[var(--ink-3)] border border-[var(--line)]"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h5 className="text-sm font-semibold text-[var(--paper)]">
-                      {ipo.name}
-                    </h5>
-                    <span className="font-mono text-xs text-[var(--brass)]">
-                      {ipo.code} • {ipo.sector}
+            {activeIpos.length === 0 ? (
+              <div className="text-center py-6 text-xs font-mono text-[var(--mist)] space-y-1">
+                <p>Şu anda talep toplayan veya yaklaşan halka arz bulunmuyor.</p>
+                <Link href="/halka-arz" className="text-[var(--brass)] hover:underline inline-block mt-1">
+                  Geçmiş Halka Arzları Gör →
+                </Link>
+              </div>
+            ) : (
+              activeIpos.slice(0, 5).map((ipo) => (
+                <div
+                  key={ipo.id}
+                  className="p-3 rounded bg-[var(--ink-3)] border border-[var(--line)]"
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h5 className="text-sm font-semibold text-[var(--paper)]">
+                        {ipo.name}
+                      </h5>
+                      <span className="font-mono text-xs text-[var(--brass)]">
+                        {ipo.code} • {ipo.sector}
+                      </span>
+                    </div>
+                    <span
+                      className={`font-mono text-[10px] uppercase px-1.5 py-0.5 rounded-xs font-bold ${
+                        ipo.status === "active"
+                          ? "bg-[rgba(91,140,123,0.2)] text-[var(--verdigris)] border border-[var(--verdigris)]"
+                          : "bg-[var(--brass-glow)] text-[var(--brass)] border border-[var(--brass-dim)]"
+                      }`}
+                    >
+                      {ipo.status === "active" ? "Talep Toplanıyor" : "Yaklaşıyor"}
                     </span>
                   </div>
-                  <span
-                    className={`font-mono text-[10px] uppercase px-1.5 py-0.5 rounded-xs font-bold ${
-                      ipo.status === "active"
-                        ? "bg-[rgba(91,140,123,0.2)] text-[var(--verdigris)] border border-[var(--verdigris)]"
-                        : "bg-[var(--brass-glow)] text-[var(--brass)] border border-[var(--brass-dim)]"
-                    }`}
-                  >
-                    {ipo.status === "active" ? "Talep Toplanıyor" : "Yaklaşıyor"}
-                  </span>
-                </div>
 
-                <div className="mt-2.5 pt-2 border-t border-dashed border-[var(--line)] flex items-center justify-between text-xs font-mono text-[var(--mist)]">
-                  <span>{ipo.dateRange}</span>
-                  <span className="text-[var(--paper)] font-semibold">
-                    {ipo.priceRange}
-                  </span>
+                  <div className="mt-2.5 pt-2 border-t border-dashed border-[var(--line)] flex items-center justify-between text-xs font-mono text-[var(--mist)]">
+                    <span>{ipo.dateRange}</span>
+                    <span className="text-[var(--paper)] font-semibold">
+                      {ipo.priceRange}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </section>
