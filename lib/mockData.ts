@@ -142,7 +142,7 @@ export interface NotificationItem {
 export interface AiHistoryItem {
   id: string;
   date: string;
-  type: "Sepet Önerisi" | "Anomali Tespiti" | "Şirket Değerleme" | "Haber Duygu Analizi" | "Reçete" | "Sohbet Analizi";
+  type: "Sepet Önerisi" | "Anomali Tespiti" | "Şirket Değerleme" | "Haber Duygu Analizi" | "Reçete" | "Sohbet Analizi" | "Otonom Tarama";
   title: string;
   description: string;
   verdictTag: string;
@@ -161,6 +161,57 @@ export interface AiHistoryItem {
   provider?: string;
   model?: string;
 }
+
+// Otonom AI Tarayıcı Analiz Kartı
+export interface AutonomousScan {
+  id: string;
+  symbol: string;
+  companyName: string;
+  sector: string;
+  scannedAt: string; // ISO string
+  verdict: "AL" | "SAT" | "TUT" | "GÜÇLÜ AL" | "GÜÇLÜ SAT" | "NÖTR";
+  valuationScore: number; // 0-100
+  priceAtScan: number;
+  currency: string;
+  peRatio?: number;
+  dividendYield?: number;
+  confidence: string; // "%85"
+  bullThesis: string; // 1 cümle
+  bearThesis: string; // 1 cümle
+  targetPrice?: number;
+  priceNow?: number; // filled when checking outcome
+  returnPct?: number; // filled after period
+  outcomeCorrect?: boolean | null;
+  outcomeCheckedAt?: string;
+  targetPeriodDays: number;
+  provider: string;
+  model: string;
+}
+
+// Otonom AI Model Portföy (AI'ın kendi başına kurduğu deneysel sepet)
+export interface AiModelBasket {
+  id: string;
+  theme: string; // "Günün Büyüme Sepeti", "Günün Değer Avcısı", "Günün Temettü Kalesi"
+  createdAt: string; // ISO string
+  horizon: number; // gün cinsinden 30/60/90
+  allocation: Array<{
+    symbol: string;
+    name: string;
+    weight: number;
+    priceAtCreation: number;
+    priceNow?: number;
+    returnPct?: number;
+  }>;
+  totalReturnPct?: number; // hesaplanan ortalama ağırlıklı getiri
+  benchmarkReturnPct?: number; // aynı dönemde BIST-100'ün getirisi
+  alpha?: number; // totalReturnPct - benchmarkReturnPct
+  outcomeCheckedAt?: string;
+  status: "active" | "completed" | "partial";
+  provider: string;
+  model: string;
+  summary: string; // AI'ın 1-2 cümlelik strateji özeti
+}
+
 
 // ---------------- INITIAL SEED DATA ----------------
 

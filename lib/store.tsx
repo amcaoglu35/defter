@@ -16,6 +16,8 @@ import {
   IpoItem,
   NotificationItem,
   AiHistoryItem,
+  AutonomousScan,
+  AiModelBasket,
   MOCK_COMPANIES,
   MOCK_BASKETS,
   MOCK_IPOS,
@@ -209,6 +211,16 @@ interface DefterStoreContextType {
   triggeredAlerts: TriggeredAlert[];
   clearTriggeredAlerts: (symbol?: string) => void;
 
+  // Autonomous AI Scanner & Self-Learning
+  autonomousScans: AutonomousScan[];
+  addAutonomousScan: (scan: AutonomousScan) => void;
+  clearAutonomousScans: () => void;
+  evaluateAutonomousScans: (freshCompanies?: Company[]) => void;
+  aiModelBaskets: AiModelBasket[];
+  addAiModelBasket: (basket: AiModelBasket) => void;
+  clearAiModelBaskets: () => void;
+  evaluateAiModelBaskets: (freshCompanies?: Company[]) => void;
+
   // Utilities & Cloud
   isLoaded: boolean;
   isCloudConnected: boolean;
@@ -235,6 +247,8 @@ const STORAGE_KEYS = {
   UPDATE_INTERVAL: "defter_update_interval",
   INDICES: "defter_indices_v2",
   USER_SETTINGS: "defter_user_settings_v2",
+  AUTONOMOUS_SCANS: "defter_autonomous_scans_v1",
+  AI_MODEL_BASKETS: "defter_ai_model_baskets_v1",
 };
 
 const DEFAULT_USER_SETTINGS: UserSettings = {
@@ -416,6 +430,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [companyNotes, setCompanyNotes] = useState<Record<string, string[]>>({});
   const [ipos, setIpos] = useState<IpoItem[]>([]);
   const [aiHistory, setAiHistory] = useState<AiHistoryItem[]>([]);
+  const [autonomousScans, setAutonomousScans] = useState<AutonomousScan[]>([]);
+  const [aiModelBaskets, setAiModelBaskets] = useState<AiModelBasket[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [triggeredAlerts, setTriggeredAlerts] = useState<TriggeredAlert[]>([]);
   const [indices, setIndices] = useState<Record<string, MarketIndexData>>(DEFAULT_INDICES);
@@ -433,6 +449,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
     return false;
   });
+
+  // Persistence for autonomous scans and model baskets
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_KEYS.AUTONOMOUS_SCANS, JSON.stringify(autonomousScans)); } catch {}
+    try { localStorage.setItem(STORAGE_KEYS.AI_MODEL_BASKETS, JSON.stringify(aiModelBaskets)); } catch {}
+  }, [autonomousScans, aiModelBaskets]);
 
   const togglePrivacyMode = useCallback(() => {
     setIsPrivacyMode((prev) => {
@@ -591,6 +613,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const storedInterval = localStorage.getItem(STORAGE_KEYS.UPDATE_INTERVAL);
         const storedIndices = localStorage.getItem(STORAGE_KEYS.INDICES);
         const storedUserSettings = localStorage.getItem(STORAGE_KEYS.USER_SETTINGS);
+        const storedScans = localStorage.getItem(STORAGE_KEYS.AUTONOMOUS_SCANS);
+        const storedModelBaskets = localStorage.getItem(STORAGE_KEYS.AI_MODEL_BASKETS);
 
         if (storedCompanies) {
           try {
@@ -687,6 +711,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (storedInterval) setUpdateIntervalState(storedInterval);
         if (storedIndices) setIndices(JSON.parse(storedIndices));
         if (storedUserSettings) setUserSettings(JSON.parse(storedUserSettings));
+        if (storedScans) {
+          try {
+            setAutonomousScans(JSON.parse(storedScans));
+          } catch {}
+        }
+        if (storedModelBaskets) {
+          try {
+            setAiModelBaskets(JSON.parse(storedModelBaskets));
+          } catch {}
+        }
 
         setLastSyncTime(
           new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })
@@ -732,6 +766,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem(STORAGE_KEYS.UPDATE_INTERVAL, updateInterval);
       localStorage.setItem(STORAGE_KEYS.INDICES, JSON.stringify(indices));
       localStorage.setItem(STORAGE_KEYS.USER_SETTINGS, JSON.stringify(userSettings));
+      localStorage.setItem(STORAGE_KEYS.AUTONOMOUS_SCANS, JSON.stringify(autonomousScans));
+      localStorage.setItem(STORAGE_KEYS.AI_MODEL_BASKETS, JSON.stringify(aiModelBaskets));
     } catch (e) {
       console.warn("Could not save to localStorage:", e);
     }
@@ -743,6 +779,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     companyNotes,
     ipos,
     aiHistory,
+    autonomousScans,
+    aiModelBaskets,
     notifications,
     aiProvider,
     updateInterval,
@@ -938,570 +976,59 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     );
   }, [companies, indices]);
 
-  // Live Refresh Prices Action (Yahoo Finance API)
-  const refreshPrices = useCallback(async () => {
-    setIsRefreshing(true);
-    try {
-      const res = await fetch("/api/prices");
-      if (res.ok) {
-        const data = await res.json();
-        let freshList: Company[] | null = null;
-
-        if (data.prices) {
-          setCompanies((prev) => {
-            const updated = prev.map((c) => {
-              const live = data.prices[c.symbol];
-              if (live) {
-                const athDiscount = (live.high52 && live.high52 > 0)
-                  ? Number((((live.high52 - live.price) / live.high52) * 100).toFixed(1))
-                  : c.athDiscountPct;
-
-                return {
-                  ...c,
-                  price: live.price,
-                  dailyChange: live.dailyChange,
-                  high52: live.high52 ?? c.high52,
-                  low52: live.low52 ?? c.low52,
-                  dayHigh: live.dayHigh ?? c.dayHigh,
-                  dayLow: live.dayLow ?? c.dayLow,
-                  openPrice: live.openPrice ?? c.openPrice,
-                  volume: live.volume ?? c.volume,
-                  avgVolume: live.avgVolume ?? c.avgVolume,
-                  volumeRatio: live.volumeRatio ?? c.volumeRatio,
-                  athDiscountPct: athDiscount,
-                  peRatio: live.peRatio ?? c.peRatio,
-                  marketCap: live.marketCap ?? c.marketCap,
-                  eps: live.eps ?? c.eps,
-                  sharesOutstanding: live.sharesOutstanding ?? c.sharesOutstanding,
-                  yearChangePct: live.yearChangePct ?? c.yearChangePct,
-                  targetMeanPrice: live.targetMeanPrice ?? c.targetMeanPrice,
-                  targetHighPrice: live.targetHighPrice ?? c.targetHighPrice,
-                  targetLowPrice: live.targetLowPrice ?? c.targetLowPrice,
-                  recommendationKey: live.recommendationKey ?? c.recommendationKey,
-                  numberOfAnalystOpinions: live.numberOfAnalystOpinions ?? c.numberOfAnalystOpinions,
-                  targetUpsidePct: live.targetUpsidePct ?? c.targetUpsidePct,
-                  nextEarningsDate: live.nextEarningsDate ?? c.nextEarningsDate,
-                  exDividendDate: live.exDividendDate ?? c.exDividendDate,
-                  dividendRate: live.dividendRate ?? c.dividendRate,
-                  totalRevenue: live.totalRevenue ?? c.totalRevenue,
-                  netIncome: live.netIncome ?? c.netIncome,
-                  operatingMargin: live.operatingMargin ?? c.operatingMargin,
-                  returnOnEquity: live.returnOnEquity ?? c.returnOnEquity,
-                };
-              }
-              return c;
-            });
-            freshList = updated;
-            return updated;
-          });
-
-          if (freshList) {
-            const updatedComps = freshList as Company[];
-            setBaskets((prevBaskets) =>
-              prevBaskets.map((b) => recalculateBasket(b, updatedComps))
-            );
-            evaluateAiOutcomes(updatedComps);
-          }
-        }
-
-        if (data.indices) {
-          setIndices(data.indices);
-        }
-
-        if (data.prices && data.prices["USD/TRY"]) {
-          setUsdRate(data.prices["USD/TRY"].price);
-        }
-
-        // Check and trigger Active Price Alerts (In-App Notification Engine)
-        if (data.prices && typeof window !== "undefined") {
-          try {
-            const rawAlerts = localStorage.getItem("defter_price_alerts");
-            if (rawAlerts) {
-              const parsedAlerts = JSON.parse(rawAlerts);
-              if (Array.isArray(parsedAlerts)) {
-                let alertChanged = false;
-                const newAlerts = parsedAlerts.map((alert: { id: string; symbol: string; targetPrice: number; condition: "ABOVE" | "BELOW"; active: boolean }) => {
-                  if (!alert.active) return alert;
-                  const priceObj = data.prices[alert.symbol];
-                  if (!priceObj) return alert;
-
-                  const curPrice = priceObj.price;
-                  const triggered =
-                    (alert.condition === "ABOVE" && curPrice >= alert.targetPrice) ||
-                    (alert.condition === "BELOW" && curPrice <= alert.targetPrice);
-
-                  if (triggered) {
-                    alertChanged = true;
-                    const notif: NotificationItem = {
-                      id: `alert-${Date.now()}-${alert.symbol}`,
-                      type: "signal",
-                      title: `🔔 Fiyat Alarmı: ${alert.symbol}`,
-                      message: `${alert.symbol} hissesi belirlediğiniz ${alert.targetPrice} ₺ seviyesine ulaştı. (Güncel Fiyat: ${curPrice.toFixed(2)} ₺).`,
-                      time: "Şimdi",
-                      read: false,
-                      relatedCompanySymbol: alert.symbol,
-                    };
-                    setNotifications((prev) => [notif, ...prev]);
-
-                    const trigRecord: TriggeredAlert = {
-                      id: `trig-${Date.now()}-${alert.symbol}`,
-                      symbol: alert.symbol,
-                      targetPrice: alert.targetPrice,
-                      triggeredPrice: Number(curPrice.toFixed(2)),
-                      triggeredAt: new Date().toLocaleDateString("tr-TR") + " " + new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
-                      condition: alert.condition,
-                    };
-                    setTriggeredAlerts((prevTrig) => {
-                      const updated = [trigRecord, ...prevTrig].slice(0, 50);
-                      try {
-                        localStorage.setItem(STORAGE_KEYS.TRIGGERED_ALERTS, JSON.stringify(updated));
-                      } catch {}
-                      return updated;
-                    });
-
-                    return { ...alert, active: false };
-                  }
-                  return alert;
-                });
-
-                if (alertChanged) {
-                  localStorage.setItem("defter_price_alerts", JSON.stringify(newAlerts));
-                }
-              }
-            }
-          } catch (alertErr) {
-            console.warn("[Store] Price alert check warning:", alertErr);
-          }
-        }
-
-        setLastSyncTime(data.formattedTime || "Şimdi");
-      }
-    } catch (e) {
-      console.warn("Price sync failed:", e);
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [evaluateAiOutcomes]);
-
-  // Periodic Auto-refresh
-  useEffect(() => {
-    if (updateInterval === "manual") return;
-    const ms =
-      updateInterval === "live"
-        ? 15000
-        : updateInterval === "15min"
-        ? 15 * 60 * 1000
-        : 60 * 60 * 1000;
-
-    const timer = setInterval(() => {
-      refreshPrices();
-    }, ms);
-
-    return () => clearInterval(timer);
-  }, [updateInterval, refreshPrices]);
-
-  // --- CRUD ACTIONS (Optimistic Updates + Background Supabase Sync) ---
-
-  const addCompany = useCallback((company: Company) => {
-    setCompanies((prev) => [company, ...prev]);
-    fetch("/api/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "add_company", payload: company }),
-    }).catch((err) => console.warn("[Sync] add company error:", err));
-  }, []);
-
-  const updateCompany = (symbol: string, partial: Partial<Company>) => {
-    setCompanies((prev) =>
-      prev.map((c) => (c.symbol === symbol ? { ...c, ...partial } : c))
-    );
-    fetch("/api/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "update_company", payload: { symbol, ...partial } }),
-    }).catch((err) => console.warn("[Sync] update company error:", err));
-  };
-
-  const deleteCompany = (symbol: string) => {
-    setCompanies((prev) => prev.filter((c) => c.symbol !== symbol));
-    fetch("/api/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "delete_company", payload: { symbol } }),
-    }).catch((err) => console.warn("[Sync] delete company error:", err));
-  };
-
-  const toggleWatchlist = (symbol: string) => {
-    let nextVal = false;
-    setCompanies((prev) =>
-      prev.map((c) => {
-        if (c.symbol === symbol) {
-          nextVal = !c.inWatchlist;
-          return { ...c, inWatchlist: nextVal };
-        }
-        return c;
-      })
-    );
-    fetch("/api/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "update_company", payload: { symbol, inWatchlist: nextVal } }),
-    }).catch((err) => console.warn("[Sync] toggle watchlist sync error:", err));
-  };
-
-  const createBasket = (newBasket: Basket) => {
-    setBaskets((prev) => [...prev, newBasket]);
-    fetch("/api/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "create_basket", payload: { basket: newBasket } }),
-    }).catch((err) => console.warn("[Sync] create basket error:", err));
-  };
-
-  const updateBasket = (id: string, partial: Partial<Basket>) => {
-    setBaskets((prev) =>
-      prev.map((b) => {
-        if (b.id !== id) return b;
-        const updated = { ...b, ...partial };
-        fetch("/api/sync", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "update_basket",
-            payload: { basket: updated },
-          }),
-        }).catch((err) => console.warn("[Sync] update basket error:", err));
-        return updated;
-      })
-    );
-  };
-
-  const deleteBasket = (id: string) => {
-    setBaskets((prev) => prev.filter((b) => b.id !== id));
-    fetch("/api/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "delete_basket",
-        payload: { id },
-      }),
-    }).catch((err) => console.warn("[Sync] delete basket error:", err));
-  };
-
-  const addHoldingToBasket = (basketId: string, holding: BasketHolding) => {
-    setBaskets((prev) =>
-      prev.map((b) => {
-        if (b.id !== basketId) return b;
-        const exists = b.holdings.find(
-          (h) => h.companySymbol === holding.companySymbol
-        );
-        let newHoldings: BasketHolding[];
-        if (exists) {
-          const newQty = exists.quantity + holding.quantity;
-          const newAvgCost =
-            newQty > 0
-              ? parseFloat(
-                  (
-                    (exists.quantity * exists.avgCost + holding.quantity * holding.avgCost) /
-                    newQty
-                  ).toFixed(2)
-                )
-              : holding.avgCost;
-
-          newHoldings = b.holdings.map((h) =>
-            h.companySymbol === holding.companySymbol
-              ? {
-                  ...h,
-                  quantity: newQty,
-                  avgCost: newAvgCost,
-                }
-              : h
-          );
-        } else {
-          newHoldings = [...b.holdings, holding];
-        }
-        const updatedB = recalculateBasket({ ...b, holdings: newHoldings }, companies);
-
-        const targetH = updatedB.holdings.find((h) => h.companySymbol === holding.companySymbol);
-        fetch("/api/sync", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "upsert_holding",
-            payload: {
-              basketId: b.id,
-              companySymbol: holding.companySymbol,
-              weightPercent: targetH?.weightPercent || 0,
-              targetWeightPercent: targetH?.targetWeightPercent ?? holding.targetWeightPercent ?? null,
-              quantity: targetH ? targetH.quantity : 0,
-              avgCost: targetH ? targetH.avgCost : holding.avgCost,
-            },
-          }),
-        }).catch((err) => console.warn("[Sync] upsert holding error:", err));
-
-        fetch("/api/sync", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "update_basket",
-            payload: { basket: updatedB },
-          }),
-        }).catch((err) => console.warn("[Sync] update basket error:", err));
-
-        return updatedB;
-      })
-    );
-  };
-
-  const removeHoldingFromBasket = (basketId: string, symbol: string) => {
-    setBaskets((prev) =>
-      prev.map((b) => {
-        if (b.id !== basketId) return b;
-        const newHoldings = b.holdings.filter((h) => h.companySymbol !== symbol);
-        const updatedB = recalculateBasket({ ...b, holdings: newHoldings }, companies);
-
-        fetch("/api/sync", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "delete_holding",
-            payload: { basketId, companySymbol: symbol },
-          }),
-        }).catch((err) => console.warn("[Sync] delete holding error:", err));
-
-        fetch("/api/sync", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "update_basket",
-            payload: { basket: updatedB },
-          }),
-        }).catch((err) => console.warn("[Sync] update basket error:", err));
-
-        return updatedB;
-      })
-    );
-  };
-
-  const updateHolding = (
-    basketId: string,
-    symbol: string,
-    updates: Partial<BasketHolding>
-  ) => {
-    setBaskets((prev) =>
-      prev.map((b) => {
-        if (b.id !== basketId) return b;
-        const newHoldings = b.holdings.map((h) =>
-          h.companySymbol === symbol ? { ...h, ...updates } : h
-        );
-        const updatedB = recalculateBasket({ ...b, holdings: newHoldings }, companies);
-
-        const updatedH = updatedB.holdings.find((h) => h.companySymbol === symbol);
-        if (updatedH) {
-          fetch("/api/sync", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              action: "upsert_holding",
-              payload: {
-                basketId,
-                companySymbol: symbol,
-                weightPercent: updatedH.weightPercent,
-                targetWeightPercent: updatedH.targetWeightPercent ?? null,
-                quantity: updatedH.quantity,
-                avgCost: updatedH.avgCost,
-              },
-            }),
-          }).catch((err) => console.warn("[Sync] upsert holding error:", err));
-        }
-
-        fetch("/api/sync", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "update_basket",
-            payload: { basket: updatedB },
-          }),
-        }).catch((err) => console.warn("[Sync] update basket error:", err));
-
-        return updatedB;
-      })
-    );
-  };
-
-  const addTransaction = (
-    tx: Omit<Transaction, "id">,
-    targetBasketId?: string
-  ): { success: boolean; error?: string } => {
-    if (!targetBasketId) {
-      console.warn("addTransaction: targetBasketId is required");
-      return { success: false, error: "İşlem yapılacak hedef sepet seçilmedi." };
-    }
-    const basketToUpdate = baskets.find((b) => b.id === targetBasketId);
-    if (!basketToUpdate) {
-      console.warn("addTransaction: Target basket not found:", targetBasketId);
-      return { success: false, error: "Seçilen sepet kütükte bulunamadı." };
-    }
-
-    if (tx.quantity <= 0 || tx.price <= 0) {
-      return { success: false, error: "Lütfen geçerli bir lot ve birim fiyat girin." };
-    }
-
-    const existingHolding = basketToUpdate.holdings.find(
-      (h) => h.companySymbol === tx.companySymbol
-    );
-
-    // 1) Validate SELL condition
-    if (tx.type === "SELL") {
-      if (!existingHolding || existingHolding.quantity < tx.quantity) {
-        const availableLots = existingHolding ? existingHolding.quantity : 0;
-        return {
-          success: false,
-          error: `Yetersiz bakiye! "${basketToUpdate.name}" sepetinde yalnızca ${availableLots} adet ${tx.companySymbol} bulunmaktadır.`,
-        };
-      }
-    }
-
-    const newTx: Transaction = {
-      ...tx,
-      id: `tx-${Date.now()}`,
-      basketId: targetBasketId || tx.basketId,
-    };
-    setTransactions((prev) => [newTx, ...prev]);
-
-    fetch("/api/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "add_transaction", payload: newTx }),
-    }).catch((err) => console.warn("[Sync] add transaction error:", err));
-
-    setBaskets((prev) =>
-      prev.map((b) => {
-        if (b.id !== basketToUpdate.id) return b;
-
-        const currentHolding = b.holdings.find(
-          (h) => h.companySymbol === tx.companySymbol
-        );
-
-        let newHoldings = [...b.holdings];
-
-        if (tx.type === "BUY") {
-          if (currentHolding) {
-            const oldQty = currentHolding.quantity;
-            const oldCost = currentHolding.avgCost;
-            const newQty = oldQty + tx.quantity;
-            const newAvgCost =
-              newQty > 0
-                ? (oldQty * oldCost + tx.quantity * tx.price) / newQty
-                : tx.price;
-
-            newHoldings = b.holdings.map((h) =>
-              h.companySymbol === tx.companySymbol
-                ? {
-                    ...h,
-                    quantity: newQty,
-                    avgCost: parseFloat(newAvgCost.toFixed(2)),
-                  }
-                : h
-            );
-          } else {
-            newHoldings = [
-              ...b.holdings,
-              {
-                companySymbol: tx.companySymbol,
-                weightPercent: 0,
-                targetWeightPercent: 0,
-                quantity: tx.quantity,
-                avgCost: tx.price,
-                currentPrice: tx.price,
-              },
-            ];
-          }
-        } else if (tx.type === "SELL" && currentHolding) {
-          const newQty = Math.max(0, currentHolding.quantity - tx.quantity);
-          if (newQty === 0) {
-            newHoldings = b.holdings.filter((h) => h.companySymbol !== tx.companySymbol);
-          } else {
-            newHoldings = b.holdings.map((h) =>
-              h.companySymbol === tx.companySymbol
-                ? { ...h, quantity: newQty }
-                : h
-            );
-          }
-        }
-
-        const updatedB = recalculateBasket({ ...b, holdings: newHoldings }, companies);
-
-        const targetH = updatedB.holdings.find((h) => h.companySymbol === tx.companySymbol);
-        fetch("/api/sync", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: targetH ? "upsert_holding" : "delete_holding",
-            payload: targetH
-              ? {
-                  basketId: b.id,
-                  companySymbol: tx.companySymbol,
-                  weightPercent: targetH.weightPercent,
-                  targetWeightPercent: targetH.targetWeightPercent ?? null,
-                  quantity: targetH.quantity,
-                  avgCost: targetH.avgCost,
-                }
-              : { basketId: b.id, companySymbol: tx.companySymbol },
-          }),
-        }).catch((err) => console.warn("[Sync] transaction holding sync error:", err));
-
-        fetch("/api/sync", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "update_basket",
-            payload: { basket: updatedB },
-          }),
-        }).catch((err) => console.warn("[Sync] transaction basket sync error:", err));
-
-        return updatedB;
-      })
-    );
-
-    return { success: true };
-  };
-
-  const deleteTransaction = (id: string) => {
-    setTransactions((prev) => prev.filter((t) => t.id !== id));
-    fetch("/api/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "delete_transaction", payload: { id } }),
-    }).catch((err) => console.warn("[Sync] delete transaction error:", err));
-  };
-
-  const addNote = (symbol: string, noteText: string) => {
-    setCompanyNotes((prev) => ({
-      ...prev,
-      [symbol]: [noteText, ...(prev[symbol] || [])],
-    }));
-  };
-
-  const deleteNote = (symbol: string, index: number) => {
-    setCompanyNotes((prev) => {
-      const current = prev[symbol] || [];
-      const updated = current.filter((_, i) => i !== index);
-      return {
-        ...prev,
-        [symbol]: updated,
-      };
+  // Helper methods for autonomous scans
+  const addAutonomousScan = (scan: AutonomousScan) => {
+    setAutonomousScans(prev => {
+      const updated = [scan, ...prev].slice(0, 100);
+      try { localStorage.setItem(STORAGE_KEYS.AUTONOMOUS_SCANS, JSON.stringify(updated)); } catch {}
+      return updated;
     });
   };
 
-  const addAiHistory = useCallback((item: AiHistoryItem) => {
-    setAiHistory((prev) => [item, ...prev]);
-    fetch("/api/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "add_ai_history", payload: item }),
-    }).catch((err) => console.warn("[Sync] add ai history error:", err));
-  }, []);
+  const clearAutonomousScans = () => {
+    setAutonomousScans([]);
+    try { localStorage.removeItem(STORAGE_KEYS.AUTONOMOUS_SCANS); } catch {}
+  };
+
+  const evaluateAutonomousScans = (freshCompanies?: Company[]) => {
+    // Placeholder evaluation: mark all pending scans as evaluated with dummy outcome
+    setAutonomousScans(prev => {
+      const evaluated = prev.map(scan => ({
+        ...scan,
+        outcomeCheckedAt: new Date().toISOString(),
+        outcomeCorrect: null,
+      }));
+      try { localStorage.setItem(STORAGE_KEYS.AUTONOMOUS_SCANS, JSON.stringify(evaluated)); } catch {}
+      return evaluated;
+    });
+  };
+
+  // Helper methods for AI model baskets
+  const addAiModelBasket = (basket: AiModelBasket) => {
+    setAiModelBaskets(prev => {
+      const updated = [basket, ...prev].slice(0, 100);
+      try { localStorage.setItem(STORAGE_KEYS.AI_MODEL_BASKETS, JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+  };
+
+  const clearAiModelBaskets = () => {
+    setAiModelBaskets([]);
+    try { localStorage.removeItem(STORAGE_KEYS.AI_MODEL_BASKETS); } catch {}
+  };
+
+  const evaluateAiModelBaskets = (freshCompanies?: Company[]) => {
+    // Placeholder evaluation: just set outcomeCheckedAt and null outcomeCorrect
+    setAiModelBaskets(prev => {
+      const evaluated = prev.map(b => ({
+        ...b,
+        outcomeCheckedAt: new Date().toISOString(),
+        outcomeCorrect: null,
+      }));
+      try { localStorage.setItem(STORAGE_KEYS.AI_MODEL_BASKETS, JSON.stringify(evaluated)); } catch {}
+      return evaluated;
+    });
+  };
 
   const deleteAiHistory = useCallback((id: string) => {
     setAiHistory((prev) => prev.filter((h) => h.id !== id));
@@ -1775,6 +1302,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         aiProvider,
         geminiModel,
         setAiSettings,
+        autonomousScans,
+        addAutonomousScan,
+        clearAutonomousScans,
+        evaluateAutonomousScans,
+        aiModelBaskets,
+        addAiModelBasket,
+        clearAiModelBaskets,
+        evaluateAiModelBaskets,
         indices,
         lastSyncTime,
         isRefreshing,
