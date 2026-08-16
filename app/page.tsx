@@ -26,6 +26,9 @@ import {
 import { useDefterStore } from "@/lib/store";
 import StampBadge from "@/components/StampBadge";
 import DataStatusBadge from "@/components/DataStatusBadge";
+import LiveKapFeed from "@/components/LiveKapFeed";
+import MonthlyDividendTimeline from "@/components/MonthlyDividendTimeline";
+import CompoundGrowthWidget from "@/components/CompoundGrowthWidget";
 import { isLiveSymbol } from "@/lib/liveSymbols";
 import { DailyBriefingResult } from "@/lib/aiService";
 import { calculatePortfolioHealthScore } from "@/lib/healthScore";
@@ -940,6 +943,15 @@ export default function HomePage() {
         )}
       </section>
 
+      {/* 3.8 Live KAP Disclosures Feed */}
+      <LiveKapFeed
+        symbols={
+          watchlistCompanies.length > 0
+            ? watchlistCompanies.map((c) => c.symbol)
+            : ["THYAO", "EREGL", "TUPRS", "ASELS", "KCHOL"]
+        }
+      />
+
       {/* 4. Company Ledger Section (Featured & Mobile Responsive) */}
       <section className="space-y-4">
         <div className="flex items-end justify-between border-b border-[var(--line)] pb-4">
@@ -1048,6 +1060,9 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* 4.8 Monthly Dividend Timeline */}
+      <MonthlyDividendTimeline />
 
       {/* 5. Baskets & IPOs Dual Grid */}
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -1235,6 +1250,9 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* 6. Interactive Compound Growth & FIRE Simulator */}
+      <CompoundGrowthWidget />
     </div>
   );
 }

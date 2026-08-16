@@ -49,6 +49,7 @@ import DataStatusBadge from "@/components/DataStatusBadge";
 import TransactionModal from "@/components/TransactionModal";
 import ShareCardModal from "@/components/ShareCardModal";
 import PriceAlertModal from "@/components/PriceAlertModal";
+import PeerComparisonMatrix from "@/components/PeerComparisonMatrix";
 import { isLiveSymbol } from "@/lib/liveSymbols";
 import { useToast } from "@/components/ToastProvider";
 import { DeepCompanyData } from "@/app/api/prices/deep/route";
@@ -1283,6 +1284,9 @@ export default function SirketDetayPage() {
               </div>
             )}
           </div>
+
+          {/* Sektörel Rakip Kıyaslama Radarı (Peer Comparison Matrix) */}
+          <PeerComparisonMatrix currentCompany={company} allCompanies={companies} />
 
           {/* Live Google News & Official KAP Disclosures Feed Card */}
           <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 space-y-4">
