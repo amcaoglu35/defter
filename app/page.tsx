@@ -18,6 +18,10 @@ import {
   RefreshCw,
   ArrowRight,
   Flame,
+  Coins,
+  Target,
+  Award,
+  Gem,
 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import StampBadge from "@/components/StampBadge";
@@ -31,7 +35,9 @@ export default function HomePage() {
   const { companies, baskets, ipos, dividends, indices, aiProvider, geminiModel } = useDefterStore();
   const { showToast } = useToast();
 
-  // 1. Market Movers: Top Gainers, Top Losers, and Absolute Volatility
+  // 1. Market Movers & Radar Metrics
+  const [marketRadarTab, setMarketRadarTab] = useState<"movers" | "dividends" | "value" | "analysts">("movers");
+
   const topGainers = useMemo(() => {
     return [...companies]
       .filter((c) => c.dailyChange > 0)
@@ -43,6 +49,27 @@ export default function HomePage() {
     return [...companies]
       .filter((c) => c.dailyChange < 0)
       .sort((a, b) => a.dailyChange - b.dailyChange)
+      .slice(0, 5);
+  }, [companies]);
+
+  const topDividends = useMemo(() => {
+    return [...companies]
+      .filter((c) => (c.dividendYield ?? 0) > 0)
+      .sort((a, b) => (b.dividendYield ?? 0) - (a.dividendYield ?? 0))
+      .slice(0, 5);
+  }, [companies]);
+
+  const topValuePE = useMemo(() => {
+    return [...companies]
+      .filter((c) => (c.peRatio ?? 0) > 0 && (c.peRatio ?? 0) < 25)
+      .sort((a, b) => (a.peRatio ?? 0) - (b.peRatio ?? 0))
+      .slice(0, 5);
+  }, [companies]);
+
+  const topAnalystUpside = useMemo(() => {
+    return [...companies]
+      .filter((c) => (c.targetUpsidePct ?? 0) > 0)
+      .sort((a, b) => (b.targetUpsidePct ?? 0) - (a.targetUpsidePct ?? 0))
       .slice(0, 5);
   }, [companies]);
 
@@ -510,146 +537,407 @@ export default function HomePage() {
         )}
       </section>
 
-      {/* 3.5 Top Gainers & Top Losers Dual Market Pulse */}
+      {/* 3.5 Market Pulse Radar & Leaders (Interactive 4-Dimension Explorer) */}
       <section className="space-y-4">
-        <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-[var(--line)] pb-3">
           <div>
             <div className="flex items-center gap-1.5 font-mono text-xs text-[var(--brass)] uppercase tracking-wider">
               <TrendingUp className="w-3.5 h-3.5" />
               <span>Günün Piyasa Nabzı &amp; Liderleri</span>
             </div>
             <h2 className="font-serif text-xl sm:text-2xl text-[var(--paper)] font-medium mt-1">
-              Günün En Çok Yükselen ve Düşen Hisseleri
+              Piyasa Radarı &amp; Öne Çıkan Varlıklar
             </h2>
           </div>
-          <Link
-            href="/sirketler"
-            className="text-xs font-mono text-[var(--brass)] hover:underline flex items-center gap-1"
-          >
-            <span>Tüm Varlıklar</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Kolon 1: En Çok Yükselenler */}
-          <div className="bg-[var(--ink-2)] border border-[rgba(91,140,123,0.3)] rounded-xl p-4 sm:p-5 space-y-3">
-            <div className="flex items-center justify-between border-b border-[var(--line)] pb-2.5">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full bg-[rgba(91,140,123,0.2)] text-[var(--verdigris)] flex items-center justify-center font-bold text-xs">
-                  <TrendingUp className="w-3.5 h-3.5" />
-                </div>
-                <h3 className="font-mono text-xs uppercase tracking-wider font-bold text-[var(--verdigris)]">
-                  🟢 Günün En Çok Yükselenleri
-                </h3>
-              </div>
-              <span className="font-mono text-[10px] text-[var(--mist)]">
-                BIST &amp; Kütük Liderleri
-              </span>
-            </div>
-
-            <div className="divide-y divide-dashed divide-[var(--line)]">
-              {topGainers.map((c, idx) => (
-                <Link
-                  key={c.id}
-                  href={`/sirketler/${encodeURIComponent(c.symbol)}`}
-                  className="py-2.5 flex items-center justify-between hover:bg-[rgba(91,140,123,0.04)] px-2 rounded transition-colors group"
+          {/* Quick Radar Category Tabs */}
+          <div className="flex flex-wrap items-center gap-1.5 font-mono text-xs">
+            {[
+              { key: "movers", label: "🏆 Yükselen & Düşen", icon: TrendingUp },
+              { key: "dividends", label: "💰 Temettü Liderleri", icon: Coins },
+              { key: "value", label: "💎 Düşük F/K & Değer", icon: Gem },
+              { key: "analysts", label: "🎯 Hedef Potansiyel", icon: Target },
+            ].map((tab) => {
+              const IconComp = tab.icon;
+              const isActive = marketRadarTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setMarketRadarTab(tab.key as any)}
+                  className={`px-3 py-1.5 rounded text-xs font-mono border transition-all cursor-pointer flex items-center gap-1.5 ${
+                    isActive
+                      ? "bg-[var(--brass-glow)] border-[var(--brass)] text-[var(--brass)] font-bold shadow-sm"
+                      : "bg-[var(--ink-2)] border-[var(--line)] text-[var(--mist)] hover:text-[var(--paper)]"
+                  }`}
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono text-xs font-bold text-[var(--mist)] w-4 text-center">
-                      #{idx + 1}
-                    </span>
-                    <div className="w-8 h-8 rounded border border-[rgba(91,140,123,0.3)] bg-[var(--ink-3)] flex items-center justify-center font-mono text-[11px] font-bold text-[var(--paper)] group-hover:text-[var(--brass)] shrink-0">
-                      {c.symbol.slice(0, 3)}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-medium text-xs text-[var(--paper)] group-hover:text-[var(--brass)] transition-colors">
-                          {c.name}
-                        </span>
-                        <DataStatusBadge symbol={c.symbol} isLive={isLiveSymbol(c.symbol)} />
-                      </div>
-                      <span className="text-[10px] text-[var(--mist)] font-mono">
-                        {c.symbol} • {c.sector}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="text-right flex items-center gap-3">
-                    <div>
-                      <div className="font-mono text-xs font-semibold text-[var(--paper)]">
-                        {c.price.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} {c.currency}
-                      </div>
-                      <div className="font-mono text-xs font-bold text-[var(--verdigris)]">
-                        +{c.dailyChange}%
-                      </div>
-                    </div>
-                    <ChevronRight className="w-3.5 h-3.5 text-[var(--mist)] group-hover:text-[var(--brass)] transition-colors hidden sm:block" />
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          {/* Kolon 2: En Çok Düşenler */}
-          <div className="bg-[var(--ink-2)] border border-[rgba(201,124,124,0.3)] rounded-xl p-4 sm:p-5 space-y-3">
-            <div className="flex items-center justify-between border-b border-[var(--line)] pb-2.5">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full bg-[rgba(201,124,124,0.2)] text-[var(--loss)] flex items-center justify-center font-bold text-xs">
-                  <TrendingDown className="w-3.5 h-3.5" />
-                </div>
-                <h3 className="font-mono text-xs uppercase tracking-wider font-bold text-[var(--loss)]">
-                  🔴 Günün En Çok Düşenleri
-                </h3>
-              </div>
-              <span className="font-mono text-[10px] text-[var(--mist)]">
-                Düzeltme &amp; Fırsat Radarı
-              </span>
-            </div>
-
-            <div className="divide-y divide-dashed divide-[var(--line)]">
-              {topLosers.map((c, idx) => (
-                <Link
-                  key={c.id}
-                  href={`/sirketler/${encodeURIComponent(c.symbol)}`}
-                  className="py-2.5 flex items-center justify-between hover:bg-[rgba(201,124,124,0.04)] px-2 rounded transition-colors group"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono text-xs font-bold text-[var(--mist)] w-4 text-center">
-                      #{idx + 1}
-                    </span>
-                    <div className="w-8 h-8 rounded border border-[rgba(201,124,124,0.3)] bg-[var(--ink-3)] flex items-center justify-center font-mono text-[11px] font-bold text-[var(--paper)] group-hover:text-[var(--loss)] shrink-0">
-                      {c.symbol.slice(0, 3)}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-medium text-xs text-[var(--paper)] group-hover:text-[var(--brass)] transition-colors">
-                          {c.name}
-                        </span>
-                        <DataStatusBadge symbol={c.symbol} isLive={isLiveSymbol(c.symbol)} />
-                      </div>
-                      <span className="text-[10px] text-[var(--mist)] font-mono">
-                        {c.symbol} • {c.sector}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="text-right flex items-center gap-3">
-                    <div>
-                      <div className="font-mono text-xs font-semibold text-[var(--paper)]">
-                        {c.price.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} {c.currency}
-                      </div>
-                      <div className="font-mono text-xs font-bold text-[var(--loss)]">
-                        {c.dailyChange}%
-                      </div>
-                    </div>
-                    <ChevronRight className="w-3.5 h-3.5 text-[var(--mist)] group-hover:text-[var(--brass)] transition-colors hidden sm:block" />
-                  </div>
-                </Link>
-              ))}
-            </div>
+                  <IconComp className="w-3.5 h-3.5" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
+
+        {/* Tab 1: Movers (En Çok Yükselenler & En Çok Düşenler) */}
+        {marketRadarTab === "movers" && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in">
+            {/* Kolon 1: En Çok Yükselenler */}
+            <div className="bg-[var(--ink-2)] border border-[rgba(91,140,123,0.3)] rounded-xl p-4 sm:p-5 space-y-3">
+              <div className="flex items-center justify-between border-b border-[var(--line)] pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-[rgba(91,140,123,0.2)] text-[var(--verdigris)] flex items-center justify-center font-bold text-xs">
+                    <TrendingUp className="w-3.5 h-3.5" />
+                  </div>
+                  <h3 className="font-mono text-xs uppercase tracking-wider font-bold text-[var(--verdigris)]">
+                    🟢 Günün En Çok Yükselenleri
+                  </h3>
+                </div>
+                <span className="font-mono text-[10px] text-[var(--mist)]">
+                  BIST &amp; Kütük Liderleri
+                </span>
+              </div>
+
+              <div className="divide-y divide-dashed divide-[var(--line)]">
+                {topGainers.map((c, idx) => (
+                  <Link
+                    key={c.id}
+                    href={`/sirketler/${encodeURIComponent(c.symbol)}`}
+                    className="py-2.5 flex items-center justify-between hover:bg-[rgba(91,140,123,0.04)] px-2 rounded transition-colors group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-xs font-bold text-[var(--mist)] w-4 text-center">
+                        #{idx + 1}
+                      </span>
+                      <div className="w-8 h-8 rounded border border-[rgba(91,140,123,0.3)] bg-[var(--ink-3)] flex items-center justify-center font-mono text-[11px] font-bold text-[var(--paper)] group-hover:text-[var(--brass)] shrink-0">
+                        {c.symbol.slice(0, 3)}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-medium text-xs text-[var(--paper)] group-hover:text-[var(--brass)] transition-colors">
+                            {c.name}
+                          </span>
+                          <DataStatusBadge symbol={c.symbol} isLive={isLiveSymbol(c.symbol)} />
+                        </div>
+                        <span className="text-[10px] text-[var(--mist)] font-mono">
+                          {c.symbol} • {c.sector}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-right flex items-center gap-3">
+                      <div>
+                        <div className="font-mono text-xs font-semibold text-[var(--paper)]">
+                          {c.price.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} {c.currency}
+                        </div>
+                        <div className="font-mono text-xs font-bold text-[var(--verdigris)]">
+                          +{c.dailyChange}%
+                        </div>
+                      </div>
+                      <ChevronRight className="w-3.5 h-3.5 text-[var(--mist)] group-hover:text-[var(--brass)] transition-colors hidden sm:block" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            {/* Kolon 2: En Çok Düşenler */}
+            <div className="bg-[var(--ink-2)] border border-[rgba(201,124,124,0.3)] rounded-xl p-4 sm:p-5 space-y-3">
+              <div className="flex items-center justify-between border-b border-[var(--line)] pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-[rgba(201,124,124,0.2)] text-[var(--loss)] flex items-center justify-center font-bold text-xs">
+                    <TrendingDown className="w-3.5 h-3.5" />
+                  </div>
+                  <h3 className="font-mono text-xs uppercase tracking-wider font-bold text-[var(--loss)]">
+                    🔴 Günün En Çok Düşenleri
+                  </h3>
+                </div>
+                <span className="font-mono text-[10px] text-[var(--mist)]">
+                  Düzeltme &amp; Fırsat Radarı
+                </span>
+              </div>
+
+              <div className="divide-y divide-dashed divide-[var(--line)]">
+                {topLosers.map((c, idx) => (
+                  <Link
+                    key={c.id}
+                    href={`/sirketler/${encodeURIComponent(c.symbol)}`}
+                    className="py-2.5 flex items-center justify-between hover:bg-[rgba(201,124,124,0.04)] px-2 rounded transition-colors group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-xs font-bold text-[var(--mist)] w-4 text-center">
+                        #{idx + 1}
+                      </span>
+                      <div className="w-8 h-8 rounded border border-[rgba(201,124,124,0.3)] bg-[var(--ink-3)] flex items-center justify-center font-mono text-[11px] font-bold text-[var(--paper)] group-hover:text-[var(--loss)] shrink-0">
+                        {c.symbol.slice(0, 3)}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-medium text-xs text-[var(--paper)] group-hover:text-[var(--brass)] transition-colors">
+                            {c.name}
+                          </span>
+                          <DataStatusBadge symbol={c.symbol} isLive={isLiveSymbol(c.symbol)} />
+                        </div>
+                        <span className="text-[10px] text-[var(--mist)] font-mono">
+                          {c.symbol} • {c.sector}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-right flex items-center gap-3">
+                      <div>
+                        <div className="font-mono text-xs font-semibold text-[var(--paper)]">
+                          {c.price.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} {c.currency}
+                        </div>
+                        <div className="font-mono text-xs font-bold text-[var(--loss)]">
+                          {c.dailyChange}%
+                        </div>
+                      </div>
+                      <ChevronRight className="w-3.5 h-3.5 text-[var(--mist)] group-hover:text-[var(--brass)] transition-colors hidden sm:block" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 2: Dividends (Temettü Şampiyonları) */}
+        {marketRadarTab === "dividends" && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in">
+            <div className="lg:col-span-2 bg-[var(--ink-2)] border border-[rgba(201,162,75,0.3)] rounded-xl p-4 sm:p-5 space-y-3">
+              <div className="flex items-center justify-between border-b border-[var(--line)] pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-[rgba(201,162,75,0.2)] text-[var(--brass)] flex items-center justify-center font-bold text-xs">
+                    <Coins className="w-3.5 h-3.5" />
+                  </div>
+                  <h3 className="font-mono text-xs uppercase tracking-wider font-bold text-[var(--brass)]">
+                    💰 En Yüksek Temettü Verimi Sunan Şirketler
+                  </h3>
+                </div>
+                <span className="font-mono text-[10px] text-[var(--mist)]">Nakit Akışı Odaklı</span>
+              </div>
+
+              <div className="divide-y divide-dashed divide-[var(--line)]">
+                {topDividends.map((c, idx) => (
+                  <Link
+                    key={c.id}
+                    href={`/sirketler/${encodeURIComponent(c.symbol)}`}
+                    className="py-2.5 flex items-center justify-between hover:bg-[rgba(201,162,75,0.04)] px-2 rounded transition-colors group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-xs font-bold text-[var(--brass)] w-4 text-center">
+                        #{idx + 1}
+                      </span>
+                      <div className="w-8 h-8 rounded border border-[rgba(201,162,75,0.3)] bg-[var(--ink-3)] flex items-center justify-center font-mono text-[11px] font-bold text-[var(--paper)] group-hover:text-[var(--brass)] shrink-0">
+                        {c.symbol.slice(0, 3)}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-medium text-xs text-[var(--paper)] group-hover:text-[var(--brass)] transition-colors">
+                            {c.name}
+                          </span>
+                          <DataStatusBadge symbol={c.symbol} isLive={isLiveSymbol(c.symbol)} />
+                        </div>
+                        <span className="text-[10px] text-[var(--mist)] font-mono">
+                          {c.symbol} • F/K: {c.peRatio ? `${c.peRatio}x` : "-"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-right flex items-center gap-3">
+                      <div>
+                        <div className="font-mono text-xs font-bold text-[var(--brass)]">
+                          %{c.dividendYield} Temettü Verimi
+                        </div>
+                        <div className="font-mono text-[11px] text-[var(--paper-dim)]">
+                          {c.price.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} {c.currency}
+                        </div>
+                      </div>
+                      <ChevronRight className="w-3.5 h-3.5 text-[var(--mist)] group-hover:text-[var(--brass)] transition-colors hidden sm:block" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-5 flex flex-col justify-between space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-[var(--brass)] font-mono text-xs font-bold">
+                  <Award className="w-4 h-4" />
+                  <span>Bileşik Getiri Kuralı</span>
+                </div>
+                <p className="text-xs text-[var(--paper-dim)] leading-relaxed font-sans">
+                  Yüksek temettü verimine sahip hisseler, piyasa dalgalanmalarında nakit akışı yaratarak güçlü bir defans kalkanı oluşturur. Temettü ödemelerini otomatik olarak yeniden yatırarak bileşik büyüme hızlandırılabilir.
+                </p>
+              </div>
+              <Link
+                href="/orakul?category=strategy&tab=wizard"
+                className="w-full py-2.5 rounded bg-[var(--brass-glow)] border border-[var(--brass-dim)] text-[var(--brass)] font-mono text-xs font-bold text-center hover:text-[var(--paper)] transition-colors"
+              >
+                🧙‍♂️ Temettü Sepeti Oluştur
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 3: Deep Value (Düşük F/K & Çarpan) */}
+        {marketRadarTab === "value" && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in">
+            <div className="lg:col-span-2 bg-[var(--ink-2)] border border-[rgba(91,140,123,0.3)] rounded-xl p-4 sm:p-5 space-y-3">
+              <div className="flex items-center justify-between border-b border-[var(--line)] pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-[rgba(91,140,123,0.2)] text-[var(--verdigris)] flex items-center justify-center font-bold text-xs">
+                    <Gem className="w-3.5 h-3.5" />
+                  </div>
+                  <h3 className="font-mono text-xs uppercase tracking-wider font-bold text-[var(--verdigris)]">
+                    💎 Derin Değerleme (En Düşük Fiyat/Kazanç Çarpanı)
+                  </h3>
+                </div>
+                <span className="font-mono text-[10px] text-[var(--mist)]">Kârlılık &amp; İskonto</span>
+              </div>
+
+              <div className="divide-y divide-dashed divide-[var(--line)]">
+                {topValuePE.map((c, idx) => (
+                  <Link
+                    key={c.id}
+                    href={`/sirketler/${encodeURIComponent(c.symbol)}`}
+                    className="py-2.5 flex items-center justify-between hover:bg-[rgba(91,140,123,0.04)] px-2 rounded transition-colors group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-xs font-bold text-[var(--verdigris)] w-4 text-center">
+                        #{idx + 1}
+                      </span>
+                      <div className="w-8 h-8 rounded border border-[rgba(91,140,123,0.3)] bg-[var(--ink-3)] flex items-center justify-center font-mono text-[11px] font-bold text-[var(--paper)] group-hover:text-[var(--brass)] shrink-0">
+                        {c.symbol.slice(0, 3)}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-medium text-xs text-[var(--paper)] group-hover:text-[var(--brass)] transition-colors">
+                            {c.name}
+                          </span>
+                          <DataStatusBadge symbol={c.symbol} isLive={isLiveSymbol(c.symbol)} />
+                        </div>
+                        <span className="text-[10px] text-[var(--mist)] font-mono">
+                          {c.symbol} • PD/DD: {c.pbRatio ? `${c.pbRatio}x` : "-"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-right flex items-center gap-3">
+                      <div>
+                        <div className="font-mono text-xs font-bold text-[var(--verdigris)]">
+                          F/K: {c.peRatio}x
+                        </div>
+                        <div className="font-mono text-[11px] text-[var(--paper-dim)]">
+                          {c.price.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} {c.currency}
+                        </div>
+                      </div>
+                      <ChevronRight className="w-3.5 h-3.5 text-[var(--mist)] group-hover:text-[var(--brass)] transition-colors hidden sm:block" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-5 flex flex-col justify-between space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-[var(--verdigris)] font-mono text-xs font-bold">
+                  <Shield className="w-4 h-4" />
+                  <span>Güvenlik Marjı (Graham Prensibi)</span>
+                </div>
+                <p className="text-xs text-[var(--paper-dim)] leading-relaxed font-sans">
+                  Düşük Fiyat/Kazanç (F/K) çarpanına sahip hisseler, kârına oranla piyasa tarafından makul fiyatlanmış şirketleri temsil eder. Sektörel ortalamaların altındaki F/K çarpanı güvenli bir giriş kapısı sunabilir.
+                </p>
+              </div>
+              <Link
+                href="/sirketler"
+                className="w-full py-2.5 rounded bg-[rgba(91,140,123,0.15)] border border-[var(--verdigris)] text-[var(--verdigris)] font-mono text-xs font-bold text-center hover:bg-[rgba(91,140,123,0.25)] transition-colors"
+              >
+                Tüm Değerleme Tablosunu Gör
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Tab 4: Analyst Targets (Hedef Potansiyeli) */}
+        {marketRadarTab === "analysts" && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in">
+            <div className="lg:col-span-2 bg-[var(--ink-2)] border border-[rgba(201,162,75,0.3)] rounded-xl p-4 sm:p-5 space-y-3">
+              <div className="flex items-center justify-between border-b border-[var(--line)] pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-[rgba(201,162,75,0.2)] text-[var(--brass)] flex items-center justify-center font-bold text-xs">
+                    <Target className="w-3.5 h-3.5" />
+                  </div>
+                  <h3 className="font-mono text-xs uppercase tracking-wider font-bold text-[var(--brass)]">
+                    🎯 Analist Hedef Potansiyeli En Yüksek Şirketler
+                  </h3>
+                </div>
+                <span className="font-mono text-[10px] text-[var(--mist)]">12 Aylık Konsensüs Primi</span>
+              </div>
+
+              <div className="divide-y divide-dashed divide-[var(--line)]">
+                {topAnalystUpside.map((c, idx) => (
+                  <Link
+                    key={c.id}
+                    href={`/sirketler/${encodeURIComponent(c.symbol)}`}
+                    className="py-2.5 flex items-center justify-between hover:bg-[rgba(201,162,75,0.04)] px-2 rounded transition-colors group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-xs font-bold text-[var(--brass)] w-4 text-center">
+                        #{idx + 1}
+                      </span>
+                      <div className="w-8 h-8 rounded border border-[rgba(201,162,75,0.3)] bg-[var(--ink-3)] flex items-center justify-center font-mono text-[11px] font-bold text-[var(--paper)] group-hover:text-[var(--brass)] shrink-0">
+                        {c.symbol.slice(0, 3)}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-medium text-xs text-[var(--paper)] group-hover:text-[var(--brass)] transition-colors">
+                            {c.name}
+                          </span>
+                          <DataStatusBadge symbol={c.symbol} isLive={isLiveSymbol(c.symbol)} />
+                        </div>
+                        <span className="text-[10px] text-[var(--mist)] font-mono">
+                          {c.symbol} • Hedef: {c.targetMeanPrice?.toLocaleString("tr-TR")} ₺
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-right flex items-center gap-3">
+                      <div>
+                        <div className="font-mono text-xs font-bold text-[var(--verdigris)]">
+                          +%{c.targetUpsidePct} Potansiyel
+                        </div>
+                        <div className="font-mono text-[11px] text-[var(--paper-dim)]">
+                          {c.price.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} {c.currency}
+                        </div>
+                      </div>
+                      <ChevronRight className="w-3.5 h-3.5 text-[var(--mist)] group-hover:text-[var(--brass)] transition-colors hidden sm:block" />
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-5 flex flex-col justify-between space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-[var(--brass)] font-mono text-xs font-bold">
+                  <Target className="w-4 h-4" />
+                  <span>Kurumsal Konsensüs</span>
+                </div>
+                <p className="text-xs text-[var(--paper-dim)] leading-relaxed font-sans">
+                  Aracı kurum ve yatırım bankası analistlerinin yayımladığı 12 aylık hedef fiyatların ortalaması ile anlık fiyat arasındaki fark potansiyel yukarı marjı gösterir.
+                </p>
+              </div>
+              <Link
+                href="/orakul"
+                className="w-full py-2.5 rounded bg-[var(--brass-glow)] border border-[var(--brass-dim)] text-[var(--brass)] font-mono text-xs font-bold text-center hover:text-[var(--paper)] transition-colors"
+              >
+                Orakul Şirket Teşhisini Aç
+              </Link>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* 4. Company Ledger Section (Featured & Mobile Responsive) */}
