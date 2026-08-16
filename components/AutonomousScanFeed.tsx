@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { AutonomousScan } from "@/lib/mockData";
 import { useDefterStore } from "@/lib/store";
-import { useToast } from "@/components/Toast";
+import { useToast } from "@/components/ToastProvider";
 
 interface Props {
   onAddHoldingToBasket?: (symbol: string) => void;

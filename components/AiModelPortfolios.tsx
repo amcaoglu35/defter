@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import { AiModelBasket } from "@/lib/mockData";
 import { useDefterStore } from "@/lib/store";
-import { useToast } from "@/components/Toast";
+import { useToast } from "@/components/ToastProvider";
 
 export function AiModelPortfolios() {
   const {

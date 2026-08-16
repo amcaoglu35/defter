@@ -992,13 +992,31 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   const evaluateAutonomousScans = (freshCompanies?: Company[]) => {
-    // Placeholder evaluation: mark all pending scans as evaluated with dummy outcome
-    setAutonomousScans(prev => {
-      const evaluated = prev.map(scan => ({
-        ...scan,
-        outcomeCheckedAt: new Date().toISOString(),
-        outcomeCorrect: null,
-      }));
+    const list = freshCompanies || companies;
+    setAutonomousScans((prev) => {
+      const evaluated = prev.map((scan) => {
+        const co = list.find((c) => c.symbol.toUpperCase() === scan.symbol.toUpperCase());
+        const currentPrice = co ? co.price : scan.priceAtScan;
+        const returnPct = scan.priceAtScan > 0 ? ((currentPrice - scan.priceAtScan) / scan.priceAtScan) * 100 : 0;
+        
+        let outcomeCorrect: boolean | null = null;
+        if (scan.verdict.includes("AL")) {
+          outcomeCorrect = returnPct > 0;
+        } else if (scan.verdict.includes("SAT")) {
+          outcomeCorrect = returnPct < 0;
+        } else {
+          // TUT / Nötr: % -3 ile +3 arası değişim doğru sayılır
+          outcomeCorrect = Math.abs(returnPct) <= 5;
+        }
+
+        return {
+          ...scan,
+          priceNow: currentPrice,
+          returnPct: parseFloat(returnPct.toFixed(2)),
+          outcomeCheckedAt: new Date().toISOString(),
+          outcomeCorrect,
+        };
+      });
       try { localStorage.setItem(STORAGE_KEYS.AUTONOMOUS_SCANS, JSON.stringify(evaluated)); } catch {}
       return evaluated;
     });
@@ -1006,7 +1024,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // Helper methods for AI model baskets
   const addAiModelBasket = (basket: AiModelBasket) => {
-    setAiModelBaskets(prev => {
+    setAiModelBaskets((prev) => {
       const updated = [basket, ...prev].slice(0, 100);
       try { localStorage.setItem(STORAGE_KEYS.AI_MODEL_BASKETS, JSON.stringify(updated)); } catch {}
       return updated;
@@ -1019,13 +1037,36 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   const evaluateAiModelBaskets = (freshCompanies?: Company[]) => {
-    // Placeholder evaluation: just set outcomeCheckedAt and null outcomeCorrect
-    setAiModelBaskets(prev => {
-      const evaluated = prev.map(b => ({
-        ...b,
-        outcomeCheckedAt: new Date().toISOString(),
-        outcomeCorrect: null,
-      }));
+    const list = freshCompanies || companies;
+    const bistDaily = indices["BIST 100"]?.dailyChange || 0;
+
+    setAiModelBaskets((prev) => {
+      const evaluated = prev.map((b) => {
+        let weightedReturnSum = 0;
+        const updatedAllocations = b.allocation.map((alloc) => {
+          const co = list.find((c) => c.symbol.toUpperCase() === alloc.symbol.toUpperCase());
+          const curPrice = co ? co.price : alloc.priceAtCreation;
+          const retPct = alloc.priceAtCreation > 0 ? ((curPrice - alloc.priceAtCreation) / alloc.priceAtCreation) * 100 : 0;
+          weightedReturnSum += retPct * (alloc.weight / 100);
+          return {
+            ...alloc,
+            priceNow: curPrice,
+            returnPct: parseFloat(retPct.toFixed(2)),
+          };
+        });
+
+        const totalReturnPct = parseFloat(weightedReturnSum.toFixed(2));
+        const alpha = parseFloat((totalReturnPct - bistDaily).toFixed(2));
+
+        return {
+          ...b,
+          allocation: updatedAllocations,
+          totalReturnPct,
+          benchmarkReturnPct: bistDaily,
+          alpha,
+          outcomeCheckedAt: new Date().toISOString(),
+        };
+      });
       try { localStorage.setItem(STORAGE_KEYS.AI_MODEL_BASKETS, JSON.stringify(evaluated)); } catch {}
       return evaluated;
     });
@@ -1388,6 +1429,56 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       } catch {}
     }
   };
+
+  const refreshPrices = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      const symbols = companies.map((c) => c.symbol);
+      const res = await fetch("/api/prices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symbols }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.prices) {
+          setCompanies((prev) =>
+            prev.map((c) => {
+              const update = json.prices[c.symbol];
+              if (update) {
+                return {
+                  ...c,
+                  price: update.price ?? c.price,
+                  dailyChange: update.dailyChange ?? c.dailyChange,
+                  high52: update.high52 ?? c.high52,
+                  low52: update.low52 ?? c.low52,
+                  dayHigh: update.dayHigh ?? c.dayHigh,
+                  dayLow: update.dayLow ?? c.dayLow,
+                  openPrice: update.openPrice ?? c.openPrice,
+                  volume: update.volume ?? c.volume,
+                  avgVolume: update.avgVolume ?? c.avgVolume,
+                };
+              }
+              return c;
+            })
+          );
+        }
+        if (json.indices) {
+          setIndices((prev) => ({ ...prev, ...json.indices }));
+        }
+        if (json.usdRate) {
+          setUsdRate(json.usdRate);
+        }
+        setLastSyncTime(
+          new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" })
+        );
+      }
+    } catch (err) {
+      console.warn("[RefreshPrices] error:", err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [companies]);
 
   const setUpdateInterval = (interval: string) => {
     setUpdateIntervalState(interval);

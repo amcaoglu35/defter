@@ -46,6 +46,8 @@ import { useDefterStore } from "@/lib/store";
 import { AiHistoryItem, Basket } from "@/lib/mockData";
 import { useToast } from "@/components/ToastProvider";
 import CompanyCombobox from "@/components/CompanyCombobox";
+import { AutonomousScanFeed } from "@/components/AutonomousScanFeed";
+import { AiModelPortfolios } from "@/components/AiModelPortfolios";
 import {
   EarningsFlashResult,
   ValueTrapResult,
@@ -61,6 +63,8 @@ export type OrakulTab =
   | "wizard"
   | "backtest"
   | "screener"
+  | "autonomous_scan"
+  | "model_baskets"
   | "company"
   | "earnings"
   | "trap"
@@ -73,6 +77,8 @@ const TAB_TO_CATEGORY: Record<OrakulTab, OrakulCategory> = {
   wizard: "strategy",
   backtest: "strategy",
   screener: "strategy",
+  autonomous_scan: "strategy",
+  model_baskets: "strategy",
   company: "company",
   earnings: "company",
   trap: "company",
@@ -106,6 +112,8 @@ const CATEGORIES: CategoryItem[] = [
       { id: "wizard", label: "Sepet Sihirbazı", icon: Compass },
       { id: "backtest", label: "Zaman Makinesi (Backtest)", icon: Hourglass },
       { id: "screener", label: "Akıllı Hisse Tarayıcısı", icon: Search },
+      { id: "autonomous_scan", label: "Otonom AI Tarayıcı", icon: Brain },
+      { id: "model_baskets", label: "AI Model Sepetler", icon: Layers },
     ],
   },
   {
@@ -1864,6 +1872,25 @@ interface WeeklyLetterResult {
               </div>
             </div>
           )}
+        </section>
+      )}
+
+      {/* TAB: Otonom AI Tarayıcı (Autonomous Scan Feed) */}
+      {activeTab === "autonomous_scan" && (
+        <section className="animate-in fade-in duration-300">
+          <AutonomousScanFeed
+            onAddHoldingToBasket={(symbol) => {
+              setSelectedCoSymbol(symbol);
+              setActiveTab("company");
+            }}
+          />
+        </section>
+      )}
+
+      {/* TAB: AI Model Sepetler (Ai Model Portfolios & Self Learning) */}
+      {activeTab === "model_baskets" && (
+        <section className="animate-in fade-in duration-300">
+          <AiModelPortfolios />
         </section>
       )}
 
