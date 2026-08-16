@@ -207,6 +207,7 @@ function OrakulContent() {
   const [horizon, setHorizon] = useState<string>("Orta Vade (6-18 Ay)");
   const [maxAssetWeight, setMaxAssetWeight] = useState<number>(35);
   const [includeGoldBuffer, setIncludeGoldBuffer] = useState<boolean>(false);
+  const [assetCount, setAssetCount] = useState<number>(4);
 
   // Sync preselected basket to wizard state during render
   if (preselectedBasketId && preselectedBasketId !== prevPreselectedBasketId && baskets.length > 0) {
@@ -568,6 +569,7 @@ interface WeeklyLetterResult {
             horizon,
             maxAssetWeight,
             includeGoldBuffer,
+            assetCount,
             allCompanies: companies,
             rebalanceContext: rebalanceBasket ? {
               basketId: rebalanceBasket.id,
@@ -1633,47 +1635,84 @@ interface WeeklyLetterResult {
                 <span className="text-[10px] text-[var(--mist)]">Opsiyonel</span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                {/* Max single asset weight */}
+              <div className="space-y-3 pt-1">
+                {/* Asset count selector */}
                 <div className="p-3 bg-[var(--ink-2)] rounded-lg border border-[var(--line)] space-y-2">
-                  <span className="text-[11px] text-[var(--mist)] block">Maksimum Tek Varlık Ağırlığı</span>
-                  <div className="flex items-center gap-1.5">
-                    {[25, 35, 50].map((wLimit) => (
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] text-[var(--mist)] block font-medium">
+                      Sepetteki Hedef Varlık / Şirket Sayısı
+                    </span>
+                    <span className="font-mono text-xs text-[var(--brass)] font-bold">
+                      {assetCount} Varlık
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-5 gap-1.5 font-mono text-xs">
+                    {[
+                      { count: 3, label: "3 (Odak)" },
+                      { count: 4, label: "4 (Standart)" },
+                      { count: 5, label: "5 (Dengeli)" },
+                      { count: 6, label: "6 (Geniş)" },
+                      { count: 8, label: "8 (Portföy)" },
+                    ].map((item) => (
                       <button
-                        key={wLimit}
+                        key={item.count}
                         type="button"
-                        onClick={() => setMaxAssetWeight(wLimit)}
-                        className={`flex-1 py-1.5 rounded text-xs border transition-all cursor-pointer ${
-                          maxAssetWeight === wLimit
+                        onClick={() => setAssetCount(item.count)}
+                        className={`py-2 px-1 rounded text-center border transition-all cursor-pointer ${
+                          assetCount === item.count
                             ? "bg-[var(--brass)] text-[var(--ink)] font-bold border-[var(--brass)] shadow-sm"
                             : "bg-[var(--ink-3)] text-[var(--mist)] border-[var(--line)] hover:text-[var(--paper)]"
                         }`}
                       >
-                        %{wLimit}
+                        <span className="block font-bold text-xs">{item.count}</span>
+                        <span className="block text-[9px] opacity-75 truncate">{item.label.split(" ")[1]}</span>
                       </button>
                     ))}
                   </div>
                 </div>
 
-                {/* Gold buffer toggle */}
-                <div
-                  onClick={() => setIncludeGoldBuffer(!includeGoldBuffer)}
-                  className={`p-3 rounded-lg border transition-all cursor-pointer flex items-center justify-between gap-2 ${
-                    includeGoldBuffer
-                      ? "bg-[var(--brass-glow)] border-[var(--brass)] text-[var(--brass)]"
-                      : "bg-[var(--ink-2)] border-[var(--line)] text-[var(--mist)] hover:text-[var(--paper)]"
-                  }`}
-                >
-                  <div>
-                    <span className="text-[11px] font-bold block">Altın / Emtia Sigortası</span>
-                    <span className="text-[10px] opacity-80 block">En az %15 Kıymetli Maden tamponu ekle</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Max single asset weight */}
+                  <div className="p-3 bg-[var(--ink-2)] rounded-lg border border-[var(--line)] space-y-2">
+                    <span className="text-[11px] text-[var(--mist)] block">Maksimum Tek Varlık Ağırlığı</span>
+                    <div className="flex items-center gap-1.5">
+                      {[25, 35, 50].map((wLimit) => (
+                        <button
+                          key={wLimit}
+                          type="button"
+                          onClick={() => setMaxAssetWeight(wLimit)}
+                          className={`flex-1 py-1.5 rounded text-xs border transition-all cursor-pointer ${
+                            maxAssetWeight === wLimit
+                              ? "bg-[var(--brass)] text-[var(--ink)] font-bold border-[var(--brass)] shadow-sm"
+                              : "bg-[var(--ink-3)] text-[var(--mist)] border-[var(--line)] hover:text-[var(--paper)]"
+                          }`}
+                        >
+                          %{wLimit}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={includeGoldBuffer}
-                    onChange={(e) => setIncludeGoldBuffer(e.target.checked)}
-                    className="w-4 h-4 accent-[var(--brass)] rounded cursor-pointer"
-                  />
+
+                  {/* Gold buffer toggle */}
+                  <div
+                    onClick={() => setIncludeGoldBuffer(!includeGoldBuffer)}
+                    className={`p-3 rounded-lg border transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                      includeGoldBuffer
+                        ? "bg-[var(--brass-glow)] border-[var(--brass)] text-[var(--brass)]"
+                        : "bg-[var(--ink-2)] border-[var(--line)] text-[var(--mist)] hover:text-[var(--paper)]"
+                    }`}
+                  >
+                    <div>
+                      <span className="text-[11px] font-bold block">Altın / Emtia Sigortası</span>
+                      <span className="text-[10px] opacity-80 block">En az %15 Kıymetli Maden tamponu ekle</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={includeGoldBuffer}
+                      onChange={(e) => setIncludeGoldBuffer(e.target.checked)}
+                      className="w-4 h-4 accent-[var(--brass)] rounded cursor-pointer"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

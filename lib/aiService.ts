@@ -9,6 +9,7 @@ export interface AiRecipeRequest {
   horizon?: string;
   maxAssetWeight?: number;
   includeGoldBuffer?: boolean;
+  assetCount?: number;
 }
 
 export interface CompanyAnalysisRequest {
@@ -496,6 +497,7 @@ export async function generateOrakulRecipe(
   if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
     try {
       const goalLower = req.goal.toLowerCase();
+      const targetAssetCount = req.assetCount || 4;
       // Prioritize and score candidates based on goal & risk to provide the most relevant top 35 candidates to LLM
       const scoredCandidates = [...pool]
         .map((c) => {
@@ -544,13 +546,14 @@ Kullanıcı Parametreleri:
 - Bütçe: ${req.budget} TL
 - Seçili Yatırım Evreni: ${req.universe}
 - Yatırım Ufku: ${req.horizon || "Orta Vade (6-18 Ay)"}
+- İstenen Varlık Sayısı: Tam olarak ${targetAssetCount} adet varlık
 ${req.maxAssetWeight ? `- Kısıt: Tek bir varlığın maksimum payı %${req.maxAssetWeight} olmalıdır.` : ""}
 ${req.includeGoldBuffer ? "- Kısıt: En az %15 oranında Kıymetli Maden (Altın/Gümüş) tamponu içermelidir." : ""}
 
 Mevcut Sistemdeki Aday Varlıklar:
 ${candidatesSample || "BIST 100 ve Emtia kütüğü"}
 
-Bu parametrelere ve aday şirketlere göre en optimal 4-5 varlıktan oluşan dengeli bir sepet oluştur. Yanıtını YALNIZCA geçerli bir JSON olarak ver:
+Bu parametrelere ve aday şirketlere göre tam olarak ${targetAssetCount} adet farklı varlıktan oluşan dengeli bir sepet oluştur. Ağırlıkların toplamı %100 olmalıdır. Yanıtını YALNIZCA geçerli bir JSON olarak ver:
 {
   "title": "Özel Sepet Başlığı",
   "summary": "Strateji ve portföy mantığını anlatan 2 cümlelik yönetici özeti",
@@ -605,7 +608,7 @@ Bu parametrelere ve aday şirketlere göre en optimal 4-5 varlıktan oluşan den
               },
               {
                 role: "user",
-                content: `Hedef: ${req.goal}, Risk: ${req.risk}, Bütçe: ${req.budget} TL, Evren: ${req.universe}. Aday Varlıklar: ${candidatesSample}. Bana optimize sepet JSON reçetesi üret. Format: { "title": string, "summary": string, "healthScore": number, "expectedYield": string, "recommendedDuration": string, "riskRating": string, "allocation": [{ "symbol": string, "name": string, "weight": number, "note": string }] }`,
+                content: `Hedef: ${req.goal}, Risk: ${req.risk}, Bütçe: ${req.budget} TL, Evren: ${req.universe}, Varlık Sayısı: ${targetAssetCount}. Aday Varlıklar: ${candidatesSample}. Bana tam ${targetAssetCount} adet varlık içeren optimize sepet JSON reçetesi üret. Format: { "title": string, "summary": string, "healthScore": number, "expectedYield": string, "recommendedDuration": string, "riskRating": string, "allocation": [{ "symbol": string, "name": string, "weight": number, "note": string }] }`,
               },
             ],
             response_format: { type: "json_object" },
@@ -641,6 +644,7 @@ Bu parametrelere ve aday şirketlere göre en optimal 4-5 varlıktan oluşan den
   const goalLower = req.goal.toLowerCase();
   const isConservative = req.risk.includes("Düşük");
   const isAggressive = req.risk.includes("Yüksek");
+  const targetCount = Math.min(Math.max(req.assetCount || 4, 3), 10);
 
   // Default universe seeds if pool is minimal
   const defaultSeeds: CompanyAnalysisRequest[] = [
@@ -659,7 +663,7 @@ Bu parametrelere ve aday şirketlere göre en optimal 4-5 varlıktan oluşan den
   ];
 
   // Merge available pool with default seeds to ensure rich diversity
-  const candidatePool = pool.length >= 4 ? pool : Array.from(new Map([...pool, ...defaultSeeds].map((c) => [c.symbol, c])).values());
+  const candidatePool = pool.length >= targetCount ? pool : Array.from(new Map([...pool, ...defaultSeeds].map((c) => [c.symbol, c])).values());
 
   // Dynamic ranking function based on strategy goal
   const rankedCandidates = [...candidatePool].map((c) => {
@@ -696,7 +700,7 @@ Bu parametrelere ve aday şirketlere göre en optimal 4-5 varlıktan oluşan den
     return { ...c, calculatedScore: score };
   }).sort((a, b) => b.calculatedScore - a.calculatedScore);
 
-  // Pick 4 diverse items from different sectors where possible
+  // Pick targetCount diverse items from different sectors where possible
   const selectedItems: CompanyAnalysisRequest[] = [];
   const usedSectors = new Set<string>();
 
@@ -710,9 +714,9 @@ Bu parametrelere ve aday şirketlere göre en optimal 4-5 varlıktan oluşan den
   }
 
   for (const candidate of rankedCandidates) {
-    if (selectedItems.length >= 4) break;
+    if (selectedItems.length >= targetCount) break;
     const sec = candidate.sector || "Genel";
-    if (!usedSectors.has(sec) || selectedItems.length >= 3) {
+    if (!usedSectors.has(sec) || selectedItems.length >= targetCount - 1) {
       if (!selectedItems.some((s) => s.symbol === candidate.symbol)) {
         selectedItems.push(candidate);
         usedSectors.add(sec);
@@ -721,30 +725,30 @@ Bu parametrelere ve aday şirketlere göre en optimal 4-5 varlıktan oluşan den
   }
 
   // Fallback to top ranked if sector constraint left us short
-  if (selectedItems.length < 4) {
+  if (selectedItems.length < targetCount) {
     for (const candidate of rankedCandidates) {
-      if (selectedItems.length >= 4) break;
+      if (selectedItems.length >= targetCount) break;
       if (!selectedItems.some((s) => s.symbol === candidate.symbol)) {
         selectedItems.push(candidate);
       }
     }
   }
 
-  // Weights assignment based on risk and maxAssetWeight constraint
-  const maxW = req.maxAssetWeight || 35;
-  let weights = isConservative
-    ? [Math.min(maxW, 30), 25, 25, 20]
-    : isAggressive
-    ? [Math.min(maxW, 35), 30, 20, 15]
-    : [Math.min(maxW, 30), 25, 25, 20];
+  // Dynamically compute balanced weights summing to 100
+  const maxW = req.maxAssetWeight || Math.max(25, Math.round(100 / selectedItems.length) + 10);
+  const rawWeights = selectedItems.map((_, i) => {
+    const base = 100 / selectedItems.length;
+    const slope = (selectedItems.length / 2 - i) * 2.5;
+    return Math.min(maxW, Math.max(5, Math.round(base + slope)));
+  });
 
-  // If gold buffer is present, ensure first gold slot has at least 20%
-  if (req.includeGoldBuffer && selectedItems[0]?.symbol.includes("ALTIN")) {
-    weights = [25, 25, 25, 25];
-  }
+  const sumRaw = rawWeights.reduce((a, b) => a + b, 0);
+  const weights = rawWeights.map((w) => Math.round((w / (sumRaw || 1)) * 100));
+  const diff = 100 - weights.reduce((a, b) => a + b, 0);
+  if (weights.length > 0) weights[0] += diff;
 
-  const allocation = selectedItems.slice(0, 4).map((item, idx) => {
-    const w = weights[idx] || 25;
+  const allocation = selectedItems.slice(0, targetCount).map((item, idx) => {
+    const w = weights[idx] || Math.round(100 / selectedItems.length);
     let note = "";
     const div = item.dividendYield || 0;
     const pe = item.peRatio;
