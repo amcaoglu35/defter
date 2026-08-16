@@ -110,6 +110,16 @@ export default function SirketDetayPage() {
   const [deepData, setDeepData] = useState<DeepCompanyData | null>(null);
   const [deepLoading, setDeepLoading] = useState(false);
   const [showDeepAnalytics, setShowDeepAnalytics] = useState(false);
+  const [tefasData, setTefasData] = useState<{
+    code: string;
+    price: number;
+    date: string;
+    totalValue?: number;
+    sharesCount?: number;
+    investorCount?: number;
+    dailyChangePct?: number;
+  } | null>(null);
+  const [tefasLoading, setTefasLoading] = useState(false);
 
   // Reset state when navigating between companies without full page reload
   const [prevSymbol, setPrevSymbol] = useState(symbol);
@@ -125,6 +135,8 @@ export default function SirketDetayPage() {
     setDeepData(null);
     setDeepLoading(false);
     setShowDeepAnalytics(false);
+    setTefasData(null);
+    setTefasLoading(false);
   }
 
   // Fetch Deep Corporate Fundamentals, Fund Data & Insider Data (auto for funds/ETFs or on demand)
@@ -153,6 +165,31 @@ export default function SirketDetayPage() {
       isCancelled = true;
     };
   }, [company, showDeepAnalytics, deepData]);
+
+  // Fetch Live TEFAS Fund Data (for Turkish Investment Funds)
+  useEffect(() => {
+    if (!company) return;
+    if (company.assetClass !== "fon" && company.indexTag !== "TEFAS") return;
+
+    let isCancelled = false;
+    setTefasLoading(true);
+
+    fetch(`/api/prices/tefas?code=${encodeURIComponent(company.symbol)}`)
+      .then((res) => res.json())
+      .then((res) => {
+        if (!isCancelled && res.success && res.data) {
+          setTefasData(res.data);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!isCancelled) setTefasLoading(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [company]);
 
   // Fetch Live Historical Candlesticks / Close Series
   useEffect(() => {
@@ -880,11 +917,19 @@ export default function SirketDetayPage() {
                   <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--brass)] font-semibold">
                     Fon Kütük Değerleri &amp; Portföy Analizi
                   </h3>
-                  {deepData?.fundData && (
+                  {tefasData ? (
+                    <span className="text-[10px] font-mono text-[var(--verdigris)] bg-[rgba(91,140,123,0.15)] border border-[var(--verdigris)] px-1.5 py-0.5 rounded font-bold">
+                      🏛️ TEFAS Canlı Veri ({tefasData.date})
+                    </span>
+                  ) : deepData?.fundData ? (
                     <span className="text-[10px] font-mono text-[var(--verdigris)] bg-[rgba(91,140,123,0.15)] border border-[var(--verdigris)] px-1.5 py-0.5 rounded font-bold">
                       Canlı ETF Verisi
                     </span>
-                  )}
+                  ) : tefasLoading ? (
+                    <span className="text-[10px] font-mono text-[var(--mist)] animate-pulse">
+                      TEFAS taranıyor...
+                    </span>
+                  ) : null}
                 </div>
                 {company.riskLevel && (
                   <span className="font-mono text-xs px-2.5 py-0.5 rounded bg-[var(--ink-3)] border border-[var(--line)] text-[var(--brass)]">
@@ -896,17 +941,21 @@ export default function SirketDetayPage() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="bg-[var(--ink-3)] p-3.5 rounded border border-[var(--line)]">
                   <span className="text-[11px] font-mono text-[var(--mist)] uppercase">
-                    1 Yıllık Getiri
+                    {tefasData?.dailyChangePct !== undefined ? "Günlük / 1Y Getiri" : "1 Yıllık Getiri"}
                   </span>
                   <div className={`font-mono text-lg font-bold mt-1 ${
-                    (deepData?.fundData?.annualReturns?.oneYear ?? company.oneYearReturn ?? 0) >= 0 ? "text-[var(--verdigris)]" : "text-[var(--loss)]"
+                    (tefasData?.dailyChangePct ?? deepData?.fundData?.annualReturns?.oneYear ?? company.oneYearReturn ?? 0) >= 0 ? "text-[var(--verdigris)]" : "text-[var(--loss)]"
                   }`}>
-                    {deepData?.fundData?.annualReturns?.oneYear !== undefined
+                    {tefasData?.dailyChangePct !== undefined
+                      ? `%${tefasData.dailyChangePct >= 0 ? "+" : ""}${tefasData.dailyChangePct}`
+                      : deepData?.fundData?.annualReturns?.oneYear !== undefined
                       ? `%${deepData.fundData.annualReturns.oneYear}`
                       : (company.oneYearReturn !== undefined ? `%${company.oneYearReturn}` : "-")}
                   </div>
                   <span className="text-[10px] text-[var(--mist)]">
-                    {deepData?.fundData?.annualReturns?.threeYear !== undefined
+                    {tefasData?.dailyChangePct !== undefined
+                      ? (company.oneYearReturn ? `1Y: %${company.oneYearReturn}` : "TEFAS Günlük Kapanış")
+                      : deepData?.fundData?.annualReturns?.threeYear !== undefined
                       ? `3Y Getiri: %${deepData.fundData.annualReturns.threeYear}`
                       : (company.threeYearReturn ? `3Y Getiri: %${company.threeYearReturn}` : "Yıllık Nominal")}
                   </span>
@@ -914,14 +963,20 @@ export default function SirketDetayPage() {
 
                 <div className="bg-[var(--ink-3)] p-3.5 rounded border border-[var(--line)]">
                   <span className="text-[11px] font-mono text-[var(--mist)] uppercase">
-                    Yönetim Gideri
+                    {tefasData?.investorCount ? "Yatırımcı Sayısı" : "Yönetim Gideri"}
                   </span>
                   <div className="font-mono text-lg font-bold text-[var(--paper)] mt-1">
-                    {deepData?.fundData?.expenseRatio !== undefined
+                    {tefasData?.investorCount
+                      ? `${tefasData.investorCount.toLocaleString("tr-TR")} kişi`
+                      : deepData?.fundData?.expenseRatio !== undefined
                       ? `%${deepData.fundData.expenseRatio}`
                       : (company.expenseRatio !== undefined ? `%${company.expenseRatio}` : "-")}
                   </div>
-                  <span className="text-[10px] text-[var(--mist)]">Yıllık Masraf Oranı (TER)</span>
+                  <span className="text-[10px] text-[var(--mist)]">
+                    {tefasData?.investorCount
+                      ? (company.expenseRatio ? `TER: %${company.expenseRatio}` : "Aktif Hissedar")
+                      : "Yıllık Masraf Oranı (TER)"}
+                  </span>
                 </div>
 
                 <div className="bg-[var(--ink-3)] p-3.5 rounded border border-[var(--line)]">
@@ -929,10 +984,14 @@ export default function SirketDetayPage() {
                     Fon Büyüklüğü (AUM)
                   </span>
                   <div className="font-mono text-lg font-bold text-[var(--paper)] mt-1 truncate">
-                    {company.aum || (deepData?.fundData?.cashPosition !== undefined ? `Nakit: %${deepData.fundData.cashPosition}` : "—")}
+                    {tefasData?.totalValue
+                      ? `${(tefasData.totalValue / 1e9).toFixed(2)} Mr ₺`
+                      : company.aum || (deepData?.fundData?.cashPosition !== undefined ? `Nakit: %${deepData.fundData.cashPosition}` : "—")}
                   </div>
                   <span className="text-[10px] text-[var(--mist)]">
-                    {deepData?.fundData?.categoryName || "Toplam Net Varlık"}
+                    {tefasData?.sharesCount
+                      ? `${(tefasData.sharesCount / 1e6).toFixed(2)} Mn Pay`
+                      : deepData?.fundData?.categoryName || "Toplam Net Varlık"}
                   </span>
                 </div>
 

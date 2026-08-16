@@ -396,7 +396,7 @@ export async function generateOrakulRecipe(
       // Prioritize and score candidates based on goal & risk to provide the most relevant top 35 candidates to LLM
       const scoredCandidates = [...pool]
         .map((c) => {
-          let relevance = Math.random() * 5;
+          let relevance = 0;
           const div = c.dividendYield || 0;
           const pe = c.peRatio || 15;
           const sec = (c.sector || "").toLowerCase();
@@ -639,13 +639,18 @@ Bu parametrelere ve aday şirketlere göre en optimal 4-5 varlıktan oluşan den
     };
   });
 
-  const yieldStr = isAggressive
-    ? "%38.5 Yıllık Büyüme & Sermaye Kazancı Hedefi"
-    : isConservative
-    ? "%26.0 Temkinli & Reel Koruma Hedefi"
-    : "%32.0 Dengeli Bileşik Getiri Hedefi";
+  const weightedDividend = allocation.reduce((sum, a) => {
+    const item = selectedItems.find((s) => s.symbol === a.symbol);
+    return sum + (item?.dividendYield || 0) * (a.weight / 100);
+  }, 0);
 
-  const health = isConservative ? 96 : isAggressive ? 89 : 93;
+  const yieldStr = weightedDividend > 0
+    ? `Ağırlıklı %${weightedDividend.toFixed(1)} Temettü & ${isAggressive ? "Büyüme" : isConservative ? "Reel Koruma" : "Dengeli"} Hedefi`
+    : `${isAggressive ? "Büyüme & Sermaye Kazancı" : isConservative ? "Reel Sermaye Koruma" : "Dengeli Bileşik Getiri"} Odaklı Dağılım`;
+
+  const uniqueSectors = new Set(selectedItems.map((s) => s.sector || "Genel")).size;
+  const maxWeight = Math.max(...allocation.map((a) => a.weight));
+  const health = Math.min(98, Math.max(70, Math.round(75 + uniqueSectors * 5 - (maxWeight > 30 ? 5 : 0))));
   const duration = isConservative ? "12+ Ay" : isAggressive ? "3-6 Ay" : "6-12 Ay";
 
   return {
@@ -956,17 +961,32 @@ export async function detectValueTraps(
   }
 
   // Fallback algorithmic trap detection
-  const pe = company.peRatio || 8.0;
-  const pb = company.pbRatio || 1.5;
+  if (!company.peRatio || company.peRatio <= 0) {
+    return {
+      symbol: company.symbol,
+      trapRiskLevel: "ORTA (DİKKAT)",
+      trapRiskScore: 50,
+      isGenuineBargain: false,
+      verdictTitle: "Bilanço Çarpanı Bulunmuyor",
+      findings: [
+        `${company.symbol} için kayıtlı F/K çarpanı bulunmadığından değer tuzağı kural motoru nötr durumdadır.`,
+        "Fon, emtia veya henüz kâr açıklamayan şirketlerde F/K çarpanı yerine varlık dinamikleri incelenmelidir.",
+      ],
+      warningNote: "Değer tuzağı değerlendirmesi için kütüğe F/K ve PD/DD finansal rasyoları girilmelidir.",
+    };
+  }
+
+  const pe = company.peRatio;
+  const pb = company.pbRatio || 1.0;
 
   let riskLevel: "DÜŞÜK (GÜVENLİ)" | "ORTA (DİKKAT)" | "YÜKSEK (TUZAK RİSKİ)" = "DÜŞÜK (GÜVENLİ)";
-  let riskScore = 18;
+  let riskScore = 20;
   let isBargain = true;
   let title = "Organik Büyüme & Güvenli Değerleme";
   let findings = [
-    "Kâr büyümesi tek seferlik arsa/iştirak satışlarına değil, esas faaliyet gelirlerine dayanmaktadır.",
+    `F/K (${pe}) ve PD/DD (${pb}) çarpanları dengeli ve makul değerleme aralığında bulunmaktadır.`,
+    "Kâr büyümesi tek seferlik arsa/iştirak satışlarına değil, esas faaliyet kârlılığına dayanmaktadır.",
     "İşletme sermayesi döngüsü sektör ortalamalarıyla uyumlu seyretmektedir.",
-    "Temettü dağıtım kapasitesi serbest nakit akımı ile doğrudan desteklenmektedir.",
   ];
   let warning = "Mevcut çarpanlar organik büyüme potansiyeli için cazip bir güvenlik marjı sunmaktadır.";
 

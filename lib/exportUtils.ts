@@ -116,3 +116,37 @@ export function exportTransactionsToCsv(transactions: Transaction[]) {
   const dateStr = new Date().toISOString().split("T")[0];
   downloadCsvFile(`defter_tum_islemler_${dateStr}.csv`, csvContent);
 }
+
+/**
+ * Export complete Defter vault backup (baskets, transactions, watchlist, settings) as a structured JSON file.
+ */
+export function exportFullDefterBackup(storeState: {
+  baskets: Basket[];
+  transactions: Transaction[];
+  watchlistSymbols?: string[];
+  customNotes?: Record<string, string>;
+}) {
+  const backup = {
+    version: "2.0",
+    appName: "Defter Kişisel Sermaye Kütüğü",
+    exportedAt: new Date().toISOString(),
+    data: {
+      baskets: storeState.baskets,
+      transactions: storeState.transactions,
+      watchlistSymbols: storeState.watchlistSymbols || [],
+      customNotes: storeState.customNotes || {},
+    },
+  };
+
+  const jsonStr = JSON.stringify(backup, null, 2);
+  const blob = new Blob([jsonStr], { type: "application/json;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const dateStr = new Date().toISOString().split("T")[0];
+  link.setAttribute("href", url);
+  link.setAttribute("download", `defter_tam_kasa_yedegi_${dateStr}.json`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}

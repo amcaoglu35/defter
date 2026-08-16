@@ -23,24 +23,24 @@ import { useToast } from "@/components/ToastProvider";
 import ConfirmModal from "@/components/ConfirmModal";
 
 export function parseIpoPrice(priceRange: string | undefined): number {
-  if (!priceRange) return 40.0;
+  if (!priceRange) return 0;
   const matches = priceRange.match(/\d+(?:[.,]\d+)?/g);
-  if (!matches || matches.length === 0) return 40.0;
+  if (!matches || matches.length === 0) return 0;
   const parsed = matches
     .map((n) => parseFloat(n.replace(",", ".")))
     .filter((n) => !isNaN(n) && n > 0);
-  if (parsed.length === 0) return 40.0;
+  if (parsed.length === 0) return 0;
   if (parsed.length === 1) return parsed[0];
   // Range: return average of low and high bounds
   return parseFloat(((parsed[0] + parsed[1]) / 2).toFixed(2));
 }
 
 export function parseLotAmount(lotAmount?: string): number {
-  if (!lotAmount) return 30000000;
+  if (!lotAmount) return 0;
   const cleanDigits = lotAmount.replace(/[^\d]/g, "");
   const val = parseInt(cleanDigits);
   if (!isNaN(val) && val > 0) return val;
-  return 30000000;
+  return 0;
 }
 
 export function parseFundSize(fundSize?: string): number {
@@ -104,6 +104,8 @@ export default function HalkaArzPage() {
   const {
     ipos,
     companies,
+    baskets,
+    addTransaction,
     addIpo,
     deleteIpo,
     syncIpoToLedger,
@@ -132,6 +134,10 @@ export default function HalkaArzPage() {
   const [initialCapital, setInitialCapital] = useState<number>(2000); // 2.000 TL
   const [syncingAll, setSyncingAll] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
+
+  // Add IPO to Basket States
+  const [isAddToBasketModalOpen, setIsAddToBasketModalOpen] = useState(false);
+  const [selectedBasketId, setSelectedBasketId] = useState<string>("");
 
   // Add IPO Modal State
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -193,6 +199,45 @@ export default function HalkaArzPage() {
       profitPercent,
     };
   });
+
+  const handleAddIpoAllocationToBasket = () => {
+    if (!selectedIpo || calculatedLot <= 0 || ipoPriceNum <= 0) {
+      showToast("Eksik Bilgi", "Eklenecek lot miktarı veya geçerli bir halka arz fiyatı bulunmuyor.", "error");
+      return;
+    }
+    const targetBasket = baskets.find((b) => b.id === selectedBasketId) || baskets[0];
+    if (!targetBasket) {
+      showToast("Sepet Bulunamadı", "Lütfen önce 'Sepetlerim' sayfasından bir portföy sepeti oluşturun.", "error");
+      return;
+    }
+
+    // Ensure company exists in ledger
+    syncIpoToLedger(selectedIpo);
+
+    const res = addTransaction(
+      {
+        companySymbol: selectedIpo.code.toUpperCase(),
+        type: "BUY",
+        quantity: calculatedLot,
+        price: ipoPriceNum,
+        totalAmount: estimatedCost,
+        date: new Date().toISOString().split("T")[0],
+        note: `${selectedIpo.name} SPK Eşit Dağıtım Tahmini`,
+      },
+      targetBasket.id
+    );
+
+    if (res.success) {
+      showToast(
+        "Halka Arz Sepete Eklendi",
+        `${selectedIpo.code} (${calculatedLot} Lot @ ${ipoPriceNum} ₺) '${targetBasket.name}' sepetinize işlendi.`,
+        "success"
+      );
+      setIsAddToBasketModalOpen(false);
+    } else {
+      showToast("İşlem Başarısız", res.error || "İşlem eklenirken hata oluştu.", "error");
+    }
+  };
 
   // Filtered & Sorted dataset
   const filteredIpos = useMemo(() => {
@@ -711,13 +756,30 @@ export default function HalkaArzPage() {
                       : `Gereken Teminat: ~${estimatedCost.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺`}
                   </div>
 
-                  <button
-                    onClick={handleTransferToSimulator}
-                    className="mt-3 inline-flex items-center gap-1 text-[11px] font-mono text-[var(--brass)] hover:text-[var(--paper)] bg-[rgba(201,162,75,0.1)] border border-[var(--brass-dim)] px-2.5 py-1 rounded transition-colors cursor-pointer"
-                  >
-                    <span>Simülatöre Aktar</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </button>
+                  <div className="flex flex-wrap items-center justify-center gap-2 mt-3">
+                    <button
+                      onClick={handleTransferToSimulator}
+                      className="inline-flex items-center gap-1 text-[11px] font-mono text-[var(--brass)] hover:text-[var(--paper)] bg-[rgba(201,162,75,0.1)] border border-[var(--brass-dim)] px-2.5 py-1 rounded transition-colors cursor-pointer"
+                    >
+                      <span>Simülatöre Aktar</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        if (calculatedLot <= 0 || ipoPriceNum <= 0) {
+                          showToast("Eksik Veri", "Dağıtılacak lot veya hisse fiyatı henüz netleşmedi.", "error");
+                          return;
+                        }
+                        setSelectedBasketId(baskets[0]?.id || "");
+                        setIsAddToBasketModalOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1 text-[11px] font-mono text-[var(--verdigris)] hover:text-[var(--paper)] bg-[rgba(91,140,123,0.15)] border border-[var(--verdigris)] px-2.5 py-1 rounded transition-colors cursor-pointer font-bold"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Sepetime Ekle</span>
+                    </button>
+                  </div>
                 </div>
 
                 <p className="text-[11px] text-[var(--mist)] font-sans mt-4 border-t border-dashed border-[var(--line)] pt-3">
@@ -942,6 +1004,83 @@ export default function HalkaArzPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add IPO Allocation to Basket Modal */}
+      {isAddToBasketModalOpen && selectedIpo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-[var(--ink-2)] border border-[var(--brass-dim)] rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4 font-mono">
+            <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+              <h3 className="font-serif font-bold text-lg text-[var(--paper)]">
+                Halka Arzı Sepete Ekle
+              </h3>
+              <button
+                onClick={() => setIsAddToBasketModalOpen(false)}
+                className="text-[var(--mist)] hover:text-[var(--paper)] text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3 bg-[var(--ink-3)] rounded border border-[var(--line)] space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-[var(--mist)]">Şirket / Varlık:</span>
+                  <strong className="text-[var(--paper)]">{selectedIpo.name} ({selectedIpo.code})</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--mist)]">Hesaplanan Dağıtım:</span>
+                  <strong className="text-[var(--brass)]">{calculatedLot} Lot @ {ipoPriceNum} ₺</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--mist)]">Gereken Teminat / Maliyet:</span>
+                  <strong className="text-[var(--verdigris)]">~{estimatedCost.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺</strong>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] text-[var(--mist)] uppercase mb-1.5 font-bold">
+                  Hedef Portföy Sepeti Seçin:
+                </label>
+                {baskets.length === 0 ? (
+                  <p className="text-[var(--loss)] text-xs">
+                    Henüz oluşturulmuş sepetiniz yok. Lütfen önce &apos;Sepetlerim&apos; sayfasından bir sepet açın.
+                  </p>
+                ) : (
+                  <select
+                    value={selectedBasketId || baskets[0]?.id}
+                    onChange={(e) => setSelectedBasketId(e.target.value)}
+                    className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 text-xs text-[var(--paper)] font-mono outline-none focus:border-[var(--brass)] cursor-pointer"
+                  >
+                    {baskets.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name} ({b.holdings.length} Varlık, {b.totalValue.toLocaleString("tr-TR")} ₺)
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-[var(--line)]">
+              <button
+                type="button"
+                onClick={() => setIsAddToBasketModalOpen(false)}
+                className="px-4 py-2 text-xs font-mono text-[var(--mist)] hover:text-[var(--paper)] cursor-pointer"
+              >
+                Vazgeç
+              </button>
+              <button
+                type="button"
+                onClick={handleAddIpoAllocationToBasket}
+                disabled={baskets.length === 0}
+                className="px-4 py-2 bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold text-xs rounded transition-colors shadow cursor-pointer disabled:opacity-50"
+              >
+                İşlemi Onayla &amp; Sepete İşle
+              </button>
+            </div>
           </div>
         </div>
       )}

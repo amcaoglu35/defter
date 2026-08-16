@@ -110,16 +110,16 @@ export default function SepetDetayPage() {
       labels = ["12 Ay Önce", "10 Ay", "8 Ay", "6 Ay", "4 Ay", "2 Ay", "Bugün"];
     }
 
-    // Generate realistic curve from cost basis to current value
+    // Generate deterministic progression curve from cost basis to current value
     const baseProfitFactor = period === "1A" ? 0.3 : period === "3A" ? 0.6 : period === "6A" ? 1.0 : 1.4;
     const startVal = totalVal - (totalVal - costVal) * baseProfitFactor;
 
     const values: number[] = [];
     for (let i = 0; i < periodsCount; i++) {
       const progress = i / (periodsCount - 1);
-      // Add subtle natural fluctuation
-      const wave = Math.sin(progress * Math.PI * 1.5) * 0.08 * (1 - progress);
-      const val = startVal + (totalVal - startVal) * (progress + wave);
+      // Smooth deterministic interpolation between cost basis and current value
+      const ease = progress * progress * (3 - 2 * progress); // smoothstep
+      const val = startVal + (totalVal - startVal) * ease;
       values.push(Math.round(val));
     }
     values[values.length - 1] = totalVal;
