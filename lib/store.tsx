@@ -193,7 +193,8 @@ interface DefterStoreContextType {
   aiAccuracyStats: AiAccuracyStats;
   aiProvider: string;
   geminiModel: string;
-  setAiSettings: (provider: string, model?: string) => void;
+  aiApiKey: string;
+  setAiSettings: (provider: string, model?: string, apiKey?: string) => void;
 
   // Live Market Sync & Indices
   indices: Record<string, MarketIndexData>;
@@ -245,6 +246,7 @@ const STORAGE_KEYS = {
   TRIGGERED_ALERTS: "defter_triggered_alerts_v2",
   GEMINI_MODEL: "defter_gemini_model",
   AI_PROVIDER: "defter_ai_provider",
+  AI_API_KEY: "defter_ai_api_key",
   UPDATE_INTERVAL: "defter_update_interval",
   INDICES: "defter_indices_v2",
   USER_SETTINGS: "defter_user_settings_v2",
@@ -442,6 +444,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [usdRate, setUsdRate] = useState<number>(36.45);
   const [aiProvider, setAiProvider] = useState<string>("gemini");
   const [geminiModel, setGeminiModel] = useState<string>("gemini-1.5-flash");
+  const [aiApiKey, setAiApiKey] = useState<string>("");
   const [isServerCloudConnected, setIsServerCloudConnected] = useState<boolean>(false);
   const [updateInterval, setUpdateIntervalState] = useState<string>("manual");
   const [isPrivacyMode, setIsPrivacyMode] = useState<boolean>(() => {
@@ -704,9 +707,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           } catch {}
         }
         if (storedProvider) setAiProvider(storedProvider);
-        try {
-          localStorage.removeItem("defter_ai_api_key");
-        } catch {}
+        const storedApiKey = localStorage.getItem(STORAGE_KEYS.AI_API_KEY);
+        if (storedApiKey) setAiApiKey(storedApiKey);
         const storedModel = localStorage.getItem("defter_gemini_model");
         if (storedModel) setGeminiModel(storedModel);
         if (storedInterval) setUpdateIntervalState(storedInterval);
@@ -1417,7 +1419,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return addedCount;
   }, [ipos, companies, syncIpoToLedger]);
 
-  const setAiSettings = (provider: string, model?: string) => {
+  const setAiSettings = (provider: string, model?: string, apiKey?: string) => {
     setAiProvider(provider);
     try {
       localStorage.setItem("defter_ai_provider", provider);
@@ -1426,6 +1428,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setGeminiModel(model);
       try {
         localStorage.setItem("defter_gemini_model", model);
+      } catch {}
+    }
+    if (apiKey !== undefined) {
+      setAiApiKey(apiKey);
+      try {
+        if (apiKey) {
+          localStorage.setItem(STORAGE_KEYS.AI_API_KEY, apiKey);
+        } else {
+          localStorage.removeItem(STORAGE_KEYS.AI_API_KEY);
+        }
       } catch {}
     }
   };
@@ -1605,6 +1617,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         aiAccuracyStats,
         aiProvider,
         geminiModel,
+        aiApiKey,
         setAiSettings,
         autonomousScans,
         addAutonomousScan,

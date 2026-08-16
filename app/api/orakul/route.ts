@@ -29,24 +29,26 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { type, payload, messages, context, history, provider, model, persona } = body;
+    const { type, payload, messages, context, history, provider, model, persona, apiKey } = body;
     const selectedProvider = provider || "gemini";
     const selectedPersona = persona || "deger";
     const reqModel = (model && typeof model === "string" && model.trim().length > 0) ? model.trim() : GEMINI_MODEL;
 
-    // 2. Connection Test endpoint with live API ping (Server environment keys only)
-    if (type === "test_connection") {
-      const effectiveKey =
-        selectedProvider === "openai"
-          ? process.env.OPENAI_API_KEY?.trim()
-          : process.env.GEMINI_API_KEY?.trim();
+    const providedKey = typeof apiKey === "string" && apiKey.trim().length > 5 ? apiKey.trim() : undefined;
+    const effectiveKey =
+      providedKey ||
+      (selectedProvider === "openai"
+        ? process.env.OPENAI_API_KEY?.trim()
+        : process.env.GEMINI_API_KEY?.trim());
 
+    // 2. Connection Test endpoint with live API ping
+    if (type === "test_connection") {
       if (!effectiveKey || effectiveKey.length <= 10) {
         return NextResponse.json({
           success: true,
           provider: selectedProvider,
           isConfigured: false,
-          message: `${selectedProvider.toUpperCase()} API anahtarı sunucu ortamında (.env) bulunamadı. Güvenli yerel motor aktif.`,
+          message: `${selectedProvider.toUpperCase()} API anahtarı bulunamadı. Lütfen yukarıdaki kutuya anahtarınızı yapıştırın veya sunucu ortamına (.env) ekleyin.`,
         });
       }
 
@@ -163,26 +165,22 @@ export async function POST(req: Request) {
     // 3. AI Service calls (Secured with server-side environment variables)
     if (type === "recipe") {
       const companiesList = payload?.allCompanies || body.companies || [];
-      const recipe = await generateOrakulRecipe(payload, companiesList, undefined, selectedProvider, reqModel, selectedPersona);
-      return NextResponse.json({ success: true, data: recipe });
-    }
-
-    if (type === "chat") {
-      const reply = await askOrakulChat(
-        messages || [],
-        context || {},
-        undefined,
+      const recipe = await generateOrakulRecipe(
+        payload,
+        payload?.allCompanies || body.companies || [],
+        effectiveKey,
         selectedProvider,
-        reqModel
+        reqModel,
+        selectedPersona
       );
-      return NextResponse.json({ success: true, reply });
+      return NextResponse.json({ success: true, data: recipe });
     }
 
     if (type === "company_analysis") {
       const analysis = await generateCompanyAnalysis(
         payload,
         history || [],
-        undefined,
+        effectiveKey,
         selectedProvider,
         reqModel,
         selectedPersona
@@ -196,7 +194,7 @@ export async function POST(req: Request) {
     if (type === "earnings_flash") {
       const flash = await generateEarningsFlash(
         payload,
-        undefined,
+        effectiveKey,
         selectedProvider,
         reqModel
       );
@@ -206,7 +204,7 @@ export async function POST(req: Request) {
     if (type === "value_trap") {
       const trap = await detectValueTraps(
         payload,
-        undefined,
+        effectiveKey,
         selectedProvider,
         reqModel
       );
@@ -216,7 +214,7 @@ export async function POST(req: Request) {
     if (type === "backtest") {
       const simulation = await runBacktestSimulation(
         payload,
-        undefined,
+        effectiveKey,
         selectedProvider,
         reqModel
       );
@@ -227,7 +225,7 @@ export async function POST(req: Request) {
       const screenerResult = await screenStocksWithAI(
         payload.query,
         payload.companies || [],
-        undefined,
+        effectiveKey,
         selectedProvider,
         reqModel
       );
@@ -237,7 +235,7 @@ export async function POST(req: Request) {
     if (type === "daily_brief") {
       const briefing = await generateDailyBriefing(
         payload || {},
-        undefined,
+        effectiveKey,
         selectedProvider,
         reqModel
       );
@@ -247,7 +245,7 @@ export async function POST(req: Request) {
     if (type === "weekly_letter") {
       const letter = await generateWeeklyLetter(
         payload || {},
-        undefined,
+        effectiveKey,
         selectedProvider,
         reqModel,
         selectedPersona
@@ -259,10 +257,22 @@ export async function POST(req: Request) {
       const sentiment = await generateSentimentAnalysis(
         payload?.companies || payload?.allCompanies || [],
         payload?.baskets || [],
+        effectiveKey,
         selectedProvider,
         reqModel
       );
       return NextResponse.json({ success: true, data: sentiment });
+    }
+
+    if (type === "chat") {
+      const reply = await askOrakulChat(
+        messages || [],
+        context || {},
+        effectiveKey,
+        selectedProvider,
+        reqModel
+      );
+      return NextResponse.json({ success: true, reply });
     }
 
     return NextResponse.json(

@@ -42,6 +42,7 @@ export default function AyarlarPage() {
     transactions,
     aiProvider,
     geminiModel,
+    aiApiKey,
     setAiSettings,
     updateInterval,
     setUpdateInterval,
@@ -67,10 +68,19 @@ export default function AyarlarPage() {
   // AI states
   const [selectedProvider, setSelectedProvider] = useState(aiProvider || "gemini");
   const [selectedModel, setSelectedModel] = useState(geminiModel || "gemini-1.5-flash");
+  const [apiKeyInput, setApiKeyInput] = useState(aiApiKey || "");
+  const [showApiKey, setShowApiKey] = useState(false);
   const [customModelInput, setCustomModelInput] = useState("");
   const [aiSavedSuccess, setAiSavedSuccess] = useState(false);
   const [testResult, setTestResult] = useState<{ isConfigured: boolean; message: string } | null>(null);
   const [testingKey, setTestingKey] = useState(false);
+
+  // Sync state if aiApiKey in store changes
+  React.useEffect(() => {
+    if (aiApiKey && !apiKeyInput) {
+      setApiKeyInput(aiApiKey);
+    }
+  }, [aiApiKey]);
 
   // Security password state
   const [currentPass, setCurrentPass] = useState("");
@@ -106,9 +116,13 @@ export default function AyarlarPage() {
 
   const handleSaveAiSettings = (e: React.FormEvent) => {
     e.preventDefault();
-    setAiSettings(selectedProvider, activeModelStr);
+    setAiSettings(selectedProvider, activeModelStr, apiKeyInput.trim());
     setAiSavedSuccess(true);
-    showToast("AI Ayarları Güncellendi", `Yapay zeka tercihi '${selectedProvider}' (${activeModelStr}) olarak kaydedildi.`, "success");
+    showToast(
+      "AI Ayarları Güncellendi",
+      `Yapay zeka tercihi '${selectedProvider}' (${activeModelStr}) ${apiKeyInput.trim() ? "ve özel API anahtarı " : ""}olarak kaydedildi.`,
+      "success"
+    );
     setTimeout(() => setAiSavedSuccess(false), 3000);
   };
 
@@ -123,6 +137,7 @@ export default function AyarlarPage() {
           type: "test_connection",
           provider: selectedProvider,
           model: activeModelStr,
+          apiKey: apiKeyInput.trim(),
         }),
       });
       if (res.ok) {
@@ -407,13 +422,47 @@ export default function AyarlarPage() {
             )}
 
             {selectedProvider !== "local" && (
-              <div className="p-3.5 bg-[var(--ink-3)] rounded-lg border border-[var(--line)] space-y-1.5 font-mono text-xs">
-                <div className="flex items-center gap-2 text-[var(--brass)] font-semibold">
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>Güvenli Sunucu Tarafı Entegrasyonu</span>
+              <div className="space-y-1.5">
+                <label className="block text-xs font-mono text-[var(--mist)] uppercase flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-[var(--brass)] font-semibold">
+                    <Key className="w-3.5 h-3.5" />
+                    <span>{selectedProvider === "openai" ? "OpenAI API Anahtarı" : "Google Gemini API Anahtarı"}</span>
+                  </span>
+                  <a
+                    href={selectedProvider === "openai" ? "https://platform.openai.com/api-keys" : "https://aistudio.google.com/app/apikey"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] text-[var(--brass)] hover:underline flex items-center gap-1"
+                  >
+                    <span>{selectedProvider === "openai" ? "OpenAI'dan Anahtar Al ↗" : "Google AI Studio'dan Ücretsiz Anahtar Al ↗"}</span>
+                  </a>
+                </label>
+                <div className="relative">
+                  <input
+                    type={showApiKey ? "text" : "password"}
+                    value={apiKeyInput}
+                    onChange={(e) => {
+                      setApiKeyInput(e.target.value);
+                      setTestResult(null);
+                    }}
+                    placeholder={
+                      selectedProvider === "openai"
+                        ? "sk-proj-..."
+                        : "AIzaSy..."
+                    }
+                    className="w-full bg-[var(--ink-3)] border border-[var(--line)] focus:border-[var(--brass)] rounded p-2.5 pr-10 text-xs text-[var(--paper)] font-mono outline-none transition-colors"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--mist)] hover:text-[var(--paper)] transition-colors p-1 cursor-pointer"
+                    title={showApiKey ? "Gizle" : "Göster"}
+                  >
+                    {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
-                <p className="text-[11px] text-[var(--mist)] leading-relaxed">
-                  Orakul AI motoru, kurumsal güvenlik ve veri gizliliği standartları gereği yalnızca sunucu tarafında tanımlı ortam değişkenlerini (<code className="text-[var(--paper)]">GEMINI_API_KEY</code> / <code className="text-[var(--paper)]">OPENAI_API_KEY</code>) kullanır. Tarayıcıda hassas API anahtarı depolanmaz.
+                <p className="text-[10px] font-mono text-[var(--mist)] leading-relaxed">
+                  💡 Anahtarınız sadece tarayıcınızda ve Orakul analiz isteklerinde kullanılır. İsterseniz sunucu ortamına (<code className="text-[var(--paper)]">GEMINI_API_KEY</code>) da ekleyebilirsiniz.
                 </p>
               </div>
             )}

@@ -1899,10 +1899,11 @@ export interface SentimentNewsItem {
 export async function generateSentimentAnalysis(
   companies: CompanyAnalysisRequest[] = [],
   baskets: any[] = [],
+  _apiKey?: string,
   provider: string = "gemini",
   customModel?: string
 ): Promise<SentimentNewsItem[]> {
-  const resolvedApiKey = getResolvedApiKey(provider);
+  const resolvedApiKey = _apiKey || getResolvedApiKey(provider);
 
   // 1. Extract symbols genuinely owned in user's baskets
   const ownedSymbols = new Set(

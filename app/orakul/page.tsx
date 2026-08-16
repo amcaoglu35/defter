@@ -159,6 +159,7 @@ function OrakulContent() {
     aiAccuracyStats,
     aiProvider,
     geminiModel,
+    aiApiKey,
     createBasket,
     addTransaction,
     indices,
@@ -595,6 +596,7 @@ interface WeeklyLetterResult {
           provider: aiProvider,
           model: geminiModel,
           persona: userSettings?.orakulPersona || "deger",
+          apiKey: aiApiKey,
         }),
       });
 
@@ -1026,6 +1028,7 @@ interface WeeklyLetterResult {
           provider: aiProvider,
           model: geminiModel,
           persona: userSettings?.orakulPersona || "deger",
+          apiKey: aiApiKey,
         }),
       });
 
