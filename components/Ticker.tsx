@@ -1,8 +1,10 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { TrendingUp, TrendingDown } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
+import MarketStatusBadge from "@/components/MarketStatusBadge";
 
 export default function Ticker() {
   const { companies, indices } = useDefterStore();
@@ -51,37 +53,65 @@ export default function Ticker() {
   const tickerItems = [...indexItems, ...companyItems];
 
   return (
-    <div className="bg-[var(--ink-3)] border-b border-[var(--line)] py-1.5 overflow-hidden select-none text-[11px] font-mono w-full">
-      <div className="animate-ticker flex items-center gap-8 whitespace-nowrap">
+    <div className="bg-[var(--ink-3)] border-b border-[var(--line)] py-1.5 overflow-hidden select-none text-[11px] font-mono w-full flex items-center">
+      {/* Pinned Market Status Indicator */}
+      <div className="pl-3 pr-2 shrink-0 z-10 bg-[var(--ink-3)] border-r border-[var(--line)] flex items-center">
+        <MarketStatusBadge compact />
+      </div>
+
+      <div className="animate-ticker flex items-center gap-8 whitespace-nowrap pl-4">
         {/* Double the list for infinite seamless marquee */}
-        {[...tickerItems, ...tickerItems].map((item, idx) => (
-          <div
-            key={`${item.symbol}-${idx}`}
-            className="inline-flex items-center gap-2 text-[var(--paper-dim)] hover:text-[var(--paper)] transition-colors shrink-0"
-          >
-            <span
-              className={`font-bold ${
-                item.isMacro ? "text-[var(--brass)]" : "text-[var(--paper)]"
+        {[...tickerItems, ...tickerItems].map((item, idx) => {
+          const content = (
+            <div
+              className={`inline-flex items-center gap-2 text-[var(--paper-dim)] hover:text-[var(--paper)] transition-colors shrink-0 ${
+                !item.isMacro ? "cursor-pointer group hover:text-[var(--brass)]" : ""
               }`}
             >
-              {item.symbol}
-            </span>
-            <span className="text-[var(--paper)]">{item.price}</span>
-            <span
-              className={`inline-flex items-center gap-0.5 font-semibold ${
-                item.isPositive ? "text-[var(--verdigris)]" : "text-[var(--loss)]"
-              }`}
-            >
-              {item.isPositive ? (
-                <TrendingUp className="w-3 h-3" />
-              ) : (
-                <TrendingDown className="w-3 h-3" />
-              )}
-              {item.change}
-            </span>
-            <span className="text-[var(--mist)] opacity-40 ml-2">•</span>
-          </div>
-        ))}
+              <span
+                className={`font-bold ${
+                  item.isMacro
+                    ? "text-[var(--brass)]"
+                    : "text-[var(--paper)] group-hover:text-[var(--brass)]"
+                }`}
+              >
+                {item.symbol}
+              </span>
+              <span className="text-[var(--paper)]">{item.price}</span>
+              <span
+                className={`inline-flex items-center gap-0.5 font-semibold ${
+                  item.isPositive ? "text-[var(--verdigris)]" : "text-[var(--loss)]"
+                }`}
+              >
+                {item.isPositive ? (
+                  <TrendingUp className="w-3 h-3" />
+                ) : (
+                  <TrendingDown className="w-3 h-3" />
+                )}
+                {item.change}
+              </span>
+              <span className="text-[var(--mist)] opacity-40 ml-2">•</span>
+            </div>
+          );
+
+          if (!item.isMacro) {
+            return (
+              <Link
+                key={`${item.symbol}-${idx}`}
+                href={`/sirketler/${encodeURIComponent(item.symbol)}`}
+                className="shrink-0"
+              >
+                {content}
+              </Link>
+            );
+          }
+
+          return (
+            <div key={`${item.symbol}-${idx}`} className="shrink-0">
+              {content}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

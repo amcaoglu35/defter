@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 
 interface ConfettiPiece {
   id: number;
@@ -51,6 +51,7 @@ export default function Confetti({ active, duration = 2500, onComplete }: Confet
 
   useEffect(() => {
     if (active) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Timer başlatma ve parçacık animasyonu yan etkisi, meşru useEffect kullanımı
       setPieces(generatePieces(50));
       setVisible(true);
 

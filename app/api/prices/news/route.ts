@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
+import YahooFinance from "yahoo-finance2";
 import {
   getClientIp,
   checkRateLimit,
   createRateLimitResponse,
 } from "@/lib/rateLimit";
+
+const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 
 interface NewsItem {
   id: string;
@@ -58,90 +61,109 @@ export async function GET(request: Request) {
     });
   }
 
+  const items: NewsItem[] = [];
+  const seenTitles = new Set<string>();
+
   try {
-    // 1. Google News RSS Feed query for Turkish financial news / KAP
-    const query = encodeURIComponent(`${cleanSymbol} ${cleanName} BIST hisse`);
-    const googleNewsUrl = `https://news.google.com/rss/search?q=${query}&hl=tr-TR&gl=TR&ceid=TR:tr`;
-
-    const response = await fetch(googleNewsUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      },
-      next: { revalidate: 900 },
-    });
-
-    const items: NewsItem[] = [];
-
-    if (response.ok) {
-      const xmlText = await response.text();
-
-      // Simple regex parser for RSS <item> tags
-      const itemRegex = /<item>[\s\S]*?<title>(.*?)<\/title>[\s\S]*?<link>(.*?)<\/link>[\s\S]*?<pubDate>(.*?)<\/pubDate>[\s\S]*?<source[^>]*>(.*?)<\/source>[\s\S]*?<\/item>/gi;
-      let match;
-      let count = 0;
-
-      while ((match = itemRegex.exec(xmlText)) !== null && count < 6) {
-        let rawTitle = match[1] || "";
-        const link = match[2] || `https://www.google.com/finance/quote/${cleanSymbol}:BIST`;
-        const pubDate = match[3] || new Date().toISOString();
-        let publisher = match[4] || "Ekonomi Haber";
-
-        // Clean CDATA and HTML entities
-        rawTitle = rawTitle.replace(/<!\[CDATA\[(.*?)\]\]>/g, "$1").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim();
-        publisher = publisher.replace(/<!\[CDATA\[(.*?)\]\]>/g, "$1").trim();
-
-        // If title includes " - Publisher", split it cleanly
-        if (rawTitle.includes(" - ")) {
-          const parts = rawTitle.split(" - ");
-          if (parts.length >= 2) {
-            publisher = parts.pop() || publisher;
-            rawTitle = parts.join(" - ");
+    // 1. Primary: Yahoo Finance Search News API
+    try {
+      const ticker = cleanSymbol.includes(".") ? cleanSymbol : `${cleanSymbol}.IS`;
+      const yfRes = await yf.search(ticker, { newsCount: 5 });
+      if (yfRes && Array.isArray(yfRes.news)) {
+        for (const n of yfRes.news) {
+          if (n.title && n.link) {
+            const cleanTitle = n.title.trim();
+            const normalizedTitle = cleanTitle.toLowerCase().slice(0, 30);
+            if (!seenTitles.has(normalizedTitle)) {
+              seenTitles.add(normalizedTitle);
+              const pubTimeStr = n.providerPublishTime
+                ? new Date(n.providerPublishTime).toISOString()
+                : new Date().toISOString();
+              items.push({
+                id: n.uuid || `yf-${cleanSymbol}-${items.length}`,
+                title: cleanTitle,
+                link: n.link,
+                publisher: n.publisher || "Yahoo Finance",
+                publishedAt: pubTimeStr,
+                timeAgo: formatTimeAgo(pubTimeStr),
+              });
+            }
           }
         }
+      }
+    } catch (yfErr) {
+      console.warn(`[News API] Yahoo Finance search news fallback for ${cleanSymbol}:`, yfErr);
+    }
 
-        if (rawTitle) {
-          items.push({
-            id: `news-${cleanSymbol}-${count}-${Date.now()}`,
-            title: rawTitle,
-            link,
-            publisher: publisher || "Google Finance",
-            publishedAt: pubDate,
-            timeAgo: formatTimeAgo(pubDate),
-          });
-          count++;
+    // 2. Secondary: Google News RSS for Turkish financial market coverage
+    try {
+      const query = encodeURIComponent(`${cleanSymbol} ${cleanName} BIST hisse`);
+      const googleNewsUrl = `https://news.google.com/rss/search?q=${query}&hl=tr-TR&gl=TR&ceid=TR:tr`;
+
+      const response = await fetch(googleNewsUrl, {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        },
+        next: { revalidate: 900 },
+      });
+
+      if (response.ok) {
+        const xmlText = await response.text();
+        const itemRegex =
+          /<item>[\s\S]*?<title>(.*?)<\/title>[\s\S]*?<link>(.*?)<\/link>[\s\S]*?<pubDate>(.*?)<\/pubDate>[\s\S]*?<source[^>]*>(.*?)<\/source>[\s\S]*?<\/item>/gi;
+        let match;
+        let count = 0;
+
+        while ((match = itemRegex.exec(xmlText)) !== null && count < 6) {
+          let rawTitle = match[1] || "";
+          const link = match[2] || `https://www.google.com/search?q=${encodeURIComponent(cleanSymbol + " hisse")}`;
+          const pubDate = match[3] || new Date().toISOString();
+          let publisher = match[4] || "Google Haberler";
+
+          rawTitle = rawTitle
+            .replace(/<!\[CDATA\[(.*?)\]\]>/g, "$1")
+            .replace(/&amp;/g, "&")
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .trim();
+          publisher = publisher.replace(/<!\[CDATA\[(.*?)\]\]>/g, "$1").trim();
+
+          if (rawTitle.includes(" - ")) {
+            const parts = rawTitle.split(" - ");
+            if (parts.length >= 2) {
+              publisher = parts.pop() || publisher;
+              rawTitle = parts.join(" - ");
+            }
+          }
+
+          const normalizedTitle = rawTitle.toLowerCase().slice(0, 30);
+          if (rawTitle && !seenTitles.has(normalizedTitle)) {
+            seenTitles.add(normalizedTitle);
+            items.push({
+              id: `news-${cleanSymbol}-${count}-${Date.now()}`,
+              title: rawTitle,
+              link,
+              publisher: publisher || "Google Haberler",
+              publishedAt: pubDate,
+              timeAgo: formatTimeAgo(pubDate),
+            });
+            count++;
+          }
         }
       }
+    } catch (rssErr) {
+      console.warn(`[News API] Google News RSS fetch warning for ${cleanSymbol}:`, rssErr);
     }
 
-    // Fallback template if RSS feed was empty
-    if (items.length === 0) {
-      items.push(
-        {
-          id: `fallback-1-${cleanSymbol}`,
-          title: `${cleanSymbol} Şirketi Son Dönem Finansal Sonuçları ve Faaliyet Raporu Özeti`,
-          link: `https://www.google.com/finance/quote/${cleanSymbol}:BIST`,
-          publisher: "KAP & Finans Gündem",
-          publishedAt: new Date().toISOString(),
-          timeAgo: "1 saat önce",
-        },
-        {
-          id: `fallback-2-${cleanSymbol}`,
-          title: `${cleanSymbol} Borsa İstanbul İşlem Hacmi ve Sektörel Değerleme Notları`,
-          link: `https://www.google.com/finance/quote/${cleanSymbol}:BIST`,
-          publisher: "Piyasa Rehberi",
-          publishedAt: new Date().toISOString(),
-          timeAgo: "3 saat önce",
-        }
-      );
-    }
-
+    // Save to in-memory cache
     newsCache.set(cacheKey, { timestamp: now, data: items });
 
     return NextResponse.json({
       success: true,
       symbol: cleanSymbol,
       count: items.length,
-      source: "google_finance_rss",
+      source: "google_news_rss",
       data: items,
     });
   } catch (err: unknown) {
@@ -149,18 +171,9 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       symbol: cleanSymbol,
-      count: 1,
-      source: "fallback",
-      data: [
-        {
-          id: `err-${cleanSymbol}`,
-          title: `${cleanSymbol} şirketinin son borsa ve bilanço haberlerini inceleyin`,
-          link: `https://www.google.com/finance/quote/${cleanSymbol}:BIST`,
-          publisher: "Google Finance",
-          publishedAt: new Date().toISOString(),
-          timeAgo: "Bugün",
-        }
-      ],
+      count: 0,
+      source: "error_empty",
+      data: [],
     });
   }
 }

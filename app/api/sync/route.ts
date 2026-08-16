@@ -290,7 +290,7 @@ export async function POST(req: Request) {
           type: payload.type,
           title: payload.title,
           description: payload.description,
-          verdict_tag: payload.verdictTag || payload.verdictTag,
+          verdict_tag: payload.verdictTag || payload.verdict || null,
           verdict: payload.verdict,
           symbol: payload.symbol,
           verdict_date: payload.date || new Date().toISOString().split("T")[0],

@@ -16,11 +16,14 @@ import {
   Edit,
   Trash2,
   CheckCircle2,
+  FileSpreadsheet,
+  Download,
 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import { Basket, BasketHolding } from "@/lib/mockData";
 import EditBasketModal from "@/components/EditBasketModal";
 import ConfirmModal from "@/components/ConfirmModal";
+import { exportBasketToCsv } from "@/lib/exportUtils";
 
 interface StrategyTemplate {
   name: string;
@@ -87,7 +90,7 @@ const STRATEGY_TEMPLATES: StrategyTemplate[] = [
 ];
 
 export default function SepetlerimPage() {
-  const { baskets, createBasket, deleteBasket, dividends, companies } = useDefterStore();
+  const { baskets, createBasket, deleteBasket, dividends, companies, isPrivacyMode } = useDefterStore();
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editingBasket, setEditingBasket] = useState<Basket | null>(null);
@@ -148,16 +151,24 @@ export default function SepetlerimPage() {
     setCreateModalOpen(false);
   };
 
+  // Portfolio Totals
   const totalValue = baskets.reduce((acc, b) => acc + b.totalValue, 0);
   const totalCost = baskets.reduce((acc, b) => acc + b.totalCost, 0);
   const totalProfit = totalValue - totalCost;
   const isProfitPositive = totalProfit >= 0;
-  const profitPercent = totalCost > 0 ? ((totalProfit / totalCost) * 100).toFixed(1) : "0.0";
+  const profitPercent =
+    totalCost > 0 ? ((totalProfit / totalCost) * 100).toFixed(1) : "0.0";
 
   const totalDividends = dividends.reduce(
     (acc, d) => acc + (d.totalEstimatedPayout || 0),
     0
   );
+
+  const handleExportAllBaskets = () => {
+    if (baskets.length === 0) return;
+    // Export combined or first basket
+    baskets.forEach((b) => exportBasketToCsv(b, companies));
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-10">
@@ -172,18 +183,31 @@ export default function SepetlerimPage() {
           </h1>
         </div>
 
-        <button
-          onClick={() => {
-            setSelectedTemplate(null);
-            setBasketName("");
-            setBasketSubtitle("");
-            setCreateModalOpen(true);
-          }}
-          className="bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-semibold text-sm px-4 py-2.5 rounded-sm flex items-center gap-2 transition-transform active:scale-95 self-start sm:self-auto cursor-pointer shadow"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Yeni Sepet Oluştur</span>
-        </button>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {baskets.length > 0 && (
+            <button
+              onClick={handleExportAllBaskets}
+              title="Tüm sepetleri Excel / CSV olarak indir"
+              className="bg-[var(--ink-2)] hover:bg-[var(--ink-3)] border border-[var(--line)] hover:border-[var(--brass-dim)] text-[var(--paper)] font-mono text-xs px-3.5 py-2.5 rounded-sm flex items-center gap-2 transition-colors cursor-pointer"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-[var(--verdigris)]" />
+              <span className="hidden sm:inline">Excel/CSV İndir</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => {
+              setSelectedTemplate(null);
+              setBasketName("");
+              setBasketSubtitle("");
+              setCreateModalOpen(true);
+            }}
+            className="bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-semibold text-sm px-4 py-2.5 rounded-sm flex items-center gap-2 transition-transform active:scale-95 cursor-pointer shadow"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Yeni Sepet Oluştur</span>
+          </button>
+        </div>
       </div>
 
       {/* 2. Combined Summary Strip */}
@@ -193,7 +217,7 @@ export default function SepetlerimPage() {
             Toplam Sepet Değeri
           </div>
           <div className="font-serif text-2xl sm:text-3xl font-bold text-[var(--paper)]">
-            {totalValue.toLocaleString("tr-TR")} ₺
+            {isPrivacyMode ? "•••••• ₺" : `${totalValue.toLocaleString("tr-TR")} ₺`}
           </div>
         </div>
 
@@ -208,8 +232,9 @@ export default function SepetlerimPage() {
           >
             {isProfitPositive ? <TrendingUp className="w-6 h-6 shrink-0" /> : <TrendingDown className="w-6 h-6 shrink-0" />}
             <span>
-              {isProfitPositive ? "+" : ""}
-              {totalProfit.toLocaleString("tr-TR")} ₺ ({isProfitPositive ? "+" : ""}%{profitPercent})
+              {isPrivacyMode
+                ? "•••••• ₺"
+                : `${isProfitPositive ? "+" : ""}${totalProfit.toLocaleString("tr-TR")} ₺ (${isProfitPositive ? "+" : ""}%${profitPercent})`}
             </span>
           </div>
         </div>

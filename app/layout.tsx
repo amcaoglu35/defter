@@ -9,6 +9,7 @@ import { ToastProvider } from "@/components/ToastProvider";
 import CommandPalette from "@/components/CommandPalette";
 import OnboardingModal from "@/components/OnboardingModal";
 import ShortcutsModal from "@/components/ShortcutsModal";
+import PwaInstallPrompt from "@/components/PwaInstallPrompt";
 
 const fraunces = Fraunces({
   variable: "--font-fraunces",
@@ -83,34 +84,33 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full flex flex-col bg-[var(--ink)] text-[var(--paper)] selection:bg-[var(--brass)] selection:text-[var(--ink)]">
-        <StoreProvider>
-          <ToastProvider>
-            <AuthGuard>
+        <ToastProvider>
+          <AuthGuard>
+            <StoreProvider>
               <Ticker />
               <Header />
               <main className="flex-1 w-full">{children}</main>
               <CommandPalette />
               <OnboardingModal />
               <ShortcutsModal />
+              <PwaInstallPrompt />
               <footer className="border-t border-[var(--line)] py-8 px-4 sm:px-8 bg-[var(--ink-2)] text-center text-xs font-mono text-[var(--mist)]">
                 <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="flex items-center gap-2">
                     <span className="font-serif text-[var(--paper)] font-semibold">
                       Defter
                     </span>
-                    <span>• Kişisel Yatırım Kütüğü</span>
+                    <span className="text-[var(--brass)]">✦</span>
+                    <span>Kişisel Sermaye Kütüğü &amp; Portföy Defteri</span>
                   </div>
-                  <div className="flex items-center gap-4 text-[11px]">
-                    <span>Kısayol: <kbd className="border border-[var(--line)] px-1.5 py-0.5 rounded bg-[var(--ink-3)] text-[var(--brass)] font-bold">Ctrl + K</kbd></span>
-                    <span className="text-[var(--brass)] font-semibold">
-                      FAZ 5 — PWA &amp; Komut Paleti
-                    </span>
+                  <div className="text-[11px] text-[var(--mist)] font-sans">
+                    Fiyat verileri Yahoo Finance &amp; TCMB kaynaklıdır. Yatırım tavsiyesi içermez.
                   </div>
                 </div>
               </footer>
-            </AuthGuard>
-          </ToastProvider>
-        </StoreProvider>
+            </StoreProvider>
+          </AuthGuard>
+        </ToastProvider>
       </body>
     </html>
   );

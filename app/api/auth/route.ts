@@ -9,9 +9,11 @@ import {
   createSessionToken,
   verifySessionToken,
   getMasterPassword,
-  timingSafeEqualStrings,
+  verifyMasterPassword,
+  setStoredMasterPassword,
   SESSION_COOKIE_NAME,
 } from "@/lib/session";
+import { isSupabaseAdminConfigured, supabaseAdmin } from "@/lib/supabaseAdmin";
 
 /**
  * GET /api/auth
@@ -41,7 +43,7 @@ export async function GET(req: Request) {
 
 /**
  * POST /api/auth
- * Handles login and logout actions. Sets httpOnly session cookie on successful login.
+ * Handles login, change_password, and logout actions. Sets httpOnly session cookie on successful login.
  */
 export async function POST(req: Request) {
   // Rate limiting (10 auth attempts per minute per IP)
@@ -52,7 +54,6 @@ export async function POST(req: Request) {
   }
 
   try {
-    const masterPassword = getMasterPassword();
     const body = await req.json();
 
     // Logout Action
@@ -87,19 +88,41 @@ export async function POST(req: Request) {
         );
       }
 
-      // Timing-safe comparison for current password
-      const isCurrentValid = await timingSafeEqualStrings(currentPassword, masterPassword);
-      if (!isCurrentValid) {
+      // Verify current password via DB or env
+      const authResult = await verifyMasterPassword(currentPassword);
+      if (!authResult.valid) {
         return NextResponse.json(
           { success: false, error: "Mevcut şifre hatalı. Lütfen tekrar deneyin." },
           { status: 401 }
         );
       }
 
+      // Persist to Supabase if Admin is configured
+      if (isSupabaseAdminConfigured && supabaseAdmin) {
+        const saved = await setStoredMasterPassword(newPassword);
+        if (saved) {
+          const sessionToken = await createSessionToken(newPassword);
+          const response = NextResponse.json({
+            success: true,
+            isPermanent: true,
+            message: "Kasa şifresi Supabase bulut veritabanında kalıcı olarak güncellendi.",
+          });
+          response.cookies.set(SESSION_COOKIE_NAME, sessionToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            path: "/",
+            maxAge: 60 * 60 * 24 * 7,
+          });
+          return response;
+        }
+      }
+
       return NextResponse.json({
         success: true,
         isPermanent: false,
-        message: "Mevcut şifre doğrulandı. Ancak Supabase bulut veritabanı bağlı olmadığı için şifre sunucuda güncellenemedi. Kalıcı değişim için Vercel panelinizden DEFTER_ACCESS_PASSWORD ortam değişkenini güncelleyin.",
+        message:
+          "Mevcut şifre doğrulandı. Ancak Supabase bulut veritabanı bağlı olmadığı için şifre sunucuda kalıcı kaydedilemedi. Kalıcı değişim için Vercel panelinizden DEFTER_ACCESS_PASSWORD ortam değişkenini güncelleyin.",
       });
     }
 
@@ -112,10 +135,11 @@ export async function POST(req: Request) {
       );
     }
 
-    // Timing-safe constant-time comparison for login password
-    const isPasswordValid = await timingSafeEqualStrings(password, masterPassword);
-    if (isPasswordValid) {
-      const sessionToken = await createSessionToken(masterPassword);
+    // Dynamic verification (Supabase app_settings -> env -> dev fallback)
+    const authResult = await verifyMasterPassword(password);
+    if (authResult.valid) {
+      const activeMaster = getMasterPassword() || password;
+      const sessionToken = await createSessionToken(activeMaster);
       const response = NextResponse.json({
         success: true,
         message: "Kasa kilidi başarıyla açıldı.",
@@ -134,7 +158,10 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json(
-      { success: false, error: "Hatalı şifre. Lütfen tekrar deneyin." },
+      {
+        success: false,
+        error: authResult.reason || "Hatalı şifre. Lütfen tekrar deneyin.",
+      },
       { status: 401 }
     );
   } catch (error: unknown) {

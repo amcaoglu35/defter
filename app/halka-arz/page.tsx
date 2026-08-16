@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import {
   Calculator,
   Plus,
@@ -124,6 +124,7 @@ export default function HalkaArzPage() {
 
   // Allocation Calculator States
   const [selectedIpoId, setSelectedIpoId] = useState<string>("");
+  const [prevSelectedIpoId, setPrevSelectedIpoId] = useState<string>("");
   const [participants, setParticipants] = useState<number>(2200000); // 2.2M kişi
   const [allocationLots, setAllocationLots] = useState<number>(55000000); // Toplam lot
 
@@ -158,24 +159,16 @@ export default function HalkaArzPage() {
     setAutoAddCompany(true);
   };
 
-  // Sync selectedIpoId with first available IPO when list loads or changes
-  useEffect(() => {
-    if (ipos.length > 0) {
-      if (!selectedIpoId || !ipos.some((i) => i.id === selectedIpoId)) {
-        setSelectedIpoId(ipos[0].id);
-      }
-    }
-  }, [ipos, selectedIpoId]);
-
   const selectedIpo = ipos.find((i) => i.id === selectedIpoId) || (ipos.length > 0 ? ipos[0] : null);
 
-  // Sync lot pool automatically when selected IPO changes
-  useEffect(() => {
-    if (selectedIpo) {
-      const defaultLots = parseLotAmount(selectedIpo.lotAmount);
-      setAllocationLots(defaultLots);
+  // Sync selectedIpoId & lot pool during render when IPO list loads or active selection changes
+  if (selectedIpo && selectedIpo.id !== prevSelectedIpoId) {
+    setPrevSelectedIpoId(selectedIpo.id);
+    if (!selectedIpoId || !ipos.some((i) => i.id === selectedIpoId)) {
+      setSelectedIpoId(selectedIpo.id);
     }
-  }, [selectedIpoId, selectedIpo]);
+    setAllocationLots(parseLotAmount(selectedIpo.lotAmount));
+  }
 
   // Calculations for lot distribution & lottery detection
   const ipoPriceNum = selectedIpo ? parseIpoPrice(selectedIpo.priceRange) : 0;

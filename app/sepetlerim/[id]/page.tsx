@@ -21,6 +21,7 @@ import {
   Info,
   History,
   AlertTriangle,
+  FileSpreadsheet,
 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import { BasketHolding } from "@/lib/mockData";
@@ -31,6 +32,7 @@ import ConfirmModal from "@/components/ConfirmModal";
 import DataStatusBadge from "@/components/DataStatusBadge";
 import { useToast } from "@/components/ToastProvider";
 import { isLiveSymbol } from "@/lib/liveSymbols";
+import { exportBasketToCsv } from "@/lib/exportUtils";
 
 type PeriodType = "1A" | "3A" | "6A" | "1Y";
 
@@ -46,6 +48,9 @@ export default function SepetDetayPage() {
     baskets,
     companies,
     removeHoldingFromBasket,
+    updateHolding,
+    deleteBasket,
+    isPrivacyMode,
     transactions,
     addTransaction,
   } = useDefterStore();
@@ -182,6 +187,15 @@ export default function SepetDetayPage() {
 
         <div className="flex flex-wrap items-center gap-3">
           <button
+            onClick={() => exportBasketToCsv(basket, companies)}
+            className="border border-[var(--line)] hover:border-[var(--brass)] text-[var(--paper)] bg-[var(--ink-2)] px-3 py-1.5 rounded text-xs font-mono flex items-center gap-1.5 transition-colors cursor-pointer"
+            title="Sepeti Excel / CSV olarak indir"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-[var(--verdigris)]" />
+            <span>Excel İndir</span>
+          </button>
+
+          <button
             onClick={() => setPrintModalOpen(true)}
             className="border border-[var(--line)] hover:border-[var(--brass)] text-[var(--paper)] bg-[var(--ink-2)] px-3 py-1.5 rounded text-xs font-mono flex items-center gap-1.5 transition-colors cursor-pointer"
             title="PDF / Yazdır"
@@ -235,7 +249,7 @@ export default function SepetDetayPage() {
         {/* Value and return */}
         <div className="text-left md:text-right border-t md:border-t-0 pt-4 md:pt-0 border-[var(--line)]">
           <div className="font-serif text-3xl sm:text-4xl font-bold text-[var(--paper)]">
-            {basket.totalValue.toLocaleString("tr-TR")} ₺
+            {isPrivacyMode ? "•••••• ₺" : `${basket.totalValue.toLocaleString("tr-TR")} ₺`}
           </div>
           <div
             className={`font-mono text-sm font-semibold mt-1 flex items-center md:justify-end gap-1 ${
@@ -244,8 +258,7 @@ export default function SepetDetayPage() {
           >
             {isProfitPositive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
             <span>
-              {isProfitPositive ? "+" : ""}
-              {basket.totalProfitPercent}% Toplam Kazanç
+              {isPrivacyMode ? "•••••• ₺" : `${isProfitPositive ? "+" : ""}${basket.totalProfitPercent}% Toplam Kazanç`}
             </span>
           </div>
         </div>

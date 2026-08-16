@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Sparkles, ArrowRight, ArrowLeft, Check, Layers, Building2, TrendingUp, ShieldCheck, Compass } from "lucide-react";
-import Link from "next/link";
+import { X, Sparkles, ArrowRight, ArrowLeft, Check, Layers, ShieldCheck, Compass } from "lucide-react";
 
 interface OnboardingModalProps {
   forceOpen?: boolean;
@@ -13,15 +12,15 @@ const STEPS = [
   {
     icon: Compass,
     title: "Defter'e Hoş Geldiniz",
-    subtitle: "Yeni Nesil Varlık & Portföy Yönetim Kütüğü",
-    desc: "Defter, Borsa İstanbul, Kıymetli Madenler, Fonlar ve Döviz varlıklarınızı tek bir güvenli, estetik ve yapay zeka destekli platformda takip etmenizi sağlar.",
-    badge: "1. ADIM",
+    subtitle: "Kişisel Sermaye & Portföy Kütüğünüz",
+    desc: "BIST şirketlerini, temettü kütüğünü ve sepetlerinizi tek çatı altında modern bir zanaatkarlık disipliniyle takip edin.",
+    badge: "BAŞLANGIÇ",
   },
   {
     icon: Layers,
-    title: "Akıllı Yatırım Sepetleri",
-    subtitle: "Stratejik Portföy Bölümleme",
-    desc: "Varlıklarınızı Temettü Şampiyonları, Büyüme veya Enflasyon Kalkanı gibi akıllı tematik sepetlere ayırarak kümülatif getiri ve risk dengenizi yönetin.",
+    title: "Sepetler & Çoklu Portföy",
+    subtitle: "Varlıklarınızı Mantıklı Havuzlara Bölün",
+    desc: "Temettü Emekliliği, Büyüme Hisseleri veya Döviz Bazlı sepetler oluşturun. Her sepete ayrı hedef ağırlık ve kural atayın.",
     badge: "2. ADIM",
   },
   {
@@ -42,16 +41,22 @@ const STEPS = [
 
 export default function OnboardingModal({ forceOpen, onClose }: OnboardingModalProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [prevForceOpen, setPrevForceOpen] = useState(forceOpen);
   const [currentStep, setCurrentStep] = useState(0);
 
-  useEffect(() => {
-    if (forceOpen) {
-      setIsOpen(true);
-      setCurrentStep(0);
-      return;
-    }
+  // Sync forceOpen prop during render
+  if (forceOpen && !prevForceOpen) {
+    setPrevForceOpen(forceOpen);
+    setIsOpen(true);
+    setCurrentStep(0);
+  } else if (!forceOpen && prevForceOpen) {
+    setPrevForceOpen(forceOpen);
+  }
 
-    const hasSeen = localStorage.getItem("defter_onboarding_completed");
+  useEffect(() => {
+    if (forceOpen) return;
+
+    const hasSeen = typeof window !== "undefined" ? localStorage.getItem("defter_onboarding_completed") : "true";
     if (!hasSeen) {
       // First time visitor delay slightly for smooth entrance
       const timer = setTimeout(() => setIsOpen(true), 800);

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import {
   Search,
@@ -10,11 +10,6 @@ import {
   Scale,
   X,
   Trash2,
-  Filter,
-  Check,
-  Building2,
-  SlidersHorizontal,
-  RotateCcw,
 } from "lucide-react";
 import { useDefterStore, inferAssetClass } from "@/lib/store";
 import { Company } from "@/lib/mockData";
@@ -274,12 +269,10 @@ export default function SirketlerPage() {
   // Paginated dataset
   const totalPages = Math.ceil(filteredCompanies.length / pageSize) || 1;
 
-  // Clamp currentPage when filtered dataset shrinks or records are deleted
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
+  // Clamp currentPage during render when filtered dataset shrinks
+  if (currentPage > totalPages) {
+    setCurrentPage(totalPages);
+  }
 
   const paginatedCompanies = useMemo(() => {
     const start = (currentPage - 1) * pageSize;

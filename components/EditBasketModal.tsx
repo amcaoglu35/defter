@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
-import { X, Plus, Trash2, Sliders, Check, Sparkles, DollarSign, Scale, RefreshCw, AlertTriangle } from "lucide-react";
+import React, { useState, useMemo } from "react";
+import { X, Plus, Trash2, Sliders, Check, Scale } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import { Basket, BasketHolding, Company } from "@/lib/mockData";
 import { useToast } from "@/components/ToastProvider";
@@ -30,35 +30,40 @@ export default function EditBasketModal({
   const { showToast } = useToast();
 
   // Basket Metadata State
+  const [prevBasket, setPrevBasket] = useState(basket);
   const [basketName, setBasketName] = useState(basket.name);
   const [basketSubtitle, setBasketSubtitle] = useState(basket.subtitle || "");
   const [basketRiskLevel, setBasketRiskLevel] = useState<"Düşük" | "Orta" | "Yüksek">(basket.riskLevel || "Orta");
   const [isMetaDirty, setIsMetaDirty] = useState(false);
 
-  useEffect(() => {
+  // Sync state when basket prop changes during render
+  if (basket !== prevBasket) {
+    setPrevBasket(basket);
     setBasketName(basket.name);
     setBasketSubtitle(basket.subtitle || "");
     setBasketRiskLevel(basket.riskLevel || "Orta");
     setIsMetaDirty(false);
-  }, [basket]);
+  }
 
   const [selectedAddSymbol, setSelectedAddSymbol] = useState("");
+  const [prevAddSymbol, setPrevAddSymbol] = useState("");
   const [addQty, setAddQty] = useState("10");
   const [addCost, setAddCost] = useState("");
   const [addWeight, setAddWeight] = useState("20");
 
-  // Confirm delete holding state
-  const [holdingToDelete, setHoldingToDelete] = useState<BasketHolding | null>(null);
-
-  // Keep cost in sync when selecting a company if cost wasn't manually set
-  useEffect(() => {
+  // Keep cost in sync when selecting a company
+  if (selectedAddSymbol !== prevAddSymbol) {
+    setPrevAddSymbol(selectedAddSymbol);
     if (selectedAddSymbol) {
       const co = companies.find((c) => c.symbol.toUpperCase() === selectedAddSymbol.toUpperCase());
-      if (co && !addCost) {
+      if (co) {
         setAddCost(co.price.toString());
       }
     }
-  }, [companies, selectedAddSymbol, addCost]);
+  }
+
+  // Confirm delete holding state
+  const [holdingToDelete, setHoldingToDelete] = useState<BasketHolding | null>(null);
 
   const handleSelectCompany = (co: Company) => {
     setSelectedAddSymbol(co.symbol);
@@ -315,7 +320,7 @@ export default function EditBasketModal({
                   title="Tüm varlıkların hedef yüzdelerini oransal olarak %100'e dengeler"
                 >
                   <Scale className="w-3.5 h-3.5" />
-                  <span>Hedefleri %100'e Normalize Et</span>
+                  <span>Hedefleri %100&apos;e Normalize Et</span>
                 </button>
               )}
             </div>

@@ -40,15 +40,44 @@ async function handleDailyCron(req: Request) {
       if (dbSettings?.user_name) userName = dbSettings.user_name;
     }
 
-    const totalVal = baskets.reduce((sum, b: any) => sum + (b.total_value || b.totalValue || 0), 0) || 500000;
-    const totalCost = baskets.reduce((sum, b: any) => sum + (b.total_cost || b.totalCost || 0), 0) || 450000;
+    const totalVal = (baskets as any[]).reduce((sum, b) => sum + (b.total_value || b.totalValue || 0), 0) || 500000;
+    const totalCost = (baskets as any[]).reduce((sum, b) => sum + (b.total_cost || b.totalCost || 0), 0) || 450000;
+
+    // Calculate dynamic weighted daily change and holdingsSummary
+    const holdingsMap = new Map<string, { symbol: string; dailyChange: number; weight: number }>();
+    let weightedChangeSum = 0;
+    for (const b of (baskets as any[])) {
+      const bHoldings = b.basket_holdings || b.holdings || [];
+      const bVal = b.total_value || b.totalValue || 0;
+      for (const h of bHoldings) {
+        const sym = h.company_symbol || h.companySymbol;
+        const weightPct = h.weight_percent || h.weightPercent || 0;
+        const co = (companies as any[]).find((c) => c.symbol === sym);
+        const dailyChange = co?.daily_change ?? co?.dailyChange ?? 0;
+        const effectiveWeight = weightPct * (bVal / (totalVal || 1));
+        weightedChangeSum += dailyChange * (weightPct / 100) * (bVal / (totalVal || 1));
+
+        const existing = holdingsMap.get(sym);
+        if (existing) {
+          existing.weight += effectiveWeight;
+        } else {
+          holdingsMap.set(sym, {
+            symbol: sym,
+            dailyChange,
+            weight: effectiveWeight,
+          });
+        }
+      }
+    }
 
     const briefing = await generateDailyBriefing({
       userName,
       totalValue: totalVal,
       totalProfit: totalVal - totalCost,
-      dailyChangePct: 1.45,
+      dailyChangePct: parseFloat(weightedChangeSum.toFixed(2)),
+      bistDailyChangePct: 1.42,
       basketsCount: baskets.length,
+      holdingsSummary: Array.from(holdingsMap.values()),
     });
 
     // Save generated briefing to ai_history if database is connected

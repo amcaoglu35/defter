@@ -1,15 +1,9 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
-  Sparkles,
   X,
   Send,
-  Bot,
-  User,
-  Shield,
-  Lightbulb,
-  ArrowRight,
 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import { ChatMessage } from "@/lib/aiService";
@@ -52,97 +46,111 @@ export default function OrakulChatModal({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
-  if (!isOpen) return null;
+  const handleSendMessage = useCallback(
+    async (textToSend?: string) => {
+      const query = textToSend || input.trim();
+      if (!query || loading) return;
 
-  const handleSendMessage = async (textToSend?: string) => {
-    const query = textToSend || input.trim();
-    if (!query || loading) return;
+      const newMessages: ChatMessage[] = [
+        ...messages,
+        { role: "user", content: query },
+      ];
+      setMessages(newMessages);
+      setInput("");
+      setLoading(true);
 
-    const newMessages: ChatMessage[] = [
-      ...messages,
-      { role: "user", content: query },
-    ];
-    setMessages(newMessages);
-    setInput("");
-    setLoading(true);
-
-    try {
-      const res = await fetch("/api/orakul", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "chat",
-          provider: aiProvider,
-          model: geminiModel,
-          messages: newMessages,
-          context: {
-            totalBaskets: baskets.length,
-            accuracyStats: aiAccuracyStats,
-            pastPredictionsCount: aiHistory.length,
-            companiesSummary: companies.map((c) => ({
-              symbol: c.symbol,
-              price: c.price,
-              rec: c.recommendation,
-              pe: c.peRatio,
-            })),
-            baskets: baskets.map((b) => ({
-              name: b.name,
-              value: b.totalValue,
-              profit: b.totalProfitPercent,
-              holdings: b.holdings.map((h) => `${h.companySymbol} (%${h.weightPercent})`),
-            })),
-          },
-          history: aiHistory,
-        }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const replyText = data.reply || "Analiz tamamlandı.";
-        setMessages([
-          ...newMessages,
-          { role: "assistant", content: replyText },
-        ]);
-
-        // Save conversation summary to aiHistory for persistence & history tab
-        addAiHistory({
-          id: `ai-chat-${Date.now()}`,
-          date: new Date().toLocaleDateString("tr-TR"),
-          type: "Sohbet Analizi",
-          title: `Soru: ${query.slice(0, 45)}${query.length > 45 ? "..." : ""}`,
-          description: replyText,
-          verdictTag: "DENGELİ",
-          verdict: "DENGELİ",
-          targetPeriodDays: 30,
+      try {
+        const res = await fetch("/api/orakul", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "chat",
+            provider: aiProvider,
+            model: geminiModel,
+            messages: newMessages,
+            context: {
+              totalBaskets: baskets.length,
+              accuracyStats: aiAccuracyStats,
+              pastPredictionsCount: aiHistory.length,
+              companiesSummary: companies.map((c) => ({
+                symbol: c.symbol,
+                price: c.price,
+                rec: c.recommendation,
+                pe: c.peRatio,
+              })),
+              baskets: baskets.map((b) => ({
+                name: b.name,
+                value: b.totalValue,
+                profit: b.totalProfitPercent,
+                holdings: b.holdings.map((h) => `${h.companySymbol} (%${h.weightPercent})`),
+              })),
+            },
+            history: aiHistory,
+          }),
         });
-      } else {
+
+        if (res.ok) {
+          const data = await res.json();
+          const replyText = data.reply || "Analiz tamamlandı.";
+          setMessages([
+            ...newMessages,
+            { role: "assistant", content: replyText },
+          ]);
+
+          // Save conversation summary to aiHistory for persistence & history tab
+          addAiHistory({
+            id: `ai-chat-${Date.now()}`,
+            date: new Date().toLocaleDateString("tr-TR"),
+            type: "Sohbet Analizi",
+            title: `Soru: ${query.slice(0, 45)}${query.length > 45 ? "..." : ""}`,
+            description: replyText,
+            verdictTag: "DENGELİ",
+            verdict: "DENGELİ",
+            targetPeriodDays: 30,
+          });
+        } else {
+          setMessages([
+            ...newMessages,
+            {
+              role: "assistant",
+              content: "Orakul yanıt üretirken bir sorunla karşılaştı.",
+            },
+          ]);
+        }
+      } catch {
         setMessages([
           ...newMessages,
           {
             role: "assistant",
-            content: "Orakul yanıt üretirken bir sorunla karşılaştı.",
+            content:
+              "Bağlantı hatası oluştu, yerel mantık motoru devrede: Portföyün genel olarak dengeli ve likiditesi yüksek.",
           },
         ]);
+      } finally {
+        setLoading(false);
       }
-    } catch (e) {
-      setMessages([
-        ...newMessages,
-        {
-          role: "assistant",
-          content:
-            "Bağlantı hatası oluştu, yerel mantık motoru devrede: Portföyün genel olarak dengeli ve likiditesi yüksek.",
-        },
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    [
+      input,
+      loading,
+      messages,
+      aiProvider,
+      geminiModel,
+      baskets,
+      aiAccuracyStats,
+      aiHistory,
+      companies,
+      addAiHistory,
+    ]
+  );
 
   const quickQuestions = [
     "En yüksek temettü potansiyeli olan hisselerim hangileri?",
     "Faiz indiriminden hangi sepetim daha çok faydalanır?",
     "Portföyümün risk seviyesi ve çeşitlendirmesi nasıl?",
   ];
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">

@@ -5,7 +5,25 @@ import { verifySessionToken, getMasterPassword, SESSION_COOKIE_NAME } from "@/li
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Protect all /api routes except /api/auth
+  // 1. Cron routes (/api/cron/*) - Authenticated via Bearer CRON_SECRET (Vercel Cron / Cloud Schedulers)
+  if (pathname.startsWith("/api/cron/")) {
+    const cronSecret = process.env.CRON_SECRET;
+    if (cronSecret && cronSecret.trim().length > 0) {
+      const authHeader = req.headers.get("authorization");
+      if (authHeader !== `Bearer ${cronSecret}`) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Yetkisiz erişim (Geçersiz CRON_SECRET).",
+          },
+          { status: 401 }
+        );
+      }
+    }
+    return NextResponse.next();
+  }
+
+  // 2. Protect all other /api routes except /api/auth
   if (pathname.startsWith("/api/") && !pathname.startsWith("/api/auth")) {
     const masterPassword = getMasterPassword();
     const sessionCookie = req.cookies.get(SESSION_COOKIE_NAME)?.value;

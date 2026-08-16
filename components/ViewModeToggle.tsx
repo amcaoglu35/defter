@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useSyncExternalStore } from "react";
 import { Smartphone, Monitor, ZoomIn, Check, SlidersHorizontal } from "lucide-react";
 import { useToast } from "./ToastProvider";
 
@@ -38,10 +38,49 @@ const PRESETS: ScalePreset[] = [
   },
 ];
 
+const subscribe = () => () => {};
+
+function applyDomZoom(zoomPercent: number) {
+  const zoomValue = `${zoomPercent}%`;
+  const baseFontSize = (16 * (zoomPercent / 100)).toFixed(1);
+
+  // 1. Set root font size
+  document.documentElement.style.fontSize = zoomPercent === 100 ? "" : `${baseFontSize}px`;
+  
+  // 2. Set data attributes for global responsive CSS
+  document.documentElement.setAttribute("data-view-zoom", zoomValue);
+  if (zoomPercent < 100) {
+    document.documentElement.setAttribute("data-compact", "true");
+  } else {
+    document.documentElement.removeAttribute("data-compact");
+  }
+
+  // 3. Set standard CSS zoom if supported
+  document.documentElement.style.zoom = zoomPercent === 100 ? "" : `${zoomPercent / 100}`;
+}
+
 export default function ViewModeToggle() {
-  const [currentZoom, setCurrentZoom] = useState<number>(100);
+  const mounted = useSyncExternalStore(
+    subscribe,
+    () => true,
+    () => false
+  );
+
+  const [currentZoom, setCurrentZoom] = useState<number>(() => {
+    if (typeof window === "undefined") return 100;
+    try {
+      const saved = localStorage.getItem("defter_view_zoom");
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        if (!isNaN(parsed) && parsed >= 70 && parsed <= 150) {
+          return parsed;
+        }
+      }
+    } catch {}
+    return 100;
+  });
+
   const [isOpen, setIsOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { showToast } = useToast();
 
@@ -49,23 +88,7 @@ export default function ViewModeToggle() {
     setCurrentZoom(zoomPercent);
     try {
       localStorage.setItem("defter_view_zoom", zoomPercent.toString());
-      
-      const zoomValue = `${zoomPercent}%`;
-      const baseFontSize = (16 * (zoomPercent / 100)).toFixed(1);
-
-      // 1. Set root font size (instantly reflows all rem units on iOS Safari and Android Chrome)
-      document.documentElement.style.fontSize = zoomPercent === 100 ? "" : `${baseFontSize}px`;
-      
-      // 2. Set data attributes for global responsive CSS
-      document.documentElement.setAttribute("data-view-zoom", zoomValue);
-      if (zoomPercent < 100) {
-        document.documentElement.setAttribute("data-compact", "true");
-      } else {
-        document.documentElement.removeAttribute("data-compact");
-      }
-
-      // 3. Set standard CSS zoom if supported by engine
-      document.documentElement.style.zoom = zoomPercent === 100 ? "" : `${zoomPercent / 100}`;
+      applyDomZoom(zoomPercent);
       
       if (showFeedback) {
         showToast(
@@ -80,14 +103,12 @@ export default function ViewModeToggle() {
   };
 
   useEffect(() => {
-    setMounted(true);
     try {
       const saved = localStorage.getItem("defter_view_zoom");
       if (saved) {
         const parsed = parseInt(saved, 10);
         if (!isNaN(parsed) && parsed >= 70 && parsed <= 150) {
-          applyZoom(parsed, false);
-          return;
+          applyDomZoom(parsed);
         }
       }
     } catch (e) {

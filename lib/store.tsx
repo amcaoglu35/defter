@@ -52,6 +52,67 @@ export interface UserSettings {
   dividendAlerts: boolean;
   oracleAlerts: boolean;
   orakulPersona?: "temkinli" | "cesur" | "deger";
+  commissionRate?: number; // Onbinde veya yüzde cinsinden işlem komisyonu (Örn: 0.15 => %0.15)
+  bsmvRate?: number; // Komisyon üzerinden BSMV oranı (Örn: 5 => %5)
+}
+
+export interface TriggeredAlert {
+  id: string;
+  symbol: string;
+  targetPrice: number;
+  triggeredPrice: number;
+  triggeredAt: string;
+  condition: "ABOVE" | "BELOW";
+}
+
+export interface NetReturnMetrics {
+  grossCost: number;
+  grossValue: number;
+  grossProfit: number;
+  grossProfitPercent: number;
+  estimatedBuyCommission: number;
+  estimatedSellCommission: number;
+  totalCommissionAndTaxes: number;
+  netProfit: number;
+  netProfitPercent: number;
+  commissionRateUsed: number;
+}
+
+export function calculateNetPositionMetrics(
+  quantity: number,
+  avgCost: number,
+  currentPrice: number,
+  commissionRate: number = 0.15,
+  bsmvRate: number = 5
+): NetReturnMetrics {
+  const grossCost = quantity * avgCost;
+  const grossValue = quantity * currentPrice;
+  const grossProfit = grossValue - grossCost;
+  const grossProfitPercent = grossCost > 0 ? (grossProfit / grossCost) * 100 : 0;
+
+  // Effective commission rate multiplier including BSMV
+  const taxMultiplier = 1 + (bsmvRate || 0) / 100;
+  const rateFactor = ((commissionRate || 0) / 100) * taxMultiplier;
+
+  const estimatedBuyCommission = grossCost * rateFactor;
+  const estimatedSellCommission = grossValue * rateFactor;
+  const totalCommissionAndTaxes = estimatedBuyCommission + estimatedSellCommission;
+
+  const netProfit = grossProfit - totalCommissionAndTaxes;
+  const netProfitPercent = grossCost > 0 ? (netProfit / grossCost) * 100 : 0;
+
+  return {
+    grossCost: parseFloat(grossCost.toFixed(2)),
+    grossValue: parseFloat(grossValue.toFixed(2)),
+    grossProfit: parseFloat(grossProfit.toFixed(2)),
+    grossProfitPercent: parseFloat(grossProfitPercent.toFixed(2)),
+    estimatedBuyCommission: parseFloat(estimatedBuyCommission.toFixed(2)),
+    estimatedSellCommission: parseFloat(estimatedSellCommission.toFixed(2)),
+    totalCommissionAndTaxes: parseFloat(totalCommissionAndTaxes.toFixed(2)),
+    netProfit: parseFloat(netProfit.toFixed(2)),
+    netProfitPercent: parseFloat(netProfitPercent.toFixed(2)),
+    commissionRateUsed: commissionRate,
+  };
 }
 
 export interface AiAccuracyStats {
@@ -128,9 +189,8 @@ interface DefterStoreContextType {
   evaluateAiOutcomes: (freshCompanies?: Company[]) => void;
   aiAccuracyStats: AiAccuracyStats;
   aiProvider: string;
-  aiApiKey: string;
   geminiModel: string;
-  setAiSettings: (provider: string, apiKey?: string, model?: string) => void;
+  setAiSettings: (provider: string, model?: string) => void;
 
   // Live Market Sync & Indices
   indices: Record<string, MarketIndexData>;
@@ -141,15 +201,19 @@ interface DefterStoreContextType {
   setUpdateInterval: (interval: string) => void;
   usdRate: number;
 
-  // Notifications
+  // Notifications & Alerts
   notifications: NotificationItem[];
   addNotification: (item: NotificationItem) => void;
   markAllNotificationsRead: () => void;
   markNotificationRead: (id: string) => void;
+  triggeredAlerts: TriggeredAlert[];
+  clearTriggeredAlerts: (symbol?: string) => void;
 
   // Utilities & Cloud
   isLoaded: boolean;
   isCloudConnected: boolean;
+  isPrivacyMode: boolean;
+  togglePrivacyMode: () => void;
   syncWithSupabase: () => Promise<void>;
   resetToDefaultData: () => void;
   exportStoreAsJson: () => string;
@@ -165,6 +229,8 @@ const STORAGE_KEYS = {
   IPOS: "defter_ipos_v2",
   AI_HISTORY: "defter_ai_history_v2",
   NOTIFICATIONS: "defter_notifications_v2",
+  TRIGGERED_ALERTS: "defter_triggered_alerts_v2",
+  GEMINI_MODEL: "defter_gemini_model",
   AI_PROVIDER: "defter_ai_provider",
   UPDATE_INTERVAL: "defter_update_interval",
   INDICES: "defter_indices_v2",
@@ -179,6 +245,8 @@ const DEFAULT_USER_SETTINGS: UserSettings = {
   dividendAlerts: true,
   oracleAlerts: true,
   orakulPersona: "deger",
+  commissionRate: 0.15,
+  bsmvRate: 5,
 };
 
 const DEFAULT_INDICES: Record<string, MarketIndexData> = {
@@ -349,16 +417,34 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [ipos, setIpos] = useState<IpoItem[]>([]);
   const [aiHistory, setAiHistory] = useState<AiHistoryItem[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [triggeredAlerts, setTriggeredAlerts] = useState<TriggeredAlert[]>([]);
   const [indices, setIndices] = useState<Record<string, MarketIndexData>>(DEFAULT_INDICES);
   const [userSettings, setUserSettings] = useState<UserSettings>(DEFAULT_USER_SETTINGS);
   const [lastSyncTime, setLastSyncTime] = useState<string>("Şimdi");
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [usdRate, setUsdRate] = useState<number>(36.45);
   const [aiProvider, setAiProvider] = useState<string>("gemini");
-  const [aiApiKey, setAiApiKey] = useState<string>("");
   const [geminiModel, setGeminiModel] = useState<string>("gemini-1.5-flash");
   const [isServerCloudConnected, setIsServerCloudConnected] = useState<boolean>(false);
   const [updateInterval, setUpdateIntervalState] = useState<string>("manual");
+  const [isPrivacyMode, setIsPrivacyMode] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("defter_privacy_mode") === "true";
+    }
+    return false;
+  });
+
+  const togglePrivacyMode = useCallback(() => {
+    setIsPrivacyMode((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("defter_privacy_mode", next.toString());
+      } catch (e) {
+        console.warn("[Privacy] Storage error:", e);
+      }
+      return next;
+    });
+  }, []);
 
   const updateUserSettings = useCallback((partial: Partial<UserSettings>) => {
     setUserSettings((prev) => {
@@ -586,9 +672,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           } catch {}
         }
         if (storedNotif) setNotifications(JSON.parse(storedNotif));
+        const storedTrigAlerts = localStorage.getItem(STORAGE_KEYS.TRIGGERED_ALERTS);
+        if (storedTrigAlerts) {
+          try {
+            setTriggeredAlerts(JSON.parse(storedTrigAlerts));
+          } catch {}
+        }
         if (storedProvider) setAiProvider(storedProvider);
-        const storedApiKey = localStorage.getItem("defter_ai_api_key");
-        if (storedApiKey) setAiApiKey(storedApiKey);
+        try {
+          localStorage.removeItem("defter_ai_api_key");
+        } catch {}
         const storedModel = localStorage.getItem("defter_gemini_model");
         if (storedModel) setGeminiModel(storedModel);
         if (storedInterval) setUpdateIntervalState(storedInterval);
@@ -609,6 +702,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         setIsLoaded(true);
       }
     });
+  }, [syncWithSupabase]);
+
+  // 1b. Listen for authentication event to re-sync if authenticated after mount
+  useEffect(() => {
+    const handleAuthSuccess = () => {
+      if (isSupabaseConfigured) {
+        syncWithSupabase();
+      }
+    };
+    if (typeof window !== "undefined") {
+      window.addEventListener("defter_auth_success", handleAuthSuccess);
+      return () => window.removeEventListener("defter_auth_success", handleAuthSuccess);
+    }
   }, [syncWithSupabase]);
 
   // 2. Sync to LocalStorage (Always active as an instant client cache layer)
@@ -936,6 +1042,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                       relatedCompanySymbol: alert.symbol,
                     };
                     setNotifications((prev) => [notif, ...prev]);
+
+                    const trigRecord: TriggeredAlert = {
+                      id: `trig-${Date.now()}-${alert.symbol}`,
+                      symbol: alert.symbol,
+                      targetPrice: alert.targetPrice,
+                      triggeredPrice: Number(curPrice.toFixed(2)),
+                      triggeredAt: new Date().toLocaleDateString("tr-TR") + " " + new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
+                      condition: alert.condition,
+                    };
+                    setTriggeredAlerts((prevTrig) => {
+                      const updated = [trigRecord, ...prevTrig].slice(0, 50);
+                      try {
+                        localStorage.setItem(STORAGE_KEYS.TRIGGERED_ALERTS, JSON.stringify(updated));
+                      } catch {}
+                      return updated;
+                    });
+
                     return { ...alert, active: false };
                   }
                   return alert;
@@ -1523,14 +1646,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return addedCount;
   }, [ipos, companies, syncIpoToLedger]);
 
-  const setAiSettings = (provider: string, apiKey?: string, model?: string) => {
+  const setAiSettings = (provider: string, model?: string) => {
     setAiProvider(provider);
-    if (apiKey !== undefined) {
-      setAiApiKey(apiKey);
-      try {
-        localStorage.setItem("defter_ai_api_key", apiKey);
-      } catch {}
-    }
+    try {
+      localStorage.setItem("defter_ai_provider", provider);
+    } catch {}
     if (model !== undefined) {
       setGeminiModel(model);
       try {
@@ -1605,6 +1725,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return JSON.stringify(payload, null, 2);
   };
 
+  const clearTriggeredAlerts = useCallback((symbol?: string) => {
+    setTriggeredAlerts((prev) => {
+      const updated = symbol ? prev.filter((a) => a.symbol.toUpperCase() !== symbol.toUpperCase()) : [];
+      try {
+        localStorage.setItem(STORAGE_KEYS.TRIGGERED_ALERTS, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  }, []);
+
   return (
     <DefterStoreContext.Provider
       value={{
@@ -1643,7 +1773,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         evaluateAiOutcomes,
         aiAccuracyStats,
         aiProvider,
-        aiApiKey,
         geminiModel,
         setAiSettings,
         indices,
@@ -1657,6 +1786,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         addNotification,
         markAllNotificationsRead,
         markNotificationRead,
+        triggeredAlerts,
+        clearTriggeredAlerts,
+        isPrivacyMode,
+        togglePrivacyMode,
         isCloudConnected: isSupabaseConfigured && isServerCloudConnected,
         syncWithSupabase,
         resetToDefaultData,

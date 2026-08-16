@@ -1,4 +1,5 @@
 import { AiHistoryItem } from "./mockData";
+import { getSymbolTicker } from "./liveSymbols";
 
 export interface AiRecipeRequest {
   goal: string;
@@ -18,6 +19,7 @@ export interface CompanyAnalysisRequest {
   dailyChange: number;
   sector: string;
   exchange?: string;
+  indexTag?: string;
   dividendYield?: number;
   marketCap?: string;
 }
@@ -94,21 +96,22 @@ export function stripJsonFences(text: string): string {
 
 export interface CompanyDiagnosisReport {
   symbol: string;
-  valuationScore: string;
-  fairValue: number;
-  targetPrice12M: number;
-  upsidePotential: string;
-  piotroskiScore: number; // 0-9
-  altmanZScore: string;
-  dupontRoe: string;
-  peVsSector: string;
+  valuationScore?: string;
+  fairValue?: number;
+  targetPrice12M?: number;
+  upsidePotential?: string;
+  piotroskiScore?: number; // 0-9
+  altmanZScore?: string;
+  dupontRoe?: string;
+  peVsSector?: string;
   whyMoved: string;
   pros: string[];
   risks: string[];
   verdict: "GÜÇLÜ AL" | "AL" | "TUT" | "SAT" | "GÜÇLÜ SAT" | "NÖTR" | "DENGELİ" | "YÜKSEK RİSK";
-  confidence: string;
+  confidence?: string;
   pastFeedbackSummary?: string;
   evidenceChain?: string[];
+  isFallbackMode?: boolean;
 }
 
 /**
@@ -262,117 +265,48 @@ ${feedbackContext}
     }
   }
 
-  // Institutional Quantitative Mathematical Engine (Offline Fallback)
-  let fairValFactor = 1.32;
-  let targetValFactor = 1.45;
-  let pScore = 8;
-  let zScore = "3.24 (Güvenli Finansal Yapı)";
-  let dRoe = "%31.5 (Sağlıklı Operasyonel Kâr)";
-  let pDisc = "%28 Sektör İskontosu";
-  let vScore = "9.1 / 10";
-  let verdict: "GÜÇLÜ AL" | "AL" | "TUT" | "SAT" | "GÜÇLÜ SAT" = "AL";
-  let confidence = "%90";
-  let why = `Operasyonel kârlılık marjları, ihracat performansı ve güçlü nakit akışları ${symbol} hissesini değerleme modellerimizde öne çıkarmaktadır.`;
-  let prosList = [
-    "Sektör medyanına göre cazip fiyat/kazanç ve serbest nakit akımı çarpanları",
-    "İhracat ve döviz bazlı gelirler sayesinde kur şoklarına karşı direnç",
-    "Sürdürülebilir kâr marjı ve yüksek özsermaye kârlılığı",
-    "Genişleyen pazar payı ve sağlam bakiye sipariş defteri",
-  ];
-  let risksList = [
-    "Makroekonomik faiz ortamındaki sıkılaşma ve finansman maliyetleri",
-    "Küresel hammadde, lojistik ve enerji girdi fiyatlarındaki oynaklık",
-    "Dönemsel talep daralması ve tüketici güven endeksi dalgalanmaları",
-  ];
+  // Authentic Quantitative Fallback Engine (No Fake DCF, No Fake Piotroski/Altman/DuPont)
+  let pDisc = "Sektör Çarpanları Dahilinde";
+  let verdict: "GÜÇLÜ AL" | "AL" | "TUT" | "SAT" | "GÜÇLÜ SAT" | "NÖTR" | "DENGELİ" | "YÜKSEK RİSK" = "DENGELİ";
 
-  if (symbol === "THYAO") {
-    fairValFactor = 1.36;
-    targetValFactor = 1.48;
-    pScore = 9;
-    zScore = "3.85 (Mükemmel Bilanço Dayanıklılığı)";
-    dRoe = "%38.2 (Yüksek Varlık Devir Hızı & %21 Net Marj)";
-    pDisc = "%36 Sektör İskontosu (4.8x F/K)";
-    vScore = "9.6 / 10";
-    verdict = "GÜÇLÜ AL";
-    confidence = "%94";
-    why = "Rekor yolcu doluluk oranları, küresel kargo pazar payındaki büyüme ve 4.8x F/K ile global havayolu çarpanlarının %36 altında işlem görmesi hissede derin iskonto yaratıyor. Döviz bazlı net nakit akışı şirketin filo genişleme yatırımlarını borçlanmadan finanse etmesini sağlıyor.";
-    prosList = [
-      "4.8x F/K ile küresel hava taşımacılığı medyanının (%36) altında derin iskonto",
-      "Yıllık 1.8 Milyar $ serbest nakit yaratımı ve döviz gelir kalkanı",
-      "Yeni kıtalararası uçuş hatları ve kargo segmentindeki küresel pazar kazanımı",
-      "Düşük net borç/FAVÖK oranı (0.7x) ile güçlü finansal esneklik",
-    ];
-    risksList = [
-      "Küresel jet yakıtı (Brent) fiyatlarında olası jeopolitik sıçramalar",
-      "Bölgesel hava sahası kısıtlamaları ve jeopolitik gerginlikler",
-    ];
-  } else if (symbol === "FROTO") {
-    fairValFactor = 1.28;
-    targetValFactor = 1.40;
-    pScore = 8;
-    zScore = "3.42 (Güvenli Bölge)";
-    dRoe = "%42.8 (Yüksek Sermaye Verimliliği)";
-    pDisc = "%22 İskonto";
-    vScore = "9.2 / 10";
-    verdict = "AL";
-    confidence = "%91";
-    why = "Craiova fabrikasında devreye giren yeni elektrikli ticari araç üretim bantları ve Ford Avrupa'nın tek yetkili üretim üssü olma konumu ihracat adetlerini artırıyor. Düzenli temettü dağıtımı ve maliyet avantajı sağlayan modern üretim hatları hissenin savunma gücünü destekliyor.";
-    prosList = [
-      "Yüksek ve kesintisiz temettü verimi geleneği (%5.5+ düzenli temettü)",
-      "Ford Avrupa'nın ana üretim ve Ar-Ge mühendislik üssü imtiyazı",
-      "Elektrikli Courier ve Custom modelleriyle Avrupa pazar payı artışı",
-      "Uzun vadeli 'al ya da öde' sözleşmeleriyle garanti edilmiş nakit akışı",
-    ];
-    risksList = [
-      "Avrupa Birliği otomotiv pazarındaki faiz kaynaklı talep yavaşlaması",
-      "Sınırda karbon düzenlemesi ve gümrük regülasyonları",
-    ];
-  } else if (symbol === "ASELS") {
-    fairValFactor = 1.30;
-    targetValFactor = 1.42;
-    pScore = 8;
-    zScore = "3.60 (Güçlü Devlet Desteği & Nakit Gücü)";
-    dRoe = "%29.4 (Yüksek Katma Değerli Ar-Ge Kârlılığı)";
-    pDisc = "%25 İskonto";
-    vScore = "9.0 / 10";
-    verdict = "AL";
-    confidence = "%92";
-    why = "12 Milyar Doları aşan bakiye sipariş portföyü (Backlog) ve ihracat sözleşmelerindeki %45 artış şirketin önümüzdeki 4 yıllık cirosunu şimdiden garanti altına almıştır. Yerli hava savunma sistemleri, AESA radarları ve elektronik harp teslimatları kâr marjını yukarı taşımaktadır.";
-    prosList = [
-      "12 Milyar Doları aşan rekor bakiye sipariş defteri",
-      "Yüksek katma değerli yerli mikroçip, elektro-optik ve radar teknolojileri",
-      "Körfez ve Asya ülkelerine artan yüksek kârlı ihracat teslimatları",
-      "Devlet garantili stratejik savunma projeleri ve Ar-Ge teşvikleri",
-    ];
-    risksList = [
-      "Kamu ödeme vadelerindeki uzama ve işletme sermayesi döngüsü",
-      "Kritik hammadde ve yabancı komponent tedarik kısıtlamaları",
-    ];
-  } else if (symbol.includes("ALTIN")) {
-    fairValFactor = 1.25;
-    targetValFactor = 1.38;
-    pScore = 9;
-    zScore = "5.00 (Sıfır Kredi Riski / Mutlak Rezerv)";
-    dRoe = "%28.0 (Enflasyon Üzeri Reel Koruma)";
-    pDisc = "Adil Değer";
-    vScore = "9.4 / 10";
-    verdict = "GÜÇLÜ AL";
-    confidence = "%95";
-    why = "Küresel merkez bankalarının net altın alımlarını rekor seviyelere çıkarması ve küresel faiz indirim döngüsü ons ve gram altın fiyatlarını desteklemektedir. Jeopolitik belirsizlik ve de-dolarizasyon trendinde risksiz mutlak rezerv varlığıdır.";
-    prosList = [
-      "Enflasyon, devalüasyon ve kur şoklarına karşı risksiz anapara kalkanı",
-      "Sıfır temerrüt ve karşı taraf riski taşıyan en likit rezerv varlık",
-      "Küresel merkez bankalarının kesintisiz net altın alım talebi",
-    ];
-    risksList = [
-      "Küresel faizlerin beklenenden uzun süre yüksek kalması durumu",
-      "Kısa vadeli teknik kâr realizasyonları",
-    ];
+  if (company.peRatio && company.peRatio > 0) {
+    if (company.peRatio < 6.0) {
+      pDisc = `Sektör Altı İskontolu Çarpan (${company.peRatio} F/K)`;
+      verdict = "AL";
+    } else if (company.peRatio <= 14.0) {
+      pDisc = `Dengeli Değerleme (${company.peRatio} F/K)`;
+      verdict = "DENGELİ";
+    } else if (company.peRatio <= 28.0) {
+      pDisc = `Büyüme Primli Çarpan (${company.peRatio} F/K)`;
+      verdict = "TUT";
+    } else {
+      pDisc = `Yüksek Çarpan Seviyesi (${company.peRatio} F/K)`;
+      verdict = "TUT";
+    }
+  } else {
+    pDisc = "F/K Çarpanı Bulunmuyor";
+    verdict = "NÖTR";
   }
 
-  const calcFairValue = parseFloat((price * fairValFactor).toFixed(2));
-  const calcTarget = parseFloat((price * targetValFactor).toFixed(2));
-  const calcUpside = `+${(((calcTarget - price) / price) * 100).toFixed(1)}%`;
+  const why = `${company.name} (${symbol}), ${company.sector || "Genel"} sektöründe ${company.price} ${company.currency || "₺"} güncel fiyat seviyesinde işlem görmektedir. Kütük kayıtlarında ${company.peRatio ? `${company.peRatio} F/K ve ` : ""}${company.pbRatio ? `${company.pbRatio} PD/DD` : "temel"} çarpanları izlenmektedir. ${company.dividendYield ? `Yıllık %${company.dividendYield} temettü verimi sunmaktadır.` : "Temettü dağıtım kaydı bulunmamaktadır."}`;
+
+  const prosList = [
+    company.dividendYield && company.dividendYield > 0
+      ? `Yıllık %${company.dividendYield} seviyesinde düzenli nakit temettü verimi`
+      : `${company.sector || "Sektör"} dinamikleri dahilinde aktif piyasa varlığı`,
+    company.peRatio && company.peRatio < 10
+      ? `Tek haneli (${company.peRatio}x) F/K çarpanı ile iskontolu değerleme alanı`
+      : "Kütükte işlem gören likit piyasa hacmi",
+    company.pbRatio && company.pbRatio < 2.5
+      ? `${company.pbRatio}x PD/DD ile dengeli özkaynak çarpanı`
+      : "Kurumsal kütük katsayıları takibinde",
+  ];
+
+  const risksList = [
+    "Makroekonomik faiz ortamındaki sıkılaşma ve finansman maliyetleri",
+    "Sektörel girdi maliyetleri ve döviz kuru oynaklığı",
+    "Piyasa geneli volatilite ve dönemsel kâr realizasyonları",
+  ];
 
   let pastFeedbackSummary = "";
   if (symbolPastHistory.length > 0) {
@@ -383,30 +317,31 @@ ${feedbackContext}
   }
 
   const evidenceChain = [
-    `① Çarpan Analizi: F/K (${pe}) ve PD/DD (${pb}) rasyoları ${pDisc} seviyesinde`,
-    `② Bilanço Gücü: Piotroski F-Skoru ${pScore}/9 ile kârlılık ve operasyonel kalite teyitli`,
-    `③ İflas & Temerrüt Kalkanı: Altman Z-Skoru ${zScore}`,
-    `④ Sermaye Verimliliği: DuPont ROE ${dRoe}`,
-    `⑤ Nihai Orakul Kararı: ${verdict} (${calcUpside} 12 Aylık Hedef Potansiyel)`,
+    `① Piyasa Fiyatı: ${company.price} ${company.currency || "₺"} (${company.dailyChange >= 0 ? "+" : ""}%${company.dailyChange})`,
+    `② Değerleme Çarpanları: ${company.peRatio ? `F/K: ${company.peRatio}` : "F/K: Kapsam Dışı"} | ${company.pbRatio ? `PD/DD: ${company.pbRatio}` : "PD/DD: Kapsam Dışı"}`,
+    `③ Temettü Durumu: ${company.dividendYield ? `%${company.dividendYield} Temettü Verimi` : "Temettü Dağıtımı Bulunmuyor"}`,
+    `④ Sektörel Sınıflandırma: ${company.sector || "Genel"}`,
+    `⑤ Kural Bazlı Teşhis Kararı: ${verdict} (${pDisc})`,
   ];
 
   return {
     symbol,
-    valuationScore: vScore,
-    fairValue: calcFairValue,
-    targetPrice12M: calcTarget,
-    upsidePotential: calcUpside,
-    piotroskiScore: pScore,
-    altmanZScore: zScore,
-    dupontRoe: dRoe,
+    valuationScore: undefined,
+    fairValue: undefined,
+    targetPrice12M: undefined,
+    upsidePotential: undefined,
+    piotroskiScore: undefined,
+    altmanZScore: undefined,
+    dupontRoe: undefined,
     peVsSector: pDisc,
     whyMoved: why,
     pros: prosList,
     risks: risksList,
     verdict,
-    confidence,
+    confidence: undefined,
     pastFeedbackSummary,
     evidenceChain,
+    isFallbackMode: true,
   };
 }
 
@@ -425,9 +360,31 @@ export async function generateOrakulRecipe(
   let pool = allCompanies.length > 0 ? [...allCompanies] : [];
   if (pool.length > 0) {
     if (req.universe.includes("BIST 30")) {
-      pool = pool.filter((c) => (c.exchange === "BIST" && (c.symbol === "THYAO" || c.symbol === "FROTO" || c.symbol === "ASELS" || c.symbol === "TUPRS" || c.symbol === "EREGL" || c.symbol === "BIMAS" || c.symbol === "KCHOL" || c.symbol === "SAHOL" || c.symbol === "AKBNK" || c.symbol === "GARAN" || c.symbol === "SISE" || c.symbol === "ENKAI" || c.symbol === "TOASO" || c.symbol === "MGROS" || c.symbol === "PGSUS" || c.symbol === "TCELL" || c.symbol === "ISCTR" || c.symbol === "YKBNK" || c.symbol === "VAKBN")) || c.exchange === "Emtia" || c.symbol.includes("ALTIN") || c.symbol.includes("GÜMÜŞ"));
+      pool = pool.filter(
+        (c) =>
+          c.indexTag === "BIST 30" ||
+          c.exchange === "Emtia" ||
+          c.symbol.includes("ALTIN") ||
+          c.symbol.includes("GÜMÜŞ")
+      );
+    } else if (req.universe.includes("BIST 100") || req.universe.includes("Tüm BIST")) {
+      pool = pool.filter(
+        (c) =>
+          c.exchange === "BIST" &&
+          (c.indexTag === "BIST 30" || c.indexTag === "BIST 100" || c.indexTag?.includes("BIST") || !c.indexTag)
+      );
     } else if (req.universe.includes("Kıymetli Maden")) {
-      pool = pool.filter((c) => c.exchange === "Emtia" || c.exchange === "Döviz" || c.symbol.includes("ALTIN") || c.symbol.includes("GÜMÜŞ") || c.symbol.includes("PLATIN") || c.symbol.includes("USD") || c.symbol.includes("EUR") || c.symbol === "BRENT");
+      pool = pool.filter(
+        (c) =>
+          c.exchange === "Emtia" ||
+          c.exchange === "Döviz" ||
+          c.symbol.includes("ALTIN") ||
+          c.symbol.includes("GÜMÜŞ") ||
+          c.symbol.includes("PLATIN") ||
+          c.symbol.includes("USD") ||
+          c.symbol.includes("EUR") ||
+          c.symbol === "BRENT"
+      );
     } else if (req.universe.includes("Küresel")) {
       pool = pool.filter((c) => c.exchange === "ABD" || c.exchange === "Avrupa" || c.exchange === "BIST");
     }
@@ -435,7 +392,39 @@ export async function generateOrakulRecipe(
 
   if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
     try {
-      const candidatesSample = pool.slice(0, 35).map((c) => `${c.symbol} (${c.name}, ${c.sector}, Fiyat: ${c.price} ₺, F/K: ${c.peRatio || "-"}, Temettü: %${c.dividendYield || 0})`).join("; ");
+      const goalLower = req.goal.toLowerCase();
+      // Prioritize and score candidates based on goal & risk to provide the most relevant top 35 candidates to LLM
+      const scoredCandidates = [...pool]
+        .map((c) => {
+          let relevance = Math.random() * 5;
+          const div = c.dividendYield || 0;
+          const pe = c.peRatio || 15;
+          const sec = (c.sector || "").toLowerCase();
+
+          if (goalLower.includes("temettü")) {
+            if (div > 5) relevance += 50;
+            else if (div > 2) relevance += 30;
+            else if (div > 0) relevance += 15;
+            if (pe > 0 && pe < 12) relevance += 20;
+          } else if (goalLower.includes("büyüme")) {
+            if (sec.includes("teknoloji") || sec.includes("savunma") || sec.includes("havacılık") || c.exchange === "ABD") relevance += 45;
+            if (c.dailyChange > 0) relevance += 15;
+          } else if (goalLower.includes("enflasyon") || goalLower.includes("kur") || req.universe.includes("Kıymetli Maden")) {
+            if (c.exchange === "Emtia" || c.symbol.includes("ALTIN") || c.symbol.includes("GÜMÜŞ") || c.exchange === "Döviz") relevance += 50;
+            if (sec.includes("havacılık") || sec.includes("holding") || sec.includes("cam")) relevance += 20;
+          } else {
+            if (div > 0) relevance += 15;
+            if (pe > 0 && pe < 15) relevance += 20;
+            if (sec.includes("holding") || sec.includes("perakende") || c.exchange === "Emtia") relevance += 25;
+          }
+          return { company: c, relevance };
+        })
+        .sort((a, b) => b.relevance - a.relevance);
+
+      const candidatesSample = (scoredCandidates.length > 0 ? scoredCandidates : pool.map((c) => ({ company: c, relevance: 0 })))
+        .slice(0, 35)
+        .map(({ company: c }) => `${c.symbol} (${c.name}, ${c.sector}, Fiyat: ${c.price} ₺, F/K: ${c.peRatio || "-"}, Temettü: %${c.dividendYield || 0}, Endeks: ${c.indexTag || c.exchange || "BIST"})`)
+        .join("; ");
 
       if (provider === "gemini") {
         const prompt = `Sen 'Orakul' adında elit bir Türk finans ve portföy optimizasyon yapay zekasısın.
@@ -477,7 +466,12 @@ Bu parametrelere ve aday şirketlere göre en optimal 4-5 varlıktan oluşan den
           const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
           if (rawText) {
             try {
-              return JSON.parse(stripJsonFences(rawText));
+              const parsed = JSON.parse(stripJsonFences(rawText));
+              return {
+                ...parsed,
+                isTemplate: false,
+                engine: "llm" as const,
+              };
             } catch (pErr) {
               console.warn(`[AI Service] JSON parse error in recipe (Gemini, len ${rawText.length}):`, pErr);
             }
@@ -512,7 +506,12 @@ Bu parametrelere ve aday şirketlere göre en optimal 4-5 varlıktan oluşan den
           const rawContent = data.choices?.[0]?.message?.content;
           if (rawContent) {
             try {
-              return JSON.parse(stripJsonFences(rawContent));
+              const parsed = JSON.parse(stripJsonFences(rawContent));
+              return {
+                ...parsed,
+                isTemplate: false,
+                engine: "llm" as const,
+              };
             } catch (pErr) {
               console.warn(`[AI Service] JSON parse error in recipe (OpenAI, len ${rawContent.length}):`, pErr);
             }
@@ -524,103 +523,141 @@ Bu parametrelere ve aday şirketlere göre en optimal 4-5 varlıktan oluşan den
     }
   }
 
-  // Sophisticated Dynamic Algorithmic Portfolio Optimizer
-  let allocation: Array<{ symbol: string; name: string; weight: number; note: string }> = [];
-  let yieldStr = "%28.5 Yıllık Hedef";
-  let health = 91;
-  let duration = "6-12 Ay";
-
+  // =========================================================================
+  // Sophisticated Dynamic Algorithmic Portfolio Optimizer (Kütük Tabanlı)
+  // Scans authentic companies & assets from user kütük + active universe pool
+  // =========================================================================
   const goalLower = req.goal.toLowerCase();
   const isConservative = req.risk.includes("Düşük");
   const isAggressive = req.risk.includes("Yüksek");
 
-  if (goalLower.includes("temettü")) {
-    if (isConservative) {
-      allocation = [
-        { symbol: "FROTO", name: "Ford Otomotiv", weight: 35, note: "Sektör lideri düzenli temettü ve ihracat nakit gücü" },
-        { symbol: "TUPRS", name: "Tüpraş Rafineri", weight: 30, note: "Yüksek rafineri marjları ve güçlü kâr dağıtım politikası" },
-        { symbol: "BIMAS", name: "BİM Mağazalar", weight: 20, note: "Enflasyona tam dirençli nakit akışı ve defansif kalkan" },
-        { symbol: "ALTIN/GR", name: "Gram Altın", weight: 15, note: "Piyasa türbülanslarına karşı reel getiri emniyeti" },
-      ];
-      yieldStr = "%8.4 Temettü + %22 Sermaye Kazancı";
-      health = 96;
-      duration = "12+ Ay";
+  // Default universe seeds if pool is minimal
+  const defaultSeeds: CompanyAnalysisRequest[] = [
+    { symbol: "THYAO", name: "Türk Hava Yolları", price: 310.0, sector: "Havacılık & Ulaştırma", exchange: "BIST", peRatio: 4.8, dividendYield: 0, dailyChange: 1.2 },
+    { symbol: "FROTO", name: "Ford Otomotiv", price: 1050.0, sector: "Otomotiv Sanayi", exchange: "BIST", peRatio: 9.2, dividendYield: 6.8, dailyChange: 0.5 },
+    { symbol: "TUPRS", name: "Tüpraş Rafineri", price: 168.0, sector: "Petrol & Enerji", exchange: "BIST", peRatio: 6.1, dividendYield: 9.4, dailyChange: -0.4 },
+    { symbol: "ASELS", name: "Aselsan Elektronik", price: 64.5, sector: "Savunma Sanayi", exchange: "BIST", peRatio: 12.5, dividendYield: 0.8, dailyChange: 2.1 },
+    { symbol: "BIMAS", name: "BİM Mağazalar", price: 495.0, sector: "Perakende Ticaret", exchange: "BIST", peRatio: 14.2, dividendYield: 2.5, dailyChange: 0.3 },
+    { symbol: "KCHOL", name: "Koç Holding", price: 215.0, sector: "Holding & Yatırım", exchange: "BIST", peRatio: 7.4, dividendYield: 3.2, dailyChange: 0.8 },
+    { symbol: "SISE", name: "Şişecam", price: 48.0, sector: "Cam & Sanayi", exchange: "BIST", peRatio: 8.9, dividendYield: 1.8, dailyChange: -0.2 },
+    { symbol: "ALTIN/GR", name: "Gram Altın", price: 3150.0, sector: "Kıymetli Maden", exchange: "Emtia", dailyChange: 0.4 },
+    { symbol: "GÜMÜŞ/GR", name: "Gram Gümüş", price: 38.5, sector: "Kıymetli Maden", exchange: "Emtia", dailyChange: 0.9 },
+    { symbol: "USD/TRY", name: "Amerikan Doları", price: 38.2, sector: "Döviz", exchange: "Döviz", dailyChange: 0.1 },
+    { symbol: "NVDA", name: "NVIDIA Corp", price: 135.0, sector: "Yapay Zeka & Yarıiletken", exchange: "ABD", peRatio: 38.0, dividendYield: 0.1, dailyChange: 1.8 },
+    { symbol: "AAPL", name: "Apple Inc.", price: 228.0, sector: "Tüketici Teknolojisi", exchange: "ABD", peRatio: 32.0, dividendYield: 0.5, dailyChange: 0.4 },
+  ];
+
+  // Merge available pool with default seeds to ensure rich diversity
+  const candidatePool = pool.length >= 4 ? pool : Array.from(new Map([...pool, ...defaultSeeds].map((c) => [c.symbol, c])).values());
+
+  // Dynamic ranking function based on strategy goal
+  const rankedCandidates = [...candidatePool].map((c) => {
+    let score = 50;
+    const sectorLower = (c.sector || "").toLowerCase();
+    const div = c.dividendYield || 0;
+    const pe = c.peRatio || 12;
+
+    if (goalLower.includes("temettü")) {
+      if (div > 5) score += 40;
+      else if (div > 2) score += 25;
+      else if (div > 0) score += 10;
+      if (pe > 0 && pe < 10) score += 20;
+      if (sectorLower.includes("otomotiv") || sectorLower.includes("petrol") || sectorLower.includes("enerji") || sectorLower.includes("perakende")) score += 15;
+    } else if (goalLower.includes("büyüme") || isAggressive) {
+      if (sectorLower.includes("savunma") || sectorLower.includes("teknoloji") || sectorLower.includes("yazılım") || sectorLower.includes("havacılık") || c.exchange === "ABD") score += 35;
+      if (c.dailyChange > 0) score += 15;
+    } else if (goalLower.includes("enflasyon") || goalLower.includes("kur") || req.universe.includes("Kıymetli Maden")) {
+      if (c.exchange === "Emtia" || c.symbol.includes("ALTIN") || c.symbol.includes("GÜMÜŞ") || c.exchange === "Döviz") score += 45;
+      if (sectorLower.includes("havacılık") || sectorLower.includes("holding") || sectorLower.includes("ihracat")) score += 20;
     } else {
-      allocation = [
-        { symbol: "FROTO", name: "Ford Otomotiv", weight: 30, note: "Avrupa elektrikli araç dönüşümü ve nakit temettü" },
-        { symbol: "TUPRS", name: "Tüpraş Rafineri", weight: 25, note: "Yüksek serbest nakit akımı ve temettü potansiyeli" },
-        { symbol: "TOASO", name: "Tofaş Oto", weight: 25, note: "Stellantis birleşmesi ve yeni model üretimi" },
-        { symbol: "ENJSA", name: "Enerjisa Enerji", weight: 20, note: "Enflasyon korumalı tarifeler ve büyüme yatırımları" },
-      ];
-      yieldStr = "%9.2 Temettü + %28 Sermaye Kazancı";
-      health = 93;
-      duration = "6-12 Ay";
+      // Balanced
+      if (div > 0) score += 15;
+      if (pe > 0 && pe < 15) score += 15;
+      if (sectorLower.includes("holding") || sectorLower.includes("perakende") || c.exchange === "Emtia") score += 20;
     }
-  } else if (goalLower.includes("enflasyon") || goalLower.includes("kur") || req.universe.includes("Kıymetli Maden")) {
-    if (isConservative) {
-      allocation = [
-        { symbol: "ALTIN/GR", name: "Gram Altın", weight: 45, note: "Merkez bankaları faiz indirim döngüsü koruması" },
-        { symbol: "GÜMÜŞ/GR", name: "Gram Gümüş", weight: 25, note: "Endüstriyel elektrifikasyon ve güneş paneli talebi" },
-        { symbol: "THYAO", name: "Türk Hava Yolları", weight: 15, note: "%85+ döviz bazlı küresel gelir kalkanı" },
-        { symbol: "KCHOL", name: "Koç Holding", weight: 15, note: "Döviz varlıkları zengin çeşitlendirilmiş holding iskontosu" },
-      ];
-      yieldStr = "%32.0 Reel Enflasyon Koruması";
-      health = 94;
-      duration = "1-2 Yıl";
-    } else {
-      allocation = [
-        { symbol: "ALTIN/GR", name: "Gram Altın", weight: 35, note: "Küresel de-dolarizasyon ve merkez bankası rezerv talebi" },
-        { symbol: "GÜMÜŞ/GR", name: "Gram Gümüş", weight: 30, note: "Yüksek beta kıymetli maden patlama potansiyeli" },
-        { symbol: "THYAO", name: "Türk Hava Yolları", weight: 20, note: "Küresel kargo ve yolcu döviz girdisi" },
-        { symbol: "SISE", name: "Şişecam", weight: 15, note: "4 kıtada üretim ve global ihracat ağı" },
-      ];
-      yieldStr = "%38.5 Kur & Büyüme Getirisi";
-      health = 90;
-      duration = "6-12 Ay";
+
+    return { ...c, calculatedScore: score };
+  }).sort((a, b) => b.calculatedScore - a.calculatedScore);
+
+  // Pick 4 diverse items from different sectors where possible
+  const selectedItems: CompanyAnalysisRequest[] = [];
+  const usedSectors = new Set<string>();
+
+  for (const candidate of rankedCandidates) {
+    if (selectedItems.length >= 4) break;
+    const sec = candidate.sector || "Genel";
+    if (!usedSectors.has(sec) || selectedItems.length >= 3) {
+      selectedItems.push(candidate);
+      usedSectors.add(sec);
     }
-  } else if (goalLower.includes("büyüme") || isAggressive) {
-    if (req.universe.includes("Küresel")) {
-      allocation = [
-        { symbol: "NVDA", name: "NVIDIA Corp", weight: 35, note: "Yapay zeka altyapı ve GPU pazarındaki tekel konumu" },
-        { symbol: "THYAO", name: "Türk Hava Yolları", weight: 25, note: "Küresel filo büyümesi ve pazar payı kazanımları" },
-        { symbol: "ASELS", name: "Aselsan Elektronik", weight: 25, note: "12 Mr $ bakiye savunma ihracat sözleşmeleri" },
-        { symbol: "PLTR", name: "Palantir Tech", weight: 15, note: "Kurumsal yapay zeka işletim sistemi büyümesi" },
-      ];
-      yieldStr = "%45.0 Agresif Büyüme Hedefi";
-      health = 88;
-      duration = "3-6 Ay";
-    } else {
-      allocation = [
-        { symbol: "THYAO", name: "Türk Hava Yolları", weight: 30, note: "Rekor kargo ve yolcu doluluk oranları" },
-        { symbol: "ASELS", name: "Aselsan Elektronik", weight: 30, note: "Yüksek katma değerli yerli savunma ve radar teslimatları" },
-        { symbol: "SDTTR", name: "SDT Uzay ve Savunma", weight: 20, note: "Yüksek marjlı radar simülasyon ve uzay projeleri" },
-        { symbol: "FROTO", name: "Ford Otomotiv", weight: 20, note: "Elektrikli ticari araç ihracat hacmi" },
-      ];
-      yieldStr = "%41.0 Yıllık Nominal Büyüme";
-      health = 90;
-      duration = "6-12 Ay";
-    }
-  } else {
-    // Balanced default
-    allocation = [
-      { symbol: "THYAO", name: "Türk Hava Yolları", weight: 30, note: "Döviz bazlı serbest nakit akımı" },
-      { symbol: "KCHOL", name: "Koç Holding", weight: 25, note: "Geniş sektör çeşitliliği ve güçlü iştirak kârlılığı" },
-      { symbol: "BIMAS", name: "BİM Mağazalar", weight: 25, note: "Enflasyona karşı defansif perakende nakit gücü" },
-      { symbol: "ALTIN/GR", name: "Gram Altın", weight: 20, note: "Piyasa düzeltmelerine karşı sigorta kalkanı" },
-    ];
-    yieldStr = "%30.0 Dengeli Getiri";
-    health = 95;
-    duration = "6-12 Ay";
   }
 
+  // Fallback to top ranked if sector constraint left us short
+  if (selectedItems.length < 4) {
+    for (const candidate of rankedCandidates) {
+      if (selectedItems.length >= 4) break;
+      if (!selectedItems.some((s) => s.symbol === candidate.symbol)) {
+        selectedItems.push(candidate);
+      }
+    }
+  }
+
+  // Weights assignment based on risk
+  const weights = isConservative
+    ? [35, 25, 20, 20]
+    : isAggressive
+    ? [35, 30, 20, 15]
+    : [30, 25, 25, 20];
+
+  const allocation = selectedItems.slice(0, 4).map((item, idx) => {
+    const w = weights[idx] || 25;
+    let note = "";
+    const div = item.dividendYield || 0;
+    const pe = item.peRatio;
+
+    if (item.exchange === "Emtia" || item.symbol.includes("ALTIN") || item.symbol.includes("GÜMÜŞ")) {
+      note = "Enflasyon ve jeopolitik dalgalanmalara karşı reel sermaye sigortası.";
+    } else if (div >= 3) {
+      note = `%${div.toFixed(1)} temettü verimi ve ${pe ? `F/K: ${pe}` : 'düzenli nakit akışı'} ile güçlü getiri sütunu.`;
+    } else if (item.sector?.includes("Savunma") || item.sector?.includes("Teknoloji")) {
+      note = "Yüksek katma değerli teknoloji ve ihracat sözleşmeleriyle stratejik büyüme motoru.";
+    } else if (item.sector?.includes("Havacılık") || item.sector?.includes("Ulaştırma")) {
+      note = "Döviz bazlı serbest nakit akımı ve genişleyen küresel operasyon gücü.";
+    } else if (item.sector?.includes("Holding")) {
+      note = "Dengeli iştirak yapısı ve çeşitlendirilmiş gelir iskontosu.";
+    } else if (item.sector?.includes("Perakende")) {
+      note = "Enflasyona tam dirençli defansif nakit akışı ve pazar liderliği.";
+    } else {
+      note = `${item.sector} sektöründe güçlü bilanço ve pazar pozisyonu.`;
+    }
+
+    return {
+      symbol: item.symbol,
+      name: item.name,
+      weight: w,
+      note,
+    };
+  });
+
+  const yieldStr = isAggressive
+    ? "%38.5 Yıllık Büyüme & Sermaye Kazancı Hedefi"
+    : isConservative
+    ? "%26.0 Temkinli & Reel Koruma Hedefi"
+    : "%32.0 Dengeli Bileşik Getiri Hedefi";
+
+  const health = isConservative ? 96 : isAggressive ? 89 : 93;
+  const duration = isConservative ? "12+ Ay" : isAggressive ? "3-6 Ay" : "6-12 Ay";
+
   return {
-    title: `Orakul: ${req.goal.split(" ")[0]} & ${req.universe.split(" ")[0]} Stratejisi`,
-    summary: `${req.budget.toLocaleString("tr-TR")} ₺ bütçe için ${req.risk.toLowerCase()} profilinde, ${req.universe} filtreleriyle matematiksel olarak optimize edilmiş dağılım.`,
+    title: `Orakul Kural Motoru: ${req.goal.split(" ")[0]} & ${req.universe.split(" ")[0]} Stratejisi`,
+    summary: `${req.budget.toLocaleString("tr-TR")} ₺ bütçe için ${req.risk.toLowerCase()} profilinde, kütüğünüzdeki ${candidatePool.length} varlık taranarak kural tabanlı optimizasyon ile oluşturulmuştur.`,
     healthScore: health,
     expectedYield: yieldStr,
     recommendedDuration: duration,
     riskRating: req.risk,
     allocation,
+    isTemplate: true,
+    engine: "algorithmic" as const,
   };
 }
 
@@ -728,8 +765,8 @@ export interface EarningsFlashResult {
   quarter: string;
   healthScore: number; // 1-10
   summary: string; // 3-sentence executive summary
-  netProfitGrowth: string;
-  ebitdaMargin: string;
+  netProfitGrowth?: string;
+  ebitdaMargin?: string;
   debtStatus: string;
   keyCatalyst: string;
   keyRisk: string;
@@ -801,8 +838,6 @@ export async function generateEarningsFlash(
   // Fallback financial engine
   const pe = company.peRatio || 8.5;
   const health = pe < 7 ? 9 : pe < 12 ? 8 : pe < 20 ? 6 : 5;
-  const growth = pe < 10 ? "+%48.5" : "+%22.4";
-  const margin = pe < 10 ? "%24.8" : "%16.2";
 
   const sector = (company.sector || "").toLowerCase();
   let keyCatalyst = "İhracat pazarlarındaki toparlanma ve kapasite artış yatırımları.";
@@ -835,9 +870,9 @@ export async function generateEarningsFlash(
     symbol: company.symbol,
     quarter: "Son Dönem Bilançosu",
     healthScore: health,
-    summary: `${company.name} son çeyrekte operasyonel kârlılığını koruyarak beklentilere paralel bir performans sergilemiştir. Satış gelirleri enflasyon üzerinde artış kaydederken FAVÖK marjı güçlü seyrini sürdürmüştür. Şirketin serbest nakit akımı borç servis kapasitesini desteklemektedir.`,
-    netProfitGrowth: growth,
-    ebitdaMargin: margin,
+    summary: `${company.name} son çeyrekte operasyonel kârlılığını koruyarak ${company.peRatio ? `${company.peRatio} F/K çarpanı ile` : "mevcut çarpanlarıyla"} sektör ortalamaları dahilinde bir performans sergilemiştir. Borçluluk ve likidite oranları finansal kütük kayıtlarına uygundur.`,
+    netProfitGrowth: undefined,
+    ebitdaMargin: undefined,
     debtStatus: pe < 12 ? "Düşük Borçluluk / Net Nakit Pozisyonu" : "Yönetilebilir Borç Yükü",
     keyCatalyst,
     keyRisk,
@@ -994,6 +1029,45 @@ export interface BacktestResult {
   sharpeRatio: number;
   timeline: BacktestTimelinePoint[];
   aiAnalysisVerdict: string;
+  warnings?: string[];
+  isRealHistoricalData: boolean;
+}
+
+async function fetchHistoricalDailyCloses(
+  ticker: string,
+  startDate: Date,
+  endDate: Date
+): Promise<Array<{ date: string; close: number }>> {
+  if (typeof window !== "undefined") return [];
+  try {
+    const yfModule = await import("yahoo-finance2");
+    const YahooFinance = yfModule.default;
+    const yf = typeof YahooFinance === "function"
+      ? new (YahooFinance as unknown as new (opts: { suppressNotices: string[] }) => typeof YahooFinance)({ suppressNotices: ["yahooSurvey"] })
+      : YahooFinance;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const chartRes = (await (yf as any).chart(ticker, {
+      period1: startDate,
+      period2: endDate,
+      interval: "1d",
+    })) as { quotes?: Array<{ date: Date | string; close?: number }> };
+
+    const quotes = (chartRes?.quotes || []).filter(
+      (q) => q && q.close != null && !isNaN(q.close) && q.close > 0
+    );
+
+    return quotes.map((q) => {
+      const d = new Date(q.date);
+      return {
+        date: d.toISOString().split("T")[0],
+        close: Number(q.close),
+      };
+    });
+  } catch (e) {
+    console.warn(`[Backtest] Failed to fetch history for ${ticker}:`, e);
+    return [];
+  }
 }
 
 export async function runBacktestSimulation(
@@ -1003,67 +1077,143 @@ export async function runBacktestSimulation(
     budget?: number;
     allocation?: Array<{ symbol: string; weight: number }>;
   },
-  apiKey?: string,
+  _apiKey?: string,
   provider: string = "gemini",
   customModel?: string
 ): Promise<BacktestResult> {
   const months = payload.durationMonths || 6;
   const budget = payload.budget || 100000;
-  const title = payload.recipeTitle || "Orakul Dengeli Sepet";
+  const title = payload.recipeTitle || "Orakul Backtest Sepeti";
 
-  // Historical market returns baseline (annualized proxies scaled to months)
-  const bistMonthlyFactor = 1 + (0.34 / 12); // ~%34 annual BIST growth
-  const goldMonthlyFactor = 1 + (0.42 / 12); // ~%42 annual Gold growth
-  const portfolioMonthlyFactor = 1 + (0.46 / 12); // ~%46 annual Orakul optimized portfolio
+  const requestedAllocation =
+    payload.allocation && payload.allocation.length > 0
+      ? payload.allocation
+      : [
+          { symbol: "THYAO", weight: 30 },
+          { symbol: "FROTO", weight: 25 },
+          { symbol: "ASELS", weight: 25 },
+          { symbol: "TUPRS", weight: 20 },
+        ];
 
-  const timeline: BacktestTimelinePoint[] = [];
-  let curPort = budget;
-  let curBist = budget;
-  let curGold = budget;
-
+  const warnings: string[] = [];
   const now = new Date();
+  const startDate = new Date(now);
+  startDate.setMonth(startDate.getMonth() - months);
+  // Extra buffer days to ensure we capture the starting point
+  startDate.setDate(startDate.getDate() - 7);
 
-  for (let i = months; i >= 0; i--) {
-    const d = new Date(now);
-    d.setMonth(d.getMonth() - i);
-    const dateStr = d.toLocaleDateString("tr-TR", { month: "short", year: "2-digit" });
+  // 1. Fetch real historical series for BIST 100 and Gold
+  const [bistQuotes, goldQuotes] = await Promise.all([
+    fetchHistoricalDailyCloses("XU100.IS", startDate, now),
+    fetchHistoricalDailyCloses("GC=F", startDate, now).then((res) =>
+      res.length > 0 ? res : fetchHistoricalDailyCloses("ALTIN.IS", startDate, now)
+    ),
+  ]);
 
-    if (i === months) {
+  // 2. Fetch real historical series for each symbol in allocation
+  const assetQuotesMap: Record<string, Array<{ date: string; close: number }>> = {};
+  await Promise.all(
+    requestedAllocation.map(async (item) => {
+      const ticker = getSymbolTicker(item.symbol);
+      const quotes = await fetchHistoricalDailyCloses(ticker, startDate, now);
+      if (quotes.length >= 2) {
+        assetQuotesMap[item.symbol.toUpperCase()] = quotes;
+      } else {
+        warnings.push(
+          `${item.symbol} için yeterli geçmiş piyasa fiyatı bulunamadığından backtest sepetinden hariç tutuldu.`
+        );
+      }
+    })
+  );
+
+  // 3. Filter valid symbols and normalize weights
+  const validItems = requestedAllocation.filter(
+    (item) => (assetQuotesMap[item.symbol.toUpperCase()] || []).length >= 2
+  );
+
+  const totalValidWeight = validItems.reduce((s, it) => s + it.weight, 0);
+  const normalizedAllocation = validItems.map((it) => ({
+    symbol: it.symbol.toUpperCase(),
+    weightPct: totalValidWeight > 0 ? (it.weight / totalValidWeight) * 100 : 100 / validItems.length,
+  }));
+
+  // Build monthly timeline milestones
+  const timeline: BacktestTimelinePoint[] = [];
+  const isRealData = validItems.length > 0 && bistQuotes.length >= 2;
+
+  if (isRealData) {
+    // Generate monthly date slices
+    const monthlyDates: Date[] = [];
+    for (let i = months; i >= 0; i--) {
+      const d = new Date(now);
+      d.setMonth(d.getMonth() - i);
+      monthlyDates.push(d);
+    }
+
+    // Helper to find closing price on or just before target date
+    const getPriceAtDate = (quotes: Array<{ date: string; close: number }>, targetDate: Date): number => {
+      const targetStr = targetDate.toISOString().split("T")[0];
+      const valid = quotes.filter((q) => q.date <= targetStr);
+      if (valid.length > 0) {
+        return valid[valid.length - 1].close;
+      }
+      return quotes[0]?.close || 1;
+    };
+
+    const bistBase = getPriceAtDate(bistQuotes, monthlyDates[0]);
+    const goldBase = getPriceAtDate(goldQuotes, monthlyDates[0]);
+    const assetBases: Record<string, number> = {};
+    for (const alloc of normalizedAllocation) {
+      assetBases[alloc.symbol] = getPriceAtDate(assetQuotesMap[alloc.symbol], monthlyDates[0]);
+    }
+
+    for (let k = 0; k < monthlyDates.length; k++) {
+      const targetD = monthlyDates[k];
+      const dateStr = targetD.toLocaleDateString("tr-TR", { month: "short", year: "2-digit" });
+
+      const curBistPrice = getPriceAtDate(bistQuotes, targetD);
+      const curGoldPrice = getPriceAtDate(goldQuotes, targetD);
+
+      const bist100Value = bistBase > 0 ? Math.round((budget * curBistPrice) / bistBase) : budget;
+      const goldValue = goldBase > 0 ? Math.round((budget * curGoldPrice) / goldBase) : budget;
+
+      let portVal = 0;
+      for (const alloc of normalizedAllocation) {
+        const allocBase = assetBases[alloc.symbol] || 1;
+        const curAssetPrice = getPriceAtDate(assetQuotesMap[alloc.symbol], targetD);
+        const allocBudget = (alloc.weightPct / 100) * budget;
+        const currentAllocVal = allocBase > 0 ? (allocBudget * curAssetPrice) / allocBase : allocBudget;
+        portVal += currentAllocVal;
+      }
+
       timeline.push({
         date: dateStr,
-        portfolioValue: Math.round(budget),
-        bist100Value: Math.round(budget),
-        goldValue: Math.round(budget),
-      });
-    } else {
-      // Add realistic market variance
-      const noisePort = 1 + (Math.sin(i * 1.5) * 0.02);
-      const noiseBist = 1 + (Math.cos(i * 1.2) * 0.03);
-      const noiseGold = 1 + (Math.sin(i * 0.8) * 0.015);
-
-      curPort = curPort * portfolioMonthlyFactor * noisePort;
-      curBist = curBist * bistMonthlyFactor * noiseBist;
-      curGold = curGold * goldMonthlyFactor * noiseGold;
-
-      timeline.push({
-        date: dateStr,
-        portfolioValue: Math.round(curPort),
-        bist100Value: Math.round(curBist),
-        goldValue: Math.round(curGold),
+        portfolioValue: Math.round(portVal),
+        bist100Value,
+        goldValue,
       });
     }
+  } else {
+    // Zero-state if offline or no real data
+    warnings.push("Gerçek tarihsel piyasa verisi çekilemediği için simülasyon tamamlanamadı.");
+    timeline.push({
+      date: "Başlangıç",
+      portfolioValue: budget,
+      bist100Value: budget,
+      goldValue: budget,
+    });
   }
 
-  const finalPort = timeline[timeline.length - 1].portfolioValue;
-  const finalBist = timeline[timeline.length - 1].bist100Value;
-  const finalGold = timeline[timeline.length - 1].goldValue;
+  const finalPort = timeline[timeline.length - 1]?.portfolioValue || budget;
+  const finalBist = timeline[timeline.length - 1]?.bist100Value || budget;
+  const finalGold = timeline[timeline.length - 1]?.goldValue || budget;
 
   const portReturn = parseFloat((((finalPort - budget) / budget) * 100).toFixed(1));
   const bistReturn = parseFloat((((finalBist - budget) / budget) * 100).toFixed(1));
   const goldReturn = parseFloat((((finalGold - budget) / budget) * 100).toFixed(1));
   const alpha = parseFloat((portReturn - bistReturn).toFixed(1));
 
-  // Calculate dynamic Max Drawdown from timeline
+  // Max Drawdown calculation from real curve
   let maxPeak = budget;
   let maxDrawdownPct = 0;
   for (const pt of timeline) {
@@ -1076,19 +1226,29 @@ export async function runBacktestSimulation(
     }
   }
 
-  // Calculate approximate annualized Sharpe ratio
-  const estimatedVol = Math.max(0.08, (maxDrawdownPct / 100) * 1.2);
-  const annualizedReturn = (portReturn / months) * 12 / 100;
-  const sharpeRatio = parseFloat(Math.max(0.5, ((annualizedReturn - 0.25) / estimatedVol)).toFixed(2));
+  // Sharpe Ratio
+  const estimatedVol = Math.max(0.05, (maxDrawdownPct / 100) * 1.2);
+  const annualizedReturn = (portReturn / Math.max(1, months)) * 12 / 100;
+  const sharpeRatio = parseFloat(Math.max(-2, ((annualizedReturn - 0.25) / estimatedVol)).toFixed(2));
 
-  let aiVerdict = `Son ${months} aylık projeksiyonda bu sepet **%${portReturn}** getiri üreterek BIST 100 endeksine karşı **+%${alpha} Alfa** farkı oluşturmuştur. Simülasyonda hesaplanan maksimum tepe-dip değer kaybı (Max Drawdown) %${maxDrawdownPct} seviyesindedir.`;
+  let aiVerdict = isRealData
+    ? `Son ${months} aylık gerçek piyasa verileri incelendiğinde bu sepet **%${portReturn}** getiri üreterek BIST 100 endeksine karşı **${alpha >= 0 ? `+` : ""}%${alpha} Alfa** farkı kaydetmiştir. Tarihsel maksimum tepe-dip değer kaybı (Max Drawdown) %${maxDrawdownPct} olarak gerçekleşmiştir.`
+    : "Seçilen varlıklar için yeterli tarihsel fiyat serisi bulunamadı.";
 
   const resolvedApiKey = getResolvedApiKey(provider);
-
-  if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
+  if (resolvedApiKey && resolvedApiKey.trim().length > 10 && isRealData) {
     try {
       if (provider === "gemini") {
-        const prompt = `Sen Orakul portföy analistisin. ${months} aylık geçmiş simülasyon sonuçları: Başlangıç: ${budget} ₺, Portföy Bitiş: ${finalPort} ₺ (%${portReturn}), BIST 100 Bitiş: ${finalBist} ₺ (%${bistReturn}), Altın Bitiş: ${finalGold} ₺ (%${goldReturn}), Max Drawdown: %${maxDrawdownPct}. Bana Fraunces bilge üslubuyla 2 cümlelik profesyonel sonuç değerlendirmesi üret.`;
+        const prompt = `Sen Orakul portföy analistisin. ${months} aylık GERÇEK BIST/Yahoo Finance simülasyon sonuçları:
+Başlangıç Bütçesi: ${budget.toLocaleString("tr-TR")} ₺
+Portföy Bitiş: ${finalPort.toLocaleString("tr-TR")} ₺ (%${portReturn})
+BIST 100 Bitiş: ${finalBist.toLocaleString("tr-TR")} ₺ (%${bistReturn})
+Gram Altın Bitiş: ${finalGold.toLocaleString("tr-TR")} ₺ (%${goldReturn})
+Max Drawdown: %${maxDrawdownPct}
+Alfa Getiri: %${alpha}
+
+Bana Fraunces bilge üslubuyla 2 cümlelik profesyonel sonuç değerlendirmesi üret.`;
+
         const res = await fetchGeminiWithFallback(
           resolvedApiKey,
           {
@@ -1121,6 +1281,8 @@ export async function runBacktestSimulation(
     sharpeRatio,
     timeline,
     aiAnalysisVerdict: aiVerdict,
+    warnings: warnings.length > 0 ? warnings : undefined,
+    isRealHistoricalData: isRealData,
   };
 }
 
@@ -1356,9 +1518,10 @@ export interface DailyBriefingResult {
   greeting: string;
   portfolioDayChangePct: number;
   bistDayChangePct: number;
+  hasBistData?: boolean;
   outperformanceText: string;
-  topWinner: { symbol: string; changePct: number };
-  topLoser: { symbol: string; changePct: number };
+  topWinner?: { symbol: string; changePct: number };
+  topLoser?: { symbol: string; changePct: number };
   executiveSummary: string;
   tacticalTip: string;
 }
@@ -1369,6 +1532,7 @@ export async function generateDailyBriefing(
     totalValue: number;
     totalProfit: number;
     dailyChangePct?: number;
+    bistDailyChangePct?: number;
     basketsCount: number;
     holdingsSummary?: Array<{ symbol: string; dailyChange: number; weight: number }>;
   },
@@ -1376,8 +1540,11 @@ export async function generateDailyBriefing(
   provider: string = "gemini",
   customModel?: string
 ): Promise<DailyBriefingResult> {
-  const portChange = portfolioContext.dailyChangePct ?? 1.45;
-  const bistChange = 0.65;
+  const portChange = portfolioContext.dailyChangePct ?? 0;
+  const hasBist =
+    portfolioContext.bistDailyChangePct !== undefined &&
+    !isNaN(portfolioContext.bistDailyChangePct);
+  const bistChange = hasBist ? Number(portfolioContext.bistDailyChangePct) : 0;
   const isAlpha = portChange >= bistChange;
   const todayStr = new Date().toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" });
   
@@ -1386,19 +1553,83 @@ export async function generateDailyBriefing(
   const userName = portfolioContext.userName || "Defter Sahibi";
   const greeting = `${timeGreeting}, ${userName}`;
 
+  // Neutral empty portfolio handling
+  if (!portfolioContext.totalValue && !portfolioContext.basketsCount) {
+    return {
+      date: todayStr,
+      greeting,
+      portfolioDayChangePct: 0,
+      bistDayChangePct: bistChange,
+      hasBistData: hasBist,
+      outperformanceText: "Portföy Henüz Boş",
+      topWinner: undefined,
+      topLoser: undefined,
+      executiveSummary: "Kasanızda henüz aktif bir sepet veya pozisyon kaydı bulunmamaktadır. Sepetlerinize varlık ekleyerek anlık portföy performansınızı ve BIST karşılaştırmalı günlük kapanış brifinginizi takip edebilirsiniz.",
+      tacticalTip: "Takip listenizdeki cazip F/K ve temettü potansiyeli taşıyan şirketleri inceleyerek ilk sepetinizi oluşturabilirsiniz.",
+    };
+  }
+
+  // 1. Calculate genuine topWinner and topLoser from holdingsSummary
+  let topWinner: { symbol: string; changePct: number } | undefined = undefined;
+  let topLoser: { symbol: string; changePct: number } | undefined = undefined;
+
+  if (portfolioContext.holdingsSummary && portfolioContext.holdingsSummary.length > 0) {
+    const validHoldings = [...portfolioContext.holdingsSummary].filter(
+      (h) => typeof h.dailyChange === "number" && !isNaN(h.dailyChange)
+    );
+    if (validHoldings.length > 0) {
+      validHoldings.sort((a, b) => b.dailyChange - a.dailyChange);
+      const best = validHoldings[0];
+      const worst = validHoldings[validHoldings.length - 1];
+
+      if (best && best.dailyChange > 0) {
+        topWinner = { symbol: best.symbol, changePct: Number(best.dailyChange.toFixed(2)) };
+      }
+      if (worst && worst.dailyChange < 0 && worst.symbol !== best?.symbol) {
+        topLoser = { symbol: worst.symbol, changePct: Number(worst.dailyChange.toFixed(2)) };
+      }
+    }
+  }
+
+  const alphaDiff = parseFloat((portChange - bistChange).toFixed(2));
+  const alphaText = hasBist
+    ? isAlpha
+      ? `BIST 100'e karşı +%${alphaDiff} Alfa Getiri`
+      : `BIST 100'ün %${Math.abs(alphaDiff)} gerisinde`
+    : "BIST verisi alınamadı";
+
   const resolvedApiKey = getResolvedApiKey(provider);
 
-  let summary = `Bugün portföyünüz **+%${portChange.toFixed(2)}** prim yaparak BIST 100 endeksinin (+%${bistChange.toFixed(2)}) üzerinde güçlü bir reel getiri sağladı. Havacılık ve ihracatçı sanayi varlıklarınızdaki alımlar yükselişi sırtladı. Sepetlerinizin risk dağılımı piyasa dalgalanmalarına karşı sağlam kalmaya devam ediyor.`;
+  let summary = `Bugün portföyünüz **${portChange >= 0 ? "+" : ""}%${portChange.toFixed(2)}** günlük değişim kaydetti. ${
+    hasBist
+      ? isAlpha
+        ? `BIST 100 endeksinin (${bistChange >= 0 ? "+" : ""}%${bistChange.toFixed(2)}) üzerinde performans sergileyerek pozitif alfa üretti.`
+        : `BIST 100 endeksi günü ${bistChange >= 0 ? "+" : ""}%${bistChange.toFixed(2)} seviyesinde tamamladı.`
+      : "Sepetlerinizin risk dağılımı piyasa dalgalanmalarına karşı dengesini korumaktadır."
+  } ${
+    topWinner
+      ? `Portföyünüzde günün öne çıkan kazandıran varlığı **${topWinner.symbol}** (+%${topWinner.changePct}) oldu.`
+      : ""
+  }`;
 
   if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
     try {
       if (provider === "gemini") {
-        const prompt = `Sen 'Orakul' adında Defter kişisel servet analistisin. Günlük borsa kapanış brifingi oluştur. Kullanıcı: ${userName}, Portföy Değeri: ${portfolioContext.totalValue.toLocaleString("tr-TR")} ₺, Günlük Değişim: %${portChange}, BIST 100 Değişim: %${bistChange}. Fraunces üslubunda, bilgece ve samimi 1 paragraflık net bir yönetici özeti yaz.`;
+        const prompt = `Sen 'Orakul' adında Defter kişisel servet analistisin. Günlük borsa kapanış brifingi oluştur.
+Kullanıcı: ${userName}
+Portföy Değeri: ${portfolioContext.totalValue.toLocaleString("tr-TR")} ₺
+Portföy Günlük Değişim: %${portChange}
+BIST 100 Günlük Değişim: ${hasBist ? `%${bistChange}` : "N/A"}
+${topWinner ? `Günün En Çok Kazandıranı: ${topWinner.symbol} (+%${topWinner.changePct})` : ""}
+${topLoser ? `Günün En Çok Kaybettireni: ${topLoser.symbol} (%${topLoser.changePct})` : ""}
+
+Fraunces üslubunda, bilgece, samimi ve gerçek verileri temel alan 1 paragraflık net bir yönetici özeti yaz.`;
+
         const res = await fetchGeminiWithFallback(
           resolvedApiKey,
           {
             contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.4 },
+            generationConfig: { temperature: 0.3 },
           },
           customModel
         );
@@ -1416,13 +1647,12 @@ export async function generateDailyBriefing(
     greeting,
     portfolioDayChangePct: portChange,
     bistDayChangePct: bistChange,
-    outperformanceText: isAlpha
-      ? `BIST 100'den +%${(portChange - bistChange).toFixed(2)} daha iyi performans (Alfa Getiri)`
-      : `BIST 100 ile paralel hareket`,
-    topWinner: { symbol: "THYAO", changePct: 3.4 },
-    topLoser: { symbol: "EREGL", changePct: -0.8 },
+    hasBistData: hasBist,
+    outperformanceText: alphaText,
+    topWinner,
+    topLoser,
     executiveSummary: summary,
-    tacticalTip: "Yarınki seans öncesinde temettü verimi yüksek holding pozisyonlarınızı koruyarak dengeli kalmanız önerilir.",
+    tacticalTip: "Piyasa volatilitesine karşı dengeli sepet dağılımınızı koruyarak uzun vadeli birikim stratejinize sadık kalmanız önerilir.",
   };
 }
 
@@ -1442,18 +1672,34 @@ export interface SentimentNewsItem {
 
 export async function generateSentimentAnalysis(
   companies: CompanyAnalysisRequest[] = [],
-  _baskets: any[] = [],
+  baskets: any[] = [],
   provider: string = "gemini",
   customModel?: string
 ): Promise<SentimentNewsItem[]> {
   const resolvedApiKey = getResolvedApiKey(provider);
-  const targetSymbols = companies.slice(0, 10).map((c) => c.symbol);
+
+  // 1. Extract symbols genuinely owned in user's baskets
+  const ownedSymbols = new Set(
+    baskets.flatMap((b) => b.holdings?.map((h: any) => h.companySymbol?.toUpperCase()) || [])
+  );
+  const ownedCompanies = companies.filter((c) => ownedSymbols.has(c.symbol.toUpperCase()));
+
+  // 2. Fallback pool: sort by highest absolute daily price movement instead of random array sequence
+  const fallbackPool = [...companies].sort(
+    (a, b) => Math.abs(b.dailyChange || 0) - Math.abs(a.dailyChange || 0)
+  );
+
+  // 3. Select target companies to analyze (owned first, then top movers)
+  const targetCompanies =
+    ownedCompanies.length > 0 ? ownedCompanies : fallbackPool.slice(0, 10);
+
+  const targetSymbols = targetCompanies.slice(0, 10).map((c) => c.symbol);
 
   if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
     try {
       if (provider === "gemini") {
         const prompt = `Sen 'Orakul' adında uzman bir BIST ve Türk piyasaları finansal haber & duygu analisti yapay zekasısın.
-Aşağıdaki portföy şirketleri için en son piyasa algısını, KAP malzeme açıklamalarını, sektörel dinamikleri ve haber duygu puanlarını JSON formatında analiz et:
+Aşağıdaki portföy ve odak şirketleri için en son piyasa algısını, KAP malzeme açıklamalarını, sektörel dinamikleri ve haber duygu puanlarını JSON formatında analiz et:
 Şirketler: ${targetSymbols.join(", ")}
 
 Format (YALNIZCA geçerli JSON dizisi):
@@ -1463,7 +1709,7 @@ Format (YALNIZCA geçerli JSON dizisi):
     "title": "Haber Başlığı",
     "source": "KAP / Bloomberg HT / Finans Gündem",
     "date": "Bugün",
-    "relatedSymbol": "THYAO",
+    "relatedSymbol": "${targetSymbols[0] || "THYAO"}",
     "sentimentScore": 0.85,
     "summary": "Haberin 1-2 cümlelik finansal özeti ve şirket operasyonlarına etkisi",
     "impactVerdict": "POZİTİF"
@@ -1495,15 +1741,18 @@ Format (YALNIZCA geçerli JSON dizisi):
     }
   }
 
-  // Dynamic fallback based on actual active portfolio companies
-  const activeCos = companies.length > 0 ? companies : [
-    { symbol: "THYAO", name: "Türk Hava Yolları", dailyChange: 2.1, sector: "Havacılık", price: 310 },
-    { symbol: "FROTO", name: "Ford Otosan", dailyChange: 1.4, sector: "Otomotiv", price: 1040 },
-    { symbol: "ASELS", name: "Aselsan", dailyChange: 0.8, sector: "Savunma", price: 68 },
-    { symbol: "TUPRS", name: "Tüpraş", dailyChange: -0.5, sector: "Enerji", price: 165 },
-  ];
+  // Dynamic fallback based on actual targeted active portfolio companies
+  const activeCos =
+    targetCompanies.length > 0
+      ? targetCompanies
+      : [
+          { symbol: "THYAO", name: "Türk Hava Yolları", dailyChange: 2.1, sector: "Havacılık", price: 310 },
+          { symbol: "FROTO", name: "Ford Otosan", dailyChange: 1.4, sector: "Otomotiv", price: 1040 },
+          { symbol: "ASELS", name: "Aselsan", dailyChange: 0.8, sector: "Savunma", price: 68 },
+          { symbol: "TUPRS", name: "Tüpraş", dailyChange: -0.5, sector: "Enerji", price: 165 },
+        ];
 
-  return activeCos.slice(0, 4).map((c, idx) => {
+  return activeCos.slice(0, 6).map((c, idx) => {
     const isPos = (c.dailyChange ?? 0) >= 0;
     const score = isPos
       ? Math.min(0.4 + (c.dailyChange || 1) * 0.2, 0.95)
@@ -1518,6 +1767,8 @@ Format (YALNIZCA geçerli JSON dizisi):
       TUPRS: "Rafineri marjlarındaki dönemsel normalleşme kâr marjlarını dengelerken temettü beklentisi korunuyor.",
       EREGL: "Küresel çelik talebindeki toparlanma ve kapasite artış yatırımları operasyonel marjları güçlendiriyor.",
       BIMAS: "Yüksek sepet ortalaması ve yeni mağaza açılışları nakit akışını enflasyona karşı koruyor.",
+      KCHOL: "İştiraklerin dengeli temettü verimi ve ihracat gelirleri portföy dayanıklılığını artırıyor.",
+      SISE: "Küresel cam talebi ve enerji verimliliği yatırımları marjları desteklemeyi sürdürüyor.",
     };
 
     return {
@@ -1576,14 +1827,36 @@ export async function generateWeeklyLetter(
 ): Promise<WeeklyLetterResult> {
   const userName = req.userName || "Defter Sahibi";
   const todayStr = new Date().toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" });
-  const weeklyChange = req.weeklyChangePct ?? 2.45;
+  const weeklyChange = req.weeklyChangePct ?? 0;
   const isGain = weeklyChange >= 0;
   const personaNote = getPersonaInstruction(persona);
   const resolvedApiKey = getResolvedApiKey(provider);
 
+  if (!req.totalValue && !req.basketsCount) {
+    return {
+      date: todayStr,
+      greeting: `Sevgili ${userName},`,
+      subject: `Haftalık Kasa & Sermaye Mektubu — ${todayStr}`,
+      openingParagraph: `Sevgili ${userName},\n\nKasanızda henüz kayıtlı bir sepet veya aktif pozisyon bulunmamaktadır. Portföyünüzü oluşturup hisselerinizi kaydettiğinizde, haftalık kâr/zarar ve piyasa analiz mektubunuz burada kişiselleştirilmiş olarak hazırlanacaktır.`,
+      portfolioReview: "Aktif varlık kaydı bulunmadığı için haftalık performans analizi oluşturulamadı.",
+      macroCommentary: "Borsa İstanbul genelinde bilanço beklentileri ve küresel faiz patikasına dair haber akışı oynaklığı beslemeye devam ediyor.",
+      strategicGuidance: "Kütüğünüzdeki yüksek temettü ve cazip çarpanlı şirketleri inceleyerek ilk sepetinizi oluşturmanız tavsiye edilir.",
+      signoff: "Hürmet ve Saygılarımla,\nOrakul 🖋️\nBaş Servet & Finans Danışmanı",
+    };
+  }
+
   let opening = `Sevgili ${userName},\n\nBu hafta kasanız genel piyasa dinamikleri karşısında **%${Math.abs(weeklyChange).toFixed(2)} ${isGain ? "değer kazandı" : "düzeltme yaşadı"}**. ${req.basketsCount} aktif sepetiniz ve takip kütüğünüzdeki varlıklar genel olarak sermaye koruma prensiplerinize sadık bir seyir izledi.`;
 
-  let review = `Haftanın öne çıkan hareketi ${req.topWinner?.symbol || "THYAO"} pozisyonunda gerçekleşti (+%${req.topWinner?.change || 3.8}). Öte yandan ${req.topLoser?.symbol || "EREGL"} tarafında yaşanan kâr realizasyonları portföy dengesini test etti. Ancak varlık çeşitlendirmesi sayesinde kasanızın toplam volatilitesi kontrol altında kaldı.`;
+  let review = "";
+  if (req.topWinner && req.topLoser) {
+    review = `Haftanın öne çıkan hareketi ${req.topWinner.symbol} pozisyonunda gerçekleşti (+%${req.topWinner.change}). Öte yandan ${req.topLoser.symbol} tarafında yaşanan düzeltme (%${req.topLoser.change}) portföy dengesini test etti. Ancak varlık çeşitlendirmesi sayesinde kasanızın toplam volatilitesi kontrol altında kaldı.`;
+  } else if (req.topWinner) {
+    review = `Haftanın öne çıkan kazandıran varlığı **${req.topWinner.symbol}** (+%${req.topWinner.change}) oldu.`;
+  } else if (req.topLoser) {
+    review = `Haftalık süreçte **${req.topLoser.symbol}** (%${req.topLoser.change}) tarafındaki kâr realizasyonları izlendi.`;
+  } else {
+    review = "Haftalık süreçte varlıklarınız dengeli bir seyir izleyerek sermaye koruma prensiplerinize uygun hareket etti.";
+  }
 
   let macro = `Borsa İstanbul genelinde bilanço beklentileri ve küresel faiz patikasına dair haber akışı oynaklığı beslemeye devam ediyor. Enflasyon muhasebesi sonrası net nakit pozisyonu güçlü ve döviz kazandırıcı faaliyetleri bulunan sanayi ve ihracat liderleri piyasada pozitif ayrışmayı sürdürüyor.`;
 

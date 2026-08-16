@@ -41,7 +41,6 @@ export default function AyarlarPage() {
     baskets,
     transactions,
     aiProvider,
-    aiApiKey,
     geminiModel,
     setAiSettings,
     updateInterval,
@@ -51,6 +50,8 @@ export default function AyarlarPage() {
 
   const [userName, setUserName] = useState(userSettings?.userName || "Defter Sahibi");
   const [currency, setCurrency] = useState(userSettings?.currency || "₺ TRY");
+  const [commissionRate, setCommissionRate] = useState<number>(userSettings?.commissionRate ?? 0.15);
+  const [bsmvRate, setBsmvRate] = useState<number>(userSettings?.bsmvRate ?? 5);
   const [prevUserSettings, setPrevUserSettings] = useState(userSettings);
 
   if (userSettings !== prevUserSettings) {
@@ -58,15 +59,15 @@ export default function AyarlarPage() {
     if (userSettings) {
       setUserName(userSettings.userName);
       setCurrency(userSettings.currency);
+      setCommissionRate(userSettings.commissionRate ?? 0.15);
+      setBsmvRate(userSettings.bsmvRate ?? 5);
     }
   }
 
   // AI states
   const [selectedProvider, setSelectedProvider] = useState(aiProvider || "gemini");
-  const [inputApiKey, setInputApiKey] = useState(aiApiKey || "");
   const [selectedModel, setSelectedModel] = useState(geminiModel || "gemini-1.5-flash");
   const [customModelInput, setCustomModelInput] = useState("");
-  const [showApiKey, setShowApiKey] = useState(false);
   const [aiSavedSuccess, setAiSavedSuccess] = useState(false);
   const [testResult, setTestResult] = useState<{ isConfigured: boolean; message: string } | null>(null);
   const [testingKey, setTestingKey] = useState(false);
@@ -80,6 +81,7 @@ export default function AyarlarPage() {
   const [showConfirmPass, setShowConfirmPass] = useState(false);
   const [passSaving, setPassSaving] = useState(false);
   const [passSaved, setPassSaved] = useState(false);
+  const [isPermanentPass, setIsPermanentPass] = useState<boolean | null>(null);
   const [passError, setPassError] = useState<string | null>(null);
   const [passMessage, setPassMessage] = useState<string | null>(null);
 
@@ -89,9 +91,14 @@ export default function AyarlarPage() {
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
-    updateUserSettings({ userName, currency });
+    updateUserSettings({
+      userName,
+      currency,
+      commissionRate: Number(commissionRate) || 0,
+      bsmvRate: Number(bsmvRate) || 0,
+    });
     setSavedSuccess(true);
-    showToast("Profil Güncellendi", "Profil ve varsayılan para birimi ayarları kaydedildi.", "success");
+    showToast("Profil & Komisyon Ayarları Güncellendi", "Profil, varsayılan para birimi ve işlem komisyon oranları kaydedildi.", "success");
     setTimeout(() => setSavedSuccess(false), 3000);
   };
 
@@ -99,7 +106,7 @@ export default function AyarlarPage() {
 
   const handleSaveAiSettings = (e: React.FormEvent) => {
     e.preventDefault();
-    setAiSettings(selectedProvider, inputApiKey.trim(), activeModelStr);
+    setAiSettings(selectedProvider, activeModelStr);
     setAiSavedSuccess(true);
     showToast("AI Ayarları Güncellendi", `Yapay zeka tercihi '${selectedProvider}' (${activeModelStr}) olarak kaydedildi.`, "success");
     setTimeout(() => setAiSavedSuccess(false), 3000);
@@ -115,7 +122,6 @@ export default function AyarlarPage() {
         body: JSON.stringify({
           type: "test_connection",
           provider: selectedProvider,
-          apiKey: inputApiKey.trim() || undefined,
           model: activeModelStr,
         }),
       });
@@ -157,6 +163,7 @@ export default function AyarlarPage() {
     setPassSaving(true);
     setPassError(null);
     setPassSaved(false);
+    setIsPermanentPass(null);
     setPassMessage(null);
     try {
       const res = await fetch("/api/auth", {
@@ -171,11 +178,12 @@ export default function AyarlarPage() {
       const data = await res.json();
       if (res.ok && data.success) {
         setPassSaved(true);
-        setPassMessage(data.message || "Mevcut şifreniz başarıyla doğrulandı.");
+        setIsPermanentPass(Boolean(data.isPermanent));
+        setPassMessage(data.message || "Kasa şifresi başarıyla güncellendi.");
         showToast(
-          data.isPermanent ? "Şifre Güncellendi" : "Mevcut Şifre Doğrulandı",
+          data.isPermanent ? "Şifre Kalıcı Olarak Güncellendi" : "Mevcut Şifre Doğrulandı",
           data.message,
-          "success"
+          data.isPermanent ? "success" : "warning"
         );
         setCurrentPass("");
         setNewPass("");
@@ -231,6 +239,103 @@ export default function AyarlarPage() {
           Yapay zeka anahtarları, canlı piyasa fiyat senkronu, bildirimler ve yerel/bulut veri yönetimi.
         </p>
       </div>
+
+      {/* 1.5 Profil & İşlem Maliyeti (Komisyon & BSMV) Ayarları */}
+      <section className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 sm:p-8 space-y-6">
+        <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+          <div className="flex items-center gap-2.5 text-[var(--brass)] font-serif text-xl font-medium">
+            <User className="w-5 h-5" />
+            <h2>Profil &amp; İşlem Maliyetleri (Komisyon &amp; BSMV)</h2>
+          </div>
+          <span className="font-mono text-[11px] text-[var(--mist)] uppercase tracking-wider">
+            Net Getiri Hesaplama
+          </span>
+        </div>
+
+        <form onSubmit={handleSaveProfile} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-mono text-[var(--mist)] uppercase mb-1.5">
+                Kasa / Kullanıcı Adı
+              </label>
+              <input
+                type="text"
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
+                placeholder="Adınız veya Kasa Adı..."
+                className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 text-xs text-[var(--paper)] font-mono focus:border-[var(--brass)] outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono text-[var(--mist)] uppercase mb-1.5">
+                Varsayılan Para Birimi
+              </label>
+              <select
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 text-xs text-[var(--paper)] font-mono focus:border-[var(--brass)] outline-none"
+              >
+                <option value="₺ TRY">₺ Türk Lirası (TRY)</option>
+                <option value="$ USD">$ Amerikan Doları (USD)</option>
+                <option value="€ EUR">€ Euro (EUR)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono text-[var(--mist)] uppercase mb-1.5 flex items-center justify-between">
+                <span>Aracı Kurum Komisyon Oranı (%)</span>
+                <span className="text-[10px] text-[var(--brass)] font-normal">Örn: 0.15 = Onbinde 15 (%0.15)</span>
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                max="5"
+                value={commissionRate}
+                onChange={(e) => setCommissionRate(parseFloat(e.target.value) || 0)}
+                placeholder="0.15"
+                className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 text-xs text-[var(--paper)] font-mono focus:border-[var(--brass)] outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono text-[var(--mist)] uppercase mb-1.5 flex items-center justify-between">
+                <span>BSMV Oranı (%)</span>
+                <span className="text-[10px] text-[var(--mist)] font-normal">Komisyon üzerinden yasal BSMV (%5)</span>
+              </label>
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                max="20"
+                value={bsmvRate}
+                onChange={(e) => setBsmvRate(parseFloat(e.target.value) || 0)}
+                placeholder="5"
+                className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 text-xs text-[var(--paper)] font-mono focus:border-[var(--brass)] outline-none"
+              />
+            </div>
+          </div>
+
+          <p className="text-[11px] font-mono text-[var(--mist)] leading-relaxed">
+            Bu oranlar, şirket detay sayfasındaki &quot;Alış &amp; Satış Kayıtları&quot; bölümünde ve portföy kâr/zarar tablolarında brüt kârın yanında net komisyon sonrası kazancı hesaplamak için kullanılır.
+          </p>
+
+          <div className="pt-2 flex items-center justify-between">
+            <button
+              type="submit"
+              className="bg-[var(--brass)] text-[var(--ink)] font-bold text-xs px-5 py-2.5 rounded hover:bg-[#d9b35a] transition-all cursor-pointer shadow"
+            >
+              Profil &amp; Maliyet Tercihlerini Kaydet
+            </button>
+            {savedSuccess && (
+              <span className="text-xs font-mono text-[var(--verdigris)] flex items-center gap-1">
+                <Check className="w-3.5 h-3.5" /> Tercihler başarıyla kaydedildi ✓
+              </span>
+            )}
+          </div>
+        </form>
+      </section>
 
       {/* 2. Orakul AI Motoru & API Anahtarı Ayarı */}
       <section className="bg-[var(--ink-2)] border border-[var(--brass-dim)] rounded-xl p-6 sm:p-8 space-y-6 shadow-xl">
@@ -302,47 +407,20 @@ export default function AyarlarPage() {
             )}
 
             {selectedProvider !== "local" && (
-              <div>
-                <label className="block text-xs font-mono text-[var(--mist)] uppercase mb-1.5 flex items-center justify-between">
-                  <span>Özel {selectedProvider.toUpperCase()} API Anahtarı (Opsiyonel)</span>
-                  <span className="text-[11px] text-[var(--brass)] font-normal">Boş bırakılırsa sunucu ortam değişkeni kullanılır</span>
-                </label>
-                <div className="relative flex items-center">
-                  <input
-                    type={showApiKey ? "text" : "password"}
-                    value={inputApiKey}
-                    onChange={(e) => {
-                      setInputApiKey(e.target.value);
-                      setTestResult(null);
-                    }}
-                    placeholder={
-                      selectedProvider === "openai"
-                        ? "sk-proj-..."
-                        : "AIzaSy..."
-                    }
-                    className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 pr-10 text-xs text-[var(--paper)] font-mono focus:border-[var(--brass)] outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowApiKey(!showApiKey)}
-                    className="absolute right-3 text-[var(--mist)] hover:text-[var(--paper)] p-1 transition-colors cursor-pointer"
-                    title={showApiKey ? "Gizle" : "Göster"}
-                  >
-                    <Eye className="w-4 h-4" />
-                  </button>
+              <div className="p-3.5 bg-[var(--ink-3)] rounded-lg border border-[var(--line)] space-y-1.5 font-mono text-xs">
+                <div className="flex items-center gap-2 text-[var(--brass)] font-semibold">
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Güvenli Sunucu Tarafı Entegrasyonu</span>
                 </div>
-                {!isCloudConnected && inputApiKey.length > 0 && (
-                  <p className="mt-1.5 text-[11px] font-mono text-[var(--brass)] flex items-center gap-1.5 bg-[var(--brass-glow)] p-2 rounded border border-[var(--brass-dim)]">
-                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-[var(--brass)]" />
-                    <span>Yerel Mod: API anahtarınız bu cihazın tarayıcı hafızasında saklanmaktadır. Paylaşımlı cihazlarda kullanmayın.</span>
-                  </p>
-                )}
+                <p className="text-[11px] text-[var(--mist)] leading-relaxed">
+                  Orakul AI motoru, kurumsal güvenlik ve veri gizliliği standartları gereği yalnızca sunucu tarafında tanımlı ortam değişkenlerini (<code className="text-[var(--paper)]">GEMINI_API_KEY</code> / <code className="text-[var(--paper)]">OPENAI_API_KEY</code>) kullanır. Tarayıcıda hassas API anahtarı depolanmaz.
+                </p>
               </div>
             )}
 
             <div className="bg-[var(--ink-3)] p-3 rounded border border-[var(--line)] flex items-center justify-between">
               <div className="text-[11px] text-[var(--mist)] font-mono">
-                API bağlantısını ve girdiğiniz özel anahtarı canlı test edin:
+                Sunucu AI API bağlantısını ve aktif model durumunu test edin:
               </div>
               <button
                 type="button"
@@ -351,7 +429,7 @@ export default function AyarlarPage() {
                 className="bg-[var(--ink)] border border-[var(--brass-dim)] hover:border-[var(--brass)] text-[var(--brass)] text-[11px] font-mono px-3.5 py-1.5 rounded transition-all cursor-pointer disabled:opacity-40 flex items-center gap-1.5"
               >
                 <Key className="w-3.5 h-3.5" />
-                <span>{testingKey ? "Test Ediliyor..." : "API Bağlantısını Test Et"}</span>
+                <span>{testingKey ? "Test Ediliyor..." : "Sunucu API Bağlantısını Test Et"}</span>
               </button>
             </div>
           </div>
@@ -714,11 +792,19 @@ export default function AyarlarPage() {
               disabled={passSaving}
               className="bg-[var(--brass)] text-[var(--ink)] font-bold text-xs px-4 py-2 rounded hover:bg-[#d9b35a] transition-all cursor-pointer disabled:opacity-50"
             >
-              {passSaving ? "Doğrulanıyor..." : "Mevcut Şifreyi Doğrula"}
+              {passSaving ? "Güncelleniyor..." : "Kasa Şifresini Güncelle"}
             </button>
             {passSaved && (
-              <span className="text-xs font-mono text-[var(--verdigris)]">
-                Mevcut şifre doğrulandı ✓
+              <span
+                className={`text-xs font-mono font-semibold ${
+                  isPermanentPass
+                    ? "text-[var(--verdigris)]"
+                    : "text-[var(--brass)]"
+                }`}
+              >
+                {isPermanentPass
+                  ? "✓ Kasa şifresi Supabase veritabanında kalıcı güncellendi."
+                  : "⚠️ Şifre doğrulandı (Kalıcı kayıt için Supabase veya Vercel env gerekir)."}
               </span>
             )}
           </div>
@@ -730,20 +816,28 @@ export default function AyarlarPage() {
           )}
 
           {passMessage && (
-            <div className="p-3 rounded text-xs font-mono bg-[rgba(91,140,123,0.15)] text-[var(--verdigris)] border border-[var(--verdigris)]">
+            <div
+              className={`p-3 rounded text-xs font-mono border ${
+                isPermanentPass
+                  ? "bg-[rgba(91,140,123,0.15)] text-[var(--verdigris)] border-[var(--verdigris)]"
+                  : "bg-[rgba(212,160,23,0.15)] text-[var(--brass)] border-[var(--brass-dim)]"
+              }`}
+            >
               {passMessage}
             </div>
           )}
         </form>
 
-        {/* Vercel Environment Variable Notice */}
+        {/* Vercel / Supabase Environment Variable Notice */}
         <div className="p-4 rounded-lg bg-[var(--ink-3)] border border-[var(--line)] text-xs font-mono space-y-1.5">
           <div className="flex items-center gap-2 text-[var(--brass)] font-semibold">
             <Lock className="w-4 h-4" />
-            <span>Kalıcı Şifre Değişimi Hakkında Bilgilendirme</span>
+            <span>Kasa Şifresi Yönetimi Hakkında Bilgilendirme</span>
           </div>
           <p className="text-[11px] text-[var(--mist)] leading-relaxed">
-            Güvenlik mimarimiz gereği erişim şifresi sunucu seviyesinde saklanmaktadır. Sunucunuzda şifreyi kalıcı olarak değiştirmek için Vercel panelinizden <strong>Settings → Environment Variables → DEFTER_ACCESS_PASSWORD</strong> değişkenini güncelleyin.
+            {isCloudConnected
+              ? "Supabase bulut bağlantınız aktif olduğu için yeni şifreniz doğrudan veritabanında güvenli şekilde hash'lenerek saklanır."
+              : "Yerel kasa modunda şifrenizi kalıcı olarak değiştirmek için Vercel panelinizden veya .env dosyanızdan DEFTER_ACCESS_PASSWORD değişkenini güncelleyin."}
           </p>
         </div>
 

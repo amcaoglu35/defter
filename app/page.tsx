@@ -16,9 +16,7 @@ import {
   Eye,
   Coffee,
   RefreshCw,
-  Zap,
   ArrowRight,
-  Activity,
   Flame,
 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
@@ -30,7 +28,7 @@ import { calculatePortfolioHealthScore } from "@/lib/healthScore";
 import { useToast } from "@/components/ToastProvider";
 
 export default function HomePage() {
-  const { companies, baskets, ipos, dividends, aiProvider, geminiModel } = useDefterStore();
+  const { companies, baskets, ipos, dividends, indices, aiProvider, geminiModel } = useDefterStore();
   const { showToast } = useToast();
 
   // 1. Featured Companies: Sort by absolute daily activity/movement
@@ -63,6 +61,28 @@ export default function HomePage() {
     return parseFloat(totalChange.toFixed(2));
   }, [baskets, companies, totalPortfolioValue]);
 
+  // Aggregate holdings summary with real weights & daily returns
+  const holdingsSummary = useMemo(() => {
+    const map = new Map<string, { symbol: string; dailyChange: number; weight: number }>();
+    for (const b of baskets) {
+      for (const h of b.holdings) {
+        const co = companies.find((c) => c.symbol === h.companySymbol);
+        const existing = map.get(h.companySymbol);
+        const weight = h.weightPercent * (b.totalValue / (totalPortfolioValue || 1));
+        if (existing) {
+          existing.weight += weight;
+        } else {
+          map.set(h.companySymbol, {
+            symbol: h.companySymbol,
+            dailyChange: co?.dailyChange ?? 0,
+            weight,
+          });
+        }
+      }
+    }
+    return Array.from(map.values());
+  }, [baskets, companies, totalPortfolioValue]);
+
   // 4. Real Portfolio Health Score Calculation
   const healthScore = useMemo(() => {
     return calculatePortfolioHealthScore(baskets, companies);
@@ -80,14 +100,34 @@ export default function HomePage() {
     0
   );
 
-  // 6. Daily Briefing state
+  // 6. Daily Briefing state with localStorage cache
   const [dailyBrief, setDailyBrief] = useState<DailyBriefingResult | null>(null);
   const [briefLoading, setBriefLoading] = useState(false);
+  const [briefError, setBriefError] = useState<string | null>(null);
 
-  const loadDailyBrief = async () => {
+  const loadDailyBrief = async (forceRefresh: boolean = false) => {
     if (companies.length === 0) return;
+    const todayKey = new Date().toISOString().split("T")[0];
+
+    // 1. Check local storage daily cache if not forcing refresh
+    if (!forceRefresh && typeof window !== "undefined") {
+      try {
+        const cachedStr = localStorage.getItem("defter_daily_brief");
+        if (cachedStr) {
+          const cached = JSON.parse(cachedStr);
+          if (cached?.date === todayKey && cached?.data) {
+            setDailyBrief(cached.data);
+            setBriefError(null);
+            return;
+          }
+        }
+      } catch {}
+    }
+
     setBriefLoading(true);
+    setBriefError(null);
     try {
+      const bistDailyChange = indices?.["BIST 100"]?.dailyChange ?? 0;
       const res = await fetch("/api/orakul", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -97,7 +137,9 @@ export default function HomePage() {
             totalValue: totalPortfolioValue,
             totalProfit,
             dailyChangePct: totalDailyChangePct,
+            bistDailyChangePct: bistDailyChange,
             basketsCount: baskets.length,
+            holdingsSummary,
           },
           provider: aiProvider,
           model: geminiModel,
@@ -106,10 +148,21 @@ export default function HomePage() {
       if (res.ok) {
         const data = await res.json();
         setDailyBrief(data.data);
+        setBriefError(null);
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem(
+              "defter_daily_brief",
+              JSON.stringify({ date: todayKey, data: data.data })
+            );
+          } catch {}
+        }
       } else {
+        setBriefError("Orakul günlük brifingi şu anda alınamadı.");
         showToast("Günlük Brifing Alınamadı", "Orakul sunucusu yanıt vermedi.", "error");
       }
     } catch {
+      setBriefError("Orakul günlük brifingine bağlanılamadı.");
       showToast("Bağlantı Hatası", "Orakul günlük brifingi yüklenirken bir sorun oluştu.", "error");
     } finally {
       setBriefLoading(false);
@@ -119,6 +172,7 @@ export default function HomePage() {
   // Safe useEffect triggered only when company & basket data is properly loaded
   useEffect(() => {
     if (companies.length > 0 && baskets.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Asenkron günlük brifing veri çekme işlemi, meşru useEffect kullanımı
       loadDailyBrief();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -175,16 +229,26 @@ export default function HomePage() {
           <div className="font-serif text-2xl sm:text-3xl text-[var(--paper)] font-semibold">
             {totalPortfolioValue.toLocaleString("tr-TR")} ₺
           </div>
-          <div
-            className={`flex items-center gap-1.5 mt-2 font-mono text-xs ${
-              isProfitPositive ? "text-[var(--verdigris)]" : "text-[var(--loss)]"
-            }`}
-          >
-            {isProfitPositive ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-            <span>
-              {isProfitPositive ? "+" : ""}
-              {totalProfit.toLocaleString("tr-TR")} ₺ ({isProfitPositive ? "+" : ""}%{profitPercent}) Net Kâr
-            </span>
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 mt-2 font-mono text-xs">
+            <div
+              className={`flex items-center gap-1 font-semibold ${
+                totalDailyChangePct >= 0 ? "text-[var(--verdigris)]" : "text-[var(--loss)]"
+              }`}
+            >
+              {totalDailyChangePct >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+              <span>Bugün: {totalDailyChangePct >= 0 ? "+" : ""}%{totalDailyChangePct.toFixed(2)}</span>
+            </div>
+            <span className="text-[var(--mist)] opacity-40">•</span>
+            <div
+              className={`${
+                isProfitPositive ? "text-[var(--verdigris)]" : "text-[var(--loss)]"
+              }`}
+            >
+              <span>
+                {isProfitPositive ? "+" : ""}
+                {totalProfit.toLocaleString("tr-TR")} ₺ ({isProfitPositive ? "+" : ""}%{profitPercent}) Net Kâr
+              </span>
+            </div>
           </div>
           {totalHoldingsCount > 0 && (
             <div className="mt-3.5 flex items-center justify-between text-[11px] font-mono border-t border-dashed border-[var(--line)] pt-2">
@@ -276,6 +340,29 @@ export default function HomePage() {
         </section>
       )}
 
+      {!dailyBrief && briefError && !briefLoading && (
+        <section className="bg-[var(--ink-2)] border border-dashed border-[var(--line)] rounded-xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Coffee className="w-5 h-5 text-[var(--mist)]" />
+            <div>
+              <h4 className="font-serif text-sm font-semibold text-[var(--paper)]">
+                Orakul Günlük Kapanış Brifingi
+              </h4>
+              <p className="text-xs text-[var(--mist)] font-sans mt-0.5">
+                {briefError}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => loadDailyBrief(true)}
+            className="px-3.5 py-1.5 rounded bg-[var(--ink-3)] hover:bg-[var(--ink)] border border-[var(--line)] text-xs font-mono text-[var(--brass)] flex items-center gap-2 cursor-pointer transition-colors shrink-0"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>Tekrar Dene</span>
+          </button>
+        </section>
+      )}
+
       {dailyBrief && (
         <section className="bg-[var(--ink-2)] border border-[var(--brass-dim)] rounded-xl p-6 relative overflow-hidden shadow-xl animate-in fade-in">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-dashed border-[var(--line)] pb-4">
@@ -284,25 +371,32 @@ export default function HomePage() {
                 <Coffee className="w-5 h-5" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="font-mono text-[10px] text-[var(--brass)] uppercase font-bold tracking-wider">
                     {dailyBrief.date} • Akşam Kapanış Brifingi
                   </span>
-                  {(() => {
-                    const alphaDiff = parseFloat((dailyBrief.portfolioDayChangePct - dailyBrief.bistDayChangePct).toFixed(2));
-                    const isPositive = alphaDiff >= 0;
-                    return (
-                      <span
-                        className={`font-mono text-[10px] px-2 py-0.5 rounded font-bold border ${
-                          isPositive
-                            ? "bg-[rgba(91,140,123,0.15)] text-[var(--verdigris)] border-[var(--verdigris)]"
-                            : "bg-[rgba(122,46,58,0.15)] text-[var(--loss)] border-[var(--loss)]"
-                        }`}
-                      >
-                        Alfa Getiri: {isPositive ? `+${alphaDiff}` : `${alphaDiff}`}%
-                      </span>
-                    );
-                  })()}
+                  {dailyBrief.hasBistData !== false && (
+                    <span
+                      className={`font-mono text-[10px] px-2 py-0.5 rounded font-bold border ${
+                        dailyBrief.portfolioDayChangePct >= dailyBrief.bistDayChangePct
+                          ? "bg-[rgba(91,140,123,0.15)] text-[var(--verdigris)] border-[var(--verdigris)]"
+                          : "bg-[rgba(122,46,58,0.15)] text-[var(--loss)] border-[var(--loss)]"
+                      }`}
+                    >
+                      Alfa Getiri: {dailyBrief.portfolioDayChangePct >= dailyBrief.bistDayChangePct ? "+" : ""}
+                      {(dailyBrief.portfolioDayChangePct - dailyBrief.bistDayChangePct).toFixed(2)}%
+                    </span>
+                  )}
+                  {dailyBrief.topWinner && (
+                    <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-[var(--ink-3)] text-[var(--verdigris)] border border-[rgba(91,140,123,0.3)]">
+                      ▲ {dailyBrief.topWinner.symbol} +%{dailyBrief.topWinner.changePct}
+                    </span>
+                  )}
+                  {dailyBrief.topLoser && (
+                    <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-[var(--ink-3)] text-[var(--loss)] border border-[rgba(217,83,79,0.3)]">
+                      ▼ {dailyBrief.topLoser.symbol} %{dailyBrief.topLoser.changePct}
+                    </span>
+                  )}
                 </div>
                 <h3 className="font-serif text-xl font-bold text-[var(--paper)] mt-0.5">
                   {dailyBrief.greeting}
@@ -312,7 +406,7 @@ export default function HomePage() {
 
             <div className="flex items-center gap-2">
               <button
-                onClick={loadDailyBrief}
+                onClick={() => loadDailyBrief(true)}
                 disabled={briefLoading}
                 className="text-xs font-mono text-[var(--mist)] hover:text-[var(--paper)] px-3 py-1.5 rounded border border-[var(--line)] bg-[var(--ink-3)] flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
@@ -528,7 +622,7 @@ export default function HomePage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {baskets.map((basket) => {
+            {baskets.slice(0, 6).map((basket) => {
               const isBasketProfit = basket.totalProfitPercent >= 0;
 
               return (
@@ -597,6 +691,18 @@ export default function HomePage() {
               );
             })}
           </div>
+
+          {baskets.length > 6 && (
+            <div className="pt-2 text-center">
+              <Link
+                href="/sepetlerim"
+                className="inline-flex items-center gap-1 text-xs font-mono text-[var(--brass)] hover:underline"
+              >
+                <span>+{baskets.length - 6} sepet daha görüntüle</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          )}
         </div>
 
         <div className="space-y-4">
@@ -614,7 +720,7 @@ export default function HomePage() {
           </div>
 
           <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-lg p-4 space-y-3">
-            {activeIpos.map((ipo) => (
+            {activeIpos.slice(0, 5).map((ipo) => (
               <div
                 key={ipo.id}
                 className="p-3 rounded bg-[var(--ink-3)] border border-[var(--line)]"

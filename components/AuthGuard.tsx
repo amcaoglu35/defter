@@ -9,7 +9,6 @@ import {
   EyeOff,
   AlertTriangle,
   ChevronDown,
-  Sparkles,
 } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
@@ -18,30 +17,34 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
-  const [error, setError] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+  const [error, setError] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const urlParams = new URLSearchParams(window.location.search);
+    return Boolean(urlParams.get("auth_error"));
+  });
+  const [errorMessage, setErrorMessage] = useState(() => {
+    if (typeof window === "undefined") return "";
+    const urlParams = new URLSearchParams(window.location.search);
+    const authError = urlParams.get("auth_error");
+    const attemptedEmail = urlParams.get("email");
+    if (authError === "unauthorized_email") {
+      return attemptedEmail
+        ? `🚫 Yetkisiz Erişim: "${attemptedEmail}" bu kasanın yetkili sahibi olarak tanımlanmamıştır.`
+        : "🚫 Bu hesap bu kasanın yetkili sahibi olarak tanımlanmamıştır.";
+    }
+    if (authError) {
+      return "Kimlik doğrulama işlemi tamamlanamadı. Lütfen tekrar deneyin.";
+    }
+    return "";
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<"google" | "github" | null>(null);
 
   useEffect(() => {
-    // 1. Check for OAuth redirect errors in URL
+    // 1. Clean URL search parameters if OAuth redirect error was present
     if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
-      const authError = urlParams.get("auth_error");
-      const attemptedEmail = urlParams.get("email");
-
-      if (authError === "unauthorized_email") {
-        setError(true);
-        setErrorMessage(
-          attemptedEmail
-            ? `🚫 Yetkisiz Erişim: "${attemptedEmail}" bu kasanın yetkili sahibi olarak tanımlanmamıştır.`
-            : "🚫 Bu hesap bu kasanın yetkili sahibi olarak tanımlanmamıştır."
-        );
-        // Clean URL parameters
-        window.history.replaceState({}, document.title, window.location.pathname);
-      } else if (authError) {
-        setError(true);
-        setErrorMessage("Kimlik doğrulama işlemi tamamlanamadı. Lütfen tekrar deneyin.");
+      if (urlParams.get("auth_error")) {
         window.history.replaceState({}, document.title, window.location.pathname);
       }
     }
@@ -115,6 +118,9 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       if (res.ok && data.success) {
         setIsAuthenticated(true);
         setError(false);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("defter_auth_success"));
+        }
       } else {
         setError(true);
         setErrorMessage(data.error || "Hatalı şifre. Lütfen tekrar deneyin.");

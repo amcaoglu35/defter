@@ -139,6 +139,16 @@ export const SYMBOL_MAP: Record<string, string> = {
   BRENT: "BZ=F",
   BAKIR: "HG=F",
 
+  // Dynamically Derived Precious Metals in TRY (computed in /api/prices from spot ounce & USD/TRY)
+  "ALTIN/GR": "ALTIN/GR",
+  "GÜMÜŞ/GR": "GÜMÜŞ/GR",
+  "GUMUS/GR": "GÜMÜŞ/GR",
+  "PLATIN/GR": "PLATIN/GR",
+  CEYREK: "CEYREK",
+  YARIM: "YARIM",
+  TAM: "TAM",
+  ATA: "ATA",
+
   // Market & Sector Indices
   "BIST 100": "XU100.IS",
   "BIST 30": "XU030.IS",
@@ -152,14 +162,48 @@ export const SYMBOL_MAP: Record<string, string> = {
   "ABD 10Y Tahvil": "^TNX",
   "VIX Korku": "^VIX",
   "DXY Dolar": "DX-Y.NYB",
+
+  // TEFAS Yatırım Fonları
+  TI2: "TEFAS:TI2",
+  TCD: "TEFAS:TCD",
+  MAC: "TEFAS:MAC",
+  NNF: "TEFAS:NNF",
+  IPB: "TEFAS:IPB",
+  AFT: "TEFAS:AFT",
+  YAY: "TEFAS:YAY",
+  BUY: "TEFAS:BUY",
+  GMR: "TEFAS:GMR",
+  ZCN: "TEFAS:ZCN",
+  KTM: "TEFAS:KTM",
 };
 
-export const LIVE_SYMBOLS = new Set<string>(Object.keys(SYMBOL_MAP));
+/**
+ * Explicit set of symbols that are either fetched directly from Yahoo Finance
+ * or dynamically calculated on-the-fly from live spot quotes (Gram Altın, Çeyrek, etc.).
+ */
+export const LIVE_SYMBOLS = new Set<string>(Object.keys(SYMBOL_MAP).map((k) => k.toUpperCase()));
+
+export const DYNAMICALLY_DERIVED_SYMBOLS = new Set<string>([
+  "ALTIN/GR",
+  "GÜMÜŞ/GR",
+  "GUMUS/GR",
+  "PLATIN/GR",
+  "CEYREK",
+  "YARIM",
+  "TAM",
+  "ATA",
+  "USD/TRY",
+  "EUR/TRY",
+  "GBP/TRY",
+  "CHF/TRY",
+  "EUR/USD",
+  "BRENT",
+]);
 
 export function isLiveSymbol(symbol: string): boolean {
   if (!symbol) return false;
   const upper = symbol.toUpperCase().trim();
-  return LIVE_SYMBOLS.has(upper) || /^[A-Z0-9]{3,6}$/.test(upper);
+  return LIVE_SYMBOLS.has(upper) || DYNAMICALLY_DERIVED_SYMBOLS.has(upper);
 }
 
 export function getSymbolTicker(symbol: string): string {

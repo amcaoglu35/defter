@@ -194,33 +194,39 @@ function OrakulContent() {
 
   // 1. Wizard state & Rebalance Context
   const [rebalanceBasketId, setRebalanceBasketId] = useState<string | null>(null);
+  const [prevPreselectedBasketId, setPrevPreselectedBasketId] = useState<string | null>(null);
   const [goal, setGoal] = useState("Temettü Odaklı Nakit Akışı");
   const [risk, setRisk] = useState("Dengeli (Orta Risk)");
   const [universe, setUniverse] = useState("BIST 30 & Emtia");
   const [budget, setBudget] = useState("100.000");
 
-  useEffect(() => {
-    if (preselectedBasketId && baskets.length > 0) {
-      const targetB = baskets.find((b) => b.id === preselectedBasketId);
-      if (targetB) {
-        setRebalanceBasketId(targetB.id);
-        setActiveCategory("strategy");
-        setActiveTab("wizard");
-        updateUrl("strategy", "wizard");
-        setGoal(`${targetB.name} Yeniden Dengeleme & Rebalance`);
-        setRisk(
-          targetB.riskLevel === "Düşük"
-            ? "Düşük Risk (Defansif)"
-            : targetB.riskLevel === "Orta"
-            ? "Dengeli (Orta Risk)"
-            : "Yüksek Risk (Agresif)"
-        );
-        if (targetB.totalValue > 0) {
-          setBudget(Math.round(targetB.totalValue).toLocaleString("tr-TR"));
-        }
+  // Sync preselected basket to wizard state during render
+  if (preselectedBasketId && preselectedBasketId !== prevPreselectedBasketId && baskets.length > 0) {
+    const targetB = baskets.find((b) => b.id === preselectedBasketId);
+    if (targetB) {
+      setPrevPreselectedBasketId(preselectedBasketId);
+      setRebalanceBasketId(targetB.id);
+      setActiveCategory("strategy");
+      setActiveTab("wizard");
+      setGoal(`${targetB.name} Yeniden Dengeleme & Rebalance`);
+      setRisk(
+        targetB.riskLevel === "Düşük"
+          ? "Düşük Risk (Defansif)"
+          : targetB.riskLevel === "Orta"
+          ? "Dengeli (Orta Risk)"
+          : "Yüksek Risk (Agresif)"
+      );
+      if (targetB.totalValue > 0) {
+        setBudget(Math.round(targetB.totalValue).toLocaleString("tr-TR"));
       }
     }
-  }, [preselectedBasketId, baskets]);
+  }
+
+  useEffect(() => {
+    if (preselectedBasketId) {
+      updateUrl("strategy", "wizard");
+    }
+  }, [preselectedBasketId]);
 
 interface OrakulRecipeResult {
   title?: string;
@@ -230,6 +236,8 @@ interface OrakulRecipeResult {
   expectedYield?: string;
   recommendedDuration?: string;
   riskRating?: string;
+  isTemplate?: boolean;
+  engine?: "llm" | "algorithmic";
   allocation?: Array<{
     symbol: string;
     companyName?: string;
@@ -593,6 +601,45 @@ interface WeeklyLetterResult {
 
   const handleRunBacktest = async () => {
     setBacktestLoading(true);
+
+    let allocation: Array<{ symbol: string; weight: number }> = [
+      { symbol: "THYAO", weight: 30 },
+      { symbol: "FROTO", weight: 25 },
+      { symbol: "ASELS", weight: 25 },
+      { symbol: "TUPRS", weight: 20 },
+    ];
+
+    if (backtestStrategy.includes("Temettü Kalesi")) {
+      allocation = [
+        { symbol: "FROTO", weight: 25 },
+        { symbol: "TUPRS", weight: 25 },
+        { symbol: "EREGL", weight: 25 },
+        { symbol: "BIMAS", weight: 25 },
+      ];
+    } else if (backtestStrategy.includes("Enflasyon & Kur Kalkanı")) {
+      allocation = [
+        { symbol: "ALTIN", weight: 30 },
+        { symbol: "THYAO", weight: 25 },
+        { symbol: "ASELS", weight: 25 },
+        { symbol: "KCHOL", weight: 20 },
+      ];
+    } else if (backtestStrategy.includes("Büyüme & İhracat")) {
+      allocation = [
+        { symbol: "THYAO", weight: 30 },
+        { symbol: "FROTO", weight: 25 },
+        { symbol: "ASELS", weight: 25 },
+        { symbol: "PGSUS", weight: 20 },
+      ];
+    } else {
+      const targetBasket = baskets.find((b) => backtestStrategy === b.name || backtestStrategy === `Sepetim: ${b.name}`);
+      if (targetBasket && targetBasket.holdings.length > 0) {
+        allocation = targetBasket.holdings.map((h) => ({
+          symbol: h.companySymbol,
+          weight: h.weightPercent || 100 / targetBasket.holdings.length,
+        }));
+      }
+    }
+
     try {
       const res = await fetch("/api/orakul", {
         method: "POST",
@@ -603,6 +650,7 @@ interface WeeklyLetterResult {
             recipeTitle: backtestStrategy,
             durationMonths: backtestMonths,
             budget: parseFloat(backtestBudget.replace(/\./g, "")) || 100000,
+            allocation,
           },
           provider: aiProvider,
           model: geminiModel,
@@ -611,7 +659,7 @@ interface WeeklyLetterResult {
       if (res.ok) {
         const data = await res.json();
         setBacktestResult(data.data);
-        showToast("Simülasyon Tamamlandı", `${backtestMonths} aylık geçmiş getiri laboratuvarı sonuçlandı.`, "success");
+        showToast("Simülasyon Tamamlandı", `${backtestMonths} aylık gerçek geçmiş piyasa verileriyle test sonuçlandı.`, "success");
       } else {
         const errJson = await res.json().catch(() => null);
         const msg = errJson?.error || errJson?.message || "Simülasyon hesaplanırken bir sorun oluştu.";
@@ -659,6 +707,29 @@ interface WeeklyLetterResult {
     setBriefingLoading(true);
     const totalVal = baskets.reduce((sum, b) => sum + b.totalValue, 0);
     const totalCost = baskets.reduce((sum, b) => sum + b.totalCost, 0);
+
+    // Calculate genuine weighted daily change & holdings summary
+    const allHoldings = baskets.flatMap((b) => b.holdings);
+    let weightedDailySum = 0;
+    let portfolioSum = 0;
+    const holdingsSummary: Array<{ symbol: string; dailyChange: number; weight: number }> = [];
+
+    for (const h of allHoldings) {
+      const co = companies.find((c) => c.symbol.toUpperCase() === h.companySymbol.toUpperCase());
+      const holdingVal = h.quantity * (co?.price ?? h.currentPrice);
+      const dailyChg = co?.dailyChange ?? 0;
+      portfolioSum += holdingVal;
+      weightedDailySum += holdingVal * dailyChg;
+      holdingsSummary.push({
+        symbol: h.companySymbol,
+        dailyChange: dailyChg,
+        weight: holdingVal,
+      });
+    }
+
+    const calculatedDailyChangePct = portfolioSum > 0 ? Number((weightedDailySum / portfolioSum).toFixed(2)) : 0;
+    const bistDaily = indices["BIST 100"]?.dailyChange;
+
     try {
       const res = await fetch("/api/orakul", {
         method: "POST",
@@ -669,8 +740,10 @@ interface WeeklyLetterResult {
             userName: userSettings?.userName,
             totalValue: totalVal,
             totalProfit: totalVal - totalCost,
-            dailyChangePct: 1.45,
+            dailyChangePct: calculatedDailyChangePct,
+            bistDailyChangePct: bistDaily,
             basketsCount: baskets.length,
+            holdingsSummary,
           },
           provider: aiProvider,
           model: geminiModel,
@@ -696,6 +769,32 @@ interface WeeklyLetterResult {
     setWeeklyLetterLoading(true);
     const totalVal = baskets.reduce((sum, b) => sum + b.totalValue, 0);
     const totalCost = baskets.reduce((sum, b) => sum + b.totalCost, 0);
+
+    // Calculate genuine top winner and top loser from actual basket holdings
+    const allHoldings = baskets.flatMap((b) => b.holdings);
+    let weightedDailySum = 0;
+    let portfolioSum = 0;
+    const validHoldingsWithChange: Array<{ symbol: string; change: number; weight: number }> = [];
+
+    for (const h of allHoldings) {
+      const co = companies.find((c) => c.symbol.toUpperCase() === h.companySymbol.toUpperCase());
+      const holdingVal = h.quantity * (co?.price ?? h.currentPrice);
+      const dailyChg = co?.dailyChange ?? 0;
+      portfolioSum += holdingVal;
+      weightedDailySum += holdingVal * dailyChg;
+      validHoldingsWithChange.push({
+        symbol: h.companySymbol,
+        change: dailyChg,
+        weight: holdingVal,
+      });
+    }
+
+    validHoldingsWithChange.sort((a, b) => b.change - a.change);
+    const bestHolding = validHoldingsWithChange.find((h) => h.change > 0);
+    const worstHolding = [...validHoldingsWithChange].reverse().find((h) => h.change < 0 && h.symbol !== bestHolding?.symbol);
+
+    const calculatedWeeklyChangePct = portfolioSum > 0 ? Number((weightedDailySum / portfolioSum).toFixed(2)) : 0;
+
     try {
       const res = await fetch("/api/orakul", {
         method: "POST",
@@ -708,7 +807,9 @@ interface WeeklyLetterResult {
             totalProfit: totalVal - totalCost,
             basketsCount: baskets.length,
             companiesCount: companies.length,
-            weeklyChangePct: 2.45,
+            weeklyChangePct: calculatedWeeklyChangePct,
+            topWinner: bestHolding ? { symbol: bestHolding.symbol, change: Number(bestHolding.change.toFixed(2)) } : undefined,
+            topLoser: worstHolding ? { symbol: worstHolding.symbol, change: Number(worstHolding.change.toFixed(2)) } : undefined,
           },
           provider: aiProvider,
           model: geminiModel,
@@ -1479,10 +1580,21 @@ interface WeeklyLetterResult {
           {result && (
             <div className="mt-8 pt-6 border-t border-[var(--line)] space-y-6 animate-in fade-in">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-[var(--ink-3)] p-5 rounded-lg border border-[var(--brass-dim)]">
-                <div>
-                  <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--brass)]">
-                    Üretilen Strateji
-                  </span>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--brass)]">
+                      Üretilen Strateji
+                    </span>
+                    {result.engine === "algorithmic" || result.isTemplate ? (
+                      <span className="text-[9px] font-mono font-bold bg-[rgba(212,160,23,0.15)] text-[var(--brass)] border border-[var(--brass-dim)] px-2 py-0.5 rounded">
+                        ⚡ Kural Motoru (Kütük Tabanlı)
+                      </span>
+                    ) : (
+                      <span className="text-[9px] font-mono font-bold bg-[rgba(91,140,123,0.15)] text-[var(--verdigris)] border border-[var(--verdigris)] px-2 py-0.5 rounded">
+                        ✨ Orakul LLM YZ
+                      </span>
+                    )}
+                  </div>
                   <h3 className="font-serif text-xl sm:text-2xl font-bold text-[var(--paper)] mt-0.5">
                     {result.recipeTitle || result.title}
                   </h3>
@@ -1503,6 +1615,15 @@ interface WeeklyLetterResult {
                   <StampBadge verdict="GÜÇLÜ AL" />
                 </div>
               </div>
+
+              {(result.engine === "algorithmic" || result.isTemplate) && (
+                <div className="p-3 bg-[var(--ink-2)] border border-dashed border-[var(--brass-dim)] rounded-lg text-xs font-sans text-[var(--mist)] flex items-start gap-2.5">
+                  <Sparkles className="w-4 h-4 text-[var(--brass)] shrink-0 mt-0.5" />
+                  <span>
+                    Bu sepet dağılımı, kütüğünüzdeki varlıklar taranarak <strong>Kural Tabanlı Mean-Variance Optimizasyon Motoru</strong> ile dinamik olarak oluşturuldu. Doğrudan Gemini veya OpenAI derinlikli LLM analizleri için <strong>Ayarlar</strong> sayfasından API Anahtarınızı bağlayabilirsiniz.
+                  </span>
+                </div>
+              )}
 
               {/* Allocation List */}
               <div className="space-y-3">
@@ -1691,10 +1812,10 @@ interface WeeklyLetterResult {
                     12A Hedef Fiyat (DCF)
                   </span>
                   <div className="text-base font-bold text-[var(--paper)]">
-                    {companyAnalysis.targetPrice12M ? `${companyAnalysis.targetPrice12M.toFixed(2)} ₺` : "Hesaplanıyor"}
+                    {companyAnalysis.targetPrice12M ? `${companyAnalysis.targetPrice12M.toFixed(2)} ₺` : "—"}
                   </div>
                   <span className="text-[11px] font-bold text-[var(--verdigris)] block">
-                    Potansiyel: {companyAnalysis.upsidePotential || "+25%"}
+                    {companyAnalysis.upsidePotential ? `Potansiyel: ${companyAnalysis.upsidePotential}` : <span className="text-[var(--mist)] font-sans font-normal italic">Yalnızca AI Analiziyle</span>}
                   </span>
                 </div>
 
@@ -1704,10 +1825,14 @@ interface WeeklyLetterResult {
                     Piotroski F-Score
                   </span>
                   <div className="text-base font-bold text-[var(--brass)]">
-                    {companyAnalysis.piotroskiScore ?? 8} / 9
+                    {companyAnalysis.piotroskiScore !== undefined ? `${companyAnalysis.piotroskiScore} / 9` : "—"}
                   </div>
                   <span className="text-[11px] text-[var(--paper-dim)] block">
-                    {(companyAnalysis.piotroskiScore ?? 8) >= 7 ? "Mükemmel Finansallar" : "Ortalama Bilanço"}
+                    {companyAnalysis.piotroskiScore !== undefined
+                      ? companyAnalysis.piotroskiScore >= 7
+                        ? "Mükemmel Finansallar"
+                        : "Ortalama Bilanço"
+                      : <span className="text-[var(--mist)] font-sans italic">Mali Tablo Kapsamı Gerekir</span>}
                   </span>
                 </div>
 
@@ -1717,10 +1842,10 @@ interface WeeklyLetterResult {
                     Altman Z-Score
                   </span>
                   <div className="text-sm font-bold text-[var(--verdigris)] truncate">
-                    {companyAnalysis.altmanZScore || "3.42 (Güvenli)"}
+                    {companyAnalysis.altmanZScore || "—"}
                   </div>
                   <span className="text-[11px] text-[var(--mist)] block">
-                    İflas / Temerrüt Riski Yok
+                    {companyAnalysis.altmanZScore ? "Temerrüt Riski Analizi" : <span className="font-sans italic">Mali Tablo Kapsamı Gerekir</span>}
                   </span>
                 </div>
 
@@ -1730,10 +1855,10 @@ interface WeeklyLetterResult {
                     DuPont Özsermaye Kârı
                   </span>
                   <div className="text-sm font-bold text-[var(--paper)] truncate">
-                    {companyAnalysis.dupontRoe || "%32.4"}
+                    {companyAnalysis.dupontRoe || "—"}
                   </div>
-                  <span className="text-[11px] text-[var(--brass)] block">
-                    {companyAnalysis.peVsSector || "Sektör İskontosu"}
+                  <span className="text-[11px] text-[var(--brass)] block truncate">
+                    {companyAnalysis.peVsSector || <span className="text-[var(--mist)] font-sans italic">Mali Tablo Kapsamı Gerekir</span>}
                   </span>
                 </div>
               </div>
@@ -1870,19 +1995,19 @@ interface WeeklyLetterResult {
                   <div className="grid grid-cols-2 gap-2 font-mono text-xs">
                     <div className="p-2.5 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg">
                       <span className="text-[10px] text-[var(--mist)] uppercase block">Hedef Fiyat</span>
-                      <span className="font-bold text-[var(--paper)]">{companyAnalysis.targetPrice12M?.toFixed(2) || "—"} ₺</span>
+                      <span className="font-bold text-[var(--paper)]">{companyAnalysis.targetPrice12M ? `${companyAnalysis.targetPrice12M.toFixed(2)} ₺` : "—"}</span>
                     </div>
                     <div className="p-2.5 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg">
                       <span className="text-[10px] text-[var(--mist)] uppercase block">Potansiyel</span>
-                      <span className="font-bold text-[var(--verdigris)]">{companyAnalysis.upsidePotential || "+20%"}</span>
+                      <span className="font-bold text-[var(--verdigris)]">{companyAnalysis.upsidePotential || "—"}</span>
                     </div>
                     <div className="p-2.5 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg">
                       <span className="text-[10px] text-[var(--mist)] uppercase block">Piotroski</span>
-                      <span className="font-bold text-[var(--brass)]">{companyAnalysis.piotroskiScore ?? 8}/9</span>
+                      <span className="font-bold text-[var(--brass)]">{companyAnalysis.piotroskiScore !== undefined ? `${companyAnalysis.piotroskiScore}/9` : "—"}</span>
                     </div>
                     <div className="p-2.5 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg">
                       <span className="text-[10px] text-[var(--mist)] uppercase block">DuPont ROE</span>
-                      <span className="font-bold text-[var(--paper)]">{companyAnalysis.dupontRoe || "%30"}</span>
+                      <span className="font-bold text-[var(--paper)]">{companyAnalysis.dupontRoe || "—"}</span>
                     </div>
                   </div>
 
@@ -1915,19 +2040,19 @@ interface WeeklyLetterResult {
                   <div className="grid grid-cols-2 gap-2 font-mono text-xs">
                     <div className="p-2.5 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg">
                       <span className="text-[10px] text-[var(--mist)] uppercase block">Hedef Fiyat</span>
-                      <span className="font-bold text-[var(--paper)]">{compareAnalysis.targetPrice12M?.toFixed(2) || "—"} ₺</span>
+                      <span className="font-bold text-[var(--paper)]">{compareAnalysis.targetPrice12M ? `${compareAnalysis.targetPrice12M.toFixed(2)} ₺` : "—"}</span>
                     </div>
                     <div className="p-2.5 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg">
                       <span className="text-[10px] text-[var(--mist)] uppercase block">Potansiyel</span>
-                      <span className="font-bold text-[var(--verdigris)]">{compareAnalysis.upsidePotential || "+20%"}</span>
+                      <span className="font-bold text-[var(--verdigris)]">{compareAnalysis.upsidePotential || "—"}</span>
                     </div>
                     <div className="p-2.5 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg">
                       <span className="text-[10px] text-[var(--mist)] uppercase block">Piotroski</span>
-                      <span className="font-bold text-[var(--brass)]">{compareAnalysis.piotroskiScore ?? 8}/9</span>
+                      <span className="font-bold text-[var(--brass)]">{compareAnalysis.piotroskiScore !== undefined ? `${compareAnalysis.piotroskiScore}/9` : "—"}</span>
                     </div>
                     <div className="p-2.5 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg">
                       <span className="text-[10px] text-[var(--mist)] uppercase block">DuPont ROE</span>
-                      <span className="font-bold text-[var(--paper)]">{compareAnalysis.dupontRoe || "%30"}</span>
+                      <span className="font-bold text-[var(--paper)]">{compareAnalysis.dupontRoe || "—"}</span>
                     </div>
                   </div>
 
@@ -2037,11 +2162,19 @@ interface WeeklyLetterResult {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="p-3.5 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg font-mono">
                   <span className="text-[11px] text-[var(--mist)] uppercase block">Net Kâr Büyümesi</span>
-                  <span className="text-base font-bold text-[var(--verdigris)] mt-0.5 block">{earningsResult.netProfitGrowth}</span>
+                  {earningsResult.netProfitGrowth ? (
+                    <span className="text-base font-bold text-[var(--verdigris)] mt-0.5 block">{earningsResult.netProfitGrowth}</span>
+                  ) : (
+                    <span className="text-[11px] text-[var(--mist)] mt-1 block font-sans italic">Yalnızca AI motoru aktifken hesaplanır</span>
+                  )}
                 </div>
                 <div className="p-3.5 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg font-mono">
                   <span className="text-[11px] text-[var(--mist)] uppercase block">FAVÖK Marjı</span>
-                  <span className="text-base font-bold text-[var(--paper)] mt-0.5 block">{earningsResult.ebitdaMargin}</span>
+                  {earningsResult.ebitdaMargin ? (
+                    <span className="text-base font-bold text-[var(--paper)] mt-0.5 block">{earningsResult.ebitdaMargin}</span>
+                  ) : (
+                    <span className="text-[11px] text-[var(--mist)] mt-1 block font-sans italic">Yalnızca AI motoru aktifken hesaplanır</span>
+                  )}
                 </div>
                 <div className="p-3.5 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg font-mono">
                   <span className="text-[11px] text-[var(--mist)] uppercase block">Borçluluk Durumu</span>
@@ -2263,15 +2396,15 @@ interface WeeklyLetterResult {
             </p>
           </div>
 
-          {/* Conceptual Simulation Notice (Honest Disclaimer) */}
-          <div className="p-4 bg-[rgba(201,162,75,0.08)] border border-[var(--brass-dim)] rounded-xl flex items-start gap-3 text-xs font-mono">
-            <AlertTriangle className="w-4 h-4 text-[var(--brass)] shrink-0 mt-0.5" />
+          {/* Real Historical Data Notice */}
+          <div className="p-4 bg-[rgba(91,140,123,0.1)] border border-[var(--verdigris)] rounded-xl flex items-start gap-3 text-xs font-mono">
+            <Sparkles className="w-4 h-4 text-[var(--verdigris)] shrink-0 mt-0.5" />
             <div>
-              <span className="font-bold text-[var(--brass)] uppercase tracking-wider block mb-0.5">
-                ⚠️ Kavramsal Projeksiyon &amp; Varsayım Bildirimi
+              <span className="font-bold text-[var(--verdigris)] uppercase tracking-wider block mb-0.5">
+                📌 Gerçek Piyasa &amp; BIST Tarihsel Fiyat Akışı
               </span>
               <span className="text-[var(--paper-dim)] font-sans leading-relaxed">
-                Bu simülasyon şu an gerçek geçmiş piyasa verisi yerine makro varsayımsal büyüme trendleri ve portföy ağırlıkları ile modellenmiştir. Sonuçlar gerçek yatırım performansı garantisi veya geçmiş getiri kanıtı teşkil etmez, stratejinin kavramsal bir gösterimidir.
+                Bu simülasyon, seçtiğiniz portföydeki hisselerin BIST ve Yahoo Finance üzerindeki gerçek tarihsel günlük kapanış fiyatları üzerinden hesaplanır. BIST 100 endeksi ve Gram Altın kıyaslamaları aynı tarih aralığındaki gerçek getiri oranları ile birebir eşleştirilmiştir.
               </span>
             </div>
           </div>
@@ -2286,9 +2419,20 @@ interface WeeklyLetterResult {
                 onChange={(e) => setBacktestStrategy(e.target.value)}
                 className="w-full bg-[var(--ink-3)] border border-[var(--line)] text-xs text-[var(--paper)] rounded p-2.5 font-mono outline-none"
               >
-                <option>Temettü Kalesi Reçetesi (FROTO, TUPRS, EREGL, BIMAS)</option>
-                <option>Enflasyon &amp; Kur Kalkanı (Gram Altın, THYAO, ASELS, KCHOL)</option>
-                <option>Büyüme &amp; İhracat Şampiyonları (THYAO, FROTO, ASELS, PGSUS)</option>
+                <optgroup label="Hazır Orakul Stratejileri">
+                  <option>Temettü Kalesi Reçetesi (FROTO, TUPRS, EREGL, BIMAS)</option>
+                  <option>Enflasyon &amp; Kur Kalkanı (Gram Altın, THYAO, ASELS, KCHOL)</option>
+                  <option>Büyüme &amp; İhracat Şampiyonları (THYAO, FROTO, ASELS, PGSUS)</option>
+                </optgroup>
+                {baskets.length > 0 && (
+                  <optgroup label="Kendi Sepetlerim">
+                    {baskets.map((b) => (
+                      <option key={b.id} value={`Sepetim: ${b.name}`}>
+                        Sepetim: {b.name} ({b.holdings.map((h) => h.companySymbol).join(", ")})
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             </div>
 
@@ -2338,41 +2482,71 @@ interface WeeklyLetterResult {
 
           {backtestResult && (
             <div className="mt-8 pt-6 border-t border-[var(--line)] space-y-6 animate-in fade-in">
+              {/* Warnings Banner if any missing symbols */}
+              {backtestResult.warnings && backtestResult.warnings.length > 0 && (
+                <div className="p-3.5 bg-[rgba(201,124,124,0.1)] border border-[var(--loss)] rounded-lg text-xs font-mono space-y-1">
+                  <div className="font-bold text-[var(--loss)] flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    <span>Backtest Veri Notu:</span>
+                  </div>
+                  {backtestResult.warnings.map((w, idx) => (
+                    <p key={idx} className="text-[var(--paper-dim)] pl-5 font-sans">
+                      • {w}
+                    </p>
+                  ))}
+                </div>
+              )}
+
               {/* 3 Outcome Comparison Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="p-5 bg-[var(--ink-3)] border border-[var(--brass)] rounded-xl relative overflow-hidden">
-                  <span className="font-mono text-[10px] uppercase text-[var(--brass)] tracking-wider">
-                    Orakul Portföyü
-                  </span>
-                  <div className="font-serif text-3xl font-bold text-[var(--paper)] mt-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[10px] uppercase text-[var(--brass)] tracking-wider">
+                      Orakul Portföyü
+                    </span>
+                    <span className="text-[10px] font-mono bg-[rgba(91,140,123,0.15)] text-[var(--verdigris)] px-2 py-0.5 rounded font-bold border border-[var(--verdigris)]">
+                      Canlı Kapanışlar
+                    </span>
+                  </div>
+                  <div className="font-serif text-3xl font-bold text-[var(--paper)] mt-2">
                     {backtestResult.finalPortfolioValue.toLocaleString("tr-TR")} ₺
                   </div>
-                  <div className="font-mono text-xs text-[var(--verdigris)] font-bold mt-1">
-                    +%{backtestResult.portfolioReturnPct} Getiri
+                  <div className={`font-mono text-xs font-bold mt-1 ${backtestResult.portfolioReturnPct >= 0 ? "text-[var(--verdigris)]" : "text-[var(--loss)]"}`}>
+                    {backtestResult.portfolioReturnPct >= 0 ? "+" : ""}%{backtestResult.portfolioReturnPct} Getiri
                   </div>
                 </div>
 
                 <div className="p-5 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl">
-                  <span className="font-mono text-[10px] uppercase text-[var(--mist)] tracking-wider">
-                    BIST 100 Endeksi
-                  </span>
-                  <div className="font-serif text-3xl font-bold text-[var(--paper-dim)] mt-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[10px] uppercase text-[var(--mist)] tracking-wider">
+                      BIST 100 Endeksi
+                    </span>
+                    <span className="text-[10px] font-mono text-[var(--mist)]">
+                      XU100.IS
+                    </span>
+                  </div>
+                  <div className="font-serif text-3xl font-bold text-[var(--paper-dim)] mt-2">
                     {backtestResult.finalBist100Value.toLocaleString("tr-TR")} ₺
                   </div>
-                  <div className="font-mono text-xs text-[var(--mist)] mt-1">
-                    +%{backtestResult.bist100ReturnPct} Getiri
+                  <div className={`font-mono text-xs mt-1 ${backtestResult.bist100ReturnPct >= 0 ? "text-[var(--verdigris)]" : "text-[var(--loss)]"}`}>
+                    {backtestResult.bist100ReturnPct >= 0 ? "+" : ""}%{backtestResult.bist100ReturnPct} Getiri
                   </div>
                 </div>
 
                 <div className="p-5 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl">
-                  <span className="font-mono text-[10px] uppercase text-[var(--mist)] tracking-wider">
-                    Gram Altın Kıyası
-                  </span>
-                  <div className="font-serif text-3xl font-bold text-[var(--paper-dim)] mt-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[10px] uppercase text-[var(--mist)] tracking-wider">
+                      Gram Altın Kıyası
+                    </span>
+                    <span className="text-[10px] font-mono text-[var(--mist)]">
+                      GC=F / ALTIN
+                    </span>
+                  </div>
+                  <div className="font-serif text-3xl font-bold text-[var(--paper-dim)] mt-2">
                     {backtestResult.finalGoldValue.toLocaleString("tr-TR")} ₺
                   </div>
-                  <div className="font-mono text-xs text-[var(--mist)] mt-1">
-                    +%{backtestResult.goldReturnPct} Getiri
+                  <div className={`font-mono text-xs mt-1 ${backtestResult.goldReturnPct >= 0 ? "text-[var(--verdigris)]" : "text-[var(--loss)]"}`}>
+                    {backtestResult.goldReturnPct >= 0 ? "+" : ""}%{backtestResult.goldReturnPct} Getiri
                   </div>
                 </div>
               </div>

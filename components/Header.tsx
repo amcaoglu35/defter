@@ -15,11 +15,15 @@ import {
   ArrowRight,
   TrendingUp,
   CircleDot,
+  Eye,
+  EyeOff,
+  Coins,
 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import OrakulChatModal from "@/components/OrakulChatModal";
 import ThemeToggle from "@/components/ThemeToggle";
 import ViewModeToggle from "@/components/ViewModeToggle";
+import CurrencyConverterModal from "@/components/CurrencyConverterModal";
 import { useToast } from "@/components/ToastProvider";
 
 export default function Header() {
@@ -35,11 +39,14 @@ export default function Header() {
     refreshPrices,
     isRefreshing,
     lastSyncTime,
+    isPrivacyMode,
+    togglePrivacyMode,
   } = useDefterStore();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [converterOpen, setConverterOpen] = useState(false);
 
   const notifRef = useRef<HTMLDivElement>(null);
 
@@ -209,6 +216,28 @@ export default function Header() {
               <span className="hidden sm:inline">Orakul&apos;a Sor</span>
             </button>
 
+            {/* Currency Converter Quick Tool */}
+            <button
+              onClick={() => setConverterOpen(true)}
+              title="Canlı Kur & Varlık Çevirici"
+              className="p-2 rounded-md border border-[var(--line)] hover:border-[var(--brass-dim)] bg-[var(--ink-2)] hover:bg-[var(--ink-3)] text-[var(--mist)] hover:text-[var(--brass)] transition-colors cursor-pointer"
+            >
+              <Coins className="w-4 h-4 text-[var(--brass)]" />
+            </button>
+
+            {/* Privacy Mode (Hide Balances) Toggle */}
+            <button
+              onClick={togglePrivacyMode}
+              title={isPrivacyMode ? "Gizlilik Modunu Kapat (Bakiyeleri Göster)" : "Gizlilik Modunu Aç (Bakiyeleri Gizle)"}
+              className={`p-2 rounded-md border transition-colors cursor-pointer ${
+                isPrivacyMode
+                  ? "border-[var(--brass)] bg-[var(--brass-glow)] text-[var(--brass)]"
+                  : "border-[var(--line)] hover:border-[var(--brass-dim)] bg-[var(--ink-2)] hover:bg-[var(--ink-3)] text-[var(--mist)] hover:text-[var(--paper)]"
+              }`}
+            >
+              {isPrivacyMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+
             {/* Theme Toggle Button */}
             <ThemeToggle />
 
@@ -341,12 +370,45 @@ export default function Header() {
                 </Link>
               );
             })}
+
+            {/* Mobile Quick Action Buttons */}
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[var(--line)]">
+              <button
+                type="button"
+                onClick={() => {
+                  setConverterOpen(true);
+                  setMobileMenuOpen(false);
+                }}
+                className="p-2.5 rounded-lg bg-[var(--ink-3)] border border-[var(--line)] text-xs font-mono text-[var(--paper)] flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Coins className="w-4 h-4 text-[var(--brass)]" />
+                <span>Kur Çevirici</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  togglePrivacyMode();
+                }}
+                className={`p-2.5 rounded-lg border text-xs font-mono flex items-center justify-center gap-1.5 cursor-pointer ${
+                  isPrivacyMode
+                    ? "bg-[var(--brass-glow)] border-[var(--brass)] text-[var(--brass)] font-bold"
+                    : "bg-[var(--ink-3)] border-[var(--line)] text-[var(--paper)]"
+                }`}
+              >
+                {isPrivacyMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                <span>{isPrivacyMode ? "Bakiyeler Gizli" : "Bakiyeyi Gizle"}</span>
+              </button>
+            </div>
           </div>
         )}
       </header>
 
       {/* Interactive Orakul AI Chat Modal */}
       <OrakulChatModal isOpen={chatOpen} onClose={() => setChatOpen(false)} />
+
+      {/* Live Currency & Asset Converter Modal */}
+      <CurrencyConverterModal isOpen={converterOpen} onClose={() => setConverterOpen(false)} />
     </>
   );
 }

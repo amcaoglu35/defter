@@ -92,10 +92,16 @@ cp .env.example .env.local
 
 `.env.local` içeriği:
 ```env
-# Kasa Erişim Şifresi
-DEFTER_ACCESS_PASSWORD=<kendi-sifreni-buraya-yaz>
+# 🔴 Kasa Erişim Şifresi (Production için ZORUNLU)
+DEFTER_ACCESS_PASSWORD=kendi-guclu-sifreniz-buraya
 
-# Supabase Veritabanı
+# 🔐 Zamanlayıcı / Cron Güvenliği (Opsiyonel / Günlük Orakul Brifingi için)
+CRON_SECRET=kendi-cron-secret-anahtariniz
+
+# 👤 OAuth Whitelist (Opsiyonel / Sadece sahibin e-postası)
+AUTHORIZED_EMAILS=senin-email-adresin@gmail.com
+
+# 🗄️ Supabase Veritabanı (Opsiyonel / Canlı Bulut Senkronizasyonu & Kalıcı Şifre)
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_publishable_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_secret_service_role_key
@@ -112,7 +118,7 @@ Tarayıcınızda açın: **[http://localhost:3000](http://localhost:3000)**
 
 ## 🗄️ Veritabanı Kurulumu (Supabase)
 
-Projenin kök dizinindeki [`supabase_schema.sql`](./supabase_schema.sql) dosyasını Supabase Dashboard'unuzdaki **SQL Editor** alanına yapıştırıp çalıştırarak tüm tabloları ve 420 varlıklı master kütüğü tek seferde oluşturabilirsiniz.
+Projenin kök dizinindeki [`supabase_schema.sql`](./supabase_schema.sql), [`supabase_migration_001.sql`](./supabase_migration_001.sql) ve [`supabase_migration_002.sql`](./supabase_migration_002.sql) dosyalarını Supabase Dashboard'unuzdaki **SQL Editor** alanına yapıştırıp sırayla çalıştırarak tüm tabloları ve 420 varlıklı master kütüğü oluşturabilirsiniz.
 
 Oluşturulan tablolar:
 * `companies` — 420 adet hisse senedi, emtia, döviz ve fon
@@ -121,6 +127,8 @@ Oluşturulan tablolar:
 * `ipos` — SPK onaylı halka arz listesi
 * `ai_history` — Orakul değerlemeleri ve başarı doğrulama kayıtları
 * `notifications` — Canlı piyasa ve sistem bildirimleri
+* `user_settings` & `app_settings` — Kullanıcı tercihleri ve güvenli kasa şifresi hash tablosu
+* `rate_limits` — Dağıtık ve sunucusuz güvenli istek sınırlandırma tablosu
 
 ---
 

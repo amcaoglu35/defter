@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { X, ArrowDownRight, ArrowUpRight, AlertTriangle, Info, CheckCircle2 } from "lucide-react";
+import React, { useState } from "react";
+import { X, ArrowDownRight, ArrowUpRight, AlertTriangle, Info } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import { useToast } from "@/components/ToastProvider";
 import Confetti from "@/components/Confetti";
@@ -33,13 +33,10 @@ export default function TransactionModal({
   const [note, setNote] = useState("");
   const [confettiActive, setConfettiActive] = useState(false);
 
-  useEffect(() => {
-    if (baskets.length > 0) {
-      if (!targetBasketId || !baskets.some((b) => b.id === targetBasketId)) {
-        setTargetBasketId(baskets[0].id);
-      }
-    }
-  }, [baskets, targetBasketId]);
+  // Sync targetBasketId during render if baskets change or target is missing
+  if (baskets.length > 0 && (!targetBasketId || !baskets.some((b) => b.id === targetBasketId))) {
+    setTargetBasketId(baskets[0].id);
+  }
 
   if (!isOpen) return null;
 

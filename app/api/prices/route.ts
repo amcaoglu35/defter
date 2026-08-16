@@ -250,7 +250,17 @@ interface YahooQuote {
 
     const rawQuotes: Record<string, YahooQuote> = {};
     const symbolEntries = Object.entries(combinedSymbolMap);
-    const yfSymbols = Array.from(new Set(Object.values(combinedSymbolMap)));
+    const yfSymbols = Array.from(new Set(Object.values(combinedSymbolMap))).filter(
+      (s) =>
+        !s.startsWith("TEFAS:") &&
+        s !== "ALTIN/GR" &&
+        s !== "CEYREK" &&
+        s !== "TAM" &&
+        s !== "ATA" &&
+        s !== "GÜMÜŞ/GR" &&
+        s !== "GUMUS/GR" &&
+        s !== "PLATIN/GR"
+    );
 
     // Chunked Batch Requests (50 symbols per chunk to respect Yahoo limits)
     const CHUNK_SIZE = 50;
@@ -487,6 +497,67 @@ interface YahooQuote {
         price: Number(gramPlatinTry.toFixed(2)),
         dailyChange: Number(platinDailyChange.toFixed(2)),
       };
+    }
+
+    // 3. Process TEFAS Mutual Funds in parallel
+    const tefasEntries = symbolEntries.filter(([_, ticker]) => ticker.startsWith("TEFAS:"));
+    if (tefasEntries.length > 0) {
+      await Promise.allSettled(
+        tefasEntries.map(async ([key, ticker]) => {
+          try {
+            const fundCode = ticker.replace("TEFAS:", "").trim();
+            const today = new Date();
+            const past = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+            const pad = (n: number) => n.toString().padStart(2, "0");
+            const formatDate = (d: Date) => `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.${d.getFullYear()}`;
+
+            const bodyParams = new URLSearchParams({
+              fontip: "YAT",
+              sfontur: "",
+              fonkod: fundCode,
+              bastarih: formatDate(past),
+              bittarih: formatDate(today),
+            });
+
+            const res = await fetch("https://www.tefas.gov.tr/api/DB/BindHistoryInfo", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+                "User-Agent":
+                  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "X-Requested-With": "XMLHttpRequest",
+                Accept: "application/json, text/javascript, */*; q=0.01",
+                Referer: `https://www.tefas.gov.tr/FonAnaliz.aspx?FonKod=${fundCode}`,
+              },
+              body: bodyParams.toString(),
+              next: { revalidate: 900 },
+            });
+
+            if (res.ok) {
+              const data = await res.json();
+              const records = data.data || data;
+              if (Array.isArray(records) && records.length > 0) {
+                const latest = records[records.length - 1];
+                const prev = records.length > 1 ? records[records.length - 2] : null;
+                const latestPrice = parseFloat(latest.FIYAT || latest.Price || "0");
+                const prevPrice = prev ? parseFloat(prev.FIYAT || prev.Price || "0") : latestPrice;
+                const dailyChange =
+                  prevPrice > 0 ? Number((((latestPrice - prevPrice) / prevPrice) * 100).toFixed(2)) : 0;
+
+                updatedPrices[key] = {
+                  price: latestPrice,
+                  dailyChange,
+                  marketCap: latest.PORTFOYBUYUKLUK
+                    ? `${(parseFloat(latest.PORTFOYBUYUKLUK) / 1e6).toFixed(1)} M ₺`
+                    : undefined,
+                };
+              }
+            }
+          } catch (tefasErr) {
+            console.warn(`[Prices API] TEFAS fetch error for ${key}:`, tefasErr);
+          }
+        })
+      );
     }
 
     const formattedTime = new Date().toLocaleTimeString("tr-TR", {
