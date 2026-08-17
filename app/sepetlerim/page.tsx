@@ -23,7 +23,7 @@ import { useDefterStore } from "@/lib/store";
 import { Basket, BasketHolding } from "@/lib/mockData";
 import EditBasketModal from "@/components/EditBasketModal";
 import ConfirmModal from "@/components/ConfirmModal";
-import { exportBasketToCsv } from "@/lib/exportUtils";
+import { exportBasketToExcel } from "@/lib/exportUtils";
 import { useToast } from "@/components/ToastProvider";
 import { useEscapeKey } from "@/lib/hooks/useEscapeKey";
 
@@ -173,8 +173,7 @@ export default function SepetlerimPage() {
 
   const handleExportAllBaskets = () => {
     if (baskets.length === 0) return;
-    // Export combined or first basket
-    baskets.forEach((b) => exportBasketToCsv(b, companies));
+    baskets.forEach((b) => exportBasketToExcel(b, companies));
   };
 
   return (

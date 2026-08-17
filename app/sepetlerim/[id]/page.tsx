@@ -32,7 +32,7 @@ import ConfirmModal from "@/components/ConfirmModal";
 import DataStatusBadge from "@/components/DataStatusBadge";
 import { useToast } from "@/components/ToastProvider";
 import { isLiveSymbol } from "@/lib/liveSymbols";
-import { exportBasketToCsv } from "@/lib/exportUtils";
+import { exportBasketToExcel } from "@/lib/exportUtils";
 
 type PeriodType = "1A" | "3A" | "6A" | "1Y";
 
@@ -187,12 +187,12 @@ export default function SepetDetayPage() {
 
         <div className="flex flex-wrap items-center gap-3">
           <button
-            onClick={() => exportBasketToCsv(basket, companies)}
+            onClick={() => exportBasketToExcel(basket, companies)}
             className="border border-[var(--line)] hover:border-[var(--brass)] text-[var(--paper)] bg-[var(--ink-2)] px-3 py-1.5 rounded text-xs font-mono flex items-center gap-1.5 transition-colors cursor-pointer"
-            title="Sepeti Excel / CSV olarak indir"
+            title="Sepeti Microsoft Excel (.xlsx) olarak indir"
           >
             <FileSpreadsheet className="w-3.5 h-3.5 text-[var(--verdigris)]" />
-            <span>Excel İndir</span>
+            <span>Excel İndir (.xlsx)</span>
           </button>
 
           <button

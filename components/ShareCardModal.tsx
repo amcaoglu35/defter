@@ -2,7 +2,7 @@
 
 import React, { useRef, useState } from "react";
 import { X, Download, Copy, Check, Sparkles, Share2, Loader2 } from "lucide-react";
-import { toPng } from "html-to-image";
+import { domToPng } from "modern-screenshot";
 import StampBadge from "./StampBadge";
 import { useEscapeKey } from "@/lib/hooks/useEscapeKey";
 
@@ -49,7 +49,7 @@ export default function ShareCardModal({
     if (!cardRef.current) return;
     try {
       setIsDownloading(true);
-      const dataUrl = await toPng(cardRef.current, { cacheBust: true, pixelRatio: 2 });
+      const dataUrl = await domToPng(cardRef.current, { scale: 2 });
       const link = document.createElement("a");
       link.download = `Defter-Yatirim-Karti-${title.replace(/\s+/g, "_")}.png`;
       link.href = dataUrl;

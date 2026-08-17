@@ -84,23 +84,32 @@ export async function GET(request: Request) {
         const pubDate = match[3] || new Date().toISOString();
 
         rawTitle = rawTitle
-          .replace(/<!\[CDATA\[(.*?)\]\]>/g, "$1")
+          .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
           .replace(/&amp;/g, "&")
           .replace(/&quot;/g, '"')
           .replace(/&#39;/g, "'")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&nbsp;/g, " ")
           .trim();
 
-        let disclosureType = "Özel Durum Açıklaması";
-        if (rawTitle.toLowerCase().includes("temettü") || rawTitle.toLowerCase().includes("kar payı")) {
+        // Categorize disclosure type based on official KAP taxonomy (FR / ODA / DG)
+        let disclosureType = "Özel Durum Açıklaması (ODA)";
+        const lower = rawTitle.toLowerCase();
+        if (lower.includes("temettü") || lower.includes("kar payı") || lower.includes("kâr payı")) {
           disclosureType = "Kâr Payı Dağıtım İşlemleri";
-        } else if (rawTitle.toLowerCase().includes("bilanço") || rawTitle.toLowerCase().includes("finansal rapor")) {
-          disclosureType = "Finansal Rapor / Bilanço";
-        } else if (rawTitle.toLowerCase().includes("genel kurul")) {
+        } else if (lower.includes("bilanço") || lower.includes("finansal rapor") || lower.includes("faaliyet raporu")) {
+          disclosureType = "Finansal Rapor (FR)";
+        } else if (lower.includes("genel kurul")) {
           disclosureType = "Genel Kurul Bildirimi";
-        } else if (rawTitle.toLowerCase().includes("sermaye") || rawTitle.toLowerCase().includes("bedelli") || rawTitle.toLowerCase().includes("bedelsiz")) {
-          disclosureType = "Sermaye Artırımı";
-        } else if (rawTitle.toLowerCase().includes("pay alım") || rawTitle.toLowerCase().includes("geri alım")) {
+        } else if (lower.includes("sermaye") || lower.includes("bedelli") || lower.includes("bedelsiz") || lower.includes("tahsisli")) {
+          disclosureType = "Sermaye Artırımı / Azaltımı";
+        } else if (lower.includes("pay alım") || lower.includes("geri alım")) {
           disclosureType = "Pay Geri Alım Bildirimi";
+        } else if (lower.includes("derecelendirme") || lower.includes("kredi notu")) {
+          disclosureType = "Kredi Derecelendirmesi";
+        } else if (lower.includes("ihale") || lower.includes("yeni iş")) {
+          disclosureType = "Yeni İş İlişkisi / İhale";
         }
 
         if (rawTitle) {

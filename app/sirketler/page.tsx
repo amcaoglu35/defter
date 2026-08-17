@@ -15,7 +15,7 @@ import { useDefterStore, inferAssetClass } from "@/lib/store";
 import { Company } from "@/lib/mockData";
 import StampBadge from "@/components/StampBadge";
 import DataStatusBadge from "@/components/DataStatusBadge";
-import Sparkline, { generateSparklineData } from "@/components/Sparkline";
+import MarketStatusBadge from "@/components/MarketStatusBadge";
 import ConfirmModal from "@/components/ConfirmModal";
 import { useToast } from "@/components/ToastProvider";
 import { isLiveSymbol } from "@/lib/liveSymbols";
@@ -416,7 +416,7 @@ export default function SirketlerPage() {
           <span>Şirket / Varlık</span>
           <span className="text-right">Fiyat</span>
           <span className="text-right">Günlük %</span>
-          <span className="text-center">7G Trend</span>
+          <span className="text-center hidden md:block">52H Koridor</span>
           <span className="text-right">
             {assetTab === "hisse"
               ? "F/K"
@@ -448,7 +448,6 @@ export default function SirketlerPage() {
             paginatedCompanies.map((c) => {
               const isSelected = selectedSymbols.includes(c.symbol);
               const isDailyPos = c.dailyChange >= 0;
-              const sparkData = generateSparklineData(c.price, c.dailyChange, c.symbol);
 
               return (
                 <div
@@ -518,9 +517,27 @@ export default function SirketlerPage() {
                     {c.dailyChange}%
                   </div>
 
-                  {/* 7-Day Sparkline (Desktop) */}
-                  <div className="hidden md:flex justify-center">
-                    <Sparkline data={sparkData} width={75} height={24} />
+                  {/* 52-Week Range Position / Trend (Desktop) */}
+                  <div className="hidden md:flex flex-col items-center justify-center gap-0.5 w-[90px]">
+                    {c.high52 && c.low52 && c.high52 > c.low52 ? (
+                      <div className="w-full space-y-1">
+                        <div className="w-full h-1.5 bg-[var(--ink-3)] rounded-full overflow-hidden border border-[var(--line)] flex">
+                          <div
+                            className={`h-full ${isDailyPos ? "bg-[var(--verdigris)]" : "bg-[var(--loss)]"}`}
+                            style={{
+                              width: `${Math.max(5, Math.min(100, ((c.price - c.low52) / (c.high52 - c.low52)) * 100))}%`,
+                            }}
+                          />
+                        </div>
+                        <div className="flex justify-between text-[9px] font-mono text-[var(--mist)] leading-none">
+                          <span>{c.low52.toFixed(0)}</span>
+                          <span className="text-[var(--brass)] font-semibold">{c.price.toFixed(0)}</span>
+                          <span>{c.high52.toFixed(0)}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-[11px] font-mono text-[var(--mist)]">—</span>
+                    )}
                   </div>
 
                   {/* Dynamic Col 5 (Desktop) */}
