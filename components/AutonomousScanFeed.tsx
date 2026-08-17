@@ -47,6 +47,32 @@ export function AutonomousScanFeed({ onAddHoldingToBasket }: Props) {
   const [filterVerdict, setFilterVerdict] = useState<string>("ALL");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedScan, setSelectedScan] = useState<AutonomousScan | null>(null);
+  const [lotModalScan, setLotModalScan] = useState<AutonomousScan | null>(null);
+  const [budgetInput, setBudgetInput] = useState<string>("50000");
+  const [targetBasketId, setTargetBasketId] = useState<string>("");
+  const [filterTag, setFilterTag] = useState<string>("ALL");
+
+  const helperBadges = (scan: AutonomousScan) => {
+    const badges: Array<{ label: string; icon: string; style: string }> = [];
+    const co = companies.find((c) => c.symbol.toUpperCase() === scan.symbol.toUpperCase());
+    const pe = scan.peRatio || co?.peRatio || 10;
+    const div = scan.dividendYield || co?.dividendYield || 0;
+    const volumeRatio = co?.volumeRatio || 1.0;
+
+    if (pe < 7 && scan.verdict.includes("AL")) {
+      badges.push({ label: "🎯 Dip Avcısı (F/K < 7)", icon: "🎯", style: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" });
+    }
+    if (div >= 5.0) {
+      badges.push({ label: `🛡️ Temettü Kalkanı (%${div})`, icon: "🛡️", style: "bg-cyan-500/10 text-cyan-400 border-cyan-500/30" });
+    }
+    if (volumeRatio > 1.8) {
+      badges.push({ label: "🔥 Hacim & Kurumsal İlgi", icon: "🔥", style: "bg-amber-500/10 text-amber-400 border-amber-500/30" });
+    }
+    if (scan.verdict === "GÜÇLÜ AL") {
+      badges.push({ label: "⚡ Çift Katalizör", icon: "⚡", style: "bg-purple-500/10 text-purple-400 border-purple-500/30" });
+    }
+    return badges;
+  };
 
   const handleRunManualScan = async (count = scanCount) => {
     setIsScanning(true);
@@ -88,11 +114,20 @@ export function AutonomousScanFeed({ onAddHoldingToBasket }: Props) {
       (filterVerdict === "AL" && scan.verdict.includes("AL")) ||
       (filterVerdict === "SAT" && scan.verdict.includes("SAT")) ||
       (filterVerdict === "TUT" && (scan.verdict.includes("TUT") || scan.verdict.includes("NÖTR")));
+
+    const badges = helperBadges(scan);
+    const matchesTag =
+      filterTag === "ALL" ||
+      (filterTag === "DIP" && badges.some((b) => b.label.includes("Dip Avcısı"))) ||
+      (filterTag === "TEMETTU" && badges.some((b) => b.label.includes("Temettü Kalkanı"))) ||
+      (filterTag === "HACIM" && badges.some((b) => b.label.includes("Hacim")));
+
     const matchesSearch =
       scan.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
       scan.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       scan.sector.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesVerdict && matchesSearch;
+
+    return matchesVerdict && matchesTag && matchesSearch;
   });
 
   const getVerdictStyle = (v: string) => {
@@ -391,6 +426,24 @@ export function AutonomousScanFeed({ onAddHoldingToBasket }: Props) {
                     </div>
                   </div>
 
+                  {/* Helper / Opportunity Badges */}
+                  {(() => {
+                    const badges = helperBadges(scan);
+                    if (badges.length === 0) return null;
+                    return (
+                      <div className="flex flex-wrap gap-1.5 mt-2.5">
+                        {badges.map((b, idx) => (
+                          <span
+                            key={idx}
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-mono border font-medium ${b.style}`}
+                          >
+                            {b.label}
+                          </span>
+                        ))}
+                      </div>
+                    );
+                  })()}
+
                   {/* Bull & Bear Theses */}
                   <div className="space-y-2 mt-3 text-xs">
                     <div className="p-2.5 rounded-xl bg-emerald-500/5 border border-emerald-500/15">
@@ -420,32 +473,155 @@ export function AutonomousScanFeed({ onAddHoldingToBasket }: Props) {
                   <span>Model: {scan.model}</span>
 
                   <div className="flex items-center gap-2">
-                    {baskets.length > 0 && (
-                      <button
-                        onClick={() => {
-                          const targetBasket = baskets[0];
-                          if (targetBasket) {
-                            addHoldingToBasket(targetBasket.id, {
-                              companySymbol: scan.symbol,
-                              weightPercent: 10,
-                              quantity: 1,
-                              avgCost: curPrice,
-                              currentPrice: curPrice,
-                            });
-                            showToast("Sepete Eklendi", `${scan.symbol} "${targetBasket.name}" sepetine eklendi.`, "success");
-                          }
-                        }}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--ink-3)] hover:bg-[var(--brass)] hover:text-zinc-950 text-[var(--paper)] border border-[var(--line)] transition-all font-mono"
-                      >
-                        <Plus className="w-3 h-3" />
-                        Sepete Ekle
-                      </button>
-                    )}
+                    <button
+                      onClick={() => {
+                        setLotModalScan(scan);
+                        if (baskets.length > 0) {
+                          setTargetBasketId(baskets[0].id);
+                        }
+                      }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--ink-3)] hover:bg-[var(--brass)] hover:text-zinc-950 text-[var(--paper)] border border-[var(--line)] transition-all font-mono text-xs cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Akıllı Lot Dağıt</span>
+                    </button>
                   </div>
                 </div>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Smart Lot Distribution Modal */}
+      {lotModalScan && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[var(--ink-2)] border border-[var(--brass)] rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+              <div className="flex items-center gap-2 text-[var(--brass)] font-serif text-lg font-bold">
+                <Zap className="w-5 h-5 fill-current" />
+                <span>Akıllı Lot &amp; Bütçe Hesaplayıcı</span>
+              </div>
+              <button
+                onClick={() => setLotModalScan(null)}
+                className="text-[var(--mist)] hover:text-[var(--paper)] text-sm font-mono cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-3 bg-[var(--ink-1)] rounded-xl border border-[var(--line)] space-y-1 text-xs font-mono">
+              <div className="flex justify-between">
+                <span className="text-[var(--mist)]">Şirket:</span>
+                <span className="font-bold text-[var(--paper)]">{lotModalScan.companyName} ({lotModalScan.symbol})</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[var(--mist)]">Güncel Fiyat:</span>
+                <span className="font-bold text-[var(--brass)]">{lotModalScan.priceAtScan.toFixed(2)} ₺</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[var(--mist)]">Hedef / Teşhis:</span>
+                <span className="font-bold text-emerald-400">{lotModalScan.verdict} ({lotModalScan.targetPrice ? `${lotModalScan.targetPrice.toFixed(2)} ₺` : "—"})</span>
+              </div>
+            </div>
+
+            <div className="space-y-3 font-mono text-xs">
+              <div>
+                <label className="block text-[var(--mist)] uppercase text-[10px] mb-1">
+                  Bu Alış İçin Ayırdığınız Toplam Bütçe (₺)
+                </label>
+                <input
+                  type="number"
+                  value={budgetInput}
+                  onChange={(e) => setBudgetInput(e.target.value)}
+                  className="w-full bg-[var(--ink-3)] border border-[var(--line)] focus:border-[var(--brass)] rounded-xl p-2.5 text-xs text-[var(--paper)] font-mono outline-none"
+                  placeholder="50000"
+                />
+              </div>
+
+              {/* Calculated Lots */}
+              {(() => {
+                const bVal = parseFloat(budgetInput) || 0;
+                const pVal = lotModalScan.priceAtScan || 1;
+                const calcLots = Math.floor(bVal / pVal);
+                const totalCost = parseFloat((calcLots * pVal).toFixed(2));
+                const remaining = parseFloat((bVal - totalCost).toFixed(2));
+
+                return (
+                  <div className="p-3.5 bg-gradient-to-br from-[var(--brass)]/10 to-transparent border border-[var(--brass-dim)] rounded-xl space-y-1.5">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[11px] text-[var(--mist)]">Hesaplanan Lot:</span>
+                      <span className="text-base font-bold text-[var(--brass)] font-mono">{calcLots} Lot</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[10px]">
+                      <span className="text-[var(--mist)]">Toplam Yatırım Tutarı:</span>
+                      <span className="text-[var(--paper)] font-bold">{totalCost.toLocaleString("tr-TR")} ₺</span>
+                    </div>
+                    <div className="flex justify-between items-center text-[10px]">
+                      <span className="text-[var(--mist)]">Kalan Nakit:</span>
+                      <span className="text-[var(--mist)]">{remaining.toLocaleString("tr-TR")} ₺</span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {baskets.length > 0 && (
+                <div>
+                  <label className="block text-[var(--mist)] uppercase text-[10px] mb-1">
+                    Eklenecek Hedef Sepet
+                  </label>
+                  <select
+                    value={targetBasketId || baskets[0]?.id}
+                    onChange={(e) => setTargetBasketId(e.target.value)}
+                    className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded-xl p-2.5 text-xs text-[var(--paper)] font-mono outline-none focus:border-[var(--brass)]"
+                  >
+                    {baskets.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-[var(--line)]">
+              <button
+                onClick={() => setLotModalScan(null)}
+                className="px-4 py-2 rounded-xl bg-[var(--ink-3)] text-xs font-mono text-[var(--mist)] hover:text-[var(--paper)] cursor-pointer"
+              >
+                Vazgeç
+              </button>
+              <button
+                onClick={() => {
+                  const bVal = parseFloat(budgetInput) || 0;
+                  const pVal = lotModalScan.priceAtScan || 1;
+                  const calcLots = Math.max(Math.floor(bVal / pVal), 1);
+                  const effectiveBasketId = targetBasketId || baskets[0]?.id;
+
+                  if (effectiveBasketId) {
+                    addHoldingToBasket(effectiveBasketId, {
+                      companySymbol: lotModalScan.symbol,
+                      weightPercent: 15,
+                      quantity: calcLots,
+                      avgCost: pVal,
+                      currentPrice: pVal,
+                    });
+                    showToast(
+                      "Portföye Eklendi",
+                      `${calcLots} lot ${lotModalScan.symbol} başarıyla sepetinize aktarıldı.`,
+                      "success"
+                    );
+                    setLotModalScan(null);
+                  }
+                }}
+                disabled={baskets.length === 0}
+                className="px-5 py-2 rounded-xl bg-[var(--brass)] text-zinc-950 font-bold text-xs font-mono shadow hover:brightness-110 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+              >
+                Sepete Aktar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

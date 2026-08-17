@@ -196,14 +196,70 @@ export function AiModelPortfolios() {
           </button>
         </div>
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-6">
+          {/* Strategy Arena Leaderboard */}
+          {aiModelBaskets.length > 1 && (() => {
+            const sortedByReturn = [...aiModelBaskets].map((b) => {
+              let weightedReturn = 0;
+              b.allocation.forEach((item) => {
+                const co = companies.find((c) => c.symbol.toUpperCase() === item.symbol.toUpperCase());
+                const cur = co?.price || item.priceAtCreation;
+                const ret = ((cur - item.priceAtCreation) / item.priceAtCreation) * 100;
+                weightedReturn += ret * (item.weight / 100);
+              });
+              return { ...b, calculatedReturn: parseFloat(weightedReturn.toFixed(2)) };
+            }).sort((a, b) => b.calculatedReturn - a.calculatedReturn);
+
+            const champion = sortedByReturn[0];
+
+            return (
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-[var(--brass)]/10 via-[var(--ink-2)] to-[var(--ink-3)] border border-[var(--brass)] shadow-lg space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--line)] pb-3">
+                  <div className="flex items-center gap-2 font-serif text-sm font-bold text-[var(--paper)]">
+                    <span className="text-xl">🏆</span>
+                    <span>AI Model Sepet Arenası: Güncel Lider Strateji</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-1 rounded-lg bg-[var(--brass)] text-zinc-950 font-mono text-xs font-bold shadow">
+                      🥇 1. Sıra: {champion.theme.split(" ")[1] || champion.theme}
+                    </span>
+                    <span className="font-mono text-xs text-emerald-400 font-bold">
+                      %{champion.calculatedReturn >= 0 ? `+${champion.calculatedReturn}` : champion.calculatedReturn} Getiri
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono">
+                  {sortedByReturn.slice(0, 3).map((b, idx) => (
+                    <div
+                      key={b.id}
+                      className={`p-3 rounded-xl border flex items-center justify-between ${
+                        idx === 0
+                          ? "bg-[var(--brass)]/15 border-[var(--brass)] text-[var(--paper)] font-bold shadow"
+                          : "bg-[var(--ink-1)] border-[var(--line)] text-[var(--mist)]"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <span className="text-sm">{idx === 0 ? "🥇" : idx === 1 ? "🥈" : "🥉"}</span>
+                        <span className="truncate">{b.theme.replace(/^[^\w\s]+/, "").trim()}</span>
+                      </div>
+                      <span className={b.calculatedReturn >= 0 ? "text-emerald-400 font-bold" : "text-rose-400 font-bold"}>
+                        %{b.calculatedReturn >= 0 ? `+${b.calculatedReturn}` : b.calculatedReturn}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="flex items-center justify-between">
             <span className="font-mono text-xs text-[var(--mist)]">
               Takip Edilen Model Sepet Sayısı: {aiModelBaskets.length}
             </span>
             <button
               onClick={clearAiModelBaskets}
-              className="text-[11px] font-mono text-rose-400 hover:underline"
+              className="text-[11px] font-mono text-rose-400 hover:underline cursor-pointer"
             >
               Tüm Model Sepetleri Temizle
             </button>
