@@ -11,6 +11,10 @@ import {
   Scale,
   X,
   Trash2,
+  Globe,
+  Sparkles,
+  RefreshCw,
+  Loader2,
 } from "lucide-react";
 import { useDefterStore, inferAssetClass } from "@/lib/store";
 import { Company } from "@/lib/mockData";
@@ -21,6 +25,7 @@ import ConfirmModal from "@/components/ConfirmModal";
 import { useToast } from "@/components/ToastProvider";
 import { isLiveSymbol } from "@/lib/liveSymbols";
 import Sparkline from "@/components/Sparkline";
+import GlobalAssetSearchModal from "@/components/GlobalAssetSearchModal";
 
 export const currencyForExchange = (exchange: string): string => {
   if (exchange === "ABD") return "$";
@@ -132,6 +137,45 @@ export default function SirketlerPage() {
   const [newDividendYield, setNewDividendYield] = useState("");
   const [newMarketCap, setNewMarketCap] = useState("");
   const [newBeta, setNewBeta] = useState("");
+  const [isAutoFilling, setIsAutoFilling] = useState(false);
+
+  // Global Asset Search Modal State
+  const [globalSearchModalOpen, setGlobalSearchModalOpen] = useState(false);
+  const [globalSearchInitial, setGlobalSearchInitial] = useState("");
+
+  const handleAutoFillFromYahoo = async () => {
+    const sym = newSymbol.trim().toUpperCase();
+    if (!sym) {
+      showToast("Sembol Girin", "Lütfen önce bir sembol (örn: NVDA, ASML, THYAO, MAC) yazın.", "warning");
+      return;
+    }
+    setIsAutoFilling(true);
+    try {
+      const res = await fetch(`/api/prices/lookup?symbol=${encodeURIComponent(sym)}`);
+      const json = await res.json();
+      if (json.success && json.data) {
+        const d = json.data;
+        if (d.name) setNewName(d.name);
+        if (d.sector) setNewSector(d.sector);
+        if (d.price) setNewPrice(String(d.price));
+        if (d.exchange) setNewExchange(d.exchange);
+        if (d.assetClass) setNewAssetClass(d.assetClass);
+        if (d.peRatio) setNewPeRatio(String(d.peRatio));
+        if (d.pbRatio) setNewPbRatio(String(d.pbRatio));
+        if (d.dividendYield) setNewDividendYield(String(d.dividendYield));
+        if (d.marketCap) setNewMarketCap(d.marketCap);
+        if (d.beta) setNewBeta(String(d.beta));
+        if (d.recommendation) setNewRecommendation(d.recommendation);
+        showToast("Otomatik Dolduruldu", `${sym} için canlı piyasa verileri başarıyla aktarıldı.`, "success");
+      } else {
+        showToast("Bulunamadı", "Varlık için canlı veri bulunamadı. Lütfen manuel giriniz.", "warning");
+      }
+    } catch {
+      showToast("Hata", "Canlı veri servisine bağlanılamadı.", "error");
+    } finally {
+      setIsAutoFilling(false);
+    }
+  };
 
   const toggleSelect = (symbol: string) => {
     if (selectedSymbols.includes(symbol)) {
@@ -330,11 +374,22 @@ export default function SirketlerPage() {
           )}
 
           <button
+            onClick={() => {
+              setGlobalSearchInitial("");
+              setGlobalSearchModalOpen(true);
+            }}
+            className="bg-[var(--ink-3)] hover:bg-[var(--ink)] border border-[var(--brass)] text-[var(--brass)] hover:text-[var(--paper)] font-mono text-xs px-3.5 py-2.5 rounded flex items-center gap-2 shadow cursor-pointer transition-all active:scale-95"
+          >
+            <Globe className="w-4 h-4 text-[var(--brass)]" />
+            <span>Global Varlık Ara &amp; Ekle</span>
+          </button>
+
+          <button
             onClick={() => setAddModalOpen(true)}
             className="bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold text-xs px-4 py-2.5 rounded flex items-center gap-1.5 shadow transition-transform active:scale-95 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            <span>Yeni Varlık Ekle</span>
+            <span>Manuel Varlık Ekle</span>
           </button>
         </div>
       </div>
@@ -464,8 +519,22 @@ export default function SirketlerPage() {
 
         <div className="divide-y divide-dashed divide-[var(--line)]">
           {paginatedCompanies.length === 0 ? (
-            <div className="py-16 text-center text-xs font-mono text-[var(--mist)]">
-              Arama kriterlerine uygun varlık bulunamadı.
+            <div className="py-16 text-center text-xs font-mono text-[var(--mist)] space-y-4">
+              <p>Yerel kütükte arama kriterlerine uygun varlık bulunamadı.</p>
+              {searchQuery && (
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <button
+                    onClick={() => {
+                      setGlobalSearchInitial(searchQuery);
+                      setGlobalSearchModalOpen(true);
+                    }}
+                    className="bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold text-xs px-4 py-2.5 rounded-lg flex items-center gap-2 shadow cursor-pointer transition-all active:scale-95"
+                  >
+                    <Globe className="w-4 h-4" />
+                    <span>&quot;{searchQuery}&quot; için Yahoo Finance &amp; Dünya Borsalarında Ara ve Ekle</span>
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             paginatedCompanies.map((c) => {
@@ -812,18 +881,53 @@ export default function SirketlerPage() {
                 </div>
               </div>
 
+              {/* Global Search Shortcut Banner */}
+              <div className="p-3 bg-[var(--ink-3)] border border-[var(--brass-dim)] rounded-xl flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-[var(--brass)] shrink-0" />
+                  <span className="text-[11px] text-[var(--paper-dim)]">
+                    Tüm verileri otomatik çekmek ister misiniz?
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAddModalOpen(false);
+                    setGlobalSearchModalOpen(true);
+                  }}
+                  className="px-2.5 py-1 rounded bg-[var(--brass)] text-[var(--ink)] font-bold text-[10px] uppercase font-mono hover:bg-[#d9b35a] transition-all cursor-pointer shrink-0"
+                >
+                  Global Arama Aç
+                </button>
+              </div>
+
               {/* Symbol & Name */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-mono text-[var(--mist)] uppercase mb-1">
-                    Sembol / Kod <span className="text-[var(--loss)]">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-mono text-[var(--mist)] uppercase">
+                      Sembol / Kod <span className="text-[var(--loss)]">*</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleAutoFillFromYahoo}
+                      disabled={isAutoFilling || !newSymbol.trim()}
+                      className="text-[10px] font-mono text-[var(--brass)] hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-40"
+                    >
+                      {isAutoFilling ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-3 h-3" />
+                      )}
+                      <span>Canlı Veri Çek</span>
+                    </button>
+                  </div>
                   <input
                     type="text"
                     required
                     value={newSymbol}
                     onChange={(e) => setNewSymbol(e.target.value)}
-                    placeholder="Örn: PGSUS"
+                    placeholder="Örn: NVDA, ASML, THYAO, MAC"
                     className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2 text-xs text-[var(--paper)] font-mono uppercase focus:border-[var(--brass)] outline-none"
                   />
                 </div>
@@ -837,7 +941,7 @@ export default function SirketlerPage() {
                     required
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
-                    placeholder="Örn: Pegasus Hava Taşımacılığı"
+                    placeholder="Örn: Nvidia Corporation"
                     className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2 text-xs text-[var(--paper)] focus:border-[var(--brass)] outline-none"
                   />
                 </div>
@@ -1087,6 +1191,13 @@ export default function SirketlerPage() {
           isDestructive={true}
         />
       )}
+
+      {/* 9. Global Asset Live Search Modal */}
+      <GlobalAssetSearchModal
+        isOpen={globalSearchModalOpen}
+        onClose={() => setGlobalSearchModalOpen(false)}
+        initialQuery={globalSearchInitial}
+      />
     </div>
   );
 }

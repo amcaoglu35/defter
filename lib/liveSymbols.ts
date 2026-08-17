@@ -413,7 +413,11 @@ export function isLiveSymbol(symbol: string): boolean {
   const upper = symbol.toUpperCase().trim();
   if (LIVE_SYMBOLS.has(upper) || DYNAMICALLY_DERIVED_SYMBOLS.has(upper)) return true;
   // All BIST stock symbols (3 to 6 alphanumeric characters) and TEFAS fund codes supported via borsats
-  if (/^[A-Z0-9]{3,6}$/.test(upper) && !upper.includes("/") && !upper.includes(".")) {
+  if (/^[A-Z0-9]{3,6}$/.test(upper) && !upper.includes("/")) {
+    return true;
+  }
+  // International tickers (e.g. ASML, SAP.DE, MC.PA, SHEL.L, BRK-B)
+  if (/^[A-Z0-9.\-]{1,10}$/.test(upper)) {
     return true;
   }
   return false;
