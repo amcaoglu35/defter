@@ -1,6 +1,8 @@
 import { Basket, Company } from "./mockData";
 import { Transaction } from "./store";
 import ExcelJS from "exceljs";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 /**
  * Trigger browser file download for text/CSV content with UTF-8 BOM for Turkish character support in Excel.
@@ -345,3 +347,117 @@ export function exportTransactionsToCsv(transactions: Transaction[]) {
   const dateStr = new Date().toISOString().split("T")[0];
   downloadCsvFile(`defter_islemler_${dateStr}.csv`, csvContent);
 }
+
+/**
+ * Export a single basket's holdings and summary to a vector PDF report using jsPDF & autoTable.
+ */
+export function exportBasketToPdf(basket: Basket, companies: Company[], userName: string = "Defter Yatırımcısı") {
+  const doc = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: "a4",
+  });
+
+  // Header Banner
+  doc.setFillColor(30, 41, 59); // Slate dark (#1E293B)
+  doc.rect(0, 0, 210, 30, "F");
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(15);
+  doc.setTextColor(255, 255, 255);
+  doc.text("DEFTER — RESMI PORTFOY VE SEPET RAPORU", 14, 13);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  doc.setTextColor(201, 162, 75); // Brass gold (#C9A24B)
+  doc.text(`Sepet: ${basket.name.toUpperCase()}  |  Yatirimci: ${userName}  |  Tarih: ${new Date().toLocaleDateString("tr-TR")}`, 14, 22);
+
+  // Key Summary Cards
+  const totalVal = basket.totalValue;
+  const totalCost = basket.totalCost;
+  const totalProfit = totalVal - totalCost;
+  const totalProfitPct = totalCost > 0 ? (totalProfit / totalCost) * 100 : 0;
+
+  doc.setFillColor(248, 250, 252);
+  doc.roundedRect(14, 36, 58, 20, 2, 2, "F");
+  doc.roundedRect(76, 36, 58, 20, 2, 2, "F");
+  doc.roundedRect(138, 36, 58, 20, 2, 2, "F");
+
+  doc.setFontSize(7.5);
+  doc.setTextColor(100, 116, 139);
+  doc.text("TOPLAM SEPET DEGERI", 18, 42);
+  doc.text("TOPLAM KÂR / ZARAR", 80, 42);
+  doc.text("KUMULATIF GETIRI", 142, 42);
+
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(15, 23, 42);
+  doc.text(`${totalVal.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} TL`, 18, 50);
+
+  if (totalProfit >= 0) {
+    doc.setTextColor(5, 150, 105);
+    doc.text(`+${totalProfit.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} TL`, 80, 50);
+    doc.text(`+%${totalProfitPct.toFixed(2)}`, 142, 50);
+  } else {
+    doc.setTextColor(220, 38, 38);
+    doc.text(`${totalProfit.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} TL`, 80, 50);
+    doc.text(`%${totalProfitPct.toFixed(2)}`, 142, 50);
+  }
+
+  // Holdings Table
+  const tableData = basket.holdings.map((h) => {
+    const co = companies.find((c) => c.symbol.toUpperCase() === h.companySymbol.toUpperCase());
+    const name = co ? co.name : h.companySymbol;
+    const currentPrice = co ? co.price : (h.currentPrice || h.avgCost);
+    const itemVal = h.quantity * currentPrice;
+    const itemCost = h.quantity * h.avgCost;
+    const itemProfit = itemVal - itemCost;
+    const itemProfitPct = itemCost > 0 ? (itemProfit / itemCost) * 100 : 0;
+
+    return [
+      h.companySymbol,
+      name.slice(0, 24),
+      h.quantity.toString(),
+      `${h.avgCost.toFixed(2)} TL`,
+      `${currentPrice.toFixed(2)} TL`,
+      `${itemVal.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} TL`,
+      `${itemProfit >= 0 ? "+" : ""}${itemProfit.toFixed(2)} TL (%${itemProfitPct.toFixed(1)})`,
+      `%${(h.weightPercent || 0).toFixed(1)}`,
+    ];
+  });
+
+  autoTable(doc, {
+    startY: 62,
+    head: [["Sembol", "Varlik Adi", "Adet", "Ort. Maliyet", "Fiyat", "Toplam Deger", "Kar/Zarar", "Agirlik"]],
+    body: tableData,
+    theme: "striped",
+    headStyles: {
+      fillColor: [30, 41, 59],
+      textColor: [255, 255, 255],
+      fontSize: 8,
+      fontStyle: "bold",
+      halign: "center",
+    },
+    styles: {
+      fontSize: 7.5,
+      cellPadding: 2,
+      halign: "right",
+    },
+    columnStyles: {
+      0: { halign: "left", fontStyle: "bold" },
+      1: { halign: "left" },
+    },
+  });
+
+  // Footer Note
+  const pageHeight = doc.internal.pageSize.height;
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "italic");
+  doc.setTextColor(148, 163, 184);
+  doc.text("Bu rapor Defter Kişisel Yatırım Takip Uygulaması tarafından üretilmiştir. Yatırım tavsiyesi niteliğinde değildir.", 14, pageHeight - 8);
+
+  const cleanName = basket.name.toLowerCase().replace(/[^a-z0-9]/gi, "_");
+  const reportDateStr = new Date().toISOString().split("T")[0];
+  doc.save(`defter_rapor_${cleanName}_${reportDateStr}.pdf`);
+}
+

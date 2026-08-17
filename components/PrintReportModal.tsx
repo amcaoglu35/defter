@@ -6,6 +6,8 @@ import { useDefterStore } from "@/lib/store";
 import { Basket } from "@/lib/mockData";
 import { useEscapeKey } from "@/lib/hooks/useEscapeKey";
 
+import { exportBasketToPdf } from "@/lib/exportUtils";
+
 interface PrintReportModalProps {
   basket?: Basket;
   isOpen: boolean;
@@ -18,10 +20,6 @@ export default function PrintReportModal({ basket, isOpen, onClose }: PrintRepor
 
   if (!isOpen) return null;
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   const activeBasket = basket || (baskets.length > 0 ? baskets[0] : null);
   const totalPortfolioValue = baskets.reduce((acc, b) => acc + b.totalValue, 0);
   const totalPortfolioCost = baskets.reduce((acc, b) => acc + b.totalCost, 0);
@@ -30,6 +28,16 @@ export default function PrintReportModal({ basket, isOpen, onClose }: PrintRepor
     : 0;
 
   const displayProfitPct = activeBasket ? activeBasket.totalProfitPercent : totalPortfolioProfitPct;
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleDownloadPdf = () => {
+    if (activeBasket) {
+      exportBasketToPdf(activeBasket, companies, userSettings?.userName);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
@@ -143,11 +151,21 @@ export default function PrintReportModal({ basket, isOpen, onClose }: PrintRepor
           <button
             type="button"
             onClick={handlePrint}
-            className="bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold text-xs px-6 py-2.5 rounded-lg flex items-center gap-2 cursor-pointer shadow transition-all active:scale-95"
+            className="border border-[var(--line)] hover:border-[var(--brass)] text-[var(--paper)] bg-[var(--ink-3)] text-xs font-mono px-4 py-2.5 rounded-lg flex items-center gap-1.5 cursor-pointer"
           >
-            <Printer className="w-4 h-4" />
-            <span>Yazdır / PDF Olarak Kaydet</span>
+            <Printer className="w-3.5 h-3.5" />
+            <span>Yazdır</span>
           </button>
+          {activeBasket && (
+            <button
+              type="button"
+              onClick={handleDownloadPdf}
+              className="bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold text-xs px-5 py-2.5 rounded-lg flex items-center gap-2 cursor-pointer shadow transition-all active:scale-95"
+            >
+              <Download className="w-4 h-4" />
+              <span>PDF Raporu İndir (.pdf)</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -23,7 +23,7 @@ export async function generateAiModelBaskets(options?: GenerateBasketsOptions): 
   }
 
   const ai = effectiveApiKey ? new GoogleGenAI({ apiKey: effectiveApiKey }) : null;
-  const model = process.env.GEMINI_MODEL || "gemini-1.5-flash";
+  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
   const themes = [
     {
