@@ -34,6 +34,9 @@ import { useToast } from "@/components/ToastProvider";
 import { isLiveSymbol } from "@/lib/liveSymbols";
 import { exportBasketToExcel } from "@/lib/exportUtils";
 import { BasketRiskMetricsCard } from "@/components/BasketRiskMetricsCard";
+import { CorrelationMatrixCard } from "@/components/CorrelationMatrixCard";
+import MonteCarloSimulatorModal from "@/components/MonteCarloSimulatorModal";
+import RebalanceModal from "@/components/RebalanceModal";
 
 type PeriodType = "1A" | "3A" | "6A" | "1Y";
 
@@ -62,6 +65,8 @@ export default function SepetDetayPage() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [printModalOpen, setPrintModalOpen] = useState(false);
+  const [monteCarloModalOpen, setMonteCarloModalOpen] = useState(false);
+  const [rebalanceModalOpen, setRebalanceModalOpen] = useState(false);
   const [holdingToDelete, setHoldingToDelete] = useState<BasketHolding | null>(null);
 
   // Dynamic Weighted Dividend Yield Calculation
@@ -221,12 +226,30 @@ export default function SepetDetayPage() {
             <span>Varlıkları Yönet &amp; Ağırlık Düzenle</span>
           </button>
 
+          <button
+            onClick={() => setMonteCarloModalOpen(true)}
+            className="border border-purple-500/30 hover:border-purple-400 text-purple-300 bg-purple-500/10 px-3.5 py-1.5 rounded text-xs font-mono flex items-center gap-1.5 transition-all shadow cursor-pointer"
+            title="1.000 Geometrik Brownian piyasa senaryosu simülasyonu"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Monte Carlo</span>
+          </button>
+
+          <button
+            onClick={() => setRebalanceModalOpen(true)}
+            className="border border-amber-500/30 hover:border-amber-400 text-amber-300 bg-amber-500/10 px-3.5 py-1.5 rounded text-xs font-mono flex items-center gap-1.5 transition-all shadow cursor-pointer"
+            title="Ağırlık sapmalarını optimize et"
+          >
+            <Scale className="w-3.5 h-3.5" />
+            <span>Yeniden Dengele</span>
+          </button>
+
           <Link
             href={`/orakul?basketId=${basket.id}`}
             className="border border-[var(--brass-dim)] hover:border-[var(--brass)] text-[var(--brass)] bg-[var(--brass-glow)] px-3.5 py-1.5 rounded text-xs font-mono flex items-center gap-1.5 transition-all shadow"
           >
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Orakul Rebalance</span>
+            <span>Orakul AI</span>
           </Link>
         </div>
       </div>
@@ -421,6 +444,9 @@ export default function SepetDetayPage() {
 
       {/* Quantitative Risk & Volatility Scorecard */}
       <BasketRiskMetricsCard basket={basket} companies={companies} />
+
+      {/* Cross-Asset Pearson Correlation Heatmap */}
+      <CorrelationMatrixCard basket={basket} companies={companies} />
 
       {/* 4. Holdings Table */}
       <section className="space-y-4">
@@ -694,6 +720,23 @@ export default function SepetDetayPage() {
         confirmText="Varlığı Çıkar & Satışı Kaydet"
         cancelText="Vazgeç"
         variant="danger"
+      />
+
+      {/* Stochastic Monte Carlo Simulation Modal */}
+      <MonteCarloSimulatorModal
+        isOpen={monteCarloModalOpen}
+        onClose={() => setMonteCarloModalOpen(false)}
+        basketName={basket.name}
+        initialValue={basket.totalValue}
+        annualReturnPct={basket.totalProfitPercent > 0 ? Math.min(65, basket.totalProfitPercent * 2) : 32}
+      />
+
+      {/* Deterministic Portfolio Rebalancing Assistant Modal */}
+      <RebalanceModal
+        isOpen={rebalanceModalOpen}
+        onClose={() => setRebalanceModalOpen(false)}
+        basket={basket}
+        companies={companies}
       />
     </div>
   );

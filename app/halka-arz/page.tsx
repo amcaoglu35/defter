@@ -21,6 +21,7 @@ import { useDefterStore } from "@/lib/store";
 import { IpoItem } from "@/lib/mockData";
 import { useToast } from "@/components/ToastProvider";
 import ConfirmModal from "@/components/ConfirmModal";
+import { IpoStrategyCalculator } from "@/components/IpoStrategyCalculator";
 
 export function parseIpoPrice(priceRange: string | undefined): number {
   if (!priceRange) return 0;
@@ -865,6 +866,9 @@ export default function HalkaArzPage() {
           </table>
         </div>
       </section>
+
+      {/* 4.5 Cost-Recovery (Maliyet Sıfırlama) & Profit Strategy Calculator */}
+      <IpoStrategyCalculator />
 
       {/* 5. Modal: Yeni Halka Arz Ekle */}
       {isAddModalOpen && (

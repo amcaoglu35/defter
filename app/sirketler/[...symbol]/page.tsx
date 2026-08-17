@@ -58,6 +58,7 @@ import { useToast } from "@/components/ToastProvider";
 import { DeepCompanyData } from "@/app/api/prices/deep/route";
 import { TradingViewChart } from "@/components/TradingViewChart";
 import TechnicalAnalysisPanel from "@/components/TechnicalAnalysisPanel";
+import { DuPontAnalysisCard } from "@/components/DuPontAnalysisCard";
 
 interface CompanyDiagnosisReport {
   valuationScore?: number | string;
@@ -701,6 +702,9 @@ export default function SirketDetayPage() {
             currency={company.currency}
             symbol={company.symbol}
           />
+
+          {/* DuPont Return on Equity (ROE) 3-Pillar Decomposition Card */}
+          <DuPontAnalysisCard company={company} />
 
           {/* Google / Yahoo Finance Live Market & Likidity Card */}
           <div className="bg-[var(--ink-2)] border border-[var(--brass-dim)] rounded-xl p-6 space-y-5">
