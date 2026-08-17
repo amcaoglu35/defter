@@ -125,6 +125,7 @@ export default function SepetlerimPage() {
         const co = companies.find((c) => c.symbol === h.symbol);
         const price = co ? co.price : 100;
         return {
+          id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `h-${h.symbol}-${Date.now()}`,
           companySymbol: h.symbol,
           weightPercent: h.weight,
           targetWeightPercent: h.weight,

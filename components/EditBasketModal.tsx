@@ -119,7 +119,7 @@ export default function EditBasketModal({
     basket.holdings.forEach((h) => {
       const currentVal = h.targetWeightPercent ?? h.weightPercent ?? 0;
       const scaled = Math.round(((currentVal / totalTargetWeight) * 100) * 10) / 10;
-      updateHolding(basket.id, h.companySymbol, { targetWeightPercent: scaled });
+      updateHolding(basket.id, h.id || h.companySymbol, { targetWeightPercent: scaled });
     });
 
     showToast(
@@ -174,8 +174,8 @@ export default function EditBasketModal({
       basket.id
     );
 
-    // 2. Remove from basket
-    removeHoldingFromBasket(basket.id, holdingToDelete.companySymbol);
+    // 2. Remove from basket using specific holding id
+    removeHoldingFromBasket(basket.id, holdingToDelete.id || holdingToDelete.companySymbol);
 
     showToast(
       "Varlık Sepetten Çıkarıldı",
@@ -333,11 +333,13 @@ export default function EditBasketModal({
               </p>
             ) : (
               <div className="divide-y divide-dashed divide-[var(--line)] border border-[var(--line)] rounded-lg p-3 bg-[var(--ink-3)] max-h-64 overflow-y-auto space-y-1">
-                {basket.holdings.map((h) => {
-                  const targetW = h.targetWeightPercent ?? h.weightPercent;
+                {basket.holdings.map((h, idx) => {
+                  const targetW = h.targetWeightPercent !== undefined ? h.targetWeightPercent : (h.weightPercent || 20);
+                  const holdingKey = h.id || `${h.companySymbol}-${idx}`;
+                  const holdingId = h.id || h.companySymbol;
                   return (
                     <div
-                      key={h.companySymbol}
+                      key={holdingKey}
                       className="py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-mono"
                     >
                       <div className="flex-1">
@@ -361,7 +363,7 @@ export default function EditBasketModal({
                               min="1"
                               value={h.quantity}
                               onChange={(e) =>
-                                updateHolding(basket.id, h.companySymbol, {
+                                updateHolding(basket.id, holdingId, {
                                   quantity: parseFloat(e.target.value) || 0,
                                 })
                               }
@@ -377,7 +379,7 @@ export default function EditBasketModal({
                               min="0.01"
                               value={h.avgCost}
                               onChange={(e) =>
-                                updateHolding(basket.id, h.companySymbol, {
+                                updateHolding(basket.id, holdingId, {
                                   avgCost: parseFloat(e.target.value) || 0,
                                 })
                               }
@@ -400,7 +402,7 @@ export default function EditBasketModal({
                             step="0.5"
                             value={targetW}
                             onChange={(e) =>
-                              updateHolding(basket.id, h.companySymbol, {
+                              updateHolding(basket.id, holdingId, {
                                 targetWeightPercent: parseFloat(e.target.value) || 0,
                               })
                             }

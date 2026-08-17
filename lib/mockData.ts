@@ -77,6 +77,7 @@ export interface Company {
 }
 
 export interface BasketHolding {
+  id?: string;
   companySymbol: string;
   weightPercent: number;
   targetWeightPercent?: number;

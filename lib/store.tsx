@@ -155,10 +155,10 @@ interface DefterStoreContextType {
   updateBasket: (id: string, partial: Partial<Basket>) => void;
   deleteBasket: (id: string) => void;
   addHoldingToBasket: (basketId: string, holding: BasketHolding) => void;
-  removeHoldingFromBasket: (basketId: string, symbol: string) => void;
+  removeHoldingFromBasket: (basketId: string, holdingIdOrSymbol: string) => void;
   updateHolding: (
     basketId: string,
-    symbol: string,
+    holdingIdOrSymbol: string,
     updates: Partial<BasketHolding>
   ) => void;
 
@@ -388,13 +388,14 @@ export function recalculateBasketHoldings(
     return sum + h.quantity * price;
   }, 0);
 
-  return holdings.map((h) => {
+  return holdings.map((h, idx) => {
     const co = companiesList.find((c) => c.symbol === h.companySymbol);
     const price = co ? co.price : (h.currentPrice || h.avgCost || 0);
     const value = h.quantity * price;
     const computedWeight = totalValue > 0 ? (value / totalValue) * 100 : 0;
     return {
       ...h,
+      id: h.id || `h-${h.companySymbol}-${idx}`,
       currentPrice: price,
       weightPercent: parseFloat(computedWeight.toFixed(1)),
       targetWeightPercent: h.targetWeightPercent !== undefined ? h.targetWeightPercent : undefined,
@@ -558,7 +559,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 description: (b.description as string) || "",
                 aiNote: (b.ai_note as string) || "",
                 holdings: Array.isArray(b.basket_holdings)
-                  ? b.basket_holdings.map((h: Record<string, unknown>) => ({
+                  ? b.basket_holdings.map((h: Record<string, unknown>, hIdx: number) => ({
+                      id: (h.id as string) || `h-${h.company_symbol || "sym"}-${hIdx}`,
                       companySymbol: (h.company_symbol as string) || "",
                       weightPercent: Number(h.weight_percent || 0),
                       targetWeightPercent: h.target_weight_percent !== undefined && h.target_weight_percent !== null ? Number(h.target_weight_percent) : undefined,
@@ -698,7 +700,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         } else {
           setCompanies(MOCK_COMPANIES);
         }
-        if (storedBaskets) setBaskets(JSON.parse(storedBaskets));
+        if (storedBaskets) {
+          try {
+            const parsedBaskets = JSON.parse(storedBaskets);
+            if (Array.isArray(parsedBaskets)) {
+              setBaskets(
+                parsedBaskets.map((b: Basket) => ({
+                  ...b,
+                  holdings: Array.isArray(b.holdings)
+                    ? b.holdings.map((h, idx) => ({
+                        ...h,
+                        id: h.id || `h-${h.companySymbol}-${idx}`,
+                      }))
+                    : [],
+                }))
+              );
+            }
+          } catch {
+            // ignore
+          }
+        }
         if (storedTx) setTransactions(JSON.parse(storedTx));
         if (storedNotes) setCompanyNotes(JSON.parse(storedNotes));
         if (storedIpos) {
@@ -1226,12 +1247,54 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const addHoldingToBasket = useCallback(
     (basketId: string, holding: BasketHolding) => {
+      const cleanSymbol = holding.companySymbol.toUpperCase().trim();
       setBaskets((prev) =>
-        prev.map((b) =>
-          b.id === basketId
-            ? { ...b, holdings: [...b.holdings, holding] }
-            : b
-        )
+        prev.map((b) => {
+          if (b.id !== basketId) return b;
+
+          const existing = b.holdings.find(
+            (h) => h.companySymbol.toUpperCase().trim() === cleanSymbol
+          );
+
+          if (existing) {
+            // Merge into existing holding with weighted average cost
+            const totalQty = existing.quantity + holding.quantity;
+            const weightedCost =
+              totalQty > 0
+                ? (existing.quantity * existing.avgCost + holding.quantity * holding.avgCost) / totalQty
+                : holding.avgCost;
+
+            const updatedHoldings = b.holdings.map((h) =>
+              (h.id && h.id === existing.id) || (!h.id && h.companySymbol.toUpperCase().trim() === cleanSymbol)
+                ? {
+                    ...h,
+                    quantity: totalQty,
+                    avgCost: parseFloat(weightedCost.toFixed(2)),
+                    targetWeightPercent:
+                      holding.targetWeightPercent !== undefined
+                        ? holding.targetWeightPercent
+                        : h.targetWeightPercent,
+                  }
+                : h
+            );
+
+            return { ...b, holdings: updatedHoldings };
+          }
+
+          const newHoldingId =
+            holding.id ||
+            (typeof crypto !== "undefined" && crypto.randomUUID
+              ? crypto.randomUUID()
+              : `h-${cleanSymbol}-${Date.now()}`);
+
+          const newHolding: BasketHolding = {
+            ...holding,
+            id: newHoldingId,
+            companySymbol: cleanSymbol,
+          };
+
+          return { ...b, holdings: [...b.holdings, newHolding] };
+        })
       );
       syncOrWarn("add_holding", { basketId, holding }, "Varlık/holding ekleme");
     },
@@ -1239,18 +1302,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   );
 
   const removeHoldingFromBasket = useCallback(
-    (basketId: string, symbol: string) => {
+    (basketId: string, holdingIdOrSymbol: string) => {
       setBaskets((prev) =>
-        prev.map((b) =>
-          b.id === basketId
-            ? {
-                ...b,
-                holdings: b.holdings.filter((h) => h.companySymbol !== symbol),
+        prev.map((b) => {
+          if (b.id !== basketId) return b;
+          return {
+            ...b,
+            holdings: b.holdings.filter((h) => {
+              if (h.id) {
+                return h.id !== holdingIdOrSymbol;
               }
-            : b
-        )
+              return h.companySymbol !== holdingIdOrSymbol;
+            }),
+          };
+        })
       );
-      syncOrWarn("remove_holding", { basketId, symbol }, "Varlık/holding çıkarma");
+      syncOrWarn("remove_holding", { basketId, holdingId: holdingIdOrSymbol }, "Varlık/holding çıkarma");
     },
     [syncOrWarn]
   );
@@ -1258,19 +1325,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const updateHolding = useCallback(
     (
       basketId: string,
-      symbol: string,
+      holdingIdOrSymbol: string,
       updates: Partial<BasketHolding>
     ) => {
       setBaskets((prev) =>
         prev.map((b) => {
           if (b.id !== basketId) return b;
-          const updatedHoldings = b.holdings.map((h) =>
-            h.companySymbol === symbol ? { ...h, ...updates } : h
-          );
+          const updatedHoldings = b.holdings.map((h) => {
+            if (h.id && h.id === holdingIdOrSymbol) {
+              return { ...h, ...updates };
+            }
+            if (!h.id && h.companySymbol === holdingIdOrSymbol) {
+              return { ...h, ...updates };
+            }
+            return h;
+          });
           return { ...b, holdings: updatedHoldings };
         })
       );
-      syncOrWarn("update_holding", { basketId, symbol, updates }, "Varlık/holding güncelleme");
+      syncOrWarn("update_holding", { basketId, holdingId: holdingIdOrSymbol, updates }, "Varlık/holding güncelleme");
     },
     [syncOrWarn]
   );

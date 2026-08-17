@@ -172,8 +172,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true });
     }
 
-    if (action === "upsert_holding" || action === "update_basket_holding") {
-      const { basketId, companySymbol, weightPercent, targetWeightPercent, quantity, avgCost } = payload;
+    if (action === "upsert_holding" || action === "update_basket_holding" || action === "add_holding" || action === "update_holding") {
+      const basketId = payload.basketId;
+      const holding = payload.holding || payload;
+      const companySymbol = holding.companySymbol || payload.companySymbol;
+      const quantity = holding.quantity !== undefined ? holding.quantity : payload.quantity;
+      const avgCost = holding.avgCost !== undefined ? holding.avgCost : payload.avgCost;
+      const weightPercent = holding.weightPercent !== undefined ? holding.weightPercent : payload.weightPercent;
+      const targetWeightPercent = holding.targetWeightPercent !== undefined ? holding.targetWeightPercent : payload.targetWeightPercent;
+
       if (quantity <= 0) {
         const { error } = await supabaseAdmin
           .from("basket_holdings")
@@ -195,13 +202,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true });
     }
 
-    if (action === "delete_holding") {
-      const { basketId, companySymbol } = payload;
-      const { error } = await supabaseAdmin
-        .from("basket_holdings")
-        .delete()
-        .eq("basket_id", basketId)
-        .eq("company_symbol", companySymbol);
+    if (action === "delete_holding" || action === "remove_holding") {
+      const { basketId, companySymbol, holdingId } = payload;
+      let query = supabaseAdmin.from("basket_holdings").delete().eq("basket_id", basketId);
+      if (companySymbol) {
+        query = query.eq("company_symbol", companySymbol);
+      }
+      const { error } = await query;
       if (error) throw error;
       return NextResponse.json({ success: true });
     }

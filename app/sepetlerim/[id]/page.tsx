@@ -460,7 +460,7 @@ export default function SepetDetayPage() {
               </div>
 
               <div className="divide-y divide-dashed divide-[var(--line)]">
-                {basket.holdings.map((h) => {
+                {basket.holdings.map((h, idx) => {
                   const returnPct =
                     h.avgCost > 0
                       ? (((h.currentPrice - h.avgCost) / h.avgCost) * 100).toFixed(1)
@@ -468,10 +468,11 @@ export default function SepetDetayPage() {
                   const isPositive = parseFloat(returnPct) >= 0;
                   const targetW = h.targetWeightPercent ?? h.weightPercent;
                   const deviation = Math.abs(h.weightPercent - targetW);
+                  const holdingKey = h.id || `${h.companySymbol}-${idx}`;
 
                   return (
                     <div
-                      key={h.companySymbol}
+                      key={holdingKey}
                       className="grid grid-cols-1 md:grid-cols-[1.4fr_120px_90px_95px_95px_95px_40px] gap-3 p-4 md:px-6 md:py-4 items-center hover:bg-[rgba(201,162,75,0.03)]"
                     >
                       <div>
@@ -663,7 +664,7 @@ export default function SepetDetayPage() {
             basket.id
           );
 
-          removeHoldingFromBasket(basket.id, holdingToDelete.companySymbol);
+          removeHoldingFromBasket(basket.id, holdingToDelete.id || holdingToDelete.companySymbol);
 
           showToast(
             "Varlık Sepetten Çıkarıldı",
