@@ -56,6 +56,7 @@ import ConfirmModal from "@/components/ConfirmModal";
 import { isLiveSymbol } from "@/lib/liveSymbols";
 import { useToast } from "@/components/ToastProvider";
 import { DeepCompanyData } from "@/app/api/prices/deep/route";
+import { TradingViewChart } from "@/components/TradingViewChart";
 
 interface CompanyDiagnosisReport {
   valuationScore?: number | string;
@@ -682,112 +683,15 @@ export default function SirketDetayPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left 2 Cols: Chart, Metrics, AI Deep Dive & Transactions */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Price Trend Chart Card (Dynamic & Responsive to Period) */}
-          <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6">
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--brass)] font-semibold">
-                    Fiyat Eğilimi &amp; Performans ({period})
-                  </h3>
-                  {chartData.isLive ? (
-                    <span className="font-mono text-[9px] text-[var(--verdigris)] bg-[rgba(91,140,123,0.15)] border border-[var(--verdigris)] px-1.5 py-0.2 rounded font-bold flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[var(--verdigris)] animate-pulse"></span>
-                      Canlı Kapanışlar
-                    </span>
-                  ) : historyLoading ? (
-                    <span className="font-mono text-[9px] text-[var(--mist)] animate-pulse">
-                      Yükleniyor...
-                    </span>
-                  ) : null}
-                </div>
-                <span className="text-[10px] font-mono text-[var(--mist)]">
-                  Min: {chartData.minPrice.toFixed(2)} {company.currency} • Maks: {chartData.maxPrice.toFixed(2)} {company.currency}
-                </span>
-              </div>
-
-              {/* Clickable Period Buttons */}
-              <div className="flex gap-1.5 font-mono text-[11px]">
-                {(["1A", "3A", "6A", "1Y"] as const).map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => setPeriod(p)}
-                    className={`px-2.5 py-1 rounded cursor-pointer transition-colors ${
-                      period === p
-                        ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow"
-                        : "text-[var(--mist)] hover:text-[var(--paper)] bg-[var(--ink-3)]"
-                    }`}
-                  >
-                    {p}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Dynamic SVG Chart */}
-            <div className="h-44 w-full relative flex items-end pt-6 pb-2">
-              <svg className="w-full h-full overflow-visible" viewBox="0 0 500 120">
-                <defs>
-                  <linearGradient id={chartGradId} x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop
-                      offset="0%"
-                      stopColor={isDailyPositive ? "#5B8C7B" : "#A33B3B"}
-                      stopOpacity="0.35"
-                    />
-                    <stop
-                      offset="100%"
-                      stopColor={isDailyPositive ? "#5B8C7B" : "#A33B3B"}
-                      stopOpacity="0.0"
-                    />
-                  </linearGradient>
-                </defs>
-
-                {/* Filled gradient area */}
-                <path d={chartData.areaD} fill={`url(#${chartGradId})`} />
-
-                {/* Stroke line */}
-                <path
-                  d={chartData.pathD}
-                  fill="none"
-                  stroke={isDailyPositive ? "#5B8C7B" : "#A33B3B"}
-                  strokeWidth="2.5"
-                />
-
-                {/* Points */}
-                {chartData.points.map((pt, idx) => (
-                  <circle
-                    key={idx}
-                    cx={pt.x}
-                    cy={pt.y}
-                    r={idx === chartData.points.length - 1 ? 5 : 3.5}
-                    fill={idx === chartData.points.length - 1 ? "#C9A24B" : (isDailyPositive ? "#5B8C7B" : "#A33B3B")}
-                  />
-                ))}
-              </svg>
-            </div>
-
-            {/* Dynamic X-Axis Date Labels */}
-            <div className="flex justify-between font-mono text-[11px] text-[var(--mist)] pt-2 border-t border-dashed border-[var(--line)]">
-              {chartData.labels.map((lbl, idx) => (
-                <span
-                  key={idx}
-                  className={idx === chartData.labels.length - 1 ? "text-[var(--brass)] font-semibold" : ""}
-                >
-                  {lbl}
-                </span>
-              ))}
-            </div>
-
-            {/* Disclaimer / Source Note */}
-            <div className="flex items-center gap-1.5 text-[10px] font-mono text-[var(--mist)] mt-3 pt-2 border-t border-[var(--line)]/50">
-              <Info className="w-3 h-3 text-[var(--mist)] shrink-0" />
-              <span>
-                {chartData.isLive
-                  ? `Google / Yahoo Finance kaynaklı son ${period} gerçek günlük kapanış fiyatlarıdır.`
-                  : "Bu grafik gösterge amaçlı simüle edilmiştir."}
-              </span>
-            </div>
-          </div>
+          {/* TradingView Lightweight Charts (Interactive Canvas, Candlestick & Area) */}
+          <TradingViewChart
+            data={historyData || []}
+            symbol={company.symbol}
+            currency={company.currency}
+            period={period}
+            onPeriodChange={setPeriod}
+            loading={historyLoading}
+          />
 
           {/* Google / Yahoo Finance Live Market & Likidity Card */}
           <div className="bg-[var(--ink-2)] border border-[var(--brass-dim)] rounded-xl p-6 space-y-5">
