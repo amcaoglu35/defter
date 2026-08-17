@@ -13,8 +13,16 @@ export function getMasterPassword(): string {
     return pwd.trim();
   }
 
-  // Varsayılan kasa erişim şifresi (ortam değişkeni girilmediğinde)
-  return "defter2026";
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "DEFTER_ACCESS_PASSWORD ortam değişkeni production'da zorunludur. Vercel panelinden Environment Variables bölümüne ekleyin."
+    );
+  }
+
+  console.warn(
+    "[UYARI] DEFTER_ACCESS_PASSWORD ayarlanmamış. Sadece geliştirme ortamı için geçici 'defter-dev-only' şifresi kullanılıyor. Production'a ASLA bu şekilde deploy etmeyin."
+  );
+  return "defter-dev-only";
 }
 
 /**
@@ -115,12 +123,13 @@ export async function verifyMasterPassword(
   }
 
   // 2. Fallback to Environment Variable
-  const envPassword = getMasterPassword();
-  if (!envPassword) {
+  let envPassword: string;
+  try {
+    envPassword = getMasterPassword();
+  } catch (envErr: any) {
     return {
       valid: false,
-      reason:
-        "Kasa şifresi sunucuda henüz tanımlanmamış. Lütfen DEFTER_ACCESS_PASSWORD ortam değişkenini ayarlayın.",
+      reason: envErr?.message || "Kasa şifresi sunucuda henüz tanımlanmamış. Lütfen DEFTER_ACCESS_PASSWORD ortam değişkenini ayarlayın.",
     };
   }
 

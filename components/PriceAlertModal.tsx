@@ -4,6 +4,8 @@ import React, { useState } from "react";
 import { Bell, X, Trash2, AlertTriangle } from "lucide-react";
 import { useToast } from "@/components/ToastProvider";
 import { isLiveSymbol } from "@/lib/liveSymbols";
+import ConfirmModal from "@/components/ConfirmModal";
+import { useEscapeKey } from "@/lib/hooks/useEscapeKey";
 
 interface PriceAlert {
   id: string;
@@ -27,6 +29,7 @@ export default function PriceAlertModal({
   isOpen,
   onClose,
 }: PriceAlertModalProps) {
+  useEscapeKey(isOpen, onClose);
   const { showToast } = useToast();
   const isLive = isLiveSymbol(symbol);
 
@@ -38,6 +41,7 @@ export default function PriceAlertModal({
     return [];
   });
 
+  const [alertToDelete, setAlertToDelete] = useState<PriceAlert | null>(null);
   const [targetPriceInput, setTargetPriceInput] = useState((currentPrice * 1.05).toFixed(2));
   const [condition, setCondition] = useState<"ABOVE" | "BELOW">("ABOVE");
 
@@ -81,9 +85,12 @@ export default function PriceAlertModal({
     );
   };
 
-  const handleDeleteAlert = (id: string) => {
-    const updated = alerts.filter((a) => a.id !== id);
+  const confirmDeleteAlert = () => {
+    if (!alertToDelete) return;
+    const updated = alerts.filter((a) => a.id !== alertToDelete.id);
     saveAlerts(updated);
+    showToast("Alarm Silindi", `${alertToDelete.symbol} için fiyat alarmı kaldırıldı.`, "info");
+    setAlertToDelete(null);
   };
 
   return (
@@ -215,8 +222,9 @@ export default function PriceAlertModal({
                     </span>
                   </div>
                   <button
-                    onClick={() => handleDeleteAlert(a.id)}
+                    onClick={() => setAlertToDelete(a)}
                     className="text-[var(--mist)] hover:text-[var(--loss)] p-1 transition-colors cursor-pointer"
+                    title="Alarmı Sil"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -226,6 +234,21 @@ export default function PriceAlertModal({
           )}
         </div>
       </div>
+
+      {/* Confirm Delete Alert Modal */}
+      <ConfirmModal
+        isOpen={alertToDelete !== null}
+        onClose={() => setAlertToDelete(null)}
+        onConfirm={confirmDeleteAlert}
+        title="Fiyat Alarmını Sil"
+        description={
+          alertToDelete
+            ? `${alertToDelete.symbol} için ${alertToDelete.condition === "ABOVE" ? "≥" : "≤"} ${alertToDelete.targetPrice} ₺ alarmını silmek istediğinize emin misiniz?`
+            : ""
+        }
+        confirmText="Evet, Sil"
+        isDestructive
+      />
     </div>
   );
 }

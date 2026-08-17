@@ -1,5 +1,11 @@
 /**
- * Centralized list and map of live symbols supported by Yahoo Finance / live price API.
+ * Centralized list and map of live symbols supported by Yahoo Finance, TEFAS and borsats.
+ *
+ * ⚠️ LİSANS & KULLANIM UYARISI:
+ * Bu projede kullanılan `@muhammedaksam/borsats` kütüphanesinin lisansı "kişisel ve eğitim amaçlı kullanım"
+ * ile sınırlıdır; ticari ürün/servis geliştirmede doğrudan kullanılamaz. Defter kişisel/tek kullanıcılı bir
+ * portföy takip uygulaması olduğu için uygundur. Projenin ticarileştirilmesi durumunda lisanslı/resmi bir veri
+ * sağlayıcı API'sine (BIST/Matriks/Ideal vb.) geçiş yapılması gerekmektedir.
  */
 
 export const SYMBOL_MAP: Record<string, string> = {
@@ -203,7 +209,12 @@ export const DYNAMICALLY_DERIVED_SYMBOLS = new Set<string>([
 export function isLiveSymbol(symbol: string): boolean {
   if (!symbol) return false;
   const upper = symbol.toUpperCase().trim();
-  return LIVE_SYMBOLS.has(upper) || DYNAMICALLY_DERIVED_SYMBOLS.has(upper);
+  if (LIVE_SYMBOLS.has(upper) || DYNAMICALLY_DERIVED_SYMBOLS.has(upper)) return true;
+  // All BIST stock symbols (3 to 6 alphanumeric characters) and TEFAS fund codes supported via borsats
+  if (/^[A-Z0-9]{3,6}$/.test(upper) && !upper.includes("/") && !upper.includes(".")) {
+    return true;
+  }
+  return false;
 }
 
 export function getSymbolTicker(symbol: string): string {

@@ -1,5 +1,6 @@
 import { AiHistoryItem, MOCK_COMPANIES, Basket } from "./mockData";
 import { getSymbolTicker } from "./liveSymbols";
+import { NewsItem } from "./newsService";
 
 export interface AiRecipeRequest {
   goal: string;
@@ -300,7 +301,9 @@ ${feedbackContext}
             try {
               const parsed = JSON.parse(stripJsonFences(rawContent));
               return { symbol, ...parsed, pastFeedbackSummary: calculatedPastFeedbackSummary };
-            } catch (pErr) {}
+            } catch (pErr) {
+              console.warn("[Orakul] AI yanıtı geçerli JSON değil, quant fallback motoruna düşülüyor:", pErr);
+            }
           }
         }
       }
@@ -1896,47 +1899,50 @@ export interface SentimentNewsItem {
   impactVerdict: "POZİTİF" | "NÖTR" | "NEGATİF";
 }
 
+export interface CompanyWithNews {
+  symbol: string;
+  name: string;
+  dailyChange?: number;
+  news: NewsItem[];
+}
+
 export async function generateSentimentAnalysis(
-  companies: CompanyAnalysisRequest[] = [],
-  baskets: any[] = [],
+  newsPerCompany: CompanyWithNews[],
   _apiKey?: string,
   provider: string = "gemini",
   customModel?: string
 ): Promise<SentimentNewsItem[]> {
   const resolvedApiKey = _apiKey || getResolvedApiKey(provider);
 
-  // 1. Extract symbols genuinely owned in user's baskets
-  const ownedSymbols = new Set(
-    baskets.flatMap((b) => b.holdings?.map((h: any) => h.companySymbol?.toUpperCase()) || [])
-  );
-  const ownedCompanies = companies.filter((c) => ownedSymbols.has(c.symbol.toUpperCase()));
-
-  // 2. Fallback pool: sort by highest absolute daily price movement instead of random array sequence
-  const fallbackPool = [...companies].sort(
-    (a, b) => Math.abs(b.dailyChange || 0) - Math.abs(a.dailyChange || 0)
-  );
-
-  // 3. Select target companies to analyze (owned first, then top movers)
-  const targetCompanies =
-    ownedCompanies.length > 0 ? ownedCompanies : fallbackPool.slice(0, 10);
-
-  const targetSymbols = targetCompanies.slice(0, 10).map((c) => c.symbol);
+  const newsContext = newsPerCompany
+    .map(
+      (c) =>
+        `Şirket: ${c.symbol} (${c.name})\nGerçek Haber Başlıkları:\n${
+          c.news && c.news.length > 0
+            ? c.news.map((n) => `- [${n.source}] ${n.title}`).join("\n")
+            : "Bu şirket için son 24 saatte doğrudan sıcak haber akışı bulunamadı."
+        }`
+    )
+    .join("\n\n");
 
   if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
     try {
       if (provider === "gemini") {
         const prompt = `Sen 'Orakul' adında uzman bir BIST ve Türk piyasaları finansal haber & duygu analisti yapay zekasısın.
-Aşağıdaki portföy ve odak şirketleri için en son piyasa algısını, KAP malzeme açıklamalarını, sektörel dinamikleri ve haber duygu puanlarını JSON formatında analiz et:
-Şirketler: ${targetSymbols.join(", ")}
+Aşağıda kullanıcının portföyündeki şirketler için Google News üzerinden çekilmiş GERÇEK, güncel haber başlıkları bulunmaktadır.
+Her şirket için bu gerçek haber başlıklarına dayanarak bir duygu puanı (-1.0 aşırı negatif ile +1.0 aşırı pozitif arası), etki kararı ve 1-2 cümlelik profesyonel finansal özet üret.
+Eğer bir şirket için haber yoksa bunu uydurma, 'Doğrudan sıcak haber akışı bulunmuyor, rutin piyasa seyri izleniyor' de.
+
+${newsContext}
 
 Format (YALNIZCA geçerli JSON dizisi):
 [
   {
     "id": "news-1",
     "title": "Haber Başlığı",
-    "source": "KAP / Bloomberg HT / Finans Gündem",
+    "source": "Kaynak Adı",
     "date": "Bugün",
-    "relatedSymbol": "${targetSymbols[0] || "THYAO"}",
+    "relatedSymbol": "${newsPerCompany[0]?.symbol || "THYAO"}",
     "sentimentScore": 0.85,
     "summary": "Haberin 1-2 cümlelik finansal özeti ve şirket operasyonlarına etkisi",
     "impactVerdict": "POZİTİF"
@@ -1964,83 +1970,44 @@ Format (YALNIZCA geçerli JSON dizisi):
         }
       }
     } catch (e) {
-      console.warn("generateSentimentAnalysis error, using dynamic algorithm fallback:", e);
+      console.warn("generateSentimentAnalysis error, using news algorithm fallback:", e);
     }
   }
 
-  // Dynamic fallback based on actual targeted active portfolio companies
-  const activeCos =
-    targetCompanies.length > 0
-      ? targetCompanies
-      : [
-          { symbol: "THYAO", name: "Türk Hava Yolları", dailyChange: 2.1, sector: "Havacılık", price: 310 },
-          { symbol: "FROTO", name: "Ford Otosan", dailyChange: 1.4, sector: "Otomotiv", price: 1040 },
-          { symbol: "ASELS", name: "Aselsan", dailyChange: 0.8, sector: "Savunma", price: 68 },
-          { symbol: "TUPRS", name: "Tüpraş", dailyChange: -0.5, sector: "Enerji", price: 165 },
-        ];
-
-  return activeCos.slice(0, 6).map((c, idx) => {
+  // Dynamic fallback using genuine news items when AI key is absent
+  return newsPerCompany.flatMap((c, idx) => {
+    if (c.news && c.news.length > 0) {
+      return c.news.slice(0, 2).map((n, nIdx) => {
+        const isPos = (c.dailyChange ?? 0) >= 0;
+        const score = isPos ? 0.65 : -0.45;
+        const verdict: "POZİTİF" | "NÖTR" | "NEGATİF" = isPos ? "POZİTİF" : "NEGATİF";
+        return {
+          id: `news-${c.symbol}-${idx}-${nIdx}`,
+          title: n.title,
+          source: n.source || "Google News",
+          date: n.timeAgo || "Bugün",
+          relatedSymbol: c.symbol,
+          sentimentScore: score,
+          summary: `${c.name} (${c.symbol}) için güncel piyasa akışı: "${n.title}". Operasyonel görünüm ve fiyatlama ${verdict.toLowerCase()} değerlendiriliyor.`,
+          impactVerdict: verdict,
+        };
+      });
+    }
     const isPos = (c.dailyChange ?? 0) >= 0;
-    const score = isPos
-      ? Math.min(0.4 + (c.dailyChange || 1) * 0.2, 0.95)
-      : Math.max(-0.4 + (c.dailyChange || -1) * 0.2, -0.9);
-    const verdict: "POZİTİF" | "NÖTR" | "NEGATİF" =
-      score > 0.2 ? "POZİTİF" : score < -0.2 ? "NEGATİF" : "NÖTR";
-
-    const summaries: Record<string, string> = {
-      THYAO: "Filo genişleme programı ve kargo gelirlerindeki artış analist beklentilerini yukarı yönlü revize ettiriyor.",
-      FROTO: "Avrupa pazarında yeni nesil elektrikli ticari araç teslimatları ihracat gelirlerini destekliyor.",
-      ASELS: "Savunma Sanayii Başkanlığı ile imzalanan yeni nesil haberleşme ve radar teslimat sözleşmesi kütüğe eklendi.",
-      TUPRS: "Rafineri marjlarındaki dönemsel normalleşme kâr marjlarını dengelerken temettü beklentisi korunuyor.",
-      EREGL: "Küresel çelik talebindeki toparlanma ve kapasite artış yatırımları operasyonel marjları güçlendiriyor.",
-      BIMAS: "Yüksek sepet ortalaması ve yeni mağaza açılışları nakit akışını enflasyona karşı koruyor.",
-      KCHOL: "İştiraklerin dengeli temettü verimi ve ihracat gelirleri portföy dayanıklılığını artırıyor.",
-      SISE: "Küresel cam talebi ve enerji verimliliği yatırımları marjları desteklemeyi sürdürüyor.",
-    };
-
-    const getDynamicSummary = (co: CompanyAnalysisRequest, v: "POZİTİF" | "NÖTR" | "NEGATİF") => {
-      if (summaries[co.symbol]) return summaries[co.symbol];
-      const s = (co.sector || "").toLowerCase();
-      const chg = co.dailyChange ?? 0;
-      if (s.includes("teknoloji") || s.includes("yazılım")) {
-        return v === "POZİTİF"
-          ? `${co.name}, yeni kurumsal yazılım lisans anlaşmaları ve yüksek marjlı Ar-Ge teslimatlarıyla operasyonel kârlılığını (%${chg >= 0 ? "+" : ""}${chg.toFixed(2)}) artırmayı sürdürüyor.`
-          : `${co.name} tarafında sektörel kâr realizasyonları ve küresel teknoloji harcamalarındaki temkinli görünüm fiyatlamaya yansıyor.`;
-      }
-      if (s.includes("savunma") || s.includes("elektronik")) {
-        return v === "POZİTİF"
-          ? `${co.name}, yeni nesil teslimat sözleşmeleri ve savunma sanayii bakiye siparişlerindeki artışla güçlü nakit akışı sağlıyor.`
-          : `${co.name} için teslimat vadeleri ve girdi maliyetlerindeki dönemsel dalgalanmalar takip ediliyor.`;
-      }
-      if (s.includes("enerji") || s.includes("petrol") || s.includes("elektrik")) {
-        return v === "POZİTİF"
-          ? `${co.name}, kapasite artırımları ve enerji üretim marjlarındaki genişlemeyle piyasada pozitif ayrışıyor.`
-          : `${co.name} için uluslararası emtia fiyat oynaklığı ve tarife düzenlemeleri yakından izleniyor.`;
-      }
-      if (s.includes("banka") || s.includes("finans")) {
-        return v === "POZİTİF"
-          ? `${co.name}, net faiz marjı toparlanması ve komisyon gelirlerindeki ivmeyle kârlılık çıtasını koruyor.`
-          : `${co.name} tarafında kredi büyüme regülasyonları ve mevduat fonlama maliyetleri dengeleniyor.`;
-      }
-      return `${co.name} (${co.symbol}), son piyasa seansında %${chg.toFixed(2)} değişimle işlem görürken operasyonel nakit akışı ve sektörel konumu ${v.toLowerCase()} algı oluşturmaktadır.`;
-    };
-
-    return {
-      id: `sentiment-${c.symbol}-${idx}`,
-      title: `${c.name} (${c.symbol}) için ${
-        verdict === "POZİTİF"
-          ? "Güçlü Operasyonel Gelişmeler & İvme"
-          : verdict === "NEGATİF"
-          ? "Maliyet Baskısı & Sektörel Düzeltme"
-          : "Dengeli Piyasa Seyri"
-      }`,
-      source: "KAP & Finans Analizi",
-      date: "Son 24 Saat",
-      relatedSymbol: c.symbol,
-      sentimentScore: parseFloat(score.toFixed(2)),
-      summary: getDynamicSummary(c, verdict),
-      impactVerdict: verdict,
-    };
+    const score = isPos ? 0.4 : -0.3;
+    const verdict: "POZİTİF" | "NÖTR" | "NEGATİF" = isPos ? "POZİTİF" : "NEGATİF";
+    return [
+      {
+        id: `news-${c.symbol}-${idx}`,
+        title: `${c.name} (${c.symbol}) Rutin Piyasa Seyri`,
+        source: "Piyasa Takip",
+        date: "Bugün",
+        relatedSymbol: c.symbol,
+        sentimentScore: score,
+        summary: `${c.name} (${c.symbol}) için son 24 saatte majör bir sıcak haber akışı bulunmamakta olup seans içi fiyatlamalar takip edilmektedir.`,
+        impactVerdict: verdict,
+      },
+    ];
   });
 }
 

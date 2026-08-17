@@ -4,6 +4,7 @@ import React, { useRef, useState } from "react";
 import { X, Download, Copy, Check, Sparkles, Share2, Loader2 } from "lucide-react";
 import { toPng } from "html-to-image";
 import StampBadge from "./StampBadge";
+import { useEscapeKey } from "@/lib/hooks/useEscapeKey";
 
 interface ShareCardModalProps {
   isOpen: boolean;
@@ -30,6 +31,7 @@ export default function ShareCardModal({
   type,
   data,
 }: ShareCardModalProps) {
+  useEscapeKey(isOpen, onClose);
   const cardRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);

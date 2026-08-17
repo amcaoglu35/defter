@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import { Company } from "@/lib/mockData";
+import DataStatusBadge from "@/components/DataStatusBadge";
+import { isLiveSymbol } from "@/lib/liveSymbols";
 
 function formatPrice(val?: number, cur?: string) {
   if (val === undefined || val === null) return "—";
@@ -205,6 +207,9 @@ function KarsilastirContent() {
                           </div>
                           <span className="text-xs text-[var(--mist)] block truncate font-sans">{c.name}</span>
                           <span className="text-[10px] text-[var(--verdigris)] block mt-0.5">{c.sector}</span>
+                          <div className="mt-1">
+                            <DataStatusBadge symbol={c.symbol} isLive={isLiveSymbol(c.symbol)} />
+                          </div>
                         </div>
                         <button
                           onClick={() => handleRemoveSymbol(c.symbol)}

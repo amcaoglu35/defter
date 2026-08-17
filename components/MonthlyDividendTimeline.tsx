@@ -10,8 +10,45 @@ const MONTH_NAMES = [
   "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"
 ];
 
+const TURKISH_MONTHS: Record<string, number> = {
+  ocak: 0, subat: 1, şubat: 1, mart: 2, nisan: 3, mayis: 4, mayıs: 4, haziran: 5,
+  temmuz: 6, agustos: 7, ağustos: 7, eylul: 8, eylül: 8, ekim: 9, kasim: 10, kasım: 10, aralik: 11, aralık: 11
+};
+
+function parseMonthIndex(dateStr?: string): number | null {
+  if (!dateStr) return null;
+  const clean = dateStr.trim().toLowerCase();
+
+  // 1. Check YYYY-MM-DD or YYYY/MM/DD
+  const isoMatch = clean.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (isoMatch) {
+    const m = parseInt(isoMatch[2], 10) - 1;
+    if (m >= 0 && m < 12) return m;
+  }
+
+  // 2. Check DD.MM.YYYY or DD-MM-YYYY
+  const dotMatch = clean.match(/(\d{1,2})[.-](\d{1,2})[.-](\d{4})/);
+  if (dotMatch) {
+    const m = parseInt(dotMatch[2], 10) - 1;
+    if (m >= 0 && m < 12) return m;
+  }
+
+  // 3. Check Turkish month names (e.g., "27 Eylül 2026")
+  for (const [mName, mIdx] of Object.entries(TURKISH_MONTHS)) {
+    if (clean.includes(mName)) return mIdx;
+  }
+
+  // 4. Try standard Date parsing
+  const d = new Date(dateStr);
+  if (!isNaN(d.getTime())) {
+    return d.getMonth();
+  }
+
+  return null;
+}
+
 export default function MonthlyDividendTimeline() {
-  const { dividends, companies, baskets } = useDefterStore();
+  const { dividends } = useDefterStore();
 
   // Aggregate payouts by month (0-11)
   const monthlyData = useMemo(() => {
@@ -25,18 +62,15 @@ export default function MonthlyDividendTimeline() {
 
     for (const div of dividends) {
       if (!div.paymentDate) continue;
-      const dateParts = div.paymentDate.split("-");
-      if (dateParts.length >= 2) {
-        const monthIdx = parseInt(dateParts[1], 10) - 1;
-        if (monthIdx >= 0 && monthIdx < 12) {
-          const payout = div.totalEstimatedPayout || 0;
-          months[monthIdx].totalPayout += payout;
-          months[monthIdx].symbols.push({
-            symbol: div.companySymbol,
-            payout,
-            perShare: div.netAmountPerShare,
-          });
-        }
+      const monthIdx = parseMonthIndex(div.paymentDate);
+      if (monthIdx !== null && monthIdx >= 0 && monthIdx < 12) {
+        const payout = div.totalEstimatedPayout || 0;
+        months[monthIdx].totalPayout += payout;
+        months[monthIdx].symbols.push({
+          symbol: div.companySymbol,
+          payout,
+          perShare: div.netAmountPerShare,
+        });
       }
     }
 

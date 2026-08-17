@@ -31,6 +31,26 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  React.useEffect(() => {
+    const handleCustomToast = (e: Event) => {
+      const customEvent = e as CustomEvent<{
+        title: string;
+        message?: string;
+        type?: "success" | "error" | "info" | "warning";
+      }>;
+      if (customEvent.detail && customEvent.detail.title) {
+        showToast(
+          customEvent.detail.title,
+          customEvent.detail.message,
+          customEvent.detail.type || "info"
+        );
+      }
+    };
+
+    window.addEventListener("defter:toast", handleCustomToast);
+    return () => window.removeEventListener("defter:toast", handleCustomToast);
+  }, [showToast]);
+
   const removeToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };

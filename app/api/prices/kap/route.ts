@@ -110,7 +110,7 @@ export async function GET(request: Request) {
             disclosureType,
             publishDate: pubDate,
             timeAgo: formatTimeAgo(pubDate),
-            kapUrl: link,
+            kapUrl: `https://www.kap.org.tr/tr/sirket-bilgileri/ozet/${cleanSymbol}`,
           });
           count++;
         }
@@ -123,7 +123,7 @@ export async function GET(request: Request) {
       success: true,
       symbol: cleanSymbol,
       count: items.length,
-      source: "kap_org_tr",
+      source: "google_news_kap_search",
       data: items,
     });
   } catch (err) {

@@ -383,12 +383,17 @@ interface WeeklyLetterResult {
     showToast("Sorgu Kaydedildi", "Arama kriteri hızlı erişim listesine eklendi.", "success");
   };
 
-  const handleDeleteSavedQuery = (qToDelete: string) => {
-    const updated = savedQueries.filter((q) => q !== qToDelete);
+  const [queryToDelete, setQueryToDelete] = useState<string | null>(null);
+
+  const confirmDeleteSavedQuery = () => {
+    if (!queryToDelete) return;
+    const updated = savedQueries.filter((q) => q !== queryToDelete);
     setSavedQueries(updated);
     try {
       localStorage.setItem("defter_saved_screener_queries", JSON.stringify(updated));
     } catch {}
+    showToast("Sorgu Silindi", "Kayıtlı arama kriteri listeden kaldırıldı.", "info");
+    setQueryToDelete(null);
   };
 
   // Screener Add to Basket Allocation State
@@ -3020,7 +3025,7 @@ interface WeeklyLetterResult {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleDeleteSavedQuery(q);
+                        setQueryToDelete(q);
                       }}
                       title="Kayıtlı sorguyu sil"
                       className="text-[var(--mist)] hover:text-[var(--loss)] ml-1 cursor-pointer"
@@ -4067,6 +4072,21 @@ interface WeeklyLetterResult {
             title="Tüm AI Geçmişini Temizle"
             message="Tüm geçmiş AI analiz ve karar kayıtlarını kalıcı olarak silmek istediğinizden emin misiniz? Bu işlem geri alınamaz."
             confirmText="Evet, Tümünü Temizle"
+            cancelText="Vazgeç"
+            variant="danger"
+          />
+
+          <ConfirmModal
+            isOpen={queryToDelete !== null}
+            onClose={() => setQueryToDelete(null)}
+            onConfirm={confirmDeleteSavedQuery}
+            title="Kayıtlı Sorguyu Sil"
+            message={
+              queryToDelete
+                ? `"${queryToDelete}" kayıtlı aramasını silmek istediğinize emin misiniz?`
+                : ""
+            }
+            confirmText="Evet, Sil"
             cancelText="Vazgeç"
             variant="danger"
           />

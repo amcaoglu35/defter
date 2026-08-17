@@ -40,8 +40,17 @@ export function AiModelPortfolios() {
   const handleGenerateBaskets = async () => {
     setIsGenerating(true);
     try {
-      const keyParam = aiApiKey ? `?apiKey=${encodeURIComponent(aiApiKey)}` : "";
-      const res = await fetch(`/api/cron/orakul-auto-basket${keyParam}`);
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (aiApiKey) {
+        headers["x-gemini-key"] = aiApiKey;
+      }
+
+      const res = await fetch("/api/ai-tools/generate-baskets", {
+        method: "POST",
+        headers,
+      });
       const data = await res.json();
       if (data.success && Array.isArray(data.baskets)) {
         data.baskets.forEach((basket: AiModelBasket) => {

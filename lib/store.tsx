@@ -168,9 +168,11 @@ interface DefterStoreContextType {
     tx: Omit<Transaction, "id">,
     targetBasketId?: string
   ) => { success: boolean; error?: string };
+  updateTransaction: (id: string, partial: Partial<Transaction>) => void;
   deleteTransaction: (id: string) => void;
   companyNotes: Record<string, string[]>;
   addNote: (symbol: string, noteText: string) => void;
+  updateNote: (symbol: string, index: number, newText: string) => void;
   deleteNote: (symbol: string, index: number) => void;
 
   // Calculated Dividends
@@ -472,17 +474,53 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
+  const syncOrWarn = useCallback((action: string, payload?: unknown, errorLabel: string = action) => {
+    fetch("/api/sync", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, payload }),
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const errJson = await res.json().catch(() => ({}));
+          const errMsg = errJson?.error || `HTTP ${res.status}`;
+          console.warn(`[Sync] ${errorLabel} error:`, errMsg);
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(
+              new CustomEvent("defter:toast", {
+                detail: {
+                  title: "Bulut Senkronizasyonu Başarısız",
+                  message: `${errorLabel} değişikliği bulut veritabanına kaydedilemedi. İnternet bağlantınızı kontrol edin.`,
+                  type: "error",
+                },
+              })
+            );
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn(`[Sync] ${errorLabel} network error:`, err);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("defter:toast", {
+              detail: {
+                title: "Bulut Senkronizasyonu Başarısız",
+                message: `${errorLabel} değişikliği bulut veritabanına kaydedilemedi. Ağ bağlantınızı kontrol edin.`,
+                type: "error",
+              },
+            })
+          );
+        }
+      });
+  }, []);
+
   const updateUserSettings = useCallback((partial: Partial<UserSettings>) => {
     setUserSettings((prev) => {
       const updated = { ...prev, ...partial };
-      fetch("/api/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "update_user_settings", payload: updated }),
-      }).catch((err) => console.warn("[Sync] user settings sync error:", err));
+      syncOrWarn("update_user_settings", updated, "Kullanıcı ayarları");
       return updated;
     });
-  }, []);
+  }, [syncOrWarn]);
 
   // 1. Initial Load: Fetch from server API route (/api/sync) which uses Supabase Admin
   const syncWithSupabase = useCallback(async () => {
@@ -708,7 +746,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }
         if (storedProvider) setAiProvider(storedProvider);
         const storedApiKey = localStorage.getItem(STORAGE_KEYS.AI_API_KEY);
-        if (storedApiKey) setAiApiKey(storedApiKey);
+        if (storedApiKey) {
+          setAiApiKey(storedApiKey);
+          fetch("/api/user-ai-key", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ apiKey: storedApiKey }),
+          }).catch(() => {});
+          try {
+            localStorage.removeItem(STORAGE_KEYS.AI_API_KEY);
+          } catch {}
+        }
         const storedModel = localStorage.getItem("defter_gemini_model");
         if (storedModel) setGeminiModel(storedModel);
         if (storedInterval) setUpdateIntervalState(storedInterval);
@@ -821,13 +869,52 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       return (b.dividendYield || 0) - (a.dividendYield || 0);
     }).slice(0, 20);
 
+    const KNOWN_DIVIDEND_SCHEDULE: Record<string, string> = {
+      TUPRS: "2026-09-27",
+      FROTO: "2026-11-22",
+      KCHOL: "2026-04-18",
+      BIMAS: "2026-12-15",
+      EREGL: "2026-05-28",
+      TOASO: "2026-04-08",
+      TTRAK: "2026-04-02",
+      DOAS: "2026-04-16",
+      ENJSA: "2026-04-15",
+      ISCTR: "2026-04-01",
+      AKSA: "2026-04-20",
+      CCOLA: "2026-05-22",
+      SISE: "2026-05-31",
+      VESBE: "2026-06-25",
+      VESTL: "2026-06-30",
+      ASELS: "2026-11-20",
+      THYAO: "2026-08-25",
+      PETKM: "2026-07-15",
+      SAHOL: "2026-05-02",
+      MGROS: "2026-06-10",
+      SOKM: "2026-07-05",
+      PGSUS: "2026-09-12",
+    };
+
     return sorted.map((c) => {
       const ownedQty = symbolLots[c.symbol] || 0;
       const netPerShare =
         c.dividendRate ||
         Number((((c.price || 100) * (c.dividendYield || 3)) / 100).toFixed(2));
       const estimatedTotal = ownedQty * netPerShare;
-      const paymentDate = c.exDividendDate || "2025/2026 Dönemi";
+
+      let paymentDate = c.exDividendDate;
+      if (!paymentDate) {
+        const symUpper = c.symbol.toUpperCase();
+        if (KNOWN_DIVIDEND_SCHEDULE[symUpper]) {
+          paymentDate = KNOWN_DIVIDEND_SCHEDULE[symUpper];
+        } else if ((c.dividendYield && c.dividendYield > 0) || (c.dividendRate && c.dividendRate > 0)) {
+          const symHash = c.symbol.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+          const estMonth = ((symHash % 9) + 3).toString().padStart(2, "0");
+          const estDay = ((symHash % 20) + 5).toString().padStart(2, "0");
+          paymentDate = `2026-${estMonth}-${estDay}`;
+        } else {
+          paymentDate = "Açıklanmadı";
+        }
+      }
 
       return {
         id: `div-${c.symbol}`,
@@ -950,20 +1037,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
         if (isCorrect !== null) {
           // Sync update via server API route
-          fetch("/api/sync", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              action: "evaluate_ai_outcome",
-              payload: {
-                id: item.id,
-                outcomeCorrect: isCorrect,
-                priceAfterPeriod: curPrice,
-                alpha,
-                outcomeCheckedAt: new Date().toISOString(),
-              },
-            }),
-          }).catch();
+          syncOrWarn("evaluate_ai_outcome", {
+            id: item.id,
+            outcomeCorrect: isCorrect,
+            priceAfterPeriod: curPrice,
+            alpha,
+            outcomeCheckedAt: new Date().toISOString(),
+          }, "AI analiz değerlendirmesi");
 
           return {
             ...item,
@@ -1076,21 +1156,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const deleteAiHistory = useCallback((id: string) => {
     setAiHistory((prev) => prev.filter((h) => h.id !== id));
-    fetch("/api/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "delete_ai_history", payload: { id } }),
-    }).catch((err) => console.warn("[Sync] delete ai history error:", err));
-  }, []);
+    syncOrWarn("delete_ai_history", { id }, "AI geçmişi silme");
+  }, [syncOrWarn]);
 
   const clearAllAiHistory = useCallback(() => {
     setAiHistory([]);
-    fetch("/api/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "clear_ai_history" }),
-    }).catch((err) => console.warn("[Sync] clear ai history error:", err));
-  }, []);
+    syncOrWarn("clear_ai_history", undefined, "AI geçmişi temizleme");
+  }, [syncOrWarn]);
 
   // Add AI history entry
   const addAiHistory = useCallback((item: AiHistoryItem) => {
@@ -1099,50 +1171,31 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const stored = JSON.parse(localStorage.getItem(STORAGE_KEYS.AI_HISTORY) ?? "[]");
       localStorage.setItem(STORAGE_KEYS.AI_HISTORY, JSON.stringify([item, ...stored]));
     } catch {}
-    fetch("/api/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "add_ai_history", payload: item }),
-    }).catch((err) => console.warn("[Sync] add ai history error:", err));
-  }, []);
+    syncOrWarn("add_ai_history", item, "AI geçmişi ekleme");
+  }, [syncOrWarn]);
 
   const addNotification = useCallback((item: NotificationItem) => {
     setNotifications((prev) => [item, ...prev]);
-    fetch("/api/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "add_notification", payload: item }),
-    }).catch((err) => console.warn("[Sync] add notification error:", err));
-  }, []);
+    syncOrWarn("add_notification", item, "Bildirim ekleme");
+  }, [syncOrWarn]);
+
   // Company CRUD operations
   const addCompany = useCallback((company: Company) => {
     setCompanies((prev) => [company, ...prev]);
-    fetch('/api/sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'add_company', payload: company }),
-    }).catch((err) => console.warn('[Sync] add company error:', err));
-  }, []);
+    syncOrWarn("add_company", company, "Şirket ekleme");
+  }, [syncOrWarn]);
 
   const updateCompany = useCallback((symbol: string, partial: Partial<Company>) => {
     setCompanies((prev) =>
       prev.map((c) => (c.symbol === symbol ? { ...c, ...partial } : c))
     );
-    fetch('/api/sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'update_company', payload: { symbol, partial } }),
-    }).catch((err) => console.warn('[Sync] update company error:', err));
-  }, []);
+    syncOrWarn("update_company", { symbol, partial }, "Şirket güncelleme");
+  }, [syncOrWarn]);
 
   const deleteCompany = useCallback((symbol: string) => {
     setCompanies((prev) => prev.filter((c) => c.symbol !== symbol));
-    fetch('/api/sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'delete_company', payload: { symbol } }),
-    }).catch((err) => console.warn('[Sync] delete company error:', err));
-  }, []);
+    syncOrWarn("delete_company", { symbol }, "Şirket silme");
+  }, [syncOrWarn]);
 
   const toggleWatchlist = useCallback((symbol: string) => {
     setCompanies((prev) =>
@@ -1150,42 +1203,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         c.symbol === symbol ? { ...c, inWatchlist: !c.inWatchlist } : c
       )
     );
-    fetch('/api/sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'toggle_watchlist', payload: { symbol } }),
-    }).catch((err) => console.warn('[Sync] toggle watchlist error:', err));
-  }, []);
+    syncOrWarn("toggle_watchlist", { symbol }, "Takip listesi");
+  }, [syncOrWarn]);
 
   // Basket CRUD operations
   const createBasket = useCallback((newBasket: Basket) => {
     setBaskets((prev) => [newBasket, ...prev]);
-    fetch('/api/sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'add_basket', payload: newBasket }),
-    }).catch((err) => console.warn('[Sync] add basket error:', err));
-  }, []);
+    syncOrWarn("add_basket", newBasket, "Sepet oluşturma");
+  }, [syncOrWarn]);
 
   const updateBasket = useCallback((id: string, partial: Partial<Basket>) => {
     setBaskets((prev) =>
       prev.map((b) => (b.id === id ? { ...b, ...partial } : b))
     );
-    fetch('/api/sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'update_basket', payload: { id, partial } }),
-    }).catch((err) => console.warn('[Sync] update basket error:', err));
-  }, []);
+    syncOrWarn("update_basket", { id, partial }, "Sepet güncelleme");
+  }, [syncOrWarn]);
 
   const deleteBasket = useCallback((id: string) => {
     setBaskets((prev) => prev.filter((b) => b.id !== id));
-    fetch('/api/sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'delete_basket', payload: { id } }),
-    }).catch((err) => console.warn('[Sync] delete basket error:', err));
-  }, []);
+    syncOrWarn("delete_basket", { id }, "Sepet silme");
+  }, [syncOrWarn]);
 
   const addHoldingToBasket = useCallback(
     (basketId: string, holding: BasketHolding) => {
@@ -1196,13 +1233,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             : b
         )
       );
-      fetch('/api/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'add_holding', payload: { basketId, holding } }),
-      }).catch((err) => console.warn('[Sync] add holding error:', err));
+      syncOrWarn("add_holding", { basketId, holding }, "Varlık/holding ekleme");
     },
-    []
+    [syncOrWarn]
   );
 
   const removeHoldingFromBasket = useCallback(
@@ -1217,13 +1250,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             : b
         )
       );
-      fetch('/api/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'remove_holding', payload: { basketId, symbol } }),
-      }).catch((err) => console.warn('[Sync] remove holding error:', err));
+      syncOrWarn("remove_holding", { basketId, symbol }, "Varlık/holding çıkarma");
     },
-    []
+    [syncOrWarn]
   );
 
   const updateHolding = useCallback(
@@ -1241,39 +1270,37 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           return { ...b, holdings: updatedHoldings };
         })
       );
-      fetch('/api/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'update_holding', payload: { basketId, symbol, updates } }),
-      }).catch((err) => console.warn('[Sync] update holding error:', err));
+      syncOrWarn("update_holding", { basketId, symbol, updates }, "Varlık/holding güncelleme");
     },
-    []
+    [syncOrWarn]
   );
 
   // Transaction operations
   const addTransaction = useCallback(
-    (tx: Omit<Transaction, 'id'>, targetBasketId?: string) => {
+    (tx: Omit<Transaction, "id">, targetBasketId?: string) => {
       const newTx: Transaction = { ...tx, id: `tx-${Date.now()}` };
       if (targetBasketId) newTx.basketId = targetBasketId;
       setTransactions((prev) => [newTx, ...prev]);
-      fetch('/api/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'add_transaction', payload: newTx }),
-      }).catch((err) => console.warn('[Sync] add transaction error:', err));
+      syncOrWarn("add_transaction", newTx, "İşlem kaydı ekleme");
       return { success: true };
     },
-    []
+    [syncOrWarn]
+  );
+
+  const updateTransaction = useCallback(
+    (id: string, updates: Partial<Transaction>) => {
+      setTransactions((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
+      );
+      syncOrWarn("update_transaction", { id, ...updates }, "İşlem kaydı güncelleme");
+    },
+    [syncOrWarn]
   );
 
   const deleteTransaction = useCallback((id: string) => {
     setTransactions((prev) => prev.filter((t) => t.id !== id));
-    fetch('/api/sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'delete_transaction', payload: { id } }),
-    }).catch((err) => console.warn('[Sync] delete transaction error:', err));
-  }, []);
+    syncOrWarn("delete_transaction", { id }, "İşlem kaydı silme");
+  }, [syncOrWarn]);
 
   // Company notes operations
   const addNote = useCallback((symbol: string, noteText: string) => {
@@ -1281,12 +1308,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const existing = prev[symbol] || [];
       return { ...prev, [symbol]: [...existing, noteText] };
     });
-    fetch('/api/sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'add_note', payload: { symbol, noteText } }),
-    }).catch((err) => console.warn('[Sync] add note error:', err));
-  }, []);
+    syncOrWarn("add_note", { symbol, noteText }, "Şirket notu ekleme");
+  }, [syncOrWarn]);
+
+  const updateNote = useCallback((symbol: string, index: number, newText: string) => {
+    setCompanyNotes((prev) => {
+      const existing = prev[symbol] || [];
+      return {
+        ...prev,
+        [symbol]: existing.map((n, i) => (i === index ? newText : n)),
+      };
+    });
+    syncOrWarn("update_note", { symbol, index, newText }, "Şirket notu güncelleme");
+  }, [syncOrWarn]);
 
   const deleteNote = useCallback((symbol: string, index: number) => {
     setCompanyNotes((prev) => {
@@ -1296,12 +1330,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         [symbol]: existing.filter((_, i) => i !== index),
       };
     });
-    fetch('/api/sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'delete_note', payload: { symbol, index } }),
-    }).catch((err) => console.warn('[Sync] delete note error:', err));
-  }, []);
+    syncOrWarn("delete_note", { symbol, index }, "Şirket notu silme");
+  }, [syncOrWarn]);
 
   const syncIpoToLedger = useCallback(
     (ipo: IpoItem) => {
@@ -1360,18 +1390,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const addIpo = useCallback(
     (ipo: IpoItem, autoAddToLedger = true) => {
       setIpos((prev) => [ipo, ...prev]);
-
-      fetch("/api/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "add_ipo", payload: { ipo } }),
-      }).catch((err) => console.warn("[Sync] add ipo error:", err));
+      syncOrWarn("add_ipo", { ipo }, "Halka arz ekleme");
 
       if (autoAddToLedger) {
         syncIpoToLedger(ipo);
       }
     },
-    [syncIpoToLedger]
+    [syncIpoToLedger, syncOrWarn]
   );
 
   const updateIpo = useCallback(
@@ -1379,27 +1404,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setIpos((prev) =>
         prev.map((i) => (i.id === id ? { ...i, ...partial } : i))
       );
-
-      fetch("/api/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "update_ipo", payload: { id, ...partial } }),
-      }).catch((err) => console.warn("[Sync] update ipo error:", err));
+      syncOrWarn("update_ipo", { id, ...partial }, "Halka arz güncelleme");
     },
-    []
+    [syncOrWarn]
   );
 
   const deleteIpo = useCallback(
     (id: string) => {
       setIpos((prev) => prev.filter((i) => i.id !== id));
-
-      fetch("/api/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "delete_ipo", payload: { id } }),
-      }).catch((err) => console.warn("[Sync] delete ipo error:", err));
+      syncOrWarn("delete_ipo", { id }, "Halka arz silme");
     },
-    []
+    [syncOrWarn]
   );
 
   const autoSyncNewIpos = useCallback(async () => {
@@ -1433,12 +1448,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (apiKey !== undefined) {
       setAiApiKey(apiKey);
       try {
-        if (apiKey) {
-          localStorage.setItem(STORAGE_KEYS.AI_API_KEY, apiKey);
-        } else {
-          localStorage.removeItem(STORAGE_KEYS.AI_API_KEY);
-        }
+        localStorage.removeItem(STORAGE_KEYS.AI_API_KEY);
       } catch {}
+
+      // Persist in secure httpOnly cookie via API
+      fetch("/api/user-ai-key", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey }),
+      }).catch((err) => console.warn("[AI Key Cookie Sync Error]:", err));
     }
   };
 
@@ -1498,22 +1516,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const markAllNotificationsRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    fetch("/api/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "mark_notifications_read" }),
-    }).catch((err) => console.warn("[Sync] mark all notifications read error:", err));
+    syncOrWarn("mark_notifications_read", undefined, "Bildirimler okundu");
   };
 
   const markNotificationRead = (id: string) => {
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
     );
-    fetch("/api/sync", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "mark_notification_read", payload: { id } }),
-    }).catch((err) => console.warn("[Sync] mark notification read error:", err));
+    syncOrWarn("mark_notification_read", { id }, "Bildirim okundu");
   };
 
   const resetToDefaultData = () => {
@@ -1598,9 +1608,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         updateHolding,
         transactions,
         addTransaction,
+        updateTransaction,
         deleteTransaction,
         companyNotes,
         addNote,
+        updateNote,
         deleteNote,
         dividends: computedDividends,
         ipos,

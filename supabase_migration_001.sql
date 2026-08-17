@@ -48,3 +48,34 @@ CREATE TABLE IF NOT EXISTS public.dividends (
 
 ALTER TABLE dividends ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "No Anon Access on dividends" ON dividends FOR ALL USING (false);
+
+-- 4. Dağıtık & Atomik Rate Limiting Tablosu ve RPC Fonksiyonu
+CREATE TABLE IF NOT EXISTS public.rate_limits (
+    id TEXT PRIMARY KEY,
+    count INTEGER NOT NULL DEFAULT 1,
+    reset_time BIGINT NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE rate_limits ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "No Anon Access on rate_limits" ON rate_limits FOR ALL USING (false);
+
+CREATE OR REPLACE FUNCTION increment_rate_limit(p_id TEXT, p_window_ms BIGINT, p_now BIGINT)
+RETURNS TABLE(count INT, reset_time BIGINT) AS $$
+BEGIN
+    INSERT INTO rate_limits (id, count, reset_time, updated_at)
+    VALUES (p_id, 1, p_now + p_window_ms, NOW())
+    ON CONFLICT (id) DO UPDATE
+    SET count = CASE
+            WHEN rate_limits.reset_time < p_now THEN 1
+            ELSE rate_limits.count + 1
+        END,
+        reset_time = CASE
+            WHEN rate_limits.reset_time < p_now THEN p_now + p_window_ms
+            ELSE rate_limits.reset_time
+        END,
+        updated_at = NOW()
+    RETURNING rate_limits.count, rate_limits.reset_time INTO count, reset_time;
+    RETURN NEXT;
+END;
+$$ LANGUAGE plpgsql;

@@ -42,14 +42,17 @@ import {
   Scale,
   History,
   Check,
+  Edit,
+  X,
 } from "lucide-react";
-import { useDefterStore, calculateNetPositionMetrics } from "@/lib/store";
+import { useDefterStore, calculateNetPositionMetrics, Transaction } from "@/lib/store";
 import StampBadge from "@/components/StampBadge";
 import DataStatusBadge from "@/components/DataStatusBadge";
 import TransactionModal from "@/components/TransactionModal";
 import ShareCardModal from "@/components/ShareCardModal";
 import PriceAlertModal from "@/components/PriceAlertModal";
 import PeerComparisonMatrix from "@/components/PeerComparisonMatrix";
+import ConfirmModal from "@/components/ConfirmModal";
 import { isLiveSymbol } from "@/lib/liveSymbols";
 import { useToast } from "@/components/ToastProvider";
 import { DeepCompanyData } from "@/app/api/prices/deep/route";
@@ -78,8 +81,10 @@ export default function SirketDetayPage() {
     toggleWatchlist,
     companyNotes,
     addNote,
+    updateNote,
     deleteNote,
     transactions,
+    deleteTransaction,
     baskets,
     aiProvider,
     geminiModel,
@@ -94,7 +99,12 @@ export default function SirketDetayPage() {
 
   const [period, setPeriod] = useState<PeriodType>("6A");
   const [newNote, setNewNote] = useState("");
+  const [noteIndexToDelete, setNoteIndexToDelete] = useState<number | null>(null);
+  const [editingNoteIndex, setEditingNoteIndex] = useState<number | null>(null);
+  const [editingNoteText, setEditingNoteText] = useState("");
   const [txModalOpen, setTxModalOpen] = useState(false);
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+  const [txToDelete, setTxToDelete] = useState<Transaction | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [alertModalOpen, setAlertModalOpen] = useState(false);
   const [isAlertHistoryOpen, setIsAlertHistoryOpen] = useState(false);
@@ -1814,9 +1824,9 @@ export default function SirketDetayPage() {
                   return (
                     <div
                       key={tx.id}
-                      className="py-2.5 flex items-center justify-between text-xs font-mono"
+                      className="py-2.5 flex items-center justify-between text-xs font-mono group hover:bg-[rgba(201,162,75,0.02)] px-1 rounded transition-colors"
                     >
-                      <div className="flex items-center flex-wrap gap-1.5">
+                      <div className="flex items-center flex-wrap gap-1.5 flex-1 pr-2">
                         <span
                           className={`font-bold px-1.5 py-0.5 rounded text-[10px] ${
                             tx.type === "BUY"
@@ -1841,11 +1851,33 @@ export default function SirketDetayPage() {
                         )}
                       </div>
 
-                      <div className="text-right">
-                        <div className="font-bold text-[var(--paper)]">
-                          {tx.totalAmount.toLocaleString("tr-TR")} {company.currency}
+                      <div className="flex items-center gap-3 shrink-0">
+                        <div className="text-right">
+                          <div className="font-bold text-[var(--paper)]">
+                            {tx.totalAmount.toLocaleString("tr-TR")} {company.currency}
+                          </div>
+                          <div className="text-[10px] text-[var(--mist)]">{tx.date}</div>
                         </div>
-                        <div className="text-[10px] text-[var(--mist)]">{tx.date}</div>
+
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => {
+                              setEditingTx(tx);
+                              setTxModalOpen(true);
+                            }}
+                            className="text-[var(--mist)] hover:text-[var(--brass)] p-1 cursor-pointer transition-colors"
+                            title="İşlemi Düzenle"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setTxToDelete(tx)}
+                            className="text-[var(--mist)] hover:text-[var(--loss)] p-1 cursor-pointer transition-colors"
+                            title="İşlemi Sil"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -2163,16 +2195,62 @@ export default function SirketDetayPage() {
                     key={idx}
                     className="p-3 bg-[var(--ink-3)] border border-[var(--line)] rounded-lg text-xs font-mono group relative flex items-start justify-between gap-2"
                   >
-                    <p className="text-[var(--paper-dim)] whitespace-pre-wrap flex-1">
-                      {noteText}
-                    </p>
-                    <button
-                      onClick={() => deleteNote(company.symbol, idx)}
-                      className="opacity-0 group-hover:opacity-100 text-[var(--mist)] hover:text-[var(--loss)] p-1 transition-opacity cursor-pointer shrink-0"
-                      title="Notu Sil"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {editingNoteIndex === idx ? (
+                      <div className="flex-1 flex flex-col gap-2">
+                        <textarea
+                          value={editingNoteText}
+                          onChange={(e) => setEditingNoteText(e.target.value)}
+                          rows={3}
+                          className="w-full bg-[var(--ink-2)] border border-[var(--brass)] rounded p-2 text-xs text-[var(--paper)] font-mono resize-none outline-none"
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              if (editingNoteText.trim()) {
+                                updateNote(company.symbol, idx, editingNoteText.trim());
+                                showToast("Not Güncellendi", `${company.symbol} için yatırım notu güncellendi.`, "success");
+                                setEditingNoteIndex(null);
+                              }
+                            }}
+                            disabled={!editingNoteText.trim()}
+                            className="text-[10px] bg-[var(--brass)] text-[var(--ink)] font-bold px-2 py-1 rounded disabled:opacity-40 cursor-pointer"
+                          >
+                            Kaydet
+                          </button>
+                          <button
+                            onClick={() => setEditingNoteIndex(null)}
+                            className="text-[10px] text-[var(--mist)] px-2 py-1 cursor-pointer hover:text-[var(--paper)]"
+                          >
+                            Vazgeç
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-[var(--paper-dim)] whitespace-pre-wrap flex-1">
+                          {noteText}
+                        </p>
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                          <button
+                            onClick={() => {
+                              setEditingNoteIndex(idx);
+                              setEditingNoteText(noteText);
+                            }}
+                            className="text-[var(--mist)] hover:text-[var(--brass)] p-1 transition-colors cursor-pointer"
+                            title="Notu Düzenle"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setNoteIndexToDelete(idx)}
+                            className="text-[var(--mist)] hover:text-[var(--loss)] p-1 transition-colors cursor-pointer"
+                            title="Notu Sil"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 ))
               )}
@@ -2196,10 +2274,14 @@ export default function SirketDetayPage() {
       {/* Transaction Modal */}
       <TransactionModal
         isOpen={txModalOpen}
-        onClose={() => setTxModalOpen(false)}
+        onClose={() => {
+          setTxModalOpen(false);
+          setEditingTx(null);
+        }}
         symbol={company.symbol}
         defaultPrice={company.price}
         currency={company.currency}
+        editingTransaction={editingTx}
       />
 
       {/* Share Card Modal */}
@@ -2213,7 +2295,7 @@ export default function SirketDetayPage() {
           primaryLabel: "Fiyat",
           primaryMetric: `${company.price.toLocaleString("tr-TR")} ${company.currency}`,
           secondaryLabel: "Günlük Değişim",
-          secondaryMetric: `${isDailyPositive ? "+" : ""}${company.dailyChange}%`,
+          secondaryMetric: `${company.dailyChange >= 0 ? "+" : ""}${company.dailyChange}%`,
           tags: [
             company.exchange,
             company.sector,
@@ -2233,46 +2315,40 @@ export default function SirketDetayPage() {
         currentPrice={company.price}
       />
 
-      {/* Triggered Alert History Modal */}
+      {/* Triggered Alerts History Drawer */}
       {isAlertHistoryOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[var(--ink-2)] border border-[var(--brass-dim)] rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
+          <div className="bg-[var(--ink-2)] border border-[var(--brass-dim)] rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 font-sans">
             <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
               <div className="flex items-center gap-2">
-                <History className="w-5 h-5 text-[var(--brass)]" />
-                <h3 className="font-serif text-lg font-bold text-[var(--paper)]">
+                <Bell className="w-5 h-5 text-[var(--brass)]" />
+                <h3 className="font-serif font-bold text-base text-[var(--paper)]">
                   {company.symbol} Alarm Geçmişi
                 </h3>
               </div>
               <button
                 onClick={() => setIsAlertHistoryOpen(false)}
-                className="text-[var(--mist)] hover:text-[var(--paper)] transition-colors cursor-pointer"
+                className="text-[var(--mist)] hover:text-[var(--paper)] p-1 cursor-pointer"
               >
-                ✕
+                <X className="w-5 h-5" />
               </button>
             </div>
 
             {companyTriggeredAlerts.length === 0 ? (
-              <div className="py-8 text-center space-y-2 font-mono text-xs text-[var(--mist)]">
-                <Bell className="w-8 h-8 text-[var(--mist)] mx-auto opacity-40" />
-                <p className="text-[var(--paper)] font-semibold">Tetiklenmiş Alarm Kaydı Yok</p>
-                <p className="text-[11px] leading-relaxed">
-                  Bu şirket için daha önce tetiklenen bir fiyat alarmı bulunmuyor.
-                </p>
-              </div>
+              <p className="text-xs font-mono text-[var(--mist)] py-6 text-center italic">
+                Bu hisse için henüz tetiklenmiş bir alarm kaydı bulunmuyor.
+              </p>
             ) : (
-              <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1 font-mono text-xs">
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                 {companyTriggeredAlerts.map((alt) => (
                   <div
                     key={alt.id}
-                    className="p-3 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-1"
+                    className="p-2.5 rounded bg-[var(--ink-3)] border border-[var(--line)] text-xs font-mono space-y-1"
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-[var(--paper)]">
-                        {alt.targetPrice} ₺ {alt.condition === "ABOVE" ? "Üzeri" : "Altı"}
-                      </span>
-                      <span className="text-[10px] text-[var(--verdigris)] bg-[rgba(91,140,123,0.15)] px-1.5 py-0.2 rounded font-bold">
-                        Tetiklendi
+                    <div className="flex items-center justify-between font-bold">
+                      <span className="text-[var(--paper)]">{alt.symbol}</span>
+                      <span className="text-[10px] text-[var(--verdigris)]">
+                        Hedef: {alt.targetPrice} ₺ ({alt.condition === "ABOVE" ? "≥" : "≤"})
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-[11px] text-[var(--mist)]">
@@ -2306,6 +2382,44 @@ export default function SirketDetayPage() {
           </div>
         </div>
       )}
+
+      {/* Transaction Deletion Confirm Modal */}
+      <ConfirmModal
+        isOpen={txToDelete !== null}
+        onClose={() => setTxToDelete(null)}
+        onConfirm={() => {
+          if (txToDelete) {
+            deleteTransaction(txToDelete.id);
+            showToast("İşlem Silindi", `${company.symbol} işlem kaydı portföyden silindi.`, "info");
+            setTxToDelete(null);
+          }
+        }}
+        title="İşlem Kaydını Sil"
+        description={
+          txToDelete
+            ? `${txToDelete.type === "BUY" ? "Alış" : "Satış"} işlemini (${txToDelete.quantity} adet @ ${txToDelete.price} ${company.currency}) silmek istediğinize emin misiniz? Bu, pozisyon maliyet hesaplamanızı etkileyecektir.`
+            : ""
+        }
+        confirmText="Evet, Sil"
+        isDestructive
+      />
+
+      {/* Note Deletion Confirm Modal */}
+      <ConfirmModal
+        isOpen={noteIndexToDelete !== null}
+        onClose={() => setNoteIndexToDelete(null)}
+        onConfirm={() => {
+          if (noteIndexToDelete !== null && company) {
+            deleteNote(company.symbol, noteIndexToDelete);
+            setNoteIndexToDelete(null);
+            showToast("Not Silindi", `${company.symbol} için yatırım notu kaldırıldı.`, "info");
+          }
+        }}
+        title="Notu Sil"
+        description="Bu yatırım notunu kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz."
+        confirmText="Evet, Sil"
+        isDestructive
+      />
     </div>
   );
 }

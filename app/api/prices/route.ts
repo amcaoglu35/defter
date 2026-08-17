@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import YahooFinance from "yahoo-finance2";
+import { Ticker, Fund } from "@muhammedaksam/borsats";
 import {
   getClientIp,
   checkRateLimit,
@@ -8,6 +9,103 @@ import {
 import { supabaseAdmin, isSupabaseAdminConfigured } from "@/lib/supabaseAdmin";
 import { SYMBOL_MAP, getSymbolTicker } from "@/lib/liveSymbols";
 import { MOCK_COMPANIES } from "@/lib/mockData";
+
+// In-memory micro-cache for borsats to reduce latency
+const BORSATS_STOCK_CACHE = new Map<string, { data: EnrichedPriceItem; timestamp: number }>();
+const BORSATS_FUND_CACHE = new Map<string, { data: EnrichedPriceItem; timestamp: number }>();
+const BORSATS_CACHE_TTL = 3 * 60 * 1000; // 3 minutes
+
+async function fetchBorsatsStockPrice(symbol: string): Promise<EnrichedPriceItem | null> {
+  const cached = BORSATS_STOCK_CACHE.get(symbol);
+  if (cached && Date.now() - cached.timestamp < BORSATS_CACHE_TTL) {
+    return cached.data;
+  }
+
+  try {
+    const stock = new Ticker(symbol);
+    const fastInfo = await stock.fastInfo;
+    const lastPrice = await fastInfo.lastPrice;
+    if (lastPrice == null || isNaN(lastPrice) || lastPrice <= 0) return null;
+
+    const prevClose = (await fastInfo.previousClose) ?? undefined;
+    const dailyChange = prevClose && prevClose > 0
+      ? Number((((lastPrice - prevClose) / prevClose) * 100).toFixed(2))
+      : 0;
+
+    const marketCap = (await fastInfo.marketCap) ?? undefined;
+    let marketCapStr: string | undefined = undefined;
+    if (marketCap && marketCap > 0) {
+      marketCapStr = marketCap >= 1e9
+        ? `${(marketCap / 1e9).toFixed(2)} Mr ₺`
+        : `${(marketCap / 1e6).toFixed(1)} M ₺`;
+    }
+
+    const peRatio = (await fastInfo.peRatio) ? Number(Number(await fastInfo.peRatio).toFixed(1)) : undefined;
+    const pbRatio = (await fastInfo.pbRatio) ? Number(Number(await fastInfo.pbRatio).toFixed(2)) : undefined;
+    const dayHigh = (await fastInfo.dayHigh) ?? undefined;
+    const dayLow = (await fastInfo.dayLow) ?? undefined;
+    const high52 = (await fastInfo.yearHigh) ?? undefined;
+    const low52 = (await fastInfo.yearLow) ?? undefined;
+    const fiftyDayAvg = (await fastInfo.fiftyDayAverage) ?? undefined;
+    const twoHundredDayAvg = (await fastInfo.twoHundredDayAverage) ?? undefined;
+
+    const item: EnrichedPriceItem = {
+      price: Number(lastPrice.toFixed(2)),
+      dailyChange,
+      previousClose: prevClose ? Number(prevClose.toFixed(2)) : undefined,
+      marketCap: marketCapStr,
+      peRatio: peRatio && peRatio > 0 ? peRatio : undefined,
+      pbRatio: pbRatio && pbRatio > 0 ? pbRatio : undefined,
+      dayHigh: dayHigh ? Number(dayHigh.toFixed(2)) : undefined,
+      dayLow: dayLow ? Number(dayLow.toFixed(2)) : undefined,
+      high52: high52 ? Number(high52.toFixed(2)) : undefined,
+      low52: low52 ? Number(low52.toFixed(2)) : undefined,
+      fiftyDayAverage: fiftyDayAvg ? Number(fiftyDayAvg.toFixed(2)) : undefined,
+      twoHundredDayAverage: twoHundredDayAvg ? Number(twoHundredDayAvg.toFixed(2)) : undefined,
+    };
+
+    BORSATS_STOCK_CACHE.set(symbol, { data: item, timestamp: Date.now() });
+    return item;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchBorsatsFundPrice(fundCode: string): Promise<EnrichedPriceItem | null> {
+  const cached = BORSATS_FUND_CACHE.get(fundCode);
+  if (cached && Date.now() - cached.timestamp < BORSATS_CACHE_TTL) {
+    return cached.data;
+  }
+
+  try {
+    const fund = new Fund(fundCode);
+    const info = await fund.info;
+    if (info?.price == null || isNaN(Number(info.price))) return null;
+
+    const price = Number(info.price);
+    const dailyChange = info.daily_return != null ? Number(info.daily_return) : 0;
+    const yearChangePct = info.return_1y != null ? Number(info.return_1y) : undefined;
+    const fundSize = info.fund_size != null ? Number(info.fund_size) : undefined;
+    let fundSizeStr: string | undefined = undefined;
+    if (fundSize && fundSize > 0) {
+      fundSizeStr = fundSize >= 1e9
+        ? `${(fundSize / 1e9).toFixed(2)} Mr ₺`
+        : `${(fundSize / 1e6).toFixed(1)} M ₺`;
+    }
+
+    const item: EnrichedPriceItem = {
+      price: Number(price.toFixed(4)),
+      dailyChange: Number(dailyChange.toFixed(2)),
+      marketCap: fundSizeStr,
+      yearChangePct,
+    };
+
+    BORSATS_FUND_CACHE.set(fundCode, { data: item, timestamp: Date.now() });
+    return item;
+  } catch {
+    return null;
+  }
+}
 
 // Initialize yahoo-finance2 instance with suppressed notices
 const yf = typeof YahooFinance === "function" ? new (YahooFinance as unknown as new (opts: { suppressNotices: string[] }) => typeof YahooFinance)({ suppressNotices: ["yahooSurvey"] }) : YahooFinance;
@@ -117,10 +215,13 @@ export interface EnrichedPriceItem {
   avgVolume?: number;
   volumeRatio?: number;
   peRatio?: number;
+  pbRatio?: number;
   marketCap?: string;
   eps?: number;
   sharesOutstanding?: string;
   yearChangePct?: number;
+  fiftyDayAverage?: number;
+  twoHundredDayAverage?: number;
 
   // Analyst & Consensus
   targetMeanPrice?: number;
@@ -605,13 +706,21 @@ interface YahooQuote {
       };
     }
 
-    // 3. Process TEFAS Mutual Funds in parallel
+    // 3. Process TEFAS Mutual Funds (using borsats Fund with fallback to direct TEFAS API)
     const tefasEntries = symbolEntries.filter(([_, ticker]) => ticker.startsWith("TEFAS:"));
     if (tefasEntries.length > 0) {
       await Promise.allSettled(
         tefasEntries.map(async ([key, ticker]) => {
+          const fundCode = ticker.replace("TEFAS:", "").trim();
           try {
-            const fundCode = ticker.replace("TEFAS:", "").trim();
+            // First attempt: borsats Fund info
+            const borsatsFundData = await fetchBorsatsFundPrice(fundCode);
+            if (borsatsFundData && borsatsFundData.price > 0) {
+              updatedPrices[key] = borsatsFundData;
+              return;
+            }
+
+            // Fallback: Direct TEFAS API query
             const today = new Date();
             const past = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
             const pad = (n: number) => n.toString().padStart(2, "0");
@@ -664,6 +773,33 @@ interface YahooQuote {
           }
         })
       );
+    }
+
+    // 4. BIST Stocks Fallback & Expansion via borsats Ticker
+    // For any BIST stocks that did not receive quotes from Yahoo Finance
+    const missingBistSymbols = symbolEntries
+      .filter(([key, ticker]) => {
+        if (ticker.startsWith("TEFAS:") || key.includes("/") || key === "CEYREK" || key === "TAM" || key === "ATA") return false;
+        // Check if rawQuotes returned valid data
+        const hasValidYfQuote = rawQuotes[key]?.regularMarketPrice != null;
+        return !hasValidYfQuote;
+      })
+      .map(([key]) => key);
+
+    if (missingBistSymbols.length > 0) {
+      // Chunked queries to maintain responsiveness
+      const BATCH_SIZE = 15;
+      for (let i = 0; i < missingBistSymbols.length; i += BATCH_SIZE) {
+        const batch = missingBistSymbols.slice(i, i + BATCH_SIZE);
+        await Promise.allSettled(
+          batch.map(async (sym) => {
+            const borsatsStock = await fetchBorsatsStockPrice(sym);
+            if (borsatsStock && borsatsStock.price > 0) {
+              updatedPrices[sym] = borsatsStock;
+            }
+          })
+        );
+      }
     }
 
     const formattedTime = new Date().toLocaleTimeString("tr-TR", {

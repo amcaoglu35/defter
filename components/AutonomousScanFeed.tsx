@@ -77,8 +77,18 @@ export function AutonomousScanFeed({ onAddHoldingToBasket }: Props) {
   const handleRunManualScan = async (count = scanCount) => {
     setIsScanning(true);
     try {
-      const keyParam = aiApiKey ? `&apiKey=${encodeURIComponent(aiApiKey)}` : "";
-      const res = await fetch(`/api/cron/orakul-scanner?count=${count}${keyParam}`);
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+      if (aiApiKey) {
+        headers["x-gemini-key"] = aiApiKey;
+      }
+
+      const res = await fetch("/api/ai-tools/autonomous-scan", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ count }),
+      });
       const data = await res.json();
       if (data.success && Array.isArray(data.scans)) {
         data.scans.forEach((scan: AutonomousScan) => {

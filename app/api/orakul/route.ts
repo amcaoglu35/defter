@@ -12,6 +12,7 @@ import {
   generateWeeklyLetter,
   GEMINI_MODEL,
 } from "@/lib/aiService";
+import { fetchCompanyNews } from "@/lib/newsService";
 import {
   getClientIp,
   checkRateLimit,
@@ -34,7 +35,15 @@ export async function POST(req: Request) {
     const selectedPersona = persona || "deger";
     const reqModel = (model && typeof model === "string" && model.trim().length > 0) ? model.trim() : GEMINI_MODEL;
 
-    const providedKey = typeof apiKey === "string" && apiKey.trim().length > 5 ? apiKey.trim() : undefined;
+    const cookieHeader = req.headers.get("cookie") || "";
+    const cookieMatch = cookieHeader.match(/(?:^|; )\s*defter_ai_key\s*=\s*([^;]+)/);
+    const cookieKey = cookieMatch ? decodeURIComponent(cookieMatch[1]).trim() : undefined;
+    const headerKey = req.headers.get("x-gemini-key")?.trim();
+
+    const providedKey = (typeof apiKey === "string" && apiKey.trim().length > 5)
+      ? apiKey.trim()
+      : (headerKey || (cookieKey && cookieKey.length > 5 ? cookieKey : undefined));
+
     const effectiveKey =
       providedKey ||
       (selectedProvider === "openai"
@@ -254,9 +263,33 @@ export async function POST(req: Request) {
     }
 
     if (type === "sentiment") {
+      const targetCompanies = payload?.companies || payload?.allCompanies || [];
+      const baskets = payload?.baskets || [];
+
+      // 1. Identify companies genuinely owned in user's baskets
+      const ownedSymbols = new Set(
+        baskets.flatMap((b: any) => b.holdings?.map((h: any) => h.companySymbol?.toUpperCase()) || [])
+      );
+      const ownedCompanies = targetCompanies.filter((c: any) => ownedSymbols.has(c.symbol?.toUpperCase()));
+
+      // 2. Select target companies (owned first, then top active movers or first 6)
+      const companiesToAnalyze =
+        ownedCompanies.length > 0
+          ? ownedCompanies.slice(0, 6)
+          : targetCompanies.slice(0, 6);
+
+      // 3. Fetch real Google News RSS for each targeted company in parallel
+      const newsPerCompany = await Promise.all(
+        companiesToAnalyze.map(async (c: any) => ({
+          symbol: c.symbol,
+          name: c.name || c.symbol,
+          dailyChange: c.dailyChange,
+          news: await fetchCompanyNews(c.symbol, c.name || c.symbol, 3),
+        }))
+      );
+
       const sentiment = await generateSentimentAnalysis(
-        payload?.companies || payload?.allCompanies || [],
-        payload?.baskets || [],
+        newsPerCompany,
         effectiveKey,
         selectedProvider,
         reqModel

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Fund } from "@muhammedaksam/borsats";
 import {
   getClientIp,
   checkRateLimit,
@@ -7,12 +8,22 @@ import {
 
 interface TefasFundInfo {
   code: string;
+  name?: string;
+  category?: string;
   price: number;
   date: string;
   totalValue?: number;
   sharesCount?: number;
   investorCount?: number;
   dailyChangePct?: number;
+  return1m?: number;
+  return3m?: number;
+  return6m?: number;
+  returnYtd?: number;
+  return1y?: number;
+  return3y?: number;
+  return5y?: number;
+  riskValue?: number;
 }
 
 // In-memory cache for TEFAS fund data (TTL: 15 minutes)
@@ -43,6 +54,42 @@ export async function GET(request: Request) {
   }
 
   try {
+    // 1. First Attempt: borsats Fund info
+    try {
+      const fund = new Fund(cleanCode);
+      const info = await fund.info;
+      if (info && info.price != null && !isNaN(Number(info.price))) {
+        const fundData: TefasFundInfo = {
+          code: cleanCode,
+          name: info.name,
+          category: info.category || info.fund_type,
+          price: Number(info.price),
+          date: info.date || new Date().toISOString().split("T")[0],
+          totalValue: info.fund_size ? Number(info.fund_size) : undefined,
+          investorCount: info.investor_count ? Number(info.investor_count) : undefined,
+          dailyChangePct: info.daily_return != null ? Number(info.daily_return) : undefined,
+          return1m: info.return_1m != null ? Number(info.return_1m) : undefined,
+          return3m: info.return_3m != null ? Number(info.return_3m) : undefined,
+          return6m: info.return_6m != null ? Number(info.return_6m) : undefined,
+          returnYtd: info.return_ytd != null ? Number(info.return_ytd) : undefined,
+          return1y: info.return_1y != null ? Number(info.return_1y) : undefined,
+          return3y: info.return_3y != null ? Number(info.return_3y) : undefined,
+          return5y: info.return_5y != null ? Number(info.return_5y) : undefined,
+          riskValue: info.risk_value != null ? Number(info.risk_value) : undefined,
+        };
+
+        tefasCache.set(cacheKey, { timestamp: now, data: fundData });
+
+        return NextResponse.json({
+          success: true,
+          code: cleanCode,
+          source: "borsats_fund",
+          data: fundData,
+        });
+      }
+    } catch (borsatsErr) {
+      console.warn(`[TEFAS API] borsats fetch fallback for ${cleanCode}:`, borsatsErr);
+    }
     // Format start & end date for the past 5 days
     const today = new Date();
     const past = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);

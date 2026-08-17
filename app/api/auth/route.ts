@@ -138,7 +138,12 @@ export async function POST(req: Request) {
     // Dynamic verification (Supabase app_settings -> env -> dev fallback)
     const authResult = await verifyMasterPassword(password);
     if (authResult.valid) {
-      const activeMaster = getMasterPassword() || password;
+      let activeMaster: string;
+      try {
+        activeMaster = getMasterPassword();
+      } catch {
+        activeMaster = password;
+      }
       const sessionToken = await createSessionToken(activeMaster);
       const response = NextResponse.json({
         success: true,

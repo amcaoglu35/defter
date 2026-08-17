@@ -7,6 +7,7 @@ import { Basket, BasketHolding, Company } from "@/lib/mockData";
 import { useToast } from "@/components/ToastProvider";
 import CompanyCombobox from "@/components/CompanyCombobox";
 import ConfirmModal from "@/components/ConfirmModal";
+import { useEscapeKey } from "@/lib/hooks/useEscapeKey";
 
 interface EditBasketModalProps {
   basket: Basket;
@@ -19,6 +20,7 @@ export default function EditBasketModal({
   isOpen,
   onClose,
 }: EditBasketModalProps) {
+  useEscapeKey(isOpen, onClose);
   const {
     companies,
     addHoldingToBasket,

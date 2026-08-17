@@ -8,7 +8,17 @@ export async function middleware(req: NextRequest) {
   // 1. Cron routes (/api/cron/*) - Authenticated via Bearer CRON_SECRET (Vercel Cron / Cloud Schedulers)
   if (pathname.startsWith("/api/cron/")) {
     const cronSecret = process.env.CRON_SECRET;
-    if (cronSecret && cronSecret.trim().length > 0) {
+    if (!cronSecret || cronSecret.trim().length === 0) {
+      if (process.env.NODE_ENV === "production") {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "CRON_SECRET yapılandırılmamış, cron endpoint'leri devre dışı.",
+          },
+          { status: 503 }
+        );
+      }
+    } else {
       const authHeader = req.headers.get("authorization");
       if (authHeader !== `Bearer ${cronSecret}`) {
         return NextResponse.json(
@@ -25,7 +35,18 @@ export async function middleware(req: NextRequest) {
 
   // 2. Protect all other /api routes except /api/auth
   if (pathname.startsWith("/api/") && !pathname.startsWith("/api/auth")) {
-    const masterPassword = getMasterPassword();
+    let masterPassword: string;
+    try {
+      masterPassword = getMasterPassword();
+    } catch (err: any) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Sistem yapılandırma hatası: DEFTER_ACCESS_PASSWORD ortam değişkeni ayarlanmamış.",
+        },
+        { status: 500 }
+      );
+    }
     const sessionCookie = req.cookies.get(SESSION_COOKIE_NAME)?.value;
 
     if (!sessionCookie) {

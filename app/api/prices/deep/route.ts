@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import YahooFinance from "yahoo-finance2";
+import { Ticker, Fund } from "@muhammedaksam/borsats";
 import {
   getClientIp,
   checkRateLimit,
@@ -10,6 +11,22 @@ import { getSymbolTicker, isLiveSymbol } from "@/lib/liveSymbols";
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 
 export interface DeepCompanyData {
+  technicals?: {
+    rsi14?: number;
+    macd?: number;
+    macdSignal?: number;
+    macdHist?: number;
+    bbUpper?: number;
+    bbMiddle?: number;
+    bbLower?: number;
+    sma20?: number;
+    sma50?: number;
+    ema12?: number;
+    ema26?: number;
+    atr14?: number;
+    stochK?: number;
+    stochD?: number;
+  };
   insiderTransactions?: Array<{
     filerName?: string;
     filerRelation?: string;
@@ -297,12 +314,65 @@ export async function GET(request: Request) {
       };
     }
 
+    // 10. Enrich with Technical Indicators via borsats Ticker (RSI, MACD, Bollinger Bands)
+    const targetTicker = getSymbolTicker(cleanSymbol);
+    try {
+      if (!targetTicker.startsWith("TEFAS:") && !cleanSymbol.includes("/")) {
+        const stock = new Ticker(cleanSymbol);
+        const ta = await stock.technicals("1mo");
+        if (ta && ta.latest) {
+          const l = ta.latest;
+          payload.technicals = {
+            rsi14: l.rsi_14 != null ? Number(Number(l.rsi_14).toFixed(1)) : undefined,
+            macd: l.macd != null ? Number(Number(l.macd).toFixed(2)) : undefined,
+            macdSignal: l.macd_signal != null ? Number(Number(l.macd_signal).toFixed(2)) : undefined,
+            macdHist: l.macd_histogram != null ? Number(Number(l.macd_histogram).toFixed(2)) : undefined,
+            bbUpper: l.bb_upper != null ? Number(Number(l.bb_upper).toFixed(2)) : undefined,
+            bbMiddle: l.bb_middle != null ? Number(Number(l.bb_middle).toFixed(2)) : undefined,
+            bbLower: l.bb_lower != null ? Number(Number(l.bb_lower).toFixed(2)) : undefined,
+            sma20: l.sma_20 != null ? Number(Number(l.sma_20).toFixed(2)) : undefined,
+            sma50: l.sma_50 != null ? Number(Number(l.sma_50).toFixed(2)) : undefined,
+            ema12: l.ema_12 != null ? Number(Number(l.ema_12).toFixed(2)) : undefined,
+            ema26: l.ema_26 != null ? Number(Number(l.ema_26).toFixed(2)) : undefined,
+            atr14: l.atr_14 != null ? Number(Number(l.atr_14).toFixed(2)) : undefined,
+            stochK: l.stoch_k != null ? Number(Number(l.stoch_k).toFixed(1)) : undefined,
+            stochD: l.stoch_d != null ? Number(Number(l.stoch_d).toFixed(1)) : undefined,
+          };
+        }
+      }
+    } catch (taErr) {
+      console.warn(`[Deep API] Technicals fetch warning for ${cleanSymbol}:`, taErr);
+    }
+
+    // 11. Enrich TEFAS Mutual Funds with real category and returns via borsats Fund
+    if (targetTicker.startsWith("TEFAS:") || (cleanSymbol.length >= 3 && cleanSymbol.length <= 4)) {
+      try {
+        const fund = new Fund(cleanSymbol);
+        const fInfo = await fund.info;
+        if (fInfo && fInfo.price != null) {
+          payload.fundData = {
+            ...payload.fundData,
+            categoryName: fInfo.category || fInfo.fund_type || payload.fundData?.categoryName,
+            fundFamily: fInfo.manager || fInfo.founder || payload.fundData?.fundFamily,
+            annualReturns: {
+              ytd: fInfo.return_ytd != null ? Number(Number(fInfo.return_ytd).toFixed(1)) : payload.fundData?.annualReturns?.ytd,
+              oneYear: fInfo.return_1y != null ? Number(Number(fInfo.return_1y).toFixed(1)) : payload.fundData?.annualReturns?.oneYear,
+              threeYear: fInfo.return_3y != null ? Number(Number(fInfo.return_3y).toFixed(1)) : payload.fundData?.annualReturns?.threeYear,
+              fiveYear: fInfo.return_5y != null ? Number(Number(fInfo.return_5y).toFixed(1)) : payload.fundData?.annualReturns?.fiveYear,
+            },
+          };
+        }
+      } catch (fErr) {
+        // Not a TEFAS fund or error
+      }
+    }
+
     deepCache.set(cacheKey, { timestamp: now, data: payload });
 
     return NextResponse.json({
       success: true,
       symbol: cleanSymbol,
-      source: "yahoo_finance_quote_summary",
+      source: "yahoo_finance_and_borsats",
       data: payload,
     });
   } catch (err) {

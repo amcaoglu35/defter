@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { X, ArrowDownRight, ArrowUpRight, AlertTriangle, Info } from "lucide-react";
-import { useDefterStore } from "@/lib/store";
+import { useDefterStore, Transaction } from "@/lib/store";
 import { useToast } from "@/components/ToastProvider";
+import { useEscapeKey } from "@/lib/hooks/useEscapeKey";
 import Confetti from "@/components/Confetti";
 
 interface TransactionModalProps {
@@ -12,6 +13,7 @@ interface TransactionModalProps {
   currency: string;
   isOpen: boolean;
   onClose: () => void;
+  editingTransaction?: Transaction | null;
 }
 
 export default function TransactionModal({
@@ -20,8 +22,10 @@ export default function TransactionModal({
   currency,
   isOpen,
   onClose,
+  editingTransaction,
 }: TransactionModalProps) {
-  const { addTransaction, baskets } = useDefterStore();
+  useEscapeKey(isOpen, onClose);
+  const { addTransaction, updateTransaction, baskets } = useDefterStore();
   const { showToast } = useToast();
 
   const [type, setType] = useState<"BUY" | "SELL">("BUY");
@@ -32,6 +36,23 @@ export default function TransactionModal({
   );
   const [note, setNote] = useState("");
   const [confettiActive, setConfettiActive] = useState(false);
+
+  useEffect(() => {
+    if (editingTransaction) {
+      setType(editingTransaction.type);
+      setQuantity(editingTransaction.quantity.toString());
+      setPrice(editingTransaction.price.toString());
+      if (editingTransaction.basketId) {
+        setTargetBasketId(editingTransaction.basketId);
+      }
+      setNote(editingTransaction.note || "");
+    } else {
+      setType("BUY");
+      setQuantity("10");
+      setPrice(defaultPrice.toString());
+      setNote("");
+    }
+  }, [editingTransaction, defaultPrice, isOpen]);
 
   // Sync targetBasketId during render if baskets change or target is missing
   if (baskets.length > 0 && (!targetBasketId || !baskets.some((b) => b.id === targetBasketId))) {
@@ -50,8 +71,8 @@ export default function TransactionModal({
     (h) => h.companySymbol === symbol
   );
   const availableLots = existingHolding ? existingHolding.quantity : 0;
-  const isSellingTooMuch = type === "SELL" && numQty > availableLots;
-  const isSellingWithNoHolding = type === "SELL" && availableLots <= 0;
+  const isSellingTooMuch = !editingTransaction && type === "SELL" && numQty > availableLots;
+  const isSellingWithNoHolding = !editingTransaction && type === "SELL" && availableLots <= 0;
 
   const isFormInvalid =
     !targetBasketId ||
@@ -63,6 +84,28 @@ export default function TransactionModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isFormInvalid) return;
+
+    if (editingTransaction) {
+      updateTransaction(editingTransaction.id, {
+        type,
+        quantity: numQty,
+        price: numPrice,
+        totalAmount: parseFloat(totalAmount),
+        note: note.trim() || undefined,
+        basketId: targetBasketId,
+      });
+
+      showToast(
+        "İşlem Güncellendi",
+        `${symbol} işlemi (${numQty} adet) başarıyla güncellendi.`,
+        "success"
+      );
+
+      setTimeout(() => {
+        onClose();
+      }, 400);
+      return;
+    }
 
     const result = addTransaction(
       {
@@ -103,7 +146,7 @@ export default function TransactionModal({
         <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
           <div className="flex items-center gap-2">
             <span className="font-serif text-lg font-bold text-[var(--paper)]">
-              {symbol} İşlem Kaydı
+              {editingTransaction ? `${symbol} İşlemini Düzenle` : `${symbol} İşlem Kaydı`}
             </span>
           </div>
           <button

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Printer, Download, X, FileText, Check, Shield } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import { Basket } from "@/lib/mockData";
+import { useEscapeKey } from "@/lib/hooks/useEscapeKey";
 
 interface PrintReportModalProps {
   basket?: Basket;
@@ -12,6 +13,7 @@ interface PrintReportModalProps {
 }
 
 export default function PrintReportModal({ basket, isOpen, onClose }: PrintReportModalProps) {
+  useEscapeKey(isOpen, onClose);
   const { baskets, companies, userSettings } = useDefterStore();
 
   if (!isOpen) return null;

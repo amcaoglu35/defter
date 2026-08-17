@@ -93,10 +93,10 @@ export default function LiveKapFeed({
           </div>
           <div>
             <h3 className="font-serif text-base font-bold text-[var(--paper)]">
-              ⚡ Canlı KAP &amp; Şirket Bildirimleri Akışı
+              ⚡ Şirket Haber &amp; Bildirim Akışı
             </h3>
             <p className="text-[10px] font-mono text-[var(--mist)]">
-              Resmi Kamuyu Aydınlatma Platformu Gelişmeleri
+              Google News — KAP Odaklı Şirket Bildirimleri &amp; Gelişmeleri
             </p>
           </div>
         </div>
@@ -163,7 +163,7 @@ export default function LiveKapFeed({
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1 text-[11px] font-mono text-[var(--brass)] hover:underline shrink-0 self-start sm:self-center"
               >
-                <span>KAP'ta Aç</span>
+                <span>KAP Şirket Sayfası</span>
                 <ExternalLink className="w-3 h-3" />
               </a>
             </div>

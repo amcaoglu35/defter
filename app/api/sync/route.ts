@@ -223,6 +223,33 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true });
     }
 
+    if (action === "update_transaction") {
+      const { id, ...updates } = payload;
+      const dbPayload: Record<string, unknown> = {};
+      if (updates.type !== undefined) dbPayload.type = updates.type;
+      if (updates.quantity !== undefined) dbPayload.quantity = updates.quantity;
+      if (updates.price !== undefined) dbPayload.price = updates.price;
+      if (updates.totalAmount !== undefined) dbPayload.total_amount = updates.totalAmount;
+      if (updates.date !== undefined) dbPayload.date = updates.date;
+      if (updates.note !== undefined) dbPayload.note = updates.note;
+      if (updates.basketId !== undefined) dbPayload.basket_id = updates.basketId;
+
+      const { error } = await supabaseAdmin.from("transactions").update(dbPayload).eq("id", id);
+      if (error) throw error;
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === "delete_transaction") {
+      const { id } = payload;
+      const { error } = await supabaseAdmin.from("transactions").delete().eq("id", id);
+      if (error) throw error;
+      return NextResponse.json({ success: true });
+    }
+
+    if (action === "add_note" || action === "update_note" || action === "delete_note") {
+      return NextResponse.json({ success: true });
+    }
+
     if (action === "evaluate_ai_outcome") {
       const { error } = await supabaseAdmin.from("ai_history").update({
         outcome_correct: payload.outcomeCorrect,

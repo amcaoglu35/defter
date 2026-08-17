@@ -24,6 +24,8 @@ import { Basket, BasketHolding } from "@/lib/mockData";
 import EditBasketModal from "@/components/EditBasketModal";
 import ConfirmModal from "@/components/ConfirmModal";
 import { exportBasketToCsv } from "@/lib/exportUtils";
+import { useToast } from "@/components/ToastProvider";
+import { useEscapeKey } from "@/lib/hooks/useEscapeKey";
 
 interface StrategyTemplate {
   name: string;
@@ -91,10 +93,13 @@ const STRATEGY_TEMPLATES: StrategyTemplate[] = [
 
 export default function SepetlerimPage() {
   const { baskets, createBasket, deleteBasket, dividends, companies, isPrivacyMode } = useDefterStore();
+  const { showToast } = useToast();
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editingBasket, setEditingBasket] = useState<Basket | null>(null);
   const [basketToDelete, setBasketToDelete] = useState<Basket | null>(null);
+
+  useEscapeKey(createModalOpen, () => setCreateModalOpen(false));
 
   // Form state
   const [basketName, setBasketName] = useState("");
@@ -145,6 +150,7 @@ export default function SepetlerimPage() {
     };
 
     createBasket(newBasket);
+    showToast("Sepet Oluşturuldu", `"${newBasket.name}" başarıyla kütüğe eklendi.`, "success");
     setBasketName("");
     setBasketSubtitle("");
     setSelectedTemplate(null);
@@ -434,7 +440,13 @@ export default function SepetlerimPage() {
                   }`}
                 >
                   <div className="font-mono text-xs text-[var(--brass)] font-semibold">
-                    {div.paymentDate}
+                    {(() => {
+                      if (!div.paymentDate || div.paymentDate === "Açıklanmadı") return "Açıklanmadı";
+                      const d = new Date(div.paymentDate);
+                      return !isNaN(d.getTime())
+                        ? d.toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" })
+                        : div.paymentDate;
+                    })()}
                   </div>
 
                   <div className="flex items-center gap-3">
@@ -620,7 +632,8 @@ export default function SepetlerimPage() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 bg-[var(--brass)] text-[var(--ink)] font-bold py-2.5 rounded-lg text-xs hover:bg-[#d9b35a] cursor-pointer shadow"
+                  disabled={!basketName.trim()}
+                  className="flex-1 bg-[var(--brass)] text-[var(--ink)] font-bold py-2.5 rounded-lg text-xs hover:bg-[#d9b35a] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow transition-opacity"
                 >
                   Sepeti Kaydet &amp; Başla
                 </button>
@@ -645,6 +658,11 @@ export default function SepetlerimPage() {
         onClose={() => setBasketToDelete(null)}
         onConfirm={() => {
           if (basketToDelete) {
+            showToast(
+              "Sepet Silindi",
+              `"${basketToDelete.name}" sepeti kütükten kaldırıldı.`,
+              "success"
+            );
             deleteBasket(basketToDelete.id);
             setBasketToDelete(null);
           }

@@ -10,17 +10,40 @@ interface RateLimitStore {
 const ipRequestMap = new Map<string, RateLimitStore>();
 
 /**
- * Get client IP address from request headers
+ * Get client IP address from request headers.
+ * Prioritizes trusted platform headers that cannot be forged by clients (Vercel, Cloudflare, Edge Proxy)
+ * and falls back to the rightmost (closest trusted edge) IP in x-forwarded-for.
  */
 export function getClientIp(req: Request): string {
-  const forwardedFor = req.headers.get("x-forwarded-for");
-  if (forwardedFor) {
-    return forwardedFor.split(",")[0].trim();
+  // 1. Vercel trusted platform header (injected by Vercel infrastructure, client cannot override)
+  const vercelForwardedFor = req.headers.get("x-vercel-forwarded-for");
+  if (vercelForwardedFor) {
+    const ips = vercelForwardedFor.split(",").map((s) => s.trim()).filter(Boolean);
+    if (ips.length > 0) return ips[0];
   }
+
+  // 2. Cloudflare trusted header
+  const cfIp = req.headers.get("cf-connecting-ip");
+  if (cfIp) {
+    return cfIp.trim();
+  }
+
+  // 3. x-real-ip header (set by trusted reverse proxy like Nginx or Vercel edge)
   const realIp = req.headers.get("x-real-ip");
   if (realIp) {
     return realIp.trim();
   }
+
+  // 4. Fallback: x-forwarded-for
+  // CRITICAL: Take the RIGHTMOST IP (appended by the closest proxy/edge), NOT the leftmost IP (which can be forged by client)
+  const forwardedFor = req.headers.get("x-forwarded-for");
+  if (forwardedFor) {
+    const ips = forwardedFor.split(",").map((s) => s.trim()).filter(Boolean);
+    if (ips.length > 0) {
+      return ips[ips.length - 1];
+    }
+  }
+
   return "127.0.0.1";
 }
 
@@ -77,7 +100,7 @@ function checkInMemoryRateLimit(
 }
 
 /**
- * Distributed rate limiter with Supabase persistence (table: rate_limits: id, count, reset_time)
+ * Distributed rate limiter with Supabase atomic RPC persistence
  * with in-memory Map fallback.
  * @param identifier Unique identifier (e.g. IP address + route name)
  * @param maxRequests Maximum allowed requests in window
@@ -96,7 +119,34 @@ export async function checkRateLimit(
   try {
     const now = Date.now();
 
-    // 1. Fetch current record from Supabase
+    // Try atomic RPC increment in Supabase first (eliminates race conditions)
+    const { data: rpcData, error: rpcErr } = await supabaseAdmin.rpc("increment_rate_limit", {
+      p_id: identifier,
+      p_window_ms: windowMs,
+      p_now: now,
+    });
+
+    if (!rpcErr && rpcData && rpcData.length > 0) {
+      const currentCount = Number(rpcData[0].count);
+      const resetTime = Number(rpcData[0].reset_time);
+      const resetInSeconds = Math.max(1, Math.ceil((resetTime - now) / 1000));
+
+      if (currentCount > maxRequests) {
+        return {
+          allowed: false,
+          remaining: 0,
+          resetInSeconds,
+        };
+      }
+
+      return {
+        allowed: true,
+        remaining: Math.max(0, maxRequests - currentCount),
+        resetInSeconds,
+      };
+    }
+
+    // Fallback: standard select & upsert if RPC function has not yet been migrated in Supabase
     const { data: record, error: fetchErr } = await supabaseAdmin
       .from("rate_limits")
       .select("id, count, reset_time")
@@ -110,7 +160,7 @@ export async function checkRateLimit(
 
     const resetTimeNum = record?.reset_time ? Number(record.reset_time) : 0;
 
-    // 2. New or expired window
+    // New or expired window
     if (!record || now > resetTimeNum) {
       const newResetTime = now + windowMs;
       await supabaseAdmin.from("rate_limits").upsert(
@@ -129,7 +179,7 @@ export async function checkRateLimit(
       };
     }
 
-    // 3. Limit exceeded
+    // Limit exceeded
     if (record.count >= maxRequests) {
       const resetInSeconds = Math.max(1, Math.ceil((resetTimeNum - now) / 1000));
       return {
@@ -139,7 +189,7 @@ export async function checkRateLimit(
       };
     }
 
-    // 4. Increment count
+    // Increment count
     const nextCount = (record.count || 0) + 1;
     await supabaseAdmin
       .from("rate_limits")

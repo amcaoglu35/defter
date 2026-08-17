@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { X, ArrowRightLeft, Coins, Calculator, Sparkles, TrendingUp } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
+import { useEscapeKey } from "@/lib/hooks/useEscapeKey";
 
 interface CurrencyConverterModalProps {
   isOpen: boolean;
@@ -21,10 +22,13 @@ export default function CurrencyConverterModal({
   isOpen,
   onClose,
 }: CurrencyConverterModalProps) {
+  useEscapeKey(isOpen, onClose);
   const { companies, indices } = useDefterStore();
   const [fromCode, setFromCode] = useState<string>("USD");
   const [toCode, setToCode] = useState<string>("TRY");
   const [amount, setAmount] = useState<string>("100");
+
+  const isLiveRate = Boolean(indices["USD/TRY"]?.price && indices["EUR/TRY"]?.price);
 
   const assets = useMemo<ConvertibleAsset[]>(() => {
     const list: ConvertibleAsset[] = [
@@ -76,9 +80,22 @@ export default function CurrencyConverterModal({
         <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
           <div className="flex items-center gap-2">
             <Coins className="w-5 h-5 text-[var(--brass)]" />
-            <h3 className="font-serif font-bold text-lg text-[var(--paper)]">
-              Canlı Kur &amp; Varlık Çevirici
-            </h3>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-serif font-bold text-lg text-[var(--paper)]">
+                  Canlı Kur &amp; Varlık Çevirici
+                </h3>
+                <span
+                  className={`text-[10px] font-mono px-2 py-0.5 rounded-full border font-medium ${
+                    isLiveRate
+                      ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                      : "bg-amber-500/15 text-amber-300 border-amber-500/30"
+                  }`}
+                >
+                  {isLiveRate ? "🟢 Canlı Kurlar" : "📌 Statik Veri"}
+                </span>
+              </div>
+            </div>
           </div>
           <button
             onClick={onClose}
@@ -87,6 +104,19 @@ export default function CurrencyConverterModal({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Warning Banner if rates are static */}
+        {!isLiveRate && (
+          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-300 text-xs font-mono leading-relaxed space-y-1">
+            <div className="flex items-center gap-1.5 font-bold">
+              <span>⚠️</span>
+              <span>Canlı Kur Verisi Yüklenemedi</span>
+            </div>
+            <p className="text-[11px] text-amber-200/90">
+              Piyasa kurları şu anda doğrudan alınamadığı için yaklaşık/statik varsayılan değerler üzerinden hesaplanmaktadır.
+            </p>
+          </div>
+        )}
 
         {/* Input & Selector Grid */}
         <div className="space-y-3 font-mono">

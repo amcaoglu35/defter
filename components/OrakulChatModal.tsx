@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import { ChatMessage } from "@/lib/aiService";
+import { useEscapeKey } from "@/lib/hooks/useEscapeKey";
 
 function escapeHtml(str: string): string {
   return str
@@ -34,6 +35,7 @@ export default function OrakulChatModal({
   isOpen,
   onClose,
 }: OrakulChatModalProps) {
+  useEscapeKey(isOpen, onClose);
   const { baskets, companies, aiAccuracyStats, aiHistory, addAiHistory, aiProvider, geminiModel } = useDefterStore();
 
   const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES);
