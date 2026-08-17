@@ -6,6 +6,7 @@ import { useToast } from "@/components/ToastProvider";
 import { isLiveSymbol } from "@/lib/liveSymbols";
 import ConfirmModal from "@/components/ConfirmModal";
 import { useEscapeKey } from "@/lib/hooks/useEscapeKey";
+import { requestNotificationPermission } from "@/lib/notificationService";
 
 interface PriceAlert {
   id: string;
@@ -86,9 +87,12 @@ export default function PriceAlertModal({
     const updated = [newAlert, ...alerts];
     saveAlerts(updated);
 
+    // Request system push notification permission
+    requestNotificationPermission().catch(() => {});
+
     showToast(
       "Fiyat Alarmı Kuruldu",
-      `${symbol} için ${price} ₺ ${condition === "ABOVE" ? "üzerine çıkınca" : "altına inince"}, Defter tarayıcınızda açıkken uygulama içi bildirim alacaksınız.`,
+      `${symbol} için ${price} ₺ ${condition === "ABOVE" ? "üzerine çıkınca" : "altına inince"} anlık bildirim alacaksınız.`,
       "success"
     );
   };

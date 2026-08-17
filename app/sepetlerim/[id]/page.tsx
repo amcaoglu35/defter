@@ -33,6 +33,7 @@ import DataStatusBadge from "@/components/DataStatusBadge";
 import { useToast } from "@/components/ToastProvider";
 import { isLiveSymbol } from "@/lib/liveSymbols";
 import { exportBasketToExcel } from "@/lib/exportUtils";
+import { BasketRiskMetricsCard } from "@/components/BasketRiskMetricsCard";
 
 type PeriodType = "1A" | "3A" | "6A" | "1Y";
 
@@ -417,6 +418,9 @@ export default function SepetDetayPage() {
           </div>
         </div>
       </div>
+
+      {/* Quantitative Risk & Volatility Scorecard */}
+      <BasketRiskMetricsCard basket={basket} companies={companies} />
 
       {/* 4. Holdings Table */}
       <section className="space-y-4">

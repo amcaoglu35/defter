@@ -29,6 +29,7 @@ import DataStatusBadge from "@/components/DataStatusBadge";
 import LiveKapFeed from "@/components/LiveKapFeed";
 import MonthlyDividendTimeline from "@/components/MonthlyDividendTimeline";
 import CompoundGrowthWidget from "@/components/CompoundGrowthWidget";
+import { PersonalizedKapFeed } from "@/components/PersonalizedKapFeed";
 import { isLiveSymbol } from "@/lib/liveSymbols";
 import { DailyBriefingResult } from "@/lib/aiService";
 import { calculatePortfolioHealthScore } from "@/lib/healthScore";
@@ -1250,6 +1251,9 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* 5.5 Personalized KAP Disclosures Feed */}
+      <PersonalizedKapFeed />
 
       {/* 6. Interactive Compound Growth & FIRE Simulator */}
       <CompoundGrowthWidget />

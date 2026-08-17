@@ -57,6 +57,7 @@ import { isLiveSymbol } from "@/lib/liveSymbols";
 import { useToast } from "@/components/ToastProvider";
 import { DeepCompanyData } from "@/app/api/prices/deep/route";
 import { TradingViewChart } from "@/components/TradingViewChart";
+import TechnicalAnalysisPanel from "@/components/TechnicalAnalysisPanel";
 
 interface CompanyDiagnosisReport {
   valuationScore?: number | string;
@@ -691,6 +692,14 @@ export default function SirketDetayPage() {
             period={period}
             onPeriodChange={setPeriod}
             loading={historyLoading}
+          />
+
+          {/* Authentic Mathematical Technical Analysis Panel (RSI, MACD, SMA, Bollinger) */}
+          <TechnicalAnalysisPanel
+            closes={(historyData || []).map((d) => d.close)}
+            currentPrice={company.price}
+            currency={company.currency}
+            symbol={company.symbol}
           />
 
           {/* Google / Yahoo Finance Live Market & Likidity Card */}
