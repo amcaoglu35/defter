@@ -9,21 +9,38 @@ export function getBistMarketStatus(): {
   subText: string;
   nextEvent: string;
 } {
-  // Istanbul is UTC+3 with no DST changes
+  // Use Intl.DateTimeFormat with explicit 'Europe/Istanbul' timezone to avoid
+  // browser-timezone-dependent errors when used from outside Turkey.
   const now = new Date();
-  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-  const istanbulTime = new Date(utc + 3600000 * 3);
+  const istFmt = new Intl.DateTimeFormat("tr-TR", {
+    timeZone: "Europe/Istanbul",
+    hour: "numeric",
+    minute: "numeric",
+    weekday: "narrow",
+    hour12: false,
+  });
+  const parts = istFmt.formatToParts(now);
+  const getPart = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
 
-  const day = istanbulTime.getDay(); // 0 = Sunday, 6 = Saturday
-  const hours = istanbulTime.getHours();
-  const minutes = istanbulTime.getMinutes();
-  const totalMinutes = hours * 60 + minutes;
+  // weekday narrow in tr-TR: "P"=Pzt(Mon), "S"=Sal(Tue), "Ç"=Çar(Wed), "P"=Per(Thu),
+  // "C"=Cum(Fri), "C"=Cmt(Sat), "P"=Paz(Sun) — unreliable for weekday detection.
+  // Use numeric weekday via separate formatter.
+  const dayFmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Europe/Istanbul",
+    weekday: "short",
+  });
+  const dayShort = dayFmt.format(now); // "Mon", "Tue", ..., "Sat", "Sun"
+  const isWeekend = dayShort === "Sat" || dayShort === "Sun";
+  const isWeekday = !isWeekend;
 
-  // BIST regular trading hours: Monday (1) to Friday (5), 10:00 (600) to 18:05 (1085)
-  const isWeekday = day >= 1 && day <= 5;
-  const isPreMarket = isWeekday && totalMinutes >= 580 && totalMinutes < 600; // 09:40 - 10:00
-  const isTradingOpen = isWeekday && totalMinutes >= 600 && totalMinutes <= 1085; // 10:00 - 18:05
-  const isClosingSession = isWeekday && totalMinutes > 1085 && totalMinutes <= 1090; // 18:05 - 18:10
+  const hours = parseInt(getPart("hour"), 10);
+  const minutes = parseInt(getPart("minute"), 10);
+  const totalMinutes = hours * 60 + (isNaN(minutes) ? 0 : minutes);
+
+  // BIST regular trading hours: 10:00 (600) to 18:05 (1085)
+  const isPreMarket = isWeekday && totalMinutes >= 580 && totalMinutes < 600;
+  const isTradingOpen = isWeekday && totalMinutes >= 600 && totalMinutes <= 1085;
+  const isClosingSession = isWeekday && totalMinutes > 1085 && totalMinutes <= 1090;
 
   if (isTradingOpen) {
     const remainingMinutes = 1085 - totalMinutes;
@@ -89,11 +106,11 @@ export default function MarketStatusBadge({ compact = false }: { compact?: boole
   useEffect(() => {
     const update = () => {
       setStatus(getBistMarketStatus());
+      // Use Intl for time display as well, consistent with getBistMarketStatus
       const now = new Date();
-      const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-      const ist = new Date(utc + 3600000 * 3);
       setTimeStr(
-        ist.toLocaleTimeString("tr-TR", {
+        now.toLocaleTimeString("tr-TR", {
+          timeZone: "Europe/Istanbul",
           hour: "2-digit",
           minute: "2-digit",
           second: "2-digit",

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import Parser from "rss-parser";
 import {
   getClientIp,
   checkRateLimit,
@@ -18,6 +19,18 @@ export interface KapDisclosureItem {
 const kapCache = new Map<string, { timestamp: number; data: KapDisclosureItem[] }>();
 const KAP_CACHE_TTL = 15 * 60 * 1000;
 
+const rssParser = new Parser({
+  customFields: {
+    item: [["pubDate", "pubDate"]],
+  },
+  timeout: 8000,
+  headers: {
+    "User-Agent":
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    Accept: "application/rss+xml, application/xml, text/xml, */*",
+  },
+});
+
 function formatTimeAgo(dateStr: string): string {
   try {
     const pubDate = new Date(dateStr).getTime();
@@ -31,6 +44,25 @@ function formatTimeAgo(dateStr: string): string {
   } catch {
     return "Bugün";
   }
+}
+
+function categorizeDisclosure(title: string): string {
+  const lower = title.toLowerCase();
+  if (lower.includes("temettü") || lower.includes("kar payı") || lower.includes("kâr payı"))
+    return "Kâr Payı Dağıtım İşlemleri";
+  if (lower.includes("bilanço") || lower.includes("finansal rapor") || lower.includes("faaliyet raporu"))
+    return "Finansal Rapor (FR)";
+  if (lower.includes("genel kurul"))
+    return "Genel Kurul Bildirimi";
+  if (lower.includes("sermaye") || lower.includes("bedelli") || lower.includes("bedelsiz") || lower.includes("tahsisli"))
+    return "Sermaye Artırımı / Azaltımı";
+  if (lower.includes("pay alım") || lower.includes("geri alım"))
+    return "Pay Geri Alım Bildirimi";
+  if (lower.includes("derecelendirme") || lower.includes("kredi notu"))
+    return "Kredi Derecelendirmesi";
+  if (lower.includes("ihale") || lower.includes("yeni iş"))
+    return "Yeni İş İlişkisi / İhale";
+  return "Özel Durum Açıklaması (ODA)";
 }
 
 export async function GET(request: Request) {
@@ -59,71 +91,26 @@ export async function GET(request: Request) {
   const items: KapDisclosureItem[] = [];
 
   try {
-    // 1. Fetch KAP disclosures using Google's KAP-indexed feed
     const query = encodeURIComponent(`"${cleanSymbol}" site:kap.org.tr`);
     const kapRssUrl = `https://news.google.com/rss/search?q=${query}&hl=tr-TR&gl=TR&ceid=TR:tr`;
 
-    const response = await fetch(kapRssUrl, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      },
-      next: { revalidate: 900 },
-    });
+    // Use rss-parser for robust, encoding-safe XML parsing (replaces brittle regex approach)
+    const feed = await rssParser.parseURL(kapRssUrl);
 
-    if (response.ok) {
-      const xmlText = await response.text();
-      const itemRegex =
-        /<item>[\s\S]*?<title>(.*?)<\/title>[\s\S]*?<link>(.*?)<\/link>[\s\S]*?<pubDate>(.*?)<\/pubDate>[\s\S]*?<\/item>/gi;
-      let match;
-      let count = 0;
+    for (const entry of (feed.items || []).slice(0, 5)) {
+      const rawTitle = (entry.title || "").trim();
+      const pubDate = entry.pubDate || new Date().toISOString();
 
-      while ((match = itemRegex.exec(xmlText)) !== null && count < 5) {
-        let rawTitle = match[1] || "";
-        const link = match[2] || `https://www.kap.org.tr/tr/sirket-bilgileri/ozet/${cleanSymbol}`;
-        const pubDate = match[3] || new Date().toISOString();
+      if (!rawTitle) continue;
 
-        rawTitle = rawTitle
-          .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
-          .replace(/&amp;/g, "&")
-          .replace(/&quot;/g, '"')
-          .replace(/&#39;/g, "'")
-          .replace(/&lt;/g, "<")
-          .replace(/&gt;/g, ">")
-          .replace(/&nbsp;/g, " ")
-          .trim();
-
-        // Categorize disclosure type based on official KAP taxonomy (FR / ODA / DG)
-        let disclosureType = "Özel Durum Açıklaması (ODA)";
-        const lower = rawTitle.toLowerCase();
-        if (lower.includes("temettü") || lower.includes("kar payı") || lower.includes("kâr payı")) {
-          disclosureType = "Kâr Payı Dağıtım İşlemleri";
-        } else if (lower.includes("bilanço") || lower.includes("finansal rapor") || lower.includes("faaliyet raporu")) {
-          disclosureType = "Finansal Rapor (FR)";
-        } else if (lower.includes("genel kurul")) {
-          disclosureType = "Genel Kurul Bildirimi";
-        } else if (lower.includes("sermaye") || lower.includes("bedelli") || lower.includes("bedelsiz") || lower.includes("tahsisli")) {
-          disclosureType = "Sermaye Artırımı / Azaltımı";
-        } else if (lower.includes("pay alım") || lower.includes("geri alım")) {
-          disclosureType = "Pay Geri Alım Bildirimi";
-        } else if (lower.includes("derecelendirme") || lower.includes("kredi notu")) {
-          disclosureType = "Kredi Derecelendirmesi";
-        } else if (lower.includes("ihale") || lower.includes("yeni iş")) {
-          disclosureType = "Yeni İş İlişkisi / İhale";
-        }
-
-        if (rawTitle) {
-          items.push({
-            id: `kap-${cleanSymbol}-${count}-${Date.now()}`,
-            title: rawTitle,
-            disclosureType,
-            publishDate: pubDate,
-            timeAgo: formatTimeAgo(pubDate),
-            kapUrl: `https://www.kap.org.tr/tr/sirket-bilgileri/ozet/${cleanSymbol}`,
-          });
-          count++;
-        }
-      }
+      items.push({
+        id: `kap-${cleanSymbol}-${items.length}-${Date.now()}`,
+        title: rawTitle,
+        disclosureType: categorizeDisclosure(rawTitle),
+        publishDate: pubDate,
+        timeAgo: formatTimeAgo(pubDate),
+        kapUrl: `https://www.kap.org.tr/tr/sirket-bilgileri/ozet/${cleanSymbol}`,
+      });
     }
 
     kapCache.set(cacheKey, { timestamp: now, data: items });
@@ -132,7 +119,7 @@ export async function GET(request: Request) {
       success: true,
       symbol: cleanSymbol,
       count: items.length,
-      source: "google_news_kap_search",
+      source: "google_news_kap_rss_parser",
       data: items,
     });
   } catch (err) {

@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Search,
   Plus,
@@ -19,6 +20,7 @@ import MarketStatusBadge from "@/components/MarketStatusBadge";
 import ConfirmModal from "@/components/ConfirmModal";
 import { useToast } from "@/components/ToastProvider";
 import { isLiveSymbol } from "@/lib/liveSymbols";
+import Sparkline from "@/components/Sparkline";
 
 export const currencyForExchange = (exchange: string): string => {
   if (exchange === "ABD") return "$";
@@ -30,15 +32,38 @@ export default function SirketlerPage() {
   const { companies, addCompany, deleteCompany, toggleWatchlist, transactions, baskets } =
     useDefterStore();
   const { showToast } = useToast();
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const [assetTab, setAssetTab] = useState<"hisse" | "maden" | "fon" | "doviz">("hisse");
-  const [subTab, setSubTab] = useState<"all" | "watchlist">("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [filterPill, setFilterPill] = useState<string>("all");
+  // --- URL-synced state (survives refresh + browser back/forward) ---
+  const assetTab = (searchParams.get("tab") as "hisse" | "maden" | "fon" | "doviz") || "hisse";
+  const subTab = (searchParams.get("sub") as "all" | "watchlist") || "all";
+  const searchQuery = searchParams.get("q") || "";
+  const filterPill = searchParams.get("filter") || "all";
+  const currentPage = Number(searchParams.get("page") || "1");
+  const [pageSize] = useState<number>(30);
 
-  // Pagination (30 items per page by default)
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(30);
+  // URL update helper
+  const updateParams = useCallback(
+    (updates: Record<string, string | null>) => {
+      const params = new URLSearchParams(searchParams.toString());
+      Object.entries(updates).forEach(([k, v]) => {
+        if (v == null || v === "" || v === "all" || v === "1") {
+          params.delete(k);
+        } else {
+          params.set(k, v);
+        }
+      });
+      router.replace(`/sirketler${params.size > 0 ? `?${params.toString()}` : ""}`, { scroll: false });
+    },
+    [router, searchParams]
+  );
+
+  const setAssetTab = (tab: "hisse" | "maden" | "fon" | "doviz") => updateParams({ tab, filter: null, page: null, q: null });
+  const setSubTab = (sub: "all" | "watchlist") => updateParams({ sub, page: null });
+  const setSearchQuery = (q: string) => updateParams({ q, page: null });
+  const setFilterPill = (filter: string) => updateParams({ filter, page: null });
+  const setCurrentPage = (page: number) => updateParams({ page: String(page) });
 
   // Selection for comparison
   const [selectedSymbols, setSelectedSymbols] = useState<string[]>([]);
@@ -50,8 +75,6 @@ export default function SirketlerPage() {
   // Reset filter pill and page when switching asset tabs
   const handleAssetTabChange = (tab: "hisse" | "maden" | "fon" | "doviz") => {
     setAssetTab(tab);
-    setFilterPill("all");
-    setCurrentPage(1);
   };
 
   // Dynamic filter pill options per asset tab
@@ -517,11 +540,25 @@ export default function SirketlerPage() {
                     {c.dailyChange}%
                   </div>
 
-                  {/* 52-Week Range Position / Trend (Desktop) */}
-                  <div className="hidden md:flex flex-col items-center justify-center gap-0.5 w-[90px]">
+                  {/* 7-Day Trend Sparkline & 52-Week Range Position (Desktop) */}
+                  <div className="hidden md:flex flex-col items-center justify-center gap-1 w-[90px]">
+                    <Sparkline
+                      data={
+                        (c as any).priceHistory
+                          ? (c as any).priceHistory.map((p: any) => p.close)
+                          : [
+                              c.price * (1 - (c.dailyChange || 0) / 100 * 1.5),
+                              c.price * (1 - (c.dailyChange || 0) / 100 * 0.8),
+                              c.price * (1 - (c.dailyChange || 0) / 100 * 0.3),
+                              c.price,
+                            ]
+                      }
+                      width={70}
+                      height={20}
+                    />
                     {c.high52 && c.low52 && c.high52 > c.low52 ? (
-                      <div className="w-full space-y-1">
-                        <div className="w-full h-1.5 bg-[var(--ink-3)] rounded-full overflow-hidden border border-[var(--line)] flex">
+                      <div className="w-full space-y-0.5">
+                        <div className="w-full h-1 bg-[var(--ink-3)] rounded-full overflow-hidden border border-[var(--line)] flex">
                           <div
                             className={`h-full ${isDailyPos ? "bg-[var(--verdigris)]" : "bg-[var(--loss)]"}`}
                             style={{
@@ -529,15 +566,8 @@ export default function SirketlerPage() {
                             }}
                           />
                         </div>
-                        <div className="flex justify-between text-[9px] font-mono text-[var(--mist)] leading-none">
-                          <span>{c.low52.toFixed(0)}</span>
-                          <span className="text-[var(--brass)] font-semibold">{c.price.toFixed(0)}</span>
-                          <span>{c.high52.toFixed(0)}</span>
-                        </div>
                       </div>
-                    ) : (
-                      <span className="text-[11px] font-mono text-[var(--mist)]">—</span>
-                    )}
+                    ) : null}
                   </div>
 
                   {/* Dynamic Col 5 (Desktop) */}
@@ -684,7 +714,7 @@ export default function SirketlerPage() {
             <div className="flex items-center gap-2">
               <button
                 disabled={currentPage <= 1}
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                 className="px-3 py-1 rounded bg-[var(--ink-2)] border border-[var(--line)] text-[var(--paper)] disabled:opacity-40 cursor-pointer"
               >
                 Önceki
@@ -696,7 +726,7 @@ export default function SirketlerPage() {
 
               <button
                 disabled={currentPage >= totalPages}
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                 className="px-3 py-1 rounded bg-[var(--ink-2)] border border-[var(--line)] text-[var(--paper)] disabled:opacity-40 cursor-pointer"
               >
                 Sonraki

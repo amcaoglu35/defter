@@ -61,6 +61,15 @@ import TechnicalAnalysisPanel from "@/components/TechnicalAnalysisPanel";
 import { DuPontAnalysisCard } from "@/components/DuPontAnalysisCard";
 import { FinancialHealthScoreCard } from "@/components/FinancialHealthScoreCard";
 import DcaBacktestModal from "@/components/DcaBacktestModal";
+import { HealthRadarChart } from "@/components/HealthRadarChart";
+import { GrahamIntrinsicValueCard } from "@/components/GrahamIntrinsicValueCard";
+import { CompanyDividendHistoryCard } from "@/components/CompanyDividendHistoryCard";
+import { FactorGradesScorecard } from "@/components/FactorGradesScorecard";
+import { DcfValuationSimulator } from "@/components/DcfValuationSimulator";
+import { TechnicalGaugeMeter } from "@/components/TechnicalGaugeMeter";
+import { PeerOverlayRadarCard } from "@/components/PeerOverlayRadarCard";
+import { DividendSafetyCard } from "@/components/DividendSafetyCard";
+import { calculateCompanyHealth } from "@/lib/healthScore";
 
 interface CompanyDiagnosisReport {
   valuationScore?: number | string;
@@ -91,6 +100,7 @@ export default function SirketDetayPage() {
     transactions,
     deleteTransaction,
     baskets,
+    dividends,
     aiProvider,
     geminiModel,
     userSettings,
@@ -137,6 +147,19 @@ export default function SirketDetayPage() {
     dailyChangePct?: number;
   } | null>(null);
   const [tefasLoading, setTefasLoading] = useState(false);
+
+  // Compute Simply Wall St 5-Dimension Snowflake Health Radar Metrics
+  const healthRadarMetrics = useMemo(() => {
+    if (!company) return [];
+    const health = calculateCompanyHealth(company);
+    return [
+      { subject: "Değerleme", score: health.dimensions.valuation, fullMark: 100 },
+      { subject: "Kârlılık", score: health.dimensions.profitability, fullMark: 100 },
+      { subject: "Finansal Sağlık", score: health.dimensions.leverage, fullMark: 100 },
+      { subject: "Büyüme", score: health.dimensions.growth, fullMark: 100 },
+      { subject: "Temettü Verimi", score: health.dimensions.efficiency, fullMark: 100 },
+    ];
+  }, [company]);
 
   // Reset state when navigating between companies without full page reload
   const [prevSymbol, setPrevSymbol] = useState(symbol);
@@ -1144,6 +1167,58 @@ export default function SirketDetayPage() {
               )}
             </div>
           )}
+
+          {/* Advanced Financial Analysis & Open-Source Valuation Suite */}
+          <div className="space-y-6">
+            {/* 1. Seeking Alpha Factor Grades Scorecard */}
+            <FactorGradesScorecard company={company} />
+
+            {/* 2. Interactive DCF Valuation Simulator */}
+            <DcfValuationSimulator company={company} />
+
+            {/* 3. Simply Wall St Snowflake Radar & Peer Overlay Radar Dual Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Simply Wall St Snowflake Radar Chart */}
+              <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-5 space-y-3">
+                <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-[var(--brass)]" />
+                    <h3 className="font-serif font-bold text-base text-[var(--paper)]">
+                      ❄️ 5-Boyutlu Şirket Kar Tanesi Radarı
+                    </h3>
+                  </div>
+                  <span className="font-mono text-[10px] text-[var(--brass)] bg-[var(--brass-glow)] px-2 py-0.5 rounded font-bold">
+                    Simply Wall St Model
+                  </span>
+                </div>
+                <HealthRadarChart data={healthRadarMetrics} color="var(--verdigris)" />
+              </div>
+
+              {/* Multi-Peer Overlay Radar Card */}
+              <PeerOverlayRadarCard company={company} allCompanies={companies} />
+            </div>
+
+            {/* 4. Graham Intrinsic Value & Technical Gauge Meter Dual Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <GrahamIntrinsicValueCard company={company} />
+              <TechnicalGaugeMeter company={company} />
+            </div>
+
+            {/* 5. Financial Health Scores & DuPont Analysis Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Piotroski & Altman Z-Score Card */}
+              <FinancialHealthScoreCard company={company} />
+
+              {/* DuPont Analysis Card */}
+              <DuPontAnalysisCard company={company} />
+            </div>
+
+            {/* 6. Historical Dividend Payouts & Dividend Safety Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <CompanyDividendHistoryCard company={company} dividends={dividends} />
+              <DividendSafetyCard company={company} />
+            </div>
+          </div>
 
           {/* Financial Highlights (Bilanço & Kârlılık Dinamikleri) */}
           <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 space-y-4">

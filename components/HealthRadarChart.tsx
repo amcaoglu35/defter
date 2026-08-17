@@ -29,8 +29,8 @@ interface HealthRadarChartProps {
 export function HealthRadarChart({
   data,
   title,
-  color = "#10b981", // Emerald accent
-  benchmarkColor = "#64748b", // Slate neutral
+  color = "var(--verdigris)",
+  benchmarkColor = "var(--mist)",
   showBenchmark = false,
 }: HealthRadarChartProps) {
   if (!data || data.length === 0) return null;
@@ -38,36 +38,37 @@ export function HealthRadarChart({
   return (
     <div className="w-full flex flex-col items-center">
       {title && (
-        <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
+        <h4 className="text-xs font-semibold text-[var(--mist)] uppercase tracking-wider mb-2">
           {title}
         </h4>
       )}
       <div className="w-full h-64 sm:h-72">
         <ResponsiveContainer width="100%" height="100%">
           <RadarChart cx="50%" cy="50%" outerRadius="75%" data={data}>
-            <PolarGrid stroke="#334155" strokeDasharray="3 3" />
+            <PolarGrid stroke="var(--line)" strokeDasharray="3 3" />
             <PolarAngleAxis
               dataKey="subject"
-              tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 500 }}
+              tick={{ fill: "var(--paper-dim)", fontSize: 11, fontWeight: 500 }}
             />
             <PolarRadiusAxis
               angle={30}
               domain={[0, 100]}
-              tick={{ fill: "#64748b", fontSize: 9 }}
-              stroke="#334155"
+              tick={{ fill: "var(--mist)", fontSize: 9 }}
+              stroke="var(--line)"
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: "#0f172a",
-                borderColor: "#334155",
+                backgroundColor: "var(--ink-2)",
+                borderColor: "var(--line)",
                 borderRadius: "0.5rem",
-                color: "#f8fafc",
+                color: "var(--paper)",
                 fontSize: "12px",
               }}
-              formatter={(value: any, name: any) => [
-                `${value} / 100`,
+              formatter={((value: unknown, name: unknown) => [
+                `${value ?? "—"} / 100`,
                 name === "score" ? "Şirket Puanı" : "Sektör Medyanı",
-              ]}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              ]) as any}
             />
             {showBenchmark && (
               <Radar

@@ -22,40 +22,17 @@ export interface HealthScoreResult {
 export function calculatePortfolioHealthScore(
   baskets: Basket[],
   companies: Company[]
-): HealthScoreResult {
+): HealthScoreResult | null {
+  // Zero-mock-data rule: return null when there is no real portfolio data to score
   if (!baskets || baskets.length === 0) {
-    return {
-      score: 80,
-      diversificationScore: 80,
-      riskBalanceScore: 80,
-      liquidityScore: 80,
-      label: "Başlangıç Seviyesi Portföy",
-      verdictColor: "brass",
-      metrics: {
-        sectorCount: 0,
-        holdingCount: 0,
-        liveRatio: 100,
-      },
-    };
+    return null;
   }
 
   const allHoldings = baskets.flatMap((b) => b.holdings);
   const totalHoldingsCount = allHoldings.length;
 
   if (totalHoldingsCount === 0) {
-    return {
-      score: 75,
-      diversificationScore: 70,
-      riskBalanceScore: 80,
-      liquidityScore: 80,
-      label: "Sepetler Henüz Boş",
-      verdictColor: "brass",
-      metrics: {
-        sectorCount: 0,
-        holdingCount: 0,
-        liveRatio: 100,
-      },
-    };
+    return null;
   }
 
   // 1. Diversification Score (Sectors & Asset Weight Distribution)

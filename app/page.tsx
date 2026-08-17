@@ -30,6 +30,8 @@ import LiveKapFeed from "@/components/LiveKapFeed";
 import MonthlyDividendTimeline from "@/components/MonthlyDividendTimeline";
 import CompoundGrowthWidget from "@/components/CompoundGrowthWidget";
 import { PersonalizedKapFeed } from "@/components/PersonalizedKapFeed";
+import PortfolioEquityCurve from "@/components/PortfolioEquityCurve";
+import AssetAllocationDonut from "@/components/AssetAllocationDonut";
 import { isLiveSymbol } from "@/lib/liveSymbols";
 import { DailyBriefingResult } from "@/lib/aiService";
 import { calculatePortfolioHealthScore } from "@/lib/healthScore";
@@ -38,6 +40,14 @@ import { useToast } from "@/components/ToastProvider";
 export default function HomePage() {
   const { companies, baskets, ipos, dividends, indices, aiProvider, geminiModel } = useDefterStore();
   const { showToast } = useToast();
+
+  // 0. Dashboard Multi-Currency State (TRY / USD / EUR)
+  const [dashboardCurrency, setDashboardCurrency] = useState<"TRY" | "USD" | "EUR">("TRY");
+
+  const usdRate = indices?.["USD/TRY"]?.price || 47.88;
+  const eurRate = indices?.["EUR/TRY"]?.price || 55.38;
+  const exchangeRate = dashboardCurrency === "USD" ? usdRate : dashboardCurrency === "EUR" ? eurRate : 1;
+  const currencySymbol = dashboardCurrency === "USD" ? "$" : dashboardCurrency === "EUR" ? "€" : "₺";
 
   // 1. Market Movers & Radar Metrics
   const [marketRadarTab, setMarketRadarTab] = useState<"movers" | "dividends" | "value" | "analysts">("movers");
@@ -263,108 +273,171 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 2. Top Summary KPI Cards */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Toplam Değer */}
-        <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-lg p-5 hover:border-[var(--brass-dim)] transition-colors">
-          <div className="flex items-center justify-between text-[var(--mist)] text-xs font-mono uppercase tracking-wider mb-2">
-            <span>Toplam Portföy Değeri</span>
-            <PieChart className="w-4 h-4 text-[var(--brass)]" />
+      {/* 2. Top Summary KPI Cards with Currency Toggle */}
+      <section className="space-y-4">
+        {/* Currency Switcher Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--line)] pb-3">
+          <div className="flex items-center gap-2 font-mono text-xs text-[var(--mist)] uppercase tracking-wider">
+            <Coins className="w-4 h-4 text-[var(--brass)]" />
+            <span>Gösterge Tablosu Kur Görünümü:</span>
           </div>
-          <div className="font-serif text-2xl sm:text-3xl text-[var(--paper)] font-semibold">
-            {totalPortfolioValue.toLocaleString("tr-TR")} ₺
-          </div>
-          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 mt-2 font-mono text-xs">
-            <div
-              className={`flex items-center gap-1 font-semibold ${
-                totalDailyChangePct >= 0 ? "text-[var(--verdigris)]" : "text-[var(--loss)]"
-              }`}
-            >
-              {totalDailyChangePct >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-              <span>Bugün: {totalDailyChangePct >= 0 ? "+" : ""}%{totalDailyChangePct.toFixed(2)}</span>
-            </div>
-            <span className="text-[var(--mist)] opacity-40">•</span>
-            <div
-              className={`${
-                isProfitPositive ? "text-[var(--verdigris)]" : "text-[var(--loss)]"
-              }`}
-            >
-              <span>
-                {isProfitPositive ? "+" : ""}
-                {totalProfit.toLocaleString("tr-TR")} ₺ ({isProfitPositive ? "+" : ""}%{profitPercent}) Net Kâr
-              </span>
-            </div>
-          </div>
-          {totalHoldingsCount > 0 && (
-            <div className="mt-3.5 flex items-center justify-between text-[11px] font-mono border-t border-dashed border-[var(--line)] pt-2">
-              <span className="text-[var(--verdigris)]">⚡ %{liveRatioPct} Canlı Fiyat</span>
-              {staticRatioPct > 0 && (
-                <span className="text-[var(--mist)]">📌 %{staticRatioPct} Statik</span>
-              )}
-            </div>
-          )}
-        </div>
 
-        {/* Card 2: Portföy Sağlık Skoru (Dinamik & Gerçekçi) */}
-        <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-lg p-5 hover:border-[var(--brass-dim)] transition-colors">
-          <div className="flex items-center justify-between text-[var(--mist)] text-xs font-mono uppercase tracking-wider mb-2">
-            <span>Orakul Sağlık Skoru</span>
-            <Shield
-              className={`w-4 h-4 ${
-                healthScore.verdictColor === "verdigris"
-                  ? "text-[var(--verdigris)]"
-                  : healthScore.verdictColor === "brass"
-                  ? "text-[var(--brass)]"
-                  : "text-[var(--loss)]"
-              }`}
-            />
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="font-serif text-2xl sm:text-3xl text-[var(--paper)] font-semibold">
-              {healthScore.score}
-            </span>
-            <span className="font-mono text-xs text-[var(--mist)]">/ 100</span>
-          </div>
-          <div
-            className={`mt-2 text-xs font-mono font-medium truncate ${
-              healthScore.verdictColor === "verdigris"
-                ? "text-[var(--verdigris)]"
-                : healthScore.verdictColor === "brass"
-                ? "text-[var(--brass)]"
-                : "text-[var(--loss)]"
-            }`}
-            title={healthScore.label}
-          >
-            {healthScore.label}
+          <div className="flex items-center gap-1 bg-[var(--ink-2)] p-1 rounded-lg border border-[var(--line)] self-start sm:self-auto font-mono text-xs">
+            {(["TRY", "USD", "EUR"] as const).map((curr) => (
+              <button
+                key={curr}
+                type="button"
+                onClick={() => setDashboardCurrency(curr)}
+                className={`px-3 py-1 rounded transition-all cursor-pointer font-bold ${
+                  dashboardCurrency === curr
+                    ? "bg-[var(--brass)] text-[var(--ink)] shadow"
+                    : "text-[var(--mist)] hover:text-[var(--paper)]"
+                }`}
+              >
+                {curr === "TRY" ? "₺ TRY" : curr === "USD" ? "$ USD" : "€ EUR"}
+              </button>
+            ))}
           </div>
         </div>
 
-        {/* Card 3: Yıllık Temettü Beklentisi */}
-        <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-lg p-5 hover:border-[var(--brass-dim)] transition-colors">
-          <div className="flex items-center justify-between text-[var(--mist)] text-xs font-mono uppercase tracking-wider mb-2">
-            <span>Yıllık Temettü Akışı</span>
-            <Calendar className="w-4 h-4 text-[var(--brass)]" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Card 1: Toplam Değer */}
+          <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-lg p-5 hover:border-[var(--brass-dim)] transition-colors">
+            <div className="flex items-center justify-between text-[var(--mist)] text-xs font-mono uppercase tracking-wider mb-2">
+              <span>Toplam Portföy Değeri ({dashboardCurrency})</span>
+              <PieChart className="w-4 h-4 text-[var(--brass)]" />
+            </div>
+            <div className="font-serif text-2xl sm:text-3xl text-[var(--paper)] font-semibold">
+              {(totalPortfolioValue / exchangeRate).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} {currencySymbol}
+            </div>
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 mt-2 font-mono text-xs">
+              <div
+                className={`flex items-center gap-1 font-semibold ${
+                  totalDailyChangePct >= 0 ? "text-[var(--verdigris)]" : "text-[var(--loss)]"
+                }`}
+              >
+                {totalDailyChangePct >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                <span>Bugün: {totalDailyChangePct >= 0 ? "+" : ""}%{totalDailyChangePct.toFixed(2)}</span>
+              </div>
+              <span className="text-[var(--mist)] opacity-40">•</span>
+              <div
+                className={`${
+                  isProfitPositive ? "text-[var(--verdigris)]" : "text-[var(--loss)]"
+                }`}
+              >
+                <span>
+                  {isProfitPositive ? "+" : ""}
+                  {(totalProfit / exchangeRate).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} {currencySymbol} ({isProfitPositive ? "+" : ""}%{profitPercent}) Net Kâr
+                </span>
+              </div>
+            </div>
+            {totalHoldingsCount > 0 && (
+              <div className="mt-3.5 flex items-center justify-between text-[11px] font-mono border-t border-dashed border-[var(--line)] pt-2">
+                <span className="text-[var(--verdigris)]">⚡ %{liveRatioPct} Canlı Fiyat</span>
+                {staticRatioPct > 0 && (
+                  <span className="text-[var(--mist)]">📌 %{staticRatioPct} Statik</span>
+                )}
+              </div>
+            )}
           </div>
-          <div className="font-serif text-2xl sm:text-3xl text-[var(--paper)] font-semibold">
-            {totalAnnualDividends.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺
+
+          {/* Card 2: Portföy Sağlık Skoru (Dinamik & Gerçekçi) */}
+          <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-lg p-5 hover:border-[var(--brass-dim)] transition-colors">
+            <div className="flex items-center justify-between text-[var(--mist)] text-xs font-mono uppercase tracking-wider mb-2">
+              <span>Orakul Sağlık Skoru</span>
+              <Shield
+                className={`w-4 h-4 ${
+                  healthScore == null
+                    ? "text-[var(--mist)]"
+                    : healthScore.verdictColor === "verdigris"
+                    ? "text-[var(--verdigris)]"
+                    : healthScore.verdictColor === "brass"
+                    ? "text-[var(--brass)]"
+                    : "text-[var(--loss)]"
+                }`}
+              />
+            </div>
+            {healthScore == null ? (
+              <div className="mt-2">
+                <span className="font-serif text-2xl text-[var(--mist)] font-semibold">—</span>
+                <div className="mt-1 text-xs font-mono text-[var(--mist)] opacity-70">
+                  Sepet ekleyin
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-baseline gap-2">
+                  <span className="font-serif text-2xl sm:text-3xl text-[var(--paper)] font-semibold">
+                    {healthScore.score}
+                  </span>
+                  <span className="font-mono text-xs text-[var(--mist)]">/ 100</span>
+                </div>
+                <div
+                  className={`mt-2 text-xs font-mono font-medium truncate ${
+                    healthScore.verdictColor === "verdigris"
+                      ? "text-[var(--verdigris)]"
+                      : healthScore.verdictColor === "brass"
+                      ? "text-[var(--brass)]"
+                      : "text-[var(--loss)]"
+                  }`}
+                  title={healthScore.label}
+                >
+                  {healthScore.label}
+                </div>
+              </>
+            )}
           </div>
-          <div className="mt-2 text-xs font-mono text-[var(--mist)]">
-            Hesaplanan Net Dağıtım
+
+          {/* Card 3: Yıllık Temettü Beklentisi */}
+          <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-lg p-5 hover:border-[var(--brass-dim)] transition-colors">
+            <div className="flex items-center justify-between text-[var(--mist)] text-xs font-mono uppercase tracking-wider mb-2">
+              <span>Yıllık Temettü Akışı</span>
+              <Calendar className="w-4 h-4 text-[var(--brass)]" />
+            </div>
+            <div className="font-serif text-2xl sm:text-3xl text-[var(--paper)] font-semibold">
+              {(totalAnnualDividends / exchangeRate).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} {currencySymbol}
+            </div>
+            <div className="mt-2 text-xs font-mono text-[var(--mist)]">
+              Hesaplanan Net Dağıtım ({dashboardCurrency})
+            </div>
+          </div>
+
+          {/* Card 4: Aktif Sepetler */}
+          <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-lg p-5 hover:border-[var(--brass-dim)] transition-colors">
+            <div className="flex items-center justify-between text-[var(--mist)] text-xs font-mono uppercase tracking-wider mb-2">
+              <span>Aktif Sepetler</span>
+              <Layers className="w-4 h-4 text-[var(--mist)]" />
+            </div>
+            <div className="font-serif text-2xl sm:text-3xl text-[var(--paper)] font-semibold">
+              {baskets.length} Sepet
+            </div>
+            <div className="mt-2 text-xs font-mono text-[var(--mist)]">
+              {companies.length} Varlık Kütükte
+            </div>
           </div>
         </div>
+      </section>
 
-        {/* Card 4: Aktif Sepetler */}
-        <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-lg p-5 hover:border-[var(--brass-dim)] transition-colors">
-          <div className="flex items-center justify-between text-[var(--mist)] text-xs font-mono uppercase tracking-wider mb-2">
-            <span>Aktif Sepetler</span>
-            <Layers className="w-4 h-4 text-[var(--mist)]" />
-          </div>
-          <div className="font-serif text-2xl sm:text-3xl text-[var(--paper)] font-semibold">
-            {baskets.length} Sepet
-          </div>
-          <div className="mt-2 text-xs font-mono text-[var(--mist)]">
-            {companies.length} Varlık Kütükte
-          </div>
+      {/* 2.2 Portfolio Performance Equity Curve & Asset Allocation Donut Charts */}
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <PortfolioEquityCurve
+            baskets={baskets}
+            companies={companies}
+            totalPortfolioValue={totalPortfolioValue}
+            totalDailyChangePct={totalDailyChangePct}
+            currencySymbol={currencySymbol}
+            exchangeRate={exchangeRate}
+          />
+        </div>
+        <div>
+          <AssetAllocationDonut
+            baskets={baskets}
+            companies={companies}
+            totalPortfolioValue={totalPortfolioValue}
+            currencySymbol={currencySymbol}
+            exchangeRate={exchangeRate}
+          />
         </div>
       </section>
 
