@@ -67,7 +67,7 @@ export default function PriceAlertModal({
     if (!price || price <= 0) return;
 
     const newAlert: PriceAlert = {
-      id: Date.now().toString(),
+      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `alert-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       symbol,
       targetPrice: price,
       condition,

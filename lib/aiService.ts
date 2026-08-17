@@ -1888,6 +1888,8 @@ Fraunces üslubunda, bilgece, samimi ve gerçek verileri temel alan 1 paragrafl�
 // -------------------------------------------------------------
 // 6. 📰 Orakul "Haber & Piyasa Duygu Analizi" (Sentiment Radar)
 // -------------------------------------------------------------
+// 6. 📰 Haber & Piyasa Duygu Analizi (Sentiment Analysis)
+// -------------------------------------------------------------
 export interface SentimentNewsItem {
   id: string;
   title: string;
@@ -1904,6 +1906,61 @@ export interface CompanyWithNews {
   name: string;
   dailyChange?: number;
   news: NewsItem[];
+}
+
+const TURKISH_FINANCIAL_NEGATIVE_KEYWORDS = [
+  "soruşturma", "ceza", "zarar", "dava", "iflas", "kesinti", "gerileme", "düşüş",
+  "kayıp", "iptal", "uyarı", "risk", "kriz", "borç", "çöküş", "daralma", "satış baskısı",
+  "durdurma", "tedbir", "blokaj", "negatif", "olumsuz", "kayyım", "revize düşüş"
+];
+
+const TURKISH_FINANCIAL_POSITIVE_KEYWORDS = [
+  "rekor", "büyüme", "temettü", "kâr artışı", "kar artışı", "anlaşma", "ihracat",
+  "kapasite", "ihale", "onay", "yükseliş", "kazanç", "yatırım", "sözleşme", "zirve",
+  "alfa", "güçlü", "pozitif", "artış", "sipariş", "teslimat", "satın alma", "genişleme",
+  "lisans", "iş birliği", "tarihi zirve", "hedef yükseltti"
+];
+
+export function analyzeNewsTitleSentiment(title: string): {
+  score: number;
+  verdict: "POZİTİF" | "NÖTR" | "NEGATİF";
+  rationale: string;
+} {
+  const t = (title || "").toLowerCase();
+  const matchedNeg = TURKISH_FINANCIAL_NEGATIVE_KEYWORDS.filter((k) => t.includes(k));
+  const matchedPos = TURKISH_FINANCIAL_POSITIVE_KEYWORDS.filter((k) => t.includes(k));
+
+  if (matchedNeg.length > 0 && matchedPos.length === 0) {
+    const score = Math.max(-0.9, -0.4 - matchedNeg.length * 0.15);
+    return {
+      score: parseFloat(score.toFixed(2)),
+      verdict: "NEGATİF",
+      rationale: `Başlıkta olumsuz finansal sinyaller tespit edildi: [${matchedNeg.join(", ")}].`,
+    };
+  }
+
+  if (matchedPos.length > 0 && matchedNeg.length === 0) {
+    const score = Math.min(0.95, 0.4 + matchedPos.length * 0.15);
+    return {
+      score: parseFloat(score.toFixed(2)),
+      verdict: "POZİTİF",
+      rationale: `Başlıkta olumlu operasyonel / finansal sinyaller tespit edildi: [${matchedPos.join(", ")}].`,
+    };
+  }
+
+  if (matchedPos.length > 0 && matchedNeg.length > 0) {
+    return {
+      score: 0.0,
+      verdict: "NÖTR",
+      rationale: "Başlıkta hem olumlu hem olumsuz dengeli piyasa ifadeleri yer alıyor.",
+    };
+  }
+
+  return {
+    score: 0.0,
+    verdict: "NÖTR",
+    rationale: "Haber başlığı nötr / rutin bilgi akışı niteliğindedir.",
+  };
 }
 
 export async function generateSentimentAnalysis(
@@ -1978,24 +2035,20 @@ Format (YALNIZCA geçerli JSON dizisi):
   return newsPerCompany.flatMap((c, idx) => {
     if (c.news && c.news.length > 0) {
       return c.news.slice(0, 2).map((n, nIdx) => {
-        const isPos = (c.dailyChange ?? 0) >= 0;
-        const score = isPos ? 0.65 : -0.45;
-        const verdict: "POZİTİF" | "NÖTR" | "NEGATİF" = isPos ? "POZİTİF" : "NEGATİF";
+        const titleAnalysis = analyzeNewsTitleSentiment(n.title);
         return {
           id: `news-${c.symbol}-${idx}-${nIdx}`,
           title: n.title,
           source: n.source || "Google News",
           date: n.timeAgo || "Bugün",
           relatedSymbol: c.symbol,
-          sentimentScore: score,
-          summary: `${c.name} (${c.symbol}) için güncel piyasa akışı: "${n.title}". Operasyonel görünüm ve fiyatlama ${verdict.toLowerCase()} değerlendiriliyor.`,
-          impactVerdict: verdict,
+          sentimentScore: titleAnalysis.score,
+          summary: `${c.name} (${c.symbol}) için güncel haber: "${n.title}". ${titleAnalysis.rationale}`,
+          impactVerdict: titleAnalysis.verdict,
         };
       });
     }
-    const isPos = (c.dailyChange ?? 0) >= 0;
-    const score = isPos ? 0.4 : -0.3;
-    const verdict: "POZİTİF" | "NÖTR" | "NEGATİF" = isPos ? "POZİTİF" : "NEGATİF";
+
     return [
       {
         id: `news-${c.symbol}-${idx}`,
@@ -2003,9 +2056,9 @@ Format (YALNIZCA geçerli JSON dizisi):
         source: "Piyasa Takip",
         date: "Bugün",
         relatedSymbol: c.symbol,
-        sentimentScore: score,
-        summary: `${c.name} (${c.symbol}) için son 24 saatte majör bir sıcak haber akışı bulunmamakta olup seans içi fiyatlamalar takip edilmektedir.`,
-        impactVerdict: verdict,
+        sentimentScore: 0.0,
+        summary: `${c.name} (${c.symbol}) için son 24 saatte doğrudan sıcak haber akışı bulunmamakta olup rutin seans izlenmektedir.`,
+        impactVerdict: "NÖTR",
       },
     ];
   });
