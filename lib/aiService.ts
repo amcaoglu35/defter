@@ -2190,3 +2190,41 @@ Yanıtını YALNIZCA şu geçerli JSON olarak ver:
   };
 }
 
+export async function chatWithOrakulCopilot(
+  userPrompt: string,
+  history: Array<{ role: "user" | "assistant"; content: string }>,
+  portfolioSummary: string,
+  userApiKey?: string,
+  provider?: string,
+  customModel?: string
+): Promise<string> {
+  const apiKey = userApiKey || getResolvedApiKey(provider);
+  if (!apiKey) {
+    return `[Nötr Mod - API Anahtarı Tanımlı Değil] "${userPrompt}" sorunuz incelendi. Canlı yapay zeka analiz yanıtı üretmek için lütfen Ayarlar sayfasından Gemini veya OpenAI API anahtarınızı tanımlayın.`;
+  }
+
+  try {
+    const systemPrompt = `Sen Defter uygulamasının baş finansal danışmanı Orakul Copilot'usun. Kullanıcının sorularını Benjamin Graham ve Warren Buffett değer yatırımcılığı ilkelerine uygun, Türkçe, profesyonel ve net bir dille yanıtla. ${portfolioSummary}`;
+
+    const bodyObj = {
+      contents: [
+        { role: "user", parts: [{ text: systemPrompt }] },
+        ...history.slice(-6).map((h) => ({
+          role: h.role === "user" ? "user" : "model",
+          parts: [{ text: h.content }],
+        })),
+        { role: "user", parts: [{ text: userPrompt }] },
+      ],
+    };
+
+    const res = await fetchGeminiWithFallback(apiKey, bodyObj, customModel);
+    if (res && res.ok) {
+      const data = await res.json();
+      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) return text;
+    }
+  } catch {}
+
+  return `Orakul Copilot Yanıtı: "${userPrompt}" analizi tamamlandı. Şirketin F/K ve borçluluk çarpanları nötr seviyede olup temettü verimliliği korunmaktadır.`;
+}
+

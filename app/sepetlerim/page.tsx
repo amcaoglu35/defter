@@ -26,6 +26,7 @@ import ConfirmModal from "@/components/ConfirmModal";
 import { exportBasketToExcel } from "@/lib/exportUtils";
 import { useToast } from "@/components/ToastProvider";
 import { useEscapeKey } from "@/lib/hooks/useEscapeKey";
+import { MonthlyDividendHeatmap } from "@/components/MonthlyDividendHeatmap";
 
 interface StrategyTemplate {
   name: string;
@@ -417,6 +418,9 @@ export default function SepetlerimPage() {
             </h2>
           </div>
         </div>
+
+        {/* Monthly Dividend Heatmap Matrix */}
+        <MonthlyDividendHeatmap dividends={dividends} />
 
         <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-lg overflow-hidden">
           <div className="hidden md:grid grid-cols-[110px_1.5fr_110px_110px_140px_100px] gap-4 px-6 py-3 border-b border-[var(--line)] bg-[var(--ink-3)] font-mono text-[11px] uppercase tracking-wider text-[var(--mist)]">

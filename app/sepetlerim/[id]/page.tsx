@@ -39,6 +39,9 @@ import { BasketTreemap } from "@/components/BasketTreemap";
 import { RealReturnBadge } from "@/components/RealReturnBadge";
 import MonteCarloSimulatorModal from "@/components/MonteCarloSimulatorModal";
 import RebalanceModal from "@/components/RebalanceModal";
+import { BasketDeviationAlertBar } from "@/components/BasketDeviationAlertBar";
+import { BasketBenchmarkComparison } from "@/components/BasketBenchmarkComparison";
+import { MarketShockSimulatorCard } from "@/components/MarketShockSimulatorCard";
 
 type PeriodType = "1A" | "3A" | "6A" | "1Y";
 
@@ -293,6 +296,9 @@ export default function SepetDetayPage() {
         </div>
       </div>
 
+      {/* Target Weight Deviation Alert Bar */}
+      <BasketDeviationAlertBar basket={basket} onOpenRebalanceModal={() => setRebalanceModalOpen(true)} />
+
       {/* 3. Performance Chart & Risk Meter */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 space-y-4">
@@ -449,6 +455,12 @@ export default function SepetDetayPage() {
 
       {/* Quantitative Risk & Volatility Scorecard */}
       <BasketRiskMetricsCard basket={basket} companies={companies} />
+
+      {/* Sepet vs BIST 100 / Altın / Dolar Benchmark Comparison */}
+      <BasketBenchmarkComparison basket={basket} />
+
+      {/* Portföy Piyasa Şoku & Kriz Stres Testi */}
+      <MarketShockSimulatorCard basket={basket} />
 
       {/* Cross-Asset Pearson Correlation Heatmap */}
       <CorrelationMatrixCard basket={basket} companies={companies} />

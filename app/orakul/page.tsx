@@ -43,7 +43,7 @@ import OracleSeal from "@/components/OracleSeal";
 import StampBadge from "@/components/StampBadge";
 import ConfirmModal from "@/components/ConfirmModal";
 import { useDefterStore } from "@/lib/store";
-import { AiHistoryItem, Basket } from "@/lib/mockData";
+import { AiHistoryItem, Basket, Company } from "@/lib/mockData";
 import { useToast } from "@/components/ToastProvider";
 import CompanyCombobox from "@/components/CompanyCombobox";
 import { AutonomousScanFeed } from "@/components/AutonomousScanFeed";
@@ -56,6 +56,10 @@ import {
   DailyBriefingResult,
   SentimentNewsItem,
 } from "@/lib/aiService";
+import { OrakulCopilotChat } from "@/components/OrakulCopilotChat";
+import { AiBullBearDebateCard } from "@/components/AiBullBearDebateCard";
+import { AiAnalystTargetGauge } from "@/components/AiAnalystTargetGauge";
+import { AiReportPdfExporter } from "@/components/AiReportPdfExporter";
 
 export type OrakulCategory = "strategy" | "company" | "market";
 
@@ -65,6 +69,7 @@ export type OrakulTab =
   | "screener"
   | "autonomous_scan"
   | "model_baskets"
+  | "copilot"
   | "company"
   | "earnings"
   | "trap"
@@ -79,6 +84,7 @@ const TAB_TO_CATEGORY: Record<OrakulTab, OrakulCategory> = {
   screener: "strategy",
   autonomous_scan: "strategy",
   model_baskets: "strategy",
+  copilot: "strategy",
   company: "company",
   earnings: "company",
   trap: "company",
@@ -110,6 +116,7 @@ const CATEGORIES: CategoryItem[] = [
     icon: Compass,
     tabs: [
       { id: "wizard", label: "Sepet Sihirbazı", icon: Compass },
+      { id: "copilot", label: "Orakul AI Copilot", icon: Brain },
       { id: "backtest", label: "Zaman Makinesi (Backtest)", icon: Hourglass },
       { id: "screener", label: "Akıllı Hisse Tarayıcısı", icon: Search },
       { id: "autonomous_scan", label: "Otonom AI Tarayıcı", icon: Brain },
@@ -1883,6 +1890,13 @@ interface WeeklyLetterResult {
         </section>
       )}
 
+      {/* TAB: Orakul AI Copilot (OpenBB Copilot Financial AI Assistant) */}
+      {activeTab === "copilot" && (
+        <section className="animate-in fade-in duration-300">
+          <OrakulCopilotChat />
+        </section>
+      )}
+
       {/* TAB: Otonom AI Tarayıcı (Autonomous Scan Feed) */}
       {activeTab === "autonomous_scan" && (
         <section className="animate-in fade-in duration-300">
@@ -2030,8 +2044,32 @@ interface WeeklyLetterResult {
                   </div>
                 </div>
 
-                <StampBadge verdict={companyAnalysis.verdict || "AL"} />
+                <div className="flex items-center gap-3">
+                  <AiReportPdfExporter title={`${companyAnalysis.symbol} Değerleme Raporu`} />
+                  <StampBadge verdict={companyAnalysis.verdict || "AL"} />
+                </div>
               </div>
+
+              {/* OpenBB AI Analyst Price Target & Consensus Gauge */}
+              <AiAnalystTargetGauge
+                company={
+                  (companies.find((c) => c.symbol === companyAnalysis.symbol) || {
+                    id: companyAnalysis.symbol || "co",
+                    symbol: companyAnalysis.symbol || "BIST",
+                    name: companyAnalysis.symbol || "BIST",
+                    price: companyAnalysis.fairValue || 100,
+                    dailyChange: 0,
+                    sector: "BIST",
+                    exchange: "BIST",
+                    assetClass: "hisse",
+                    currency: "₺",
+                  }) as Company
+                }
+                report={companyAnalysis as any}
+              />
+
+              {/* FinGPT Bull vs Bear AI Debate Card */}
+              <AiBullBearDebateCard report={companyAnalysis as any} companySymbol={companyAnalysis.symbol} />
 
               {/* 4 Quant Valuation Metrics Grid */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 font-mono text-xs">
