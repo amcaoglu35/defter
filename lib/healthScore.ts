@@ -163,3 +163,75 @@ export function calculatePortfolioHealthScore(
     },
   };
 }
+
+export interface CompanyHealthDimensions {
+  overallScore: number;
+  dimensions: {
+    valuation: number;
+    profitability: number;
+    leverage: number;
+    growth: number;
+    efficiency: number;
+  };
+}
+
+export function calculateCompanyHealth(c: Company): CompanyHealthDimensions {
+  // 1. Valuation (Lower P/E and P/B is better, max 100)
+  let valuation = 70;
+  if (c.peRatio && c.peRatio > 0) {
+    if (c.peRatio < 8) valuation = 95;
+    else if (c.peRatio < 15) valuation = 80;
+    else if (c.peRatio < 25) valuation = 60;
+    else valuation = 40;
+  }
+
+  // 2. Profitability (Higher ROE & Operating Margin is better)
+  let profitability = 70;
+  if (c.returnOnEquity !== undefined) {
+    if (c.returnOnEquity > 30) profitability = 95;
+    else if (c.returnOnEquity > 15) profitability = 80;
+    else if (c.returnOnEquity > 5) profitability = 65;
+    else profitability = 40;
+  }
+
+  // 3. Leverage / Risk Balance (Beta around 1.0 or lower is safer)
+  let leverage = 75;
+  if (c.beta !== undefined) {
+    if (c.beta <= 0.9) leverage = 90;
+    else if (c.beta <= 1.2) leverage = 75;
+    else leverage = 55;
+  }
+
+  // 4. Growth / Momentum
+  let growth = 70;
+  if (c.dailyChange !== undefined) {
+    if (c.dailyChange > 2) growth = 85;
+    else if (c.dailyChange >= 0) growth = 75;
+    else if (c.dailyChange > -2) growth = 65;
+    else growth = 50;
+  }
+
+  // 5. Efficiency / Dividend
+  let efficiency = 65;
+  if (c.dividendYield !== undefined && c.dividendYield > 0) {
+    if (c.dividendYield > 6) efficiency = 95;
+    else if (c.dividendYield > 3) efficiency = 80;
+    else efficiency = 70;
+  }
+
+  const overallScore = Math.round(
+    valuation * 0.25 + profitability * 0.25 + leverage * 0.2 + growth * 0.15 + efficiency * 0.15
+  );
+
+  return {
+    overallScore,
+    dimensions: {
+      valuation,
+      profitability,
+      leverage,
+      growth,
+      efficiency,
+    },
+  };
+}
+

@@ -22,6 +22,8 @@ import { useDefterStore } from "@/lib/store";
 import { Company } from "@/lib/mockData";
 import DataStatusBadge from "@/components/DataStatusBadge";
 import { isLiveSymbol } from "@/lib/liveSymbols";
+import { HealthRadarChart } from "@/components/HealthRadarChart";
+import { calculateCompanyHealth } from "@/lib/healthScore";
 
 function formatPrice(val?: number, cur?: string) {
   if (val === undefined || val === null) return "—";
@@ -80,93 +82,111 @@ function KarsilastirContent() {
   };
 
   const handleRemoveSymbol = (sym: string) => {
-    const next = selectedSymbols.filter((s) => s !== sym.toUpperCase());
+    const next = selectedSymbols.filter((s) => s.toUpperCase() !== sym.toUpperCase());
     setSelectedSymbols(next);
     router.replace(`/karsilastir?semboller=${next.join(",")}`);
   };
 
-  // Metric analysis helpers for smart highlighting
+  // Compute best values for highlight
   const bestPe = useMemo(() => {
-    const valid = selectedCompanies.map((c) => c.peRatio).filter((pe): pe is number => pe !== undefined && pe > 0);
-    return valid.length > 0 ? Math.min(...valid) : null;
+    const pes = selectedCompanies.map((c) => c.peRatio).filter((pe): pe is number => pe !== undefined && pe > 0);
+    return pes.length > 0 ? Math.min(...pes) : null;
   }, [selectedCompanies]);
 
   const bestPb = useMemo(() => {
-    const valid = selectedCompanies.map((c) => c.pbRatio).filter((pb): pb is number => pb !== undefined && pb > 0);
-    return valid.length > 0 ? Math.min(...valid) : null;
+    const pbs = selectedCompanies.map((c) => c.pbRatio).filter((pb): pb is number => pb !== undefined && pb > 0);
+    return pbs.length > 0 ? Math.min(...pbs) : null;
   }, [selectedCompanies]);
 
   const bestDividend = useMemo(() => {
-    const valid = selectedCompanies.map((c) => c.dividendYield).filter((d): d is number => d !== undefined && d > 0);
-    return valid.length > 0 ? Math.max(...valid) : null;
+    const divs = selectedCompanies.map((c) => c.dividendYield).filter((d): d is number => d !== undefined && d > 0);
+    return divs.length > 0 ? Math.max(...divs) : null;
   }, [selectedCompanies]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-8 animate-in fade-in">
+    <div className="max-w-6xl mx-auto p-4 sm:p-8 space-y-6 animate-in fade-in duration-300">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[var(--line)] pb-6">
-        <div>
-          <Link
-            href="/sirketler"
-            className="inline-flex items-center gap-1.5 text-xs font-mono text-[var(--mist)] hover:text-[var(--brass)] transition-colors mb-2"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Şirketler Listesine Dön</span>
-          </Link>
-          <h1 className="font-serif text-3xl sm:text-4xl text-[var(--paper)] font-medium flex items-center gap-3">
-            <Scale className="w-8 h-8 text-[var(--brass)]" />
-            <span>Şirket &amp; Varlık Karşılaştırma</span>
-          </h1>
-          <p className="text-xs font-mono text-[var(--mist)] mt-1.5">
-            Yan yana temel değerleme çarpanları, kârlılık rasyoları, temettü verimi ve piyasa performansı kıyaslaması.
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <Link
+              href="/sirketler"
+              className="text-[var(--mist)] hover:text-[var(--paper)] transition-colors p-1 -ml-1 rounded"
+              title="Şirketler Listesine Dön"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Link>
+            <div className="w-8 h-8 rounded-lg bg-[rgba(201,162,75,0.15)] border border-[var(--brass-dim)] flex items-center justify-center text-[var(--brass)]">
+              <Scale className="w-4 h-4" />
+            </div>
+            <h1 className="font-serif text-2xl font-bold text-[var(--paper)]">
+              Şirket &amp; Varlık Karşılaştırma
+            </h1>
+          </div>
+          <p className="text-xs font-mono text-[var(--mist)] pl-7">
+            Seçtiğiniz varlıkların çarpanlarını, temettü verimlerini, radar sağlık boyutlarını ve finansal performanslarını yan yana inceleyin.
           </p>
         </div>
 
-        {/* Selected Counter & Add Button */}
-        <div className="flex items-center gap-3">
-          <span className="font-mono text-xs text-[var(--mist)]">
-            Seçili: <strong className="text-[var(--paper)]">{selectedCompanies.length}/4</strong> Şirket
-          </span>
+        {/* Selected Badges & Add Button */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {selectedSymbols.map((sym) => (
+            <span
+              key={sym}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[var(--ink-2)] border border-[var(--brass-dim)] text-xs font-mono font-bold text-[var(--paper)] shadow"
+            >
+              <span>{sym}</span>
+              <button
+                type="button"
+                onClick={() => handleRemoveSymbol(sym)}
+                className="text-[var(--mist)] hover:text-[var(--loss)] p-0.5 rounded cursor-pointer transition-colors"
+                title="Kaldır"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
 
-          {selectedCompanies.length < 4 && (
+          {selectedSymbols.length < 4 && (
             <div className="relative">
               <button
+                type="button"
                 onClick={() => setIsSearchOpen(!isSearchOpen)}
-                className="bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold text-xs px-3.5 py-2 rounded flex items-center gap-1.5 cursor-pointer shadow transition-all active:scale-95"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] text-xs font-bold font-mono transition-all shadow active:scale-95 cursor-pointer"
               >
-                <Plus className="w-4 h-4" />
-                <span>Şirket Ekle</span>
+                <Plus className="w-3.5 h-3.5" />
+                <span>Varlık Ekle ({selectedSymbols.length}/4)</span>
               </button>
 
               {isSearchOpen && (
-                <div className="absolute right-0 mt-2 w-72 bg-[var(--ink-2)] border border-[var(--brass-dim)] rounded-xl p-3 shadow-2xl z-50 space-y-2">
+                <div className="absolute right-0 top-full mt-2 w-64 bg-[var(--ink-2)] border border-[var(--brass-dim)] rounded-xl shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 space-y-2">
                   <div className="relative">
-                    <Search className="w-3.5 h-3.5 text-[var(--mist)] absolute left-2.5 top-3" />
+                    <Search className="w-3.5 h-3.5 text-[var(--mist)] absolute left-2.5 top-2.5" />
                     <input
                       type="text"
+                      autoFocus
+                      placeholder="Şirket, fon veya emtia ara..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Sembol veya şirket ara..."
-                      autoFocus
-                      className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded p-2 pl-8 text-xs text-[var(--paper)] font-mono outline-none focus:border-[var(--brass)]"
+                      className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded-lg pl-8 pr-2 py-1.5 text-xs font-mono text-[var(--paper)] outline-none focus:border-[var(--brass)]"
                     />
                   </div>
 
-                  <div className="max-h-56 overflow-y-auto divide-y divide-[var(--line)] font-mono text-xs">
+                  <div className="max-h-48 overflow-y-auto space-y-1 font-mono text-xs">
                     {availableCompanies.length === 0 ? (
-                      <div className="py-3 text-center text-[var(--mist)] text-[11px]">Şirket bulunamadı.</div>
+                      <div className="p-2 text-center text-[var(--mist)] text-[11px]">Sonuç bulunamadı</div>
                     ) : (
                       availableCompanies.map((c) => (
                         <button
                           key={c.id}
                           onClick={() => handleAddSymbol(c.symbol)}
-                          className="w-full text-left p-2 hover:bg-[var(--ink-3)] flex items-center justify-between transition-colors cursor-pointer"
+                          className="w-full text-left p-2 hover:bg-[var(--ink-3)] flex items-center justify-between transition-colors cursor-pointer rounded"
                         >
                           <div>
-                            <span className="font-bold text-[var(--paper)]">{c.symbol}</span>
-                            <span className="text-[10px] text-[var(--mist)] block truncate max-w-[140px]">{c.name}</span>
+                            <span className="font-bold text-[var(--paper)] block">{c.symbol}</span>
+                            <span className="text-[10px] text-[var(--mist)]">{c.name}</span>
                           </div>
-                          <span className="text-[11px] text-[var(--brass)]">{formatPrice(c.price, c.currency)}</span>
+                          <span className="text-[10px] text-[var(--brass)]">{formatPrice(c.price, c.currency)}</span>
                         </button>
                       ))
                     )}
@@ -181,15 +201,45 @@ function KarsilastirContent() {
       {selectedCompanies.length === 0 ? (
         <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-2xl p-12 text-center space-y-4">
           <ArrowRightLeft className="w-12 h-12 text-[var(--mist)] mx-auto opacity-50" />
-          <h3 className="font-serif text-xl text-[var(--paper)] font-medium">Karşılaştırılacak Şirket Seçilmedi</h3>
+          <h3 className="font-serif text-xl text-[var(--paper)] font-medium">Karşılaştırılacak Varlık Seçilmedi</h3>
           <p className="text-xs font-mono text-[var(--mist)] max-w-md mx-auto">
-            Yukarıdaki &quot;Şirket Ekle&quot; butonuyla veya şirket detay sayfalarındaki &quot;Karşılaştır&quot; bağlantısıyla listeye en fazla 4 şirket ekleyebilirsiniz.
+            Yukarıdaki &quot;Varlık Ekle&quot; butonuyla veya şirket detay sayfalarındaki &quot;Karşılaştır&quot; bağlantısıyla listeye en fazla 4 varlık ekleyebilirsiniz.
           </p>
         </div>
       ) : (
-        <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-2xl shadow-xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left font-mono text-xs border-collapse">
+        <div className="space-y-6">
+          {/* Radar Dimension Comparison Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {selectedCompanies.map((c, idx) => {
+              const health = calculateCompanyHealth(c);
+              const radarData = [
+                { subject: "Değerleme", score: health.dimensions.valuation, fullMark: 100 },
+                { subject: "Kârlılık", score: health.dimensions.profitability, fullMark: 100 },
+                { subject: "Borçluluk", score: health.dimensions.leverage, fullMark: 100 },
+                { subject: "Büyüme", score: health.dimensions.growth, fullMark: 100 },
+                { subject: "Verim", score: health.dimensions.efficiency, fullMark: 100 },
+              ];
+              const colors = ["#10b981", "#38bdf8", "#f59e0b", "#a855f7"];
+              return (
+                <div
+                  key={c.id}
+                  className="bg-[var(--ink-2)] border border-[var(--line)] rounded-2xl p-4 flex flex-col items-center shadow-lg"
+                >
+                  <div className="flex items-center justify-between w-full mb-1 border-b border-[var(--line)] pb-2">
+                    <span className="font-serif font-bold text-sm text-[var(--paper)]">{c.symbol}</span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[rgba(201,162,75,0.15)] text-[var(--brass)] border border-[var(--brass-dim)]">
+                      Skor: {health.overallScore}/100
+                    </span>
+                  </div>
+                  <HealthRadarChart data={radarData} color={colors[idx % colors.length]} />
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-2xl shadow-xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left font-mono text-xs border-collapse">
               <thead>
                 <tr className="border-b border-[var(--line)] bg-[var(--ink-3)]">
                   <th className="p-4 w-48 text-[var(--mist)] uppercase text-[11px] font-semibold">
@@ -363,6 +413,7 @@ function KarsilastirContent() {
             </table>
           </div>
         </div>
+      </div>
       )}
     </div>
   );

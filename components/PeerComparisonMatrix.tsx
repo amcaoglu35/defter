@@ -8,6 +8,8 @@ import StampBadge from "@/components/StampBadge";
 import DataStatusBadge from "@/components/DataStatusBadge";
 import { isLiveSymbol } from "@/lib/liveSymbols";
 
+import { getSimilarCompanies } from "@/lib/similarityService";
+
 interface PeerComparisonMatrixProps {
   currentCompany: Company;
   allCompanies: Company[];
@@ -17,17 +19,14 @@ export default function PeerComparisonMatrix({
   currentCompany,
   allCompanies,
 }: PeerComparisonMatrixProps) {
-  // Find peer companies in the same sector or same indexTag, excluding the current company
-  const peers = React.useMemo(() => {
-    const sameSector = allCompanies.filter(
-      (c) =>
-        c.symbol !== currentCompany.symbol &&
-        (c.sector === currentCompany.sector || (c.exchange === currentCompany.exchange && c.assetClass === currentCompany.assetClass))
-    );
-
-    // Prioritize same sector, take top 4 peers
-    return sameSector.slice(0, 4);
+  // Use multi-factor algorithmic similarity scoring
+  const peerMatches = React.useMemo(() => {
+    return getSimilarCompanies(currentCompany, allCompanies, 4);
   }, [currentCompany, allCompanies]);
+
+  const peers = React.useMemo(() => {
+    return peerMatches.map((m) => m.company);
+  }, [peerMatches]);
 
   if (peers.length === 0) return null;
 

@@ -1958,6 +1958,9 @@ export default function SirketDetayPage() {
               </div>
             </div>
           )}
+
+          {/* Sektörel Emsal Kıyaslama Radarı (Peer Comparison Matrix) */}
+          <PeerComparisonMatrix currentCompany={company} allCompanies={companies} />
         </div>
 
         {/* Right 1 Col: Analyst Targets, Calendar, Profile, Notes & Actions */}
