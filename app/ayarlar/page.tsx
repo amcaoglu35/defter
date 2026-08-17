@@ -24,10 +24,13 @@ import {
   Rocket,
   Scale,
   ShieldCheck,
+  FileText,
 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import { useToast } from "@/components/ToastProvider";
 import ConfirmModal from "@/components/ConfirmModal";
+import ForeignTaxModal from "@/components/ForeignTaxModal";
+import PrivacyPinModal from "@/components/PrivacyPinModal";
 
 export default function AyarlarPage() {
   const {
@@ -98,6 +101,9 @@ export default function AyarlarPage() {
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [isTaxModalOpen, setIsTaxModalOpen] = useState(false);
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [isVaultLocked, setIsVaultLocked] = useState(false);
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
@@ -909,6 +915,52 @@ export default function AyarlarPage() {
         </div>
       </section>
 
+      {/* 6.5 İleri Seviye Finansal Araçlar & Kriptografik Kasa */}
+      <section className="bg-[var(--ink-2)] border border-[var(--brass-dim)] rounded-xl p-6 sm:p-8 space-y-5">
+        <div className="flex items-center gap-2.5 text-[var(--brass)] font-serif text-xl font-medium border-b border-[var(--line)] pb-3">
+          <ShieldCheck className="w-5 h-5" />
+          <h2>İleri Düzey Finansal Araçlar &amp; Şifreleme</h2>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-mono text-xs">
+          {/* Tool 1: Foreign Tax */}
+          <div className="bg-[var(--ink-3)] border border-[var(--line)] rounded-xl p-4 space-y-3">
+            <div className="flex items-center gap-2 text-[var(--brass)] font-bold">
+              <FileText className="w-4 h-4" />
+              <span>Yabancı Hisse &amp; Eurobond Vergi Asistanı</span>
+            </div>
+            <p className="text-[11px] text-[var(--mist)] leading-relaxed">
+              GVK 86. Madde beyanname haddi, ABD W-8BEN %20 stopaj mahsubu ve tahmini vergi hesabı.
+            </p>
+            <button
+              type="button"
+              onClick={() => setIsTaxModalOpen(true)}
+              className="w-full py-2 bg-[var(--ink-2)] hover:bg-[var(--ink)] border border-[var(--brass-dim)] text-[var(--brass)] rounded font-bold transition-all cursor-pointer"
+            >
+              Vergi Hesaplayıcıyı Aç
+            </button>
+          </div>
+
+          {/* Tool 2: AES-256 Vault */}
+          <div className="bg-[var(--ink-3)] border border-[var(--line)] rounded-xl p-4 space-y-3">
+            <div className="flex items-center gap-2 text-[var(--verdigris)] font-bold">
+              <Lock className="w-4 h-4" />
+              <span>AES-256 PIN Korumalı Gizlilik Kasası</span>
+            </div>
+            <p className="text-[11px] text-[var(--mist)] leading-relaxed">
+              Web Crypto API ile portföy bakiyelerini ekranda kilitleyip PIN şifreli kasaya dönüştürün.
+            </p>
+            <button
+              type="button"
+              onClick={() => setIsPinModalOpen(true)}
+              className="w-full py-2 bg-[var(--ink-2)] hover:bg-[var(--ink)] border border-[var(--verdigris)]/40 text-[var(--verdigris)] rounded font-bold transition-all cursor-pointer"
+            >
+              PIN Şifreleme Kasasını Yönet
+            </button>
+          </div>
+        </div>
+      </section>
+
       {/* 7. Veri Yönetimi, İndirme & Sıfırlama */}
       <section className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 sm:p-8 space-y-5">
         <div className="flex items-center gap-2.5 text-[var(--brass)] font-serif text-xl font-medium border-b border-[var(--line)] pb-3">
@@ -966,6 +1018,21 @@ export default function AyarlarPage() {
         confirmText="Tüm Verileri Sıfırla"
         cancelText="Vazgeç"
         variant="danger"
+      />
+
+      {/* Foreign Stock & Eurobond Tax Assistant Modal */}
+      <ForeignTaxModal
+        isOpen={isTaxModalOpen}
+        onClose={() => setIsTaxModalOpen(false)}
+      />
+
+      {/* Zero-Knowledge AES-256 Privacy PIN Modal */}
+      <PrivacyPinModal
+        isOpen={isPinModalOpen}
+        onClose={() => setIsPinModalOpen(false)}
+        isVaultLocked={isVaultLocked}
+        onLockSuccess={() => setIsVaultLocked(true)}
+        onUnlockSuccess={() => setIsVaultLocked(false)}
       />
     </div>
   );

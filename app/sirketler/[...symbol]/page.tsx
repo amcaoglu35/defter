@@ -59,6 +59,8 @@ import { DeepCompanyData } from "@/app/api/prices/deep/route";
 import { TradingViewChart } from "@/components/TradingViewChart";
 import TechnicalAnalysisPanel from "@/components/TechnicalAnalysisPanel";
 import { DuPontAnalysisCard } from "@/components/DuPontAnalysisCard";
+import { FinancialHealthScoreCard } from "@/components/FinancialHealthScoreCard";
+import DcaBacktestModal from "@/components/DcaBacktestModal";
 
 interface CompanyDiagnosisReport {
   valuationScore?: number | string;
@@ -110,6 +112,7 @@ export default function SirketDetayPage() {
   const [txToDelete, setTxToDelete] = useState<Transaction | null>(null);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [alertModalOpen, setAlertModalOpen] = useState(false);
+  const [dcaModalOpen, setDcaModalOpen] = useState(false);
   const [isAlertHistoryOpen, setIsAlertHistoryOpen] = useState(false);
   const [aiReport, setAiReport] = useState<CompanyDiagnosisReport | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -610,6 +613,16 @@ export default function SirketDetayPage() {
             <span>{company.inWatchlist ? "İzleniyor" : "İzlemeye Al"}</span>
           </button>
 
+          {/* DCA Historical Backtest Trigger */}
+          <button
+            onClick={() => setDcaModalOpen(true)}
+            className="border border-purple-500/30 hover:border-purple-400 text-purple-300 bg-purple-500/10 px-3 py-1.5 rounded text-xs font-mono flex items-center gap-1.5 transition-all shadow cursor-pointer"
+            title="Geçmiş düzenli alım kümülatif getiri simülasyonu"
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            <span>DCA Backtest</span>
+          </button>
+
           {/* Buy/Sell Transaction Trigger */}
           <button
             onClick={() => setTxModalOpen(true)}
@@ -705,6 +718,9 @@ export default function SirketDetayPage() {
 
           {/* DuPont Return on Equity (ROE) 3-Pillar Decomposition Card */}
           <DuPontAnalysisCard company={company} />
+
+          {/* Piotroski F-Score (0-9) & Altman Z-Score Bankruptcy/Solvency Model */}
+          <FinancialHealthScoreCard company={company} />
 
           {/* Google / Yahoo Finance Live Market & Likidity Card */}
           <div className="bg-[var(--ink-2)] border border-[var(--brass-dim)] rounded-xl p-6 space-y-5">
@@ -2339,6 +2355,15 @@ export default function SirketDetayPage() {
         description="Bu yatırım notunu kalıcı olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz."
         confirmText="Evet, Sil"
         isDestructive
+      />
+
+      {/* DCA Historical Backtesting Modal */}
+      <DcaBacktestModal
+        isOpen={dcaModalOpen}
+        onClose={() => setDcaModalOpen(false)}
+        symbol={company.symbol}
+        currency={company.currency}
+        historicalData={historyData || []}
       />
     </div>
   );

@@ -35,6 +35,8 @@ import { isLiveSymbol } from "@/lib/liveSymbols";
 import { exportBasketToExcel } from "@/lib/exportUtils";
 import { BasketRiskMetricsCard } from "@/components/BasketRiskMetricsCard";
 import { CorrelationMatrixCard } from "@/components/CorrelationMatrixCard";
+import { BasketTreemap } from "@/components/BasketTreemap";
+import { RealReturnBadge } from "@/components/RealReturnBadge";
 import MonteCarloSimulatorModal from "@/components/MonteCarloSimulatorModal";
 import RebalanceModal from "@/components/RebalanceModal";
 
@@ -285,6 +287,9 @@ export default function SepetDetayPage() {
               {isPrivacyMode ? "•••••• ₺" : `${isProfitPositive ? "+" : ""}${basket.totalProfitPercent}% Toplam Kazanç`}
             </span>
           </div>
+          <div className="mt-1.5 flex md:justify-end">
+            <RealReturnBadge nominalReturnPct={basket.totalProfitPercent} />
+          </div>
         </div>
       </div>
 
@@ -447,6 +452,9 @@ export default function SepetDetayPage() {
 
       {/* Cross-Asset Pearson Correlation Heatmap */}
       <CorrelationMatrixCard basket={basket} companies={companies} />
+
+      {/* Sectoral & Asset Class Treemap */}
+      <BasketTreemap basket={basket} companies={companies} />
 
       {/* 4. Holdings Table */}
       <section className="space-y-4">
