@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/orakul-scanner?count=15",
-      "schedule": "0 * * * *"
+      "schedule": "0 6 * * *"
     },
     {
       "path": "/api/cron/orakul-auto-basket",
