@@ -48,6 +48,7 @@ import {
 import { useDefterStore, calculateNetPositionMetrics, Transaction } from "@/lib/store";
 import StampBadge from "@/components/StampBadge";
 import DataStatusBadge from "@/components/DataStatusBadge";
+import { getSymbolTicker } from "@/lib/liveSymbols";
 import TransactionModal from "@/components/TransactionModal";
 import ShareCardModal from "@/components/ShareCardModal";
 import PriceAlertModal from "@/components/PriceAlertModal";
@@ -307,6 +308,36 @@ export default function SirketDetayPage() {
     };
   }, [company]);
 
+  // Fetch Real Live Historical Price Series
+  useEffect(() => {
+    if (!company) return;
+    let isCancelled = false;
+    setHistoryLoading(true);
+
+    const periodParam = period === "1A" ? "1m" : period === "3A" ? "3m" : period === "6A" ? "6m" : "1y";
+    const ticker = getSymbolTicker(company.symbol);
+
+    fetch(`/api/prices/history?symbol=${encodeURIComponent(ticker)}&period=${periodParam}`)
+      .then((res) => res.json())
+      .then((res) => {
+        if (!isCancelled && res.success && Array.isArray(res.data) && res.data.length >= 2) {
+          setHistoryData(res.data);
+        } else if (!isCancelled) {
+          setHistoryData(null);
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) setHistoryData(null);
+      })
+      .finally(() => {
+        if (!isCancelled) setHistoryLoading(false);
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [company, period]);
+
   // Dynamic Sector Peer Averages & Peer List (Real calculation from kütük)
   const { sectorMetrics, peerList } = useMemo(() => {
     if (!company) return { sectorMetrics: { avgPe: null, avgPb: null, peerCount: 0 }, peerList: [] };
@@ -336,119 +367,24 @@ export default function SirketDetayPage() {
     };
   }, [companies, company]);
 
-  // Dynamic Chart Points & Date Labels (Uses 100% Real Live History if available, else smooth calibrated curve)
+  // Dynamic Chart Points & Date Labels (Uses 100% Real Live History from Yahoo/BIST)
   const chartData = useMemo(() => {
-    if (!company) return { points: [], pathD: "", areaD: "", labels: [], minPrice: 0, maxPrice: 0, isLive: false };
+    if (!company || !historyData || historyData.length < 2) {
+      return { points: [], pathD: "", areaD: "", labels: [], minPrice: 0, maxPrice: 0, isLive: false };
+    }
 
     const svgWidth = 500;
     const svgHeight = 120;
 
-    // IF REAL HISTORICAL DATA IS AVAILABLE
-    if (historyData && historyData.length >= 2) {
-      const values = historyData.map((d) => d.close);
-      const minPrice = Math.min(...values);
-      const maxPrice = Math.max(...values);
-      const range = maxPrice - minPrice || 1;
-
-      const coords = values.map((v, idx) => {
-        const x = (idx / (values.length - 1)) * svgWidth;
-        const y = svgHeight - ((v - minPrice) / range) * (svgHeight - 24) - 12;
-        return { x, y, val: v, date: historyData[idx].date };
-      });
-
-      let pathD = `M ${coords[0].x},${coords[0].y}`;
-      for (let i = 0; i < coords.length - 1; i++) {
-        const curr = coords[i];
-        const next = coords[i + 1];
-        const cpX = (curr.x + next.x) / 2;
-        pathD += ` C ${cpX},${curr.y} ${cpX},${next.y} ${next.x},${next.y}`;
-      }
-
-      const areaD = `${pathD} L ${svgWidth},${svgHeight} L 0,${svgHeight} Z`;
-
-      // Generate 5-6 date labels evenly spaced
-      const labelIndices = [0, Math.floor(historyData.length * 0.25), Math.floor(historyData.length * 0.5), Math.floor(historyData.length * 0.75), historyData.length - 1];
-      const labels = labelIndices.map((idx) => {
-        const d = historyData[idx];
-        if (!d) return "";
-        try {
-          const dt = new Date(d.date);
-          return dt.toLocaleDateString("tr-TR", { day: "numeric", month: "short" });
-        } catch {
-          return d.date;
-        }
-      });
-
-      return { points: coords, pathD, areaD, labels, minPrice, maxPrice, isLive: true };
-    }
-
-    // FALLBACK CALIBRATED CURVE
-    const currentPrice = company.price || 100;
-    const dailyChg = company.dailyChange || 0;
-
-    let stepCount = 6;
-    let labels: string[] = [];
-    const now = new Date();
-
-    if (period === "1A") {
-      stepCount = 6;
-      labels = ["30 Gün", "24 Gün", "18 Gün", "12 Gün", "6 Gün", "Bugün"];
-    } else if (period === "3A") {
-      stepCount = 6;
-      labels = ["90 Gün", "72 Gün", "54 Gün", "36 Gün", "18 Gün", "Bugün"];
-    } else if (period === "6A") {
-      stepCount = 6;
-      const months = ["Oca", "Şub", "Mar", "Nis", "May", "Haz", "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara"];
-      const currentMonthIdx = now.getMonth();
-      labels = Array.from({ length: 6 }).map((_, i) => {
-        const mIdx = (currentMonthIdx - 5 + i + 12) % 12;
-        return i === 5 ? `${months[mIdx]} (Son)` : months[mIdx];
-      });
-    } else {
-      stepCount = 7;
-      labels = ["12 Ay Önce", "10 Ay", "8 Ay", "6 Ay", "4 Ay", "2 Ay", "Bugün"];
-    }
-
-    // Deterministic seed based on symbol
-    let seed = 0;
-    for (let i = 0; i < company.symbol.length; i++) {
-      seed = (seed << 5) - seed + company.symbol.charCodeAt(i);
-      seed |= 0;
-    }
-    const pseudoRandom = (step: number) => {
-      const x = Math.sin(seed + step * 433) * 10000;
-      return x - Math.floor(x);
-    };
-
-    const betaFactor = company.beta && company.beta > 0 ? company.beta : 1.0;
-    const volatility = currentPrice * (period === "1A" ? 0.04 : period === "3A" ? 0.09 : period === "6A" ? 0.16 : 0.28) * betaFactor;
-    
-    let startPrice = currentPrice;
-    if (period === "1Y" && company.oneYearReturn !== undefined && company.oneYearReturn !== null) {
-      startPrice = currentPrice / (1 + (company.oneYearReturn / 100));
-    } else {
-      const trendFactor = (dailyChg >= 0 ? 0.06 : -0.06) * (period === "1A" ? 0.5 : period === "3A" ? 1.0 : 1.5);
-      startPrice = currentPrice * (1 - trendFactor);
-    }
-
-    const values: number[] = [];
-    for (let i = 0; i < stepCount; i++) {
-      const progress = i / (stepCount - 1);
-      const noise = (pseudoRandom(i) - 0.5) * volatility * (1 - progress * 0.75);
-      const trend = startPrice + (currentPrice - startPrice) * progress;
-      const p = Math.max(trend + noise, currentPrice * 0.15);
-      values.push(p);
-    }
-    values[values.length - 1] = currentPrice;
-
+    const values = historyData.map((d) => d.close);
     const minPrice = Math.min(...values);
     const maxPrice = Math.max(...values);
     const range = maxPrice - minPrice || 1;
 
     const coords = values.map((v, idx) => {
-      const x = (idx / (stepCount - 1)) * svgWidth;
+      const x = (idx / (values.length - 1)) * svgWidth;
       const y = svgHeight - ((v - minPrice) / range) * (svgHeight - 24) - 12;
-      return { x, y, val: v };
+      return { x, y, val: v, date: historyData[idx].date };
     });
 
     let pathD = `M ${coords[0].x},${coords[0].y}`;
@@ -461,8 +397,20 @@ export default function SirketDetayPage() {
 
     const areaD = `${pathD} L ${svgWidth},${svgHeight} L 0,${svgHeight} Z`;
 
-    return { points: coords, pathD, areaD, labels, minPrice, maxPrice, isLive: false };
-  }, [company, period, historyData]);
+    const labelIndices = [0, Math.floor(historyData.length * 0.25), Math.floor(historyData.length * 0.5), Math.floor(historyData.length * 0.75), historyData.length - 1];
+    const labels = labelIndices.map((idx) => {
+      const d = historyData[idx];
+      if (!d) return "";
+      try {
+        const dt = new Date(d.date);
+        return dt.toLocaleDateString("tr-TR", { day: "numeric", month: "short" });
+      } catch {
+        return d.date;
+      }
+    });
+
+    return { points: coords, pathD, areaD, labels, minPrice, maxPrice, isLive: true };
+  }, [company, historyData]);
 
   if (!company) {
     return (
