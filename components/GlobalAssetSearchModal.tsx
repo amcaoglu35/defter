@@ -56,21 +56,7 @@ export default function GlobalAssetSearchModal({
   const [isSaving, setIsSaving] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Sync initial query
-  useEffect(() => {
-    if (isOpen) {
-      setQuery(initialQuery);
-      if (initialQuery.trim().length > 0) {
-        performSearch(initialQuery);
-      }
-      setTimeout(() => inputRef.current?.focus(), 100);
-    } else {
-      setSelectedResult(null);
-      setLookupData(null);
-      setResults([]);
-    }
-  }, [isOpen, initialQuery]);
+  const isMountedRef = useRef<boolean>(true);
 
   // Debounced search
   const performSearch = useCallback(async (searchTxt: string) => {
@@ -85,17 +71,36 @@ export default function GlobalAssetSearchModal({
     try {
       const res = await fetch(`/api/prices/search?q=${encodeURIComponent(q)}`);
       const json = await res.json();
-      if (json.success && Array.isArray(json.results)) {
+      if (isMountedRef.current && json.success && Array.isArray(json.results)) {
         setResults(json.results);
-      } else {
+      } else if (isMountedRef.current) {
         setResults([]);
       }
     } catch {
-      setResults([]);
+      if (isMountedRef.current) setResults([]);
     } finally {
-      setIsSearching(false);
+      if (isMountedRef.current) setIsSearching(false);
     }
   }, []);
+
+  // Sync initial query
+  useEffect(() => {
+    isMountedRef.current = true;
+    if (isOpen) {
+      setQuery(initialQuery);
+      if (initialQuery.trim().length > 0) {
+        performSearch(initialQuery);
+      }
+      setTimeout(() => inputRef.current?.focus(), 100);
+    } else {
+      setSelectedResult(null);
+      setLookupData(null);
+      setResults([]);
+    }
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [isOpen, initialQuery, performSearch]);
 
   // Handle Query Change with debounce
   useEffect(() => {

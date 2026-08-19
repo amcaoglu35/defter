@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   Brain,
   Sparkles,
@@ -71,8 +71,8 @@ export function AiModelPortfolios() {
     }
   };
 
-  const handleCloneBasket = (modelBasket: AiModelBasket) => {
-    const newBasketId = `basket-${Date.now()}`;
+  const handleCloneBasket = useCallback((modelBasket: AiModelBasket) => {
+    const newBasketId = `basket-${modelBasket.theme.toLowerCase().replace(/[^a-z0-9]/g, "-").slice(0, 15)}-${Math.floor(Math.random() * 100000)}`;
     const newHoldings = modelBasket.allocation.map((alloc) => {
       const co = companies.find((c) => c.symbol === alloc.symbol);
       const price = co?.price || alloc.priceAtCreation;
@@ -96,16 +96,16 @@ export function AiModelPortfolios() {
       dailyChange: 0,
       totalProfitPercent: 0,
       description: modelBasket.summary,
-      aiNote: `Otonom model portföyünden ${new Date().toLocaleDateString("tr-TR")} tarihinde kopyalandı.`,
+      aiNote: `Otonom model portföyünden kopyalandı.`,
       holdings: newHoldings,
     });
 
     showToast(
-      "Sepet Kütüğe Kopyalandı",
-      `"${modelBasket.theme}" sepetlerinize eklendi. Sepetler sayfasından yönetebilirsiniz.`,
+      "Sepet Kopyalandı",
+      `"${modelBasket.theme}" başarıyla kütüğünüze eklendi.`,
       "success"
     );
-  };
+  }, [companies, createBasket, showToast]);
 
   return (
     <div className="space-y-6">

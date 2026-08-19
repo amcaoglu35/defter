@@ -41,6 +41,7 @@ export function useBasketRiskAnalytics(
 
   useEffect(() => {
     if (!basket || !basket.holdings || basket.holdings.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Sepet boşaldığında analitik state sıfırlama
       setHoldingSeriesMap(new Map());
       setBenchmarkPriceSeries([]);
       setIsLoading(false);

@@ -412,6 +412,44 @@ export default function SirketDetayPage() {
     return { points: coords, pathD, areaD, labels, minPrice, maxPrice, isLive: true };
   }, [company, historyData]);
 
+  const companyTriggeredAlerts = useMemo(() => {
+    if (!company || !Array.isArray(triggeredAlerts)) return [];
+    return triggeredAlerts.filter(
+      (a) => a.symbol.toUpperCase() === company.symbol.toUpperCase()
+    );
+  }, [company, triggeredAlerts]);
+
+  // User's Position & Net Profit Metrics (Commission & BSMV)
+  const positionMetrics = useMemo(() => {
+    if (!company) return null;
+    const companyTxList = transactions.filter((t) => t.companySymbol === company.symbol);
+    if (companyTxList.length === 0) return null;
+    let buyQty = 0;
+    let buyCost = 0;
+    let sellQty = 0;
+
+    for (const tx of companyTxList) {
+      if (tx.type === "BUY") {
+        buyQty += tx.quantity;
+        buyCost += tx.totalAmount;
+      } else if (tx.type === "SELL") {
+        sellQty += tx.quantity;
+      }
+    }
+
+    const currentQty = Math.max(0, buyQty - sellQty);
+    if (currentQty <= 0) return null;
+
+    const avgCost = buyQty > 0 ? buyCost / buyQty : company.price;
+    return calculateNetPositionMetrics(
+      currentQty,
+      avgCost,
+      company.price,
+      userSettings.commissionRate ?? 0.15,
+      userSettings.bsmvRate ?? 5
+    );
+  }, [company, transactions, userSettings.commissionRate, userSettings.bsmvRate]);
+
   if (!company) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-20 text-center space-y-4 font-mono">
@@ -436,42 +474,6 @@ export default function SirketDetayPage() {
   const companyTransactions = transactions.filter(
     (t) => t.companySymbol === company.symbol
   );
-
-  const companyTriggeredAlerts = useMemo(() => {
-    if (!company || !Array.isArray(triggeredAlerts)) return [];
-    return triggeredAlerts.filter(
-      (a) => a.symbol.toUpperCase() === company.symbol.toUpperCase()
-    );
-  }, [company, triggeredAlerts]);
-
-  // User's Position & Net Profit Metrics (Commission & BSMV)
-  const positionMetrics = useMemo(() => {
-    if (!company || companyTransactions.length === 0) return null;
-    let buyQty = 0;
-    let buyCost = 0;
-    let sellQty = 0;
-
-    for (const tx of companyTransactions) {
-      if (tx.type === "BUY") {
-        buyQty += tx.quantity;
-        buyCost += tx.totalAmount;
-      } else if (tx.type === "SELL") {
-        sellQty += tx.quantity;
-      }
-    }
-
-    const currentQty = Math.max(0, buyQty - sellQty);
-    if (currentQty <= 0) return null;
-
-    const avgCost = buyQty > 0 ? buyCost / buyQty : company.price;
-    return calculateNetPositionMetrics(
-      currentQty,
-      avgCost,
-      company.price,
-      userSettings?.commissionRate ?? 0.15,
-      userSettings?.bsmvRate ?? 5
-    );
-  }, [company, companyTransactions, userSettings]);
 
   const handleAddNote = (e: React.FormEvent) => {
     e.preventDefault();

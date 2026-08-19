@@ -38,6 +38,7 @@ export default function TransactionModal({
   const [confettiActive, setConfettiActive] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Modal formu açılış ve düzenleme senkronizasyonu
     if (editingTransaction) {
       setType(editingTransaction.type);
       setQuantity(editingTransaction.quantity.toString());
@@ -53,11 +54,6 @@ export default function TransactionModal({
       setNote("");
     }
   }, [editingTransaction, defaultPrice, isOpen]);
-
-  // Sync targetBasketId during render if baskets change or target is missing
-  if (baskets.length > 0 && (!targetBasketId || !baskets.some((b) => b.id === targetBasketId))) {
-    setTargetBasketId(baskets[0].id);
-  }
 
   if (!isOpen) return null;
 

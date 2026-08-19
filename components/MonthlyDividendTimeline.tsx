@@ -168,7 +168,7 @@ export default function MonthlyDividendTimeline() {
       <div className="p-3 bg-[var(--ink-3)] rounded-lg border border-[var(--line)] flex items-start gap-2.5 text-xs font-mono text-[var(--mist)]">
         <Info className="w-4 h-4 text-[var(--brass)] shrink-0 mt-0.5" />
         <span className="leading-relaxed">
-          Temettü nakit akışı takvimi, kütüğünüzdeki onaylanmış ve KAP'ta ilan edilmiş brüt/net nakit kâr payı dağıtım tarihlerine göre otomatik hesaplanır.
+          Temettü nakit akışı takvimi, kütüğünüzdeki onaylanmış ve KAP&apos;ta ilan edilmiş brüt/net nakit kâr payı dağıtım tarihlerine göre otomatik hesaplanır.
         </span>
       </div>
     </div>

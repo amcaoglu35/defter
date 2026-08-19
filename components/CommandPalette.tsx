@@ -48,8 +48,6 @@ export default function CommandPalette() {
     setSelectedIndex(-1);
   }, [query]);
 
-  if (!isOpen) return null;
-
   const navigateTo = (path: string) => {
     setIsOpen(false);
     setQuery("");
@@ -120,6 +118,8 @@ export default function CommandPalette() {
   }, [selectedIndex]);
 
   const isSelected = (offset: number) => selectedIndex === offset;
+
+  if (!isOpen) return null;
 
   let globalIdx = 0;
 

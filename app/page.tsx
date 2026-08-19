@@ -975,7 +975,7 @@ export default function HomePage() {
                           <DataStatusBadge symbol={c.symbol} isLive={isLiveSymbol(c.symbol)} />
                         </div>
                         <span className="text-[10px] text-[var(--mist)] font-mono">
-                          {c.symbol} • Hedef: {c.targetMeanPrice?.toLocaleString("tr-TR")} ₺
+                          {c.symbol} • Hedef: {c.targetMeanPrice?.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} {c.currency}
                         </span>
                       </div>
                     </div>
@@ -1217,7 +1217,7 @@ export default function HomePage() {
                           Sepet Değeri
                         </div>
                         <div className="font-mono font-bold text-base text-[var(--ink)]">
-                          {basket.totalValue.toLocaleString("tr-TR")} ₺
+                          {((basket.totalValue || 0) / exchangeRate).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} {currencySymbol}
                         </div>
                       </div>
                       <div className="text-right">

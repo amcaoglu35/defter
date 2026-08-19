@@ -31,7 +31,7 @@ export function calculateForeignStockTax(
   const isDeclarationRequired = grossDividendTry > declarationThresholdTry;
 
   let estimatedTurkishTaxTry = 0;
-  let foreignTaxCreditTry = Number((usTaxUsd * usdTryRate).toFixed(2));
+  const foreignTaxCreditTry = Number((usTaxUsd * usdTryRate).toFixed(2));
   let netPayableTaxTry = 0;
 
   if (isDeclarationRequired) {
