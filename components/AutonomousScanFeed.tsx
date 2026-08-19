@@ -102,8 +102,8 @@ export function AutonomousScanFeed({ onAddHoldingToBasket }: Props) {
       } else {
         throw new Error(data.error || "Tarama başarısız");
       }
-    } catch (err: any) {
-      showToast("Tarama Hatası", err.message || "Bağlantı sağlanamadı", "error");
+    } catch (err: unknown) {
+      showToast("Tarama Hatası", (err instanceof Error ? err.message : String(err)) || "Bağlantı sağlanamadı", "error");
     } finally {
       setIsScanning(false);
     }

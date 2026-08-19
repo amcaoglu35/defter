@@ -428,7 +428,7 @@ ${feedbackContext}
 }
 
 export async function generateOrakulRecipe(
-  req: AiRecipeRequest & { rebalanceContext?: any },
+  req: AiRecipeRequest & { rebalanceContext?: unknown },
   allCompanies: CompanyAnalysisRequest[] = [],
   _apiKey?: string,
   provider: string = "gemini",
@@ -1275,12 +1275,12 @@ async function fetchHistoricalDailyCloses(
       ? new (YahooFinance as unknown as new (opts: { suppressNotices: string[] }) => typeof YahooFinance)({ suppressNotices: ["yahooSurvey"] })
       : YahooFinance;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const chartRes = (await (yf as any).chart(ticker, {
+    type BacktestChartResponse = { quotes?: Array<{ date: Date | string; close?: number }> };
+    const chartRes = (await (yf as unknown as { chart: (sym: string, opts: { period1: Date; period2: Date; interval: string }) => Promise<BacktestChartResponse> }).chart(ticker, {
       period1: startDate,
       period2: endDate,
       interval: "1d",
-    })) as { quotes?: Array<{ date: Date | string; close?: number }> };
+    })) as BacktestChartResponse;
 
     const quotes = (chartRes?.quotes || []).filter(
       (q) => q && q.close != null && !isNaN(q.close) && q.close > 0

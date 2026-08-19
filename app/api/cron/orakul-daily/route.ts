@@ -20,9 +20,16 @@ async function handleDailyCron(req: Request) {
   }
 
   try {
-    let companies = MOCK_COMPANIES;
-    let baskets = MOCK_BASKETS;
+    type RowRecord = Record<string, unknown>;
+
+    const initialCompanies = MOCK_COMPANIES;
+    const initialBaskets = MOCK_BASKETS;
     let userName = "Defter Sahibi";
+
+    const dbRows: { companies: RowRecord[]; baskets: RowRecord[] } = {
+      companies: initialCompanies.map((c) => c as unknown as RowRecord),
+      baskets: initialBaskets.map((b) => b as unknown as RowRecord),
+    };
 
     if (isSupabaseAdminConfigured && supabaseAdmin) {
       const [
@@ -35,25 +42,27 @@ async function handleDailyCron(req: Request) {
         supabaseAdmin.from("user_settings").select("*").eq("id", "default_user").single(),
       ]);
 
-      if (dbCompanies && dbCompanies.length > 0) companies = dbCompanies as any;
-      if (dbBaskets && dbBaskets.length > 0) baskets = dbBaskets as any;
-      if (dbSettings?.user_name) userName = dbSettings.user_name;
+      if (dbCompanies && dbCompanies.length > 0)
+        dbRows.companies = dbCompanies as unknown as RowRecord[];
+      if (dbBaskets && dbBaskets.length > 0)
+        dbRows.baskets = dbBaskets as unknown as RowRecord[];
+      if (dbSettings?.user_name) userName = String(dbSettings.user_name);
     }
 
-    const totalVal = (baskets as any[]).reduce((sum, b) => sum + (b.total_value || b.totalValue || 0), 0) || 500000;
-    const totalCost = (baskets as any[]).reduce((sum, b) => sum + (b.total_cost || b.totalCost || 0), 0) || 450000;
+    const totalVal = dbRows.baskets.reduce((sum, b) => sum + (Number(b["total_value"]) || Number(b["totalValue"]) || 0), 0) || 500000;
+    const totalCost = dbRows.baskets.reduce((sum, b) => sum + (Number(b["total_cost"]) || Number(b["totalCost"]) || 0), 0) || 450000;
 
     // Calculate dynamic weighted daily change and holdingsSummary
     const holdingsMap = new Map<string, { symbol: string; dailyChange: number; weight: number }>();
     let weightedChangeSum = 0;
-    for (const b of (baskets as any[])) {
-      const bHoldings = b.basket_holdings || b.holdings || [];
-      const bVal = b.total_value || b.totalValue || 0;
+    for (const b of dbRows.baskets) {
+      const bHoldings = (b["basket_holdings"] || b["holdings"] || []) as RowRecord[];
+      const bVal = Number(b["total_value"]) || Number(b["totalValue"]) || 0;
       for (const h of bHoldings) {
-        const sym = h.company_symbol || h.companySymbol;
-        const weightPct = h.weight_percent || h.weightPercent || 0;
-        const co = (companies as any[]).find((c) => c.symbol === sym);
-        const dailyChange = co?.daily_change ?? co?.dailyChange ?? 0;
+        const sym = String(h["company_symbol"] || h["companySymbol"] || "");
+        const weightPct = Number(h["weight_percent"] || h["weightPercent"]) || 0;
+        const co = dbRows.companies.find((c) => c["symbol"] === sym);
+        const dailyChange = Number(co?.["daily_change"] ?? co?.["dailyChange"]) || 0;
         const effectiveWeight = weightPct * (bVal / (totalVal || 1));
         weightedChangeSum += dailyChange * (weightPct / 100) * (bVal / (totalVal || 1));
 
@@ -76,7 +85,7 @@ async function handleDailyCron(req: Request) {
       totalProfit: totalVal - totalCost,
       dailyChangePct: parseFloat(weightedChangeSum.toFixed(2)),
       bistDailyChangePct: 1.42,
-      basketsCount: baskets.length,
+      basketsCount: dbRows.baskets.length,
       holdingsSummary: Array.from(holdingsMap.values()),
     });
 
@@ -122,10 +131,10 @@ async function handleDailyCron(req: Request) {
       greeting: briefing.greeting,
       executiveSummary: briefing.executiveSummary,
     });
-  } catch (error) {
-    console.error("[Cron Orakul Daily Error]:", error);
+  } catch (err: unknown) {
+    console.error("[Cron Orakul Daily Error]:", err);
     return NextResponse.json(
-      { success: false, error: error instanceof Error ? error.message : "Bilinmeyen cron hatası" },
+      { success: false, error: (err instanceof Error ? err.message : String(err)) || "Bilinmeyen cron hatası" },
       { status: 500 }
     );
   }

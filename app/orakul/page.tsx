@@ -55,6 +55,7 @@ import {
   StockScreenerResult,
   DailyBriefingResult,
   SentimentNewsItem,
+  CompanyDiagnosisReport,
 } from "@/lib/aiService";
 import { OrakulCopilotChat } from "@/components/OrakulCopilotChat";
 import { AiBullBearDebateCard } from "@/components/AiBullBearDebateCard";
@@ -2065,11 +2066,11 @@ interface WeeklyLetterResult {
                     currency: "₺",
                   }) as Company
                 }
-                report={companyAnalysis as any}
+                report={companyAnalysis as unknown as CompanyDiagnosisReport}
               />
 
               {/* FinGPT Bull vs Bear AI Debate Card */}
-              <AiBullBearDebateCard report={companyAnalysis as any} companySymbol={companyAnalysis.symbol} />
+              <AiBullBearDebateCard report={companyAnalysis as unknown as CompanyDiagnosisReport} companySymbol={companyAnalysis.symbol} />
 
               {/* 4 Quant Valuation Metrics Grid */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 font-mono text-xs">
@@ -2956,7 +2957,7 @@ interface WeeklyLetterResult {
                   <span className="text-right">Gram Altın (₺)</span>
                 </div>
                 <div className="divide-y divide-dashed divide-[var(--line)] font-mono text-xs">
-                  {backtestResult.timeline.map((point: any, idx: number) => (
+                  {backtestResult.timeline.map((point, idx: number) => (
                     <div key={idx} className="grid grid-cols-4 px-4 py-2.5 items-center">
                       <span className="text-[var(--paper)]">{point.date}</span>
                       <span className="text-right font-bold text-[var(--brass)]">

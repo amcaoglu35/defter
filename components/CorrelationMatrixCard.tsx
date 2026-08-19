@@ -1,35 +1,59 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { Grid, Layers, ShieldCheck, Info } from "lucide-react";
-import { Basket, Company } from "@/lib/mockData";
-import { estimateAssetCorrelation, getCorrelationColorClass } from "@/lib/correlationService";
+import { Grid, Info } from "lucide-react";
+import { Basket } from "@/lib/mockData";
+import {
+  selfCorrelationResult,
+  getCorrelationColorClass,
+  type CorrelationResult,
+} from "@/lib/correlationService";
 
 interface CorrelationMatrixCardProps {
   basket: Basket;
-  companies: Company[];
+  /**
+   * Opsiyonel: Dışarıdan hesaplanmış korelasyon matrisi.
+   * Geçilmezse tüm çiftler "Veri Yok" olarak gösterilir.
+   * Phase 4'te buradaki prop üst component'tan sağlanacak.
+   */
+  correlationResults?: CorrelationResult[];
 }
 
-export function CorrelationMatrixCard({ basket, companies }: CorrelationMatrixCardProps) {
+export function CorrelationMatrixCard({ basket, correlationResults }: CorrelationMatrixCardProps) {
   const symbols = useMemo(() => {
     return basket.holdings.map((h) => h.companySymbol.toUpperCase()).slice(0, 6);
   }, [basket]);
 
+  /**
+   * n×n matris oluştur.
+   * - Köşegen (i === j): 1.00 (self-correlation)
+   * - Üst/Alt üçgen: props'tan gelen gerçek sonuç; yoksa "unavailable"
+   */
   const matrix = useMemo(() => {
-    return symbols.map((symA) => {
-      const compA = companies.find((c) => c.symbol.toUpperCase() === symA);
-      return symbols.map((symB) => {
-        const compB = companies.find((c) => c.symbol.toUpperCase() === symB);
-        const corr = estimateAssetCorrelation(compA, compB);
+    const resultsMap = new Map<string, CorrelationResult>();
+    if (correlationResults) {
+      for (const r of correlationResults) {
+        resultsMap.set(`${r.symbolA}:${r.symbolB}`, r);
+        resultsMap.set(`${r.symbolB}:${r.symbolA}`, r);
+      }
+    }
+
+    return symbols.map((symA) =>
+      symbols.map((symB) => {
+        if (symA === symB) return selfCorrelationResult(symA);
+        const key = `${symA}:${symB}`;
+        if (resultsMap.has(key)) return resultsMap.get(key)!;
         return {
-          symA,
-          symB,
-          corr,
-          color: getCorrelationColorClass(corr),
-        };
-      });
-    });
-  }, [symbols, companies]);
+          symbolA: symA,
+          symbolB: symB,
+          correlation: null,
+          status: "unavailable" as const,
+          dataPoints: 0,
+          colorClass: "bg-[var(--ink-3)] text-[var(--mist)]",
+        } satisfies CorrelationResult;
+      })
+    );
+  }, [symbols, correlationResults]);
 
   if (symbols.length < 2) return null;
 
@@ -45,7 +69,7 @@ export function CorrelationMatrixCard({ basket, companies }: CorrelationMatrixCa
               Varlıklar Arası Korelasyon Isı Haritası
             </h3>
             <p className="text-[10px] font-mono text-[var(--mist)]">
-              -1.00 (Ters Hareket / Koruma) ile +1.00 (Birlikte Hareket / Aynı Risk)
+              -1.00 (Ters Hareket / Koruma) ile +1.00 (Birlikte Hareket / Aynı Risk) — Gerçek Pearson
             </p>
           </div>
         </div>
@@ -79,13 +103,17 @@ export function CorrelationMatrixCard({ basket, companies }: CorrelationMatrixCa
                 <td className="p-2 font-bold text-[var(--paper)] text-[11px] whitespace-nowrap">
                   {symRow}
                 </td>
-                {matrix[rowIdx].map((cell, colIdx) => (
-                  <td key={cell.symB} className="p-1 text-center">
+                {matrix[rowIdx].map((cell) => (
+                  <td key={cell.symbolB} className="p-1 text-center">
                     <div
-                      className={`py-1.5 px-2 rounded text-[11px] transition-transform hover:scale-105 ${cell.color}`}
-                      title={`${cell.symA} vs ${cell.symB}: Korelasyon ${cell.corr}`}
+                      className={`py-1.5 px-2 rounded text-[11px] transition-transform hover:scale-105 ${getCorrelationColorClass(cell.correlation)}`}
+                      title={
+                        cell.correlation !== null
+                          ? `${cell.symbolA} vs ${cell.symbolB}: ${cell.correlation.toFixed(2)} (${cell.dataPoints} gün)`
+                          : `${cell.symbolA} vs ${cell.symbolB}: Veri Yok`
+                      }
                     >
-                      {cell.corr.toFixed(2)}
+                      {cell.correlation !== null ? cell.correlation.toFixed(2) : "—"}
                     </div>
                   </td>
                 ))}
@@ -93,6 +121,15 @@ export function CorrelationMatrixCard({ basket, companies }: CorrelationMatrixCa
             ))}
           </tbody>
         </table>
+      </div>
+
+      {/* Data availability note */}
+      <div className="flex items-start gap-2 text-[9px] text-[var(--mist)] bg-[var(--ink-3)] border border-[var(--line)] rounded p-2">
+        <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+        <span>
+          Korelasyonlar gerçek tarihsel günlük return serilerinden Pearson yöntemiyle hesaplanır.
+          Veri yoksa <strong>—</strong> gösterilir; sektör tahmini kullanılmaz. (Faz 4&apos;te etkin)
+        </span>
       </div>
     </div>
   );

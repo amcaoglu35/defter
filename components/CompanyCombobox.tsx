@@ -156,17 +156,17 @@ export default function CompanyCombobox({
 
           {/* Quick Filter Chips */}
           <div className="px-3 py-2 bg-[var(--ink)] border-b border-[var(--line)] flex flex-wrap gap-1.5">
-            {[
+            {([
               { id: "ALL", label: "Tümü" },
               { id: "BIST30", label: "BIST 30" },
               { id: "DIVIDEND", label: "Temettü" },
               { id: "COMMODITY", label: "Altın/Emtia" },
               { id: "WATCHLIST", label: "İzlemedekiler" },
-            ].map((tab) => (
+            ] as const).map((tab) => (
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => setActiveCategory(tab.id as any)}
+                onClick={() => setActiveCategory(tab.id)}
                 className={`px-2 py-1 rounded text-[10px] font-mono transition-all cursor-pointer ${
                   activeCategory === tab.id
                     ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-sm"

@@ -160,7 +160,20 @@ export async function GET(request: Request) {
         "fundProfile",
         "fundPerformance",
       ],
-    }) as any;
+    }) as Record<string, unknown>;
+
+    // Local type alias for Yahoo Finance API record access
+    type YFRecord = Record<string, unknown>;
+
+    /** Safely casts an unknown value to YFRecord for nested property access */
+    function asRecord(v: unknown): YFRecord {
+      return (v && typeof v === "object" ? v : {}) as YFRecord;
+    }
+
+    /** Safely gets an array from an unknown value */
+    function asArray(v: unknown): unknown[] {
+      return Array.isArray(v) ? v : [];
+    }
 
     if (!rawSummary) {
       return NextResponse.json({
@@ -173,143 +186,180 @@ export async function GET(request: Request) {
     const payload: DeepCompanyData = {};
 
     // 1. Insider Transactions
-    if (rawSummary.insiderTransactions && Array.isArray(rawSummary.insiderTransactions.transactions)) {
-      payload.insiderTransactions = rawSummary.insiderTransactions.transactions
+    const insiderTx = asRecord(rawSummary["insiderTransactions"]);
+    if (insiderTx && Array.isArray(insiderTx["transactions"])) {
+      payload.insiderTransactions = asArray(insiderTx["transactions"])
         .slice(0, 8)
-        .map((tx: any) => ({
-          filerName: tx.filerName,
-          filerRelation: tx.filerRelation,
-          transactionText: tx.transactionText,
-          shares: tx.shares ? Number(tx.shares) : undefined,
-          value: tx.value ? Number(tx.value) : undefined,
-          moneyText: tx.moneyText,
-          date: tx.startDate ? new Date(tx.startDate).toISOString().split("T")[0] : undefined,
-        }));
+        .map((txRaw) => {
+          const tx = asRecord(txRaw);
+          return {
+            filerName: String(tx["filerName"] ?? ""),
+            filerRelation: String(tx["filerRelation"] ?? ""),
+            transactionText: String(tx["transactionText"] ?? ""),
+            shares: tx["shares"] ? Number(tx["shares"]) : undefined,
+            value: tx["value"] ? Number(tx["value"]) : undefined,
+            moneyText: tx["moneyText"] ? String(tx["moneyText"]) : undefined,
+            date: tx["startDate"] ? new Date(tx["startDate"] as string).toISOString().split("T")[0] : undefined,
+          };
+        });
     }
 
     // 2. Major Holders Breakdown
-    if (rawSummary.majorHoldersBreakdown) {
-      const mb = rawSummary.majorHoldersBreakdown;
+    const mbRaw = rawSummary["majorHoldersBreakdown"];
+    if (mbRaw) {
+      const mb = asRecord(mbRaw);
       payload.majorHoldersBreakdown = {
-        insidersPercentHeld: mb.insidersPercentHeld ? Number((mb.insidersPercentHeld * 100).toFixed(2)) : undefined,
-        institutionsPercentHeld: mb.institutionsPercentHeld ? Number((mb.institutionsPercentHeld * 100).toFixed(2)) : undefined,
-        institutionsFloatPercentHeld: mb.institutionsFloatPercentHeld ? Number((mb.institutionsFloatPercentHeld * 100).toFixed(2)) : undefined,
-        institutionsCount: mb.institutionsCount ? Number(mb.institutionsCount) : undefined,
+        insidersPercentHeld: mb["insidersPercentHeld"] ? Number((Number(mb["insidersPercentHeld"]) * 100).toFixed(2)) : undefined,
+        institutionsPercentHeld: mb["institutionsPercentHeld"] ? Number((Number(mb["institutionsPercentHeld"]) * 100).toFixed(2)) : undefined,
+        institutionsFloatPercentHeld: mb["institutionsFloatPercentHeld"] ? Number((Number(mb["institutionsFloatPercentHeld"]) * 100).toFixed(2)) : undefined,
+        institutionsCount: mb["institutionsCount"] ? Number(mb["institutionsCount"]) : undefined,
       };
     }
 
     // 3. Recommendation Trend
-    if (rawSummary.recommendationTrend && Array.isArray(rawSummary.recommendationTrend.trend)) {
-      payload.recommendationTrend = rawSummary.recommendationTrend.trend
+    const recTrend = asRecord(rawSummary["recommendationTrend"]);
+    if (recTrend && Array.isArray(recTrend["trend"])) {
+      payload.recommendationTrend = asArray(recTrend["trend"])
         .slice(0, 4)
-        .map((t: any) => ({
-          period: t.period,
-          strongBuy: t.strongBuy ?? 0,
-          buy: t.buy ?? 0,
-          hold: t.hold ?? 0,
-          sell: t.sell ?? 0,
-          strongSell: t.strongSell ?? 0,
-        }));
+        .map((tRaw) => {
+          const t = asRecord(tRaw);
+          return {
+            period: String(t["period"] ?? ""),
+            strongBuy: Number(t["strongBuy"] ?? 0),
+            buy: Number(t["buy"] ?? 0),
+            hold: Number(t["hold"] ?? 0),
+            sell: Number(t["sell"] ?? 0),
+            strongSell: Number(t["strongSell"] ?? 0),
+          };
+        });
     }
 
     // 4. Upgrade / Downgrade History
-    if (rawSummary.upgradeDowngradeHistory && Array.isArray(rawSummary.upgradeDowngradeHistory.history)) {
-      payload.upgradeDowngradeHistory = rawSummary.upgradeDowngradeHistory.history
+    const ugdh = asRecord(rawSummary["upgradeDowngradeHistory"]);
+    if (ugdh && Array.isArray(ugdh["history"])) {
+      payload.upgradeDowngradeHistory = asArray(ugdh["history"])
         .slice(0, 6)
-        .map((h: any) => ({
-          firm: h.firm,
-          toGrade: h.toGrade,
-          fromGrade: h.fromGrade,
-          action: h.action,
-          date: h.epochGradeDate ? new Date(h.epochGradeDate).toISOString().split("T")[0] : undefined,
-        }));
+        .map((hRaw) => {
+          const h = asRecord(hRaw);
+          return {
+            firm: String(h["firm"] ?? ""),
+            toGrade: String(h["toGrade"] ?? ""),
+            fromGrade: h["fromGrade"] ? String(h["fromGrade"]) : undefined,
+            action: String(h["action"] ?? ""),
+            date: h["epochGradeDate"] ? new Date(h["epochGradeDate"] as string | number).toISOString().split("T")[0] : undefined,
+          };
+        });
     }
 
     // 5. Income Statement History
-    if (rawSummary.incomeStatementHistory && Array.isArray(rawSummary.incomeStatementHistory.incomeStatementHistory)) {
-      payload.incomeStatementHistory = rawSummary.incomeStatementHistory.incomeStatementHistory
+    const incStmt = asRecord(rawSummary["incomeStatementHistory"]);
+    if (incStmt && Array.isArray(incStmt["incomeStatementHistory"])) {
+      payload.incomeStatementHistory = asArray(incStmt["incomeStatementHistory"])
         .slice(0, 3)
-        .map((inc: any) => ({
-          endDate: inc.endDate ? new Date(inc.endDate).toISOString().split("T")[0] : undefined,
-          totalRevenue: inc.totalRevenue ? Number(inc.totalRevenue) : undefined,
-          netIncome: inc.netIncome ? Number(inc.netIncome) : undefined,
-          operatingIncome: inc.operatingIncome ? Number(inc.operatingIncome) : undefined,
-          grossProfit: inc.grossProfit ? Number(inc.grossProfit) : undefined,
-        }));
+        .map((iRaw) => {
+          const inc = asRecord(iRaw);
+          return {
+            endDate: inc["endDate"] ? new Date(inc["endDate"] as string | number).toISOString().split("T")[0] : undefined,
+            totalRevenue: inc["totalRevenue"] ? Number(inc["totalRevenue"]) : undefined,
+            netIncome: inc["netIncome"] ? Number(inc["netIncome"]) : undefined,
+            operatingIncome: inc["operatingIncome"] ? Number(inc["operatingIncome"]) : undefined,
+            grossProfit: inc["grossProfit"] ? Number(inc["grossProfit"]) : undefined,
+          };
+        });
     }
 
     // 6. Earnings History
-    if (rawSummary.earningsHistory && Array.isArray(rawSummary.earningsHistory.history)) {
-      payload.earningsHistory = rawSummary.earningsHistory.history
+    const earningsHist = asRecord(rawSummary["earningsHistory"]);
+    if (earningsHist && Array.isArray(earningsHist["history"])) {
+      payload.earningsHistory = asArray(earningsHist["history"])
         .slice(0, 4)
-        .map((e: any) => ({
-          quarter: e.quarter ? new Date(e.quarter).toISOString().split("T")[0] : undefined,
-          epsActual: e.epsActual != null ? Number(Number(e.epsActual).toFixed(2)) : undefined,
-          epsEstimate: e.epsEstimate != null ? Number(Number(e.epsEstimate).toFixed(2)) : undefined,
-          surprisePercent: e.surprisePercent != null ? Number((Number(e.surprisePercent) * 100).toFixed(1)) : undefined,
-        }));
+        .map((eRaw) => {
+          const e = asRecord(eRaw);
+          return {
+            quarter: e["quarter"] ? new Date(e["quarter"] as string | number).toISOString().split("T")[0] : undefined,
+            epsActual: e["epsActual"] != null ? Number(Number(e["epsActual"]).toFixed(2)) : undefined,
+            epsEstimate: e["epsEstimate"] != null ? Number(Number(e["epsEstimate"]).toFixed(2)) : undefined,
+            surprisePercent: e["surprisePercent"] != null ? Number((Number(e["surprisePercent"]) * 100).toFixed(1)) : undefined,
+          };
+        });
     }
 
     // 7. Key Valuation Multiples (defaultKeyStatistics)
-    if (rawSummary.defaultKeyStatistics) {
-      const ks = rawSummary.defaultKeyStatistics;
+    const ksRaw = rawSummary["defaultKeyStatistics"];
+    if (ksRaw) {
+      const ks = asRecord(ksRaw);
       payload.keyStatistics = {
-        forwardPE: ks.forwardPE ? Number(Number(ks.forwardPE).toFixed(1)) : undefined,
-        pegRatio: ks.pegRatio ? Number(Number(ks.pegRatio).toFixed(2)) : undefined,
-        priceToSales: ks.priceToSalesTrailing12Months ? Number(Number(ks.priceToSalesTrailing12Months).toFixed(2)) : undefined,
-        enterpriseToEbitda: ks.enterpriseToEbitda ? Number(Number(ks.enterpriseToEbitda).toFixed(1)) : undefined,
-        shortRatio: ks.shortRatio ? Number(Number(ks.shortRatio).toFixed(2)) : undefined,
-        enterpriseValue: ks.enterpriseValue ? Number(ks.enterpriseValue) : undefined,
+        forwardPE: ks["forwardPE"] ? Number(Number(ks["forwardPE"]).toFixed(1)) : undefined,
+        pegRatio: ks["pegRatio"] ? Number(Number(ks["pegRatio"]).toFixed(2)) : undefined,
+        priceToSales: ks["priceToSalesTrailing12Months"] ? Number(Number(ks["priceToSalesTrailing12Months"]).toFixed(2)) : undefined,
+        enterpriseToEbitda: ks["enterpriseToEbitda"] ? Number(Number(ks["enterpriseToEbitda"]).toFixed(1)) : undefined,
+        shortRatio: ks["shortRatio"] ? Number(Number(ks["shortRatio"]).toFixed(2)) : undefined,
+        enterpriseValue: ks["enterpriseValue"] ? Number(ks["enterpriseValue"]) : undefined,
       };
     }
 
     // 8. Future Analyst Outlook (earningsTrend)
-    if (rawSummary.earningsTrend && Array.isArray(rawSummary.earningsTrend.trend)) {
-      const nextQuarterTrend = rawSummary.earningsTrend.trend.find((tr: any) => tr.period === "+1q" || tr.period === "0q") || rawSummary.earningsTrend.trend[0];
+    const etRaw = asRecord(rawSummary["earningsTrend"]);
+    if (etRaw && Array.isArray(etRaw["trend"])) {
+      const trends = asArray(etRaw["trend"]).map(asRecord);
+      const nextQuarterTrend = trends.find((tr) => tr["period"] === "+1q" || tr["period"] === "0q") || trends[0];
       if (nextQuarterTrend) {
+        const ee = asRecord(nextQuarterTrend["earningsEstimate"]);
+        const re = asRecord(nextQuarterTrend["revenueEstimate"]);
         payload.earningsTrend = {
-          period: nextQuarterTrend.period === "+1q" ? "Gelecek Çeyrek" : "Cari Çeyrek",
-          epsEstimateAvg: nextQuarterTrend.earningsEstimate?.avg != null ? Number(Number(nextQuarterTrend.earningsEstimate.avg).toFixed(2)) : undefined,
-          epsGrowthPercent: nextQuarterTrend.growth != null ? Number((Number(nextQuarterTrend.growth) * 100).toFixed(1)) : undefined,
-          revenueEstimateAvg: nextQuarterTrend.revenueEstimate?.avg != null ? Number(nextQuarterTrend.revenueEstimate.avg) : undefined,
-          numberOfAnalysts: nextQuarterTrend.earningsEstimate?.numberOfAnalysts != null ? Number(nextQuarterTrend.earningsEstimate.numberOfAnalysts) : undefined,
+          period: nextQuarterTrend["period"] === "+1q" ? "Gelecek Çeyrek" : "Cari Çeyrek",
+          epsEstimateAvg: ee["avg"] != null ? Number(Number(ee["avg"]).toFixed(2)) : undefined,
+          epsGrowthPercent: nextQuarterTrend["growth"] != null ? Number((Number(nextQuarterTrend["growth"]) * 100).toFixed(1)) : undefined,
+          revenueEstimateAvg: re["avg"] != null ? Number(re["avg"]) : undefined,
+          numberOfAnalysts: ee["numberOfAnalysts"] != null ? Number(ee["numberOfAnalysts"]) : undefined,
         };
       }
     }
 
     // 9. Fund & ETF Specific Analytics (topHoldings, fundProfile, fundPerformance)
-    if (rawSummary.topHoldings || rawSummary.fundProfile || rawSummary.fundPerformance) {
-      const th = rawSummary.topHoldings;
-      const fp = rawSummary.fundProfile;
-      const fperf = rawSummary.fundPerformance;
+    const thRaw = rawSummary["topHoldings"];
+    const fpRaw = rawSummary["fundProfile"];
+    const fperfRaw = rawSummary["fundPerformance"];
+    if (thRaw || fpRaw || fperfRaw) {
+      const th = asRecord(thRaw);
+      const fp = asRecord(fpRaw);
+      const fperf = asRecord(fperfRaw);
 
-      const topHoldingsList = th && Array.isArray(th.holdings)
-        ? th.holdings.slice(0, 10).map((h: any) => ({
-            symbol: h.symbol,
-            holdingName: h.holdingName,
-            holdingPercent: h.holdingPercent != null ? Number((Number(h.holdingPercent) * 100).toFixed(2)) : undefined,
-          }))
+      const topHoldingsList = thRaw && Array.isArray(th["holdings"])
+        ? asArray(th["holdings"]).slice(0, 10).map((hRaw) => {
+            const h = asRecord(hRaw);
+            return {
+              symbol: String(h["symbol"] ?? ""),
+              holdingName: String(h["holdingName"] ?? ""),
+              holdingPercent: h["holdingPercent"] != null ? Number((Number(h["holdingPercent"]) * 100).toFixed(2)) : undefined,
+            };
+          })
         : undefined;
 
-      const expenseRatio = fp?.feesExpensesInvestment?.annualReportExpenseRatio != null
-        ? Number((Number(fp.feesExpensesInvestment.annualReportExpenseRatio) * 100).toFixed(2))
-        : (fp?.feesExpensesInvestment?.grossExpenseRatio != null ? Number((Number(fp.feesExpensesInvestment.grossExpenseRatio) * 100).toFixed(2)) : undefined);
+      const fei = asRecord(asRecord(fp["feesExpensesInvestment"]));
+      const expenseRatio = fei["annualReportExpenseRatio"] != null
+        ? Number((Number(fei["annualReportExpenseRatio"]) * 100).toFixed(2))
+        : (fei["grossExpenseRatio"] != null ? Number((Number(fei["grossExpenseRatio"]) * 100).toFixed(2)) : undefined);
 
-      const annualReturns = fperf?.annualTotalReturns?.returns
+      const atr = asRecord(fperf["annualTotalReturns"]);
+      const trailingRet = asRecord(fperf["trailingReturns"]);
+      const annualReturns = fperfRaw && atr["returns"]
         ? {
-            ytd: fperf.annualTotalReturns.returns.find((r: any) => r.year === "YTD")?.annualValue != null ? Number((Number(fperf.annualTotalReturns.returns.find((r: any) => r.year === "YTD").annualValue) * 100).toFixed(1)) : undefined,
-            oneYear: fperf.trailingReturns?.oneYear != null ? Number((Number(fperf.trailingReturns.oneYear) * 100).toFixed(1)) : undefined,
-            threeYear: fperf.trailingReturns?.threeYear != null ? Number((Number(fperf.trailingReturns.threeYear) * 100).toFixed(1)) : undefined,
-            fiveYear: fperf.trailingReturns?.fiveYear != null ? Number((Number(fperf.trailingReturns.fiveYear) * 100).toFixed(1)) : undefined,
+            ytd: asArray(atr["returns"]).map(asRecord).find((r) => r["year"] === "YTD")?.[" annualValue"] != null
+              ? Number((Number(asArray(atr["returns"]).map(asRecord).find((r) => r["year"] === "YTD")?.["annualValue"]) * 100).toFixed(1))
+              : undefined,
+            oneYear: trailingRet["oneYear"] != null ? Number((Number(trailingRet["oneYear"]) * 100).toFixed(1)) : undefined,
+            threeYear: trailingRet["threeYear"] != null ? Number((Number(trailingRet["threeYear"]) * 100).toFixed(1)) : undefined,
+            fiveYear: trailingRet["fiveYear"] != null ? Number((Number(trailingRet["fiveYear"]) * 100).toFixed(1)) : undefined,
           }
         : undefined;
 
       payload.fundData = {
         topHoldings: topHoldingsList,
         expenseRatio,
-        fundFamily: fp?.family || fp?.legalType,
-        categoryName: fp?.categoryName,
-        cashPosition: th?.cashPosition != null ? Number((Number(th.cashPosition) * 100).toFixed(1)) : undefined,
+        fundFamily: fp["family"] ? String(fp["family"]) : (fp["legalType"] ? String(fp["legalType"]) : undefined),
+        categoryName: fp["categoryName"] ? String(fp["categoryName"]) : undefined,
+        cashPosition: th["cashPosition"] != null ? Number((Number(th["cashPosition"]) * 100).toFixed(1)) : undefined,
         annualReturns,
       };
     }
@@ -362,8 +412,8 @@ export async function GET(request: Request) {
             },
           };
         }
-      } catch (fErr) {
-        // Not a TEFAS fund or error
+      } catch (_fErr: unknown) {
+        // Not a TEFAS fund or error — silently skip
       }
     }
 

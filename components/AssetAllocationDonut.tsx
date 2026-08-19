@@ -141,11 +141,10 @@ export default function AssetAllocationDonut({
                   fontSize: "12px",
                   fontFamily: "monospace",
                 }}
-                formatter={((value: number) => [
+                formatter={(value: unknown) => [
                   `${Number(value).toLocaleString("tr-TR")} ${currencySymbol}`,
                   "Tutar",
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                ]) as any}
+                ] as [string, string]}
               />
             </PieChart>
           </ResponsiveContainer>

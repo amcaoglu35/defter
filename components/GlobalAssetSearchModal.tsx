@@ -309,16 +309,16 @@ export default function GlobalAssetSearchModal({
           {/* Quick Filters */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs font-mono">
             <span className="text-[var(--mist)] text-[10px] uppercase mr-1">Filtrele:</span>
-            {[
+            {([
               { id: "all", label: "Tüm Borsalar" },
               { id: "ABD", label: "🇺🇸 ABD (NASDAQ/NYSE)" },
               { id: "BIST", label: "🇹🇷 Borsa İstanbul" },
               { id: "Avrupa", label: "🇪🇺 Avrupa (DAX/CAC)" },
               { id: "fon", label: "📊 ETF & Fonlar" },
-            ].map((tab) => (
+            ] as const).map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setMarketFilter(tab.id as any)}
+                onClick={() => setMarketFilter(tab.id)}
                 className={`px-2.5 py-1 rounded-full border transition-all cursor-pointer whitespace-nowrap text-[11px] ${
                   marketFilter === tab.id
                     ? "bg-[var(--brass)] text-[var(--ink)] font-bold border-[var(--brass)] shadow-sm"

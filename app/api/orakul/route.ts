@@ -173,7 +173,6 @@ export async function POST(req: Request) {
 
     // 3. AI Service calls (Secured with server-side environment variables)
     if (type === "recipe") {
-      const companiesList = payload?.allCompanies || body.companies || [];
       const recipe = await generateOrakulRecipe(
         payload,
         payload?.allCompanies || body.companies || [],
@@ -267,24 +266,28 @@ export async function POST(req: Request) {
       const baskets = payload?.baskets || [];
 
       // 1. Identify companies genuinely owned in user's baskets
+      type AnyRecord = Record<string, unknown>;
       const ownedSymbols = new Set(
-        baskets.flatMap((b: any) => b.holdings?.map((h: any) => h.companySymbol?.toUpperCase()) || [])
+        (baskets as AnyRecord[]).flatMap((b) =>
+          ((b["holdings"] || []) as AnyRecord[]).map((h) => String(h["companySymbol"] ?? "").toUpperCase())
+        )
       );
-      const ownedCompanies = targetCompanies.filter((c: any) => ownedSymbols.has(c.symbol?.toUpperCase()));
+      const ownedCompanies = (targetCompanies as AnyRecord[]).filter((c) =>
+        ownedSymbols.has(String(c["symbol"] ?? "").toUpperCase())
+      );
 
       // 2. Select target companies (owned first, then top active movers or first 6)
-      const companiesToAnalyze =
+      const companiesToAnalyze: AnyRecord[] =
         ownedCompanies.length > 0
           ? ownedCompanies.slice(0, 6)
-          : targetCompanies.slice(0, 6);
+          : (targetCompanies as AnyRecord[]).slice(0, 6);
 
-      // 3. Fetch real Google News RSS for each targeted company in parallel
       const newsPerCompany = await Promise.all(
-        companiesToAnalyze.map(async (c: any) => ({
-          symbol: c.symbol,
-          name: c.name || c.symbol,
-          dailyChange: c.dailyChange,
-          news: await fetchCompanyNews(c.symbol, c.name || c.symbol, 3),
+        companiesToAnalyze.map(async (c) => ({
+          symbol: String(c["symbol"] ?? ""),
+          name: String(c["name"] || c["symbol"] || ""),
+          dailyChange: Number(c["dailyChange"]) || 0,
+          news: await fetchCompanyNews(String(c["symbol"] ?? ""), String(c["name"] || c["symbol"] || ""), 3),
         }))
       );
 

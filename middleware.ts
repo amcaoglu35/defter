@@ -38,7 +38,7 @@ export async function middleware(req: NextRequest) {
     let masterPassword: string;
     try {
       masterPassword = getMasterPassword();
-    } catch (err: any) {
+    } catch (_err: unknown) {
       return NextResponse.json(
         {
           success: false,

@@ -28,10 +28,10 @@ async function handleAutoBasket(req: Request) {
       baskets,
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[Autonomous Auto-Basket Cron Error]:", error);
     return NextResponse.json(
-      { success: false, error: error?.message || "Otonom sepet oluşturma hatası" },
+      { success: false, error: (error instanceof Error ? error.message : String(error)) || "Otonom sepet oluşturma hatası" },
       { status: 500 }
     );
   }

@@ -126,10 +126,10 @@ export async function verifyMasterPassword(
   let envPassword: string;
   try {
     envPassword = getMasterPassword();
-  } catch (envErr: any) {
+  } catch (envErr: unknown) {
     return {
       valid: false,
-      reason: envErr?.message || "Kasa şifresi sunucuda henüz tanımlanmamış. Lütfen DEFTER_ACCESS_PASSWORD ortam değişkenini ayarlayın.",
+      reason: (envErr instanceof Error ? envErr.message : String(envErr)) || "Kasa şifresi sunucuda henüz tanımlanmamış. Lütfen DEFTER_ACCESS_PASSWORD ortam değişkenini ayarlayın.",
     };
   }
 

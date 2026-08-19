@@ -1,6 +1,6 @@
 import { supabaseAdmin, isSupabaseAdminConfigured } from "@/lib/supabaseAdmin";
 import { GoogleGenAI } from "@google/genai";
-import { MOCK_COMPANIES, AiModelBasket, AutonomousScan } from "@/lib/mockData";
+import { MOCK_COMPANIES, AiModelBasket, AutonomousScan, Company } from "@/lib/mockData";
 
 export interface GenerateBasketsOptions {
   customApiKey?: string;
@@ -10,12 +10,12 @@ export async function generateAiModelBaskets(options?: GenerateBasketsOptions): 
   const envKey = process.env.GEMINI_API_KEY?.trim();
   const effectiveApiKey = options?.customApiKey?.trim() || envKey;
 
-  let companyPool = MOCK_COMPANIES;
+  let companyPool: Company[] = MOCK_COMPANIES;
   if (isSupabaseAdminConfigured && supabaseAdmin) {
     try {
       const { data: dbCompanies } = await supabaseAdmin.from("companies").select("*");
       if (dbCompanies && dbCompanies.length > 0) {
-        companyPool = dbCompanies as any;
+        companyPool = dbCompanies as unknown as Company[];
       }
     } catch (e) {
       console.warn("[aiToolsService] Supabase companies fetch warning:", e);
@@ -29,17 +29,17 @@ export async function generateAiModelBaskets(options?: GenerateBasketsOptions): 
     {
       theme: "🤖 AI Değer Avcısı (Düşük F/K & Güçlü Bilanço)",
       criteria: "Düşük F/K çarpanı ve nakit akışı güçlü şirketler",
-      filter: (c: any) => (c.peRatio || 15) < 10 && (c.price || 0) > 0,
+      filter: (c: Company) => (c.peRatio || 15) < 10 && (c.price || 0) > 0,
     },
     {
       theme: "🚀 AI Büyüme & İhracat Liderleri",
       criteria: "İhracat gücü ve sanayi üretimi yüksek dinamik hisseler",
-      filter: (c: any) => ["Sanayi & Üretim", "Otomotiv", "Havacılık", "Teknoloji"].includes(c.sector),
+      filter: (c: Company) => ["Sanayi & Üretim", "Otomotiv", "Havacılık", "Teknoloji"].includes(c.sector),
     },
     {
       theme: "🛡️ AI Temettü Kalesi & Nakit Akışı",
       criteria: "Yüksek ve istikrarlı temettü verimi sunan defansif varlıklar",
-      filter: (c: any) => (c.dividendYield || 0) > 3.0,
+      filter: (c: Company) => (c.dividendYield || 0) > 3.0,
     },
   ];
 
@@ -113,12 +113,12 @@ export async function runAutonomousScan(options?: AutonomousScanOptions): Promis
   const envKey = process.env.GEMINI_API_KEY?.trim();
   const effectiveApiKey = options?.customApiKey?.trim() || envKey;
 
-  let companyPool = MOCK_COMPANIES;
+  let companyPool: Company[] = MOCK_COMPANIES;
   if (isSupabaseAdminConfigured && supabaseAdmin) {
     try {
       const { data: dbCompanies } = await supabaseAdmin.from("companies").select("*");
       if (dbCompanies && dbCompanies.length > 0) {
-        companyPool = dbCompanies as any;
+        companyPool = dbCompanies as unknown as Company[];
       }
     } catch (e) {
       console.warn("[aiToolsService] Supabase companies fetch warning:", e);

@@ -32,10 +32,10 @@ export async function POST(req: Request) {
       baskets,
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[AI Tools Generate Baskets Error]:", error);
     return NextResponse.json(
-      { success: false, error: error?.message || "Model sepetler oluşturulurken hata oluştu." },
+      { success: false, error: (error instanceof Error ? error.message : String(error)) || "Model sepetler oluşturulurken hata oluştu." },
       { status: 500 }
     );
   }

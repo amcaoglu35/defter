@@ -10,10 +10,8 @@ import {
   Download,
   RotateCcw,
   Check,
-  Smartphone,
   Eye,
   EyeOff,
-  Sliders,
   Cloud,
   CheckCircle2,
   AlertTriangle,
@@ -78,12 +76,7 @@ export default function AyarlarPage() {
   const [testResult, setTestResult] = useState<{ isConfigured: boolean; message: string } | null>(null);
   const [testingKey, setTestingKey] = useState(false);
 
-  // Sync state if aiApiKey in store changes
-  React.useEffect(() => {
-    if (aiApiKey && !apiKeyInput) {
-      setApiKeyInput(aiApiKey);
-    }
-  }, [aiApiKey]);
+  // Note: apiKeyInput initialized from aiApiKey directly in useState above
 
   // Security password state
   const [currentPass, setCurrentPass] = useState("");
@@ -162,7 +155,7 @@ export default function AyarlarPage() {
         });
         showToast("Test Başarısız", errMsg, "error");
       }
-    } catch (e) {
+    } catch (_e: unknown) {
       setTestResult({
         isConfigured: false,
         message: "Sunucu bağlantı testi gerçekleştirilemedi.",

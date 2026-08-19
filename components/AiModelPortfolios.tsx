@@ -64,8 +64,8 @@ export function AiModelPortfolios() {
       } else {
         throw new Error(data.error || "Sepetler oluşturulamadı");
       }
-    } catch (err: any) {
-      showToast("Hata", err.message || "Model sepet oluşturma hatası", "error");
+    } catch (err: unknown) {
+      showToast("Hata", (err instanceof Error ? err.message : String(err)) || "Model sepet oluşturma hatası", "error");
     } finally {
       setIsGenerating(false);
     }

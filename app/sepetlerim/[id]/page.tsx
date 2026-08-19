@@ -42,6 +42,7 @@ import RebalanceModal from "@/components/RebalanceModal";
 import { BasketDeviationAlertBar } from "@/components/BasketDeviationAlertBar";
 import { BasketBenchmarkComparison } from "@/components/BasketBenchmarkComparison";
 import { MarketShockSimulatorCard } from "@/components/MarketShockSimulatorCard";
+import { useBasketRiskAnalytics } from "@/lib/useBasketRiskAnalytics";
 
 type PeriodType = "1A" | "3A" | "6A" | "1Y";
 
@@ -65,6 +66,7 @@ export default function SepetDetayPage() {
   } = useDefterStore();
 
   const basket = baskets.find((b) => b.id === basketId);
+  const { riskProfile } = useBasketRiskAnalytics(basket, "6m");
 
   const [period, setPeriod] = useState<PeriodType>("6A");
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -454,7 +456,7 @@ export default function SepetDetayPage() {
       </div>
 
       {/* Quantitative Risk & Volatility Scorecard */}
-      <BasketRiskMetricsCard basket={basket} companies={companies} />
+      <BasketRiskMetricsCard basket={basket} riskProfile={riskProfile} />
 
       {/* Sepet vs BIST 100 / Altın / Dolar Benchmark Comparison */}
       <BasketBenchmarkComparison basket={basket} />
@@ -463,7 +465,7 @@ export default function SepetDetayPage() {
       <MarketShockSimulatorCard basket={basket} />
 
       {/* Cross-Asset Pearson Correlation Heatmap */}
-      <CorrelationMatrixCard basket={basket} companies={companies} />
+      <CorrelationMatrixCard basket={basket} />
 
       {/* Sectoral & Asset Class Treemap */}
       <BasketTreemap basket={basket} companies={companies} />

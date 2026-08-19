@@ -62,9 +62,9 @@ export async function POST(req: NextRequest) {
     });
 
     return res;
-  } catch (err: any) {
+  } catch (err: unknown) {
     return NextResponse.json(
-      { ok: false, error: err?.message || "İşlem sırasında hata oluştu" },
+      { ok: false, error: (err instanceof Error ? err.message : String(err)) || "İşlem sırasında hata oluştu" },
       { status: 500 }
     );
   }

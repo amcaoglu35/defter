@@ -64,11 +64,10 @@ export function HealthRadarChart({
                 color: "var(--paper)",
                 fontSize: "12px",
               }}
-              formatter={((value: unknown, name: unknown) => [
+              formatter={(value: unknown, name: unknown) => [
                 `${value ?? "—"} / 100`,
                 name === "score" ? "Şirket Puanı" : "Sektör Medyanı",
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              ]) as any}
+              ] as [string, string]}
             />
             {showBenchmark && (
               <Radar

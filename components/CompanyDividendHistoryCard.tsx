@@ -135,12 +135,11 @@ export function CompanyDividendHistoryCard({
                 fontSize: "12px",
                 fontFamily: "monospace",
               }}
-              formatter={((value: number) => [
+              formatter={(value: unknown) => [
                 `${Number(value).toLocaleString("tr-TR")} ₺ / hisse`,
                 "Net Dağıtılan Temettü",
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              ]) as any}
-              labelFormatter={(label: any) => `Yıl: ${label}`}
+              ] as [string, string]}
+              labelFormatter={(label: unknown) => `Yıl: ${String(label)}`}
             />
             <Bar dataKey="payoutPerShare" radius={[4, 4, 0, 0]}>
               {historyData.map((_, index) => (

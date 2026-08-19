@@ -9,7 +9,7 @@ import {
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 
 // In-memory micro cache for search queries (5 mins)
-const SEARCH_CACHE = new Map<string, { data: any; timestamp: number }>();
+const SEARCH_CACHE = new Map<string, { data: SearchResultItem[]; timestamp: number }>();
 const SEARCH_CACHE_TTL = 5 * 60 * 1000;
 
 export interface SearchResultItem {
@@ -144,29 +144,29 @@ export async function GET(request: Request) {
     });
 
     const quotes = searchRes.quotes || [];
-    const results: SearchResultItem[] = quotes
-      .filter((q: any) => q.symbol && (q.quoteType === "EQUITY" || q.quoteType === "ETF" || q.quoteType === "MUTUALFUND" || q.quoteType === "CURRENCY" || q.quoteType === "FUTURE"))
+    const results: SearchResultItem[] = (quotes as Record<string, unknown>[])
+      .filter((q) => q["symbol"] && (q["quoteType"] === "EQUITY" || q["quoteType"] === "ETF" || q["quoteType"] === "MUTUALFUND" || q["quoteType"] === "CURRENCY" || q["quoteType"] === "FUTURE"))
       .slice(0, 15)
-      .map((q: any) => {
-        const symbol = q.symbol;
+      .map((q) => {
+        const symbol = String(q["symbol"] ?? "");
         let cleanSymbol = symbol;
         if (cleanSymbol.endsWith(".IS")) cleanSymbol = cleanSymbol.replace(".IS", "");
 
         const { exchange, currency, assetClass } = mapExchangeAndAsset(
           symbol,
-          q.exchDisp,
-          q.exchange,
-          q.quoteType
+          q["exchDisp"] ? String(q["exchDisp"]) : undefined,
+          q["exchange"] ? String(q["exchange"]) : undefined,
+          q["quoteType"] ? String(q["quoteType"]) : undefined
         );
 
         return {
           symbol,
           cleanSymbol,
-          name: q.longname || q.shortname || cleanSymbol,
+          name: String(q["longname"] || q["shortname"] || cleanSymbol),
           exchange,
-          exchangeDisplay: q.exchDisp || q.exchange || exchange,
-          quoteType: q.quoteType || "EQUITY",
-          sector: mapSector(q.sector || q.sectorDisp),
+          exchangeDisplay: String(q["exchDisp"] || q["exchange"] || exchange),
+          quoteType: String(q["quoteType"] || "EQUITY"),
+          sector: mapSector(q["sector"] ? String(q["sector"]) : (q["sectorDisp"] ? String(q["sectorDisp"]) : undefined)),
           currency,
           assetClass,
         };
@@ -179,10 +179,10 @@ export async function GET(request: Request) {
       count: results.length,
       results,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Search API error:", error);
     return NextResponse.json(
-      { success: false, error: error.message || "Arama sırasında bir hata oluştu." },
+      { success: false, error: (error instanceof Error ? error.message : String(error)) || "Arama sırasında bir hata oluştu." },
       { status: 500 }
     );
   }

@@ -612,16 +612,7 @@ export default function SirketlerPage() {
                   {/* 7-Day Trend Sparkline & 52-Week Range Position (Desktop) */}
                   <div className="hidden md:flex flex-col items-center justify-center gap-1 w-[90px]">
                     <Sparkline
-                      data={
-                        (c as any).priceHistory
-                          ? (c as any).priceHistory.map((p: any) => p.close)
-                          : [
-                              c.price * (1 - (c.dailyChange || 0) / 100 * 1.5),
-                              c.price * (1 - (c.dailyChange || 0) / 100 * 0.8),
-                              c.price * (1 - (c.dailyChange || 0) / 100 * 0.3),
-                              c.price,
-                            ]
-                      }
+                      data={c.priceHistory ? c.priceHistory.map((p) => p.close) : undefined}
                       width={70}
                       height={20}
                     />

@@ -39,10 +39,10 @@ export async function POST(req: Request) {
       scans,
       timestamp: new Date().toISOString(),
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[AI Tools Autonomous Scan Error]:", error);
     return NextResponse.json(
-      { success: false, error: error?.message || "Otonom tarama sırasında hata oluştu." },
+      { success: false, error: (error instanceof Error ? error.message : String(error)) || "Otonom tarama sırasında hata oluştu." },
       { status: 500 }
     );
   }

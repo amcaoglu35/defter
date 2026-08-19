@@ -629,19 +629,19 @@ export default function HomePage() {
 
           {/* Quick Radar Category Tabs */}
           <div className="flex flex-wrap items-center gap-1.5 font-mono text-xs">
-            {[
+            {([
               { key: "movers", label: "🏆 Yükselen & Düşen", icon: TrendingUp },
               { key: "dividends", label: "💰 Temettü Liderleri", icon: Coins },
               { key: "value", label: "💎 Düşük F/K & Değer", icon: Gem },
               { key: "analysts", label: "🎯 Hedef Potansiyel", icon: Target },
-            ].map((tab) => {
+            ] as const).map((tab) => {
               const IconComp = tab.icon;
               const isActive = marketRadarTab === tab.key;
               return (
                 <button
                   key={tab.key}
                   type="button"
-                  onClick={() => setMarketRadarTab(tab.key as any)}
+                  onClick={() => setMarketRadarTab(tab.key)}
                   className={`px-3 py-1.5 rounded text-xs font-mono border transition-all cursor-pointer flex items-center gap-1.5 ${
                     isActive
                       ? "bg-[var(--brass-glow)] border-[var(--brass)] text-[var(--brass)] font-bold shadow-sm"

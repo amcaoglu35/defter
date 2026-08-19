@@ -922,17 +922,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         Number((((c.price || 100) * (c.dividendYield || 3)) / 100).toFixed(2));
       const estimatedTotal = ownedQty * netPerShare;
 
+      // Temettü tarihi öncelik sırası:
+      // 1. Şirketten gelen resmi exDividendDate
+      // 2. Bilinen şirket-özel program (KNOWN_DIVIDEND_SCHEDULE)
+      // 3. Tarih bilinmiyorsa "Açıklanmadı" — sahte tarih üretilmez
       let paymentDate = c.exDividendDate;
       if (!paymentDate) {
         const symUpper = c.symbol.toUpperCase();
         if (KNOWN_DIVIDEND_SCHEDULE[symUpper]) {
           paymentDate = KNOWN_DIVIDEND_SCHEDULE[symUpper];
-        } else if ((c.dividendYield && c.dividendYield > 0) || (c.dividendRate && c.dividendRate > 0)) {
-          const symHash = c.symbol.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-          const estMonth = ((symHash % 9) + 3).toString().padStart(2, "0");
-          const estDay = ((symHash % 20) + 5).toString().padStart(2, "0");
-          paymentDate = `2026-${estMonth}-${estDay}`;
         } else {
+          // P0.4 FIX: Hash-based sahte tarih üretimi kaldırıldı.
+          // Gerçek tarih açıklanana kadar belirsiz göster.
           paymentDate = "Açıklanmadı";
         }
       }

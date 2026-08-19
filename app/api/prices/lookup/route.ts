@@ -91,11 +91,11 @@ export async function GET(request: Request) {
       // Possible TEFAS fund
       try {
         const fund = new Fund(cleanSymbol);
-        const info = (await fund.info) as any;
-        if (info && (info.title || info.name) && info.price) {
-          const fundTitle = info.title || info.name || cleanSymbol;
-          const fundPrice = Number(Number(info.price).toFixed(4));
-          const dailyChange = info.daily_return != null ? Number(Number(info.daily_return).toFixed(2)) : 0;
+        const info = (await fund.info) as unknown as Record<string, unknown>;
+        if (info && (info["title"] || info["name"]) && info["price"]) {
+          const fundTitle = String(info["title"] || info["name"] || cleanSymbol);
+          const fundPrice = Number(Number(info["price"]).toFixed(4));
+          const dailyChange = info["daily_return"] != null ? Number(Number(info["daily_return"]).toFixed(2)) : 0;
           const companyData: Partial<Company> = {
             id: cleanSymbol.toLowerCase(),
             symbol: cleanSymbol,
@@ -107,16 +107,16 @@ export async function GET(request: Request) {
             price: fundPrice,
             currency: "₺",
             dailyChange,
-            marketCap: formatLargeNum(info.fund_size ? Number(info.fund_size) : undefined, "₺"),
+            marketCap: formatLargeNum(info["fund_size"] ? Number(info["fund_size"]) : undefined, "₺"),
             recommendation: "AL",
             inWatchlist: true,
             description: `${fundTitle} - TEFAS Portföy Yatırım Fonu`,
-            fundManager: info.founder || "Portföy Yönetim",
+            fundManager: info["founder"] ? String(info["founder"]) : "Portföy Yönetim",
             fundType: "Yatırım Fonu",
-            oneYearReturn: info.return_1y != null ? Number(Number(info.return_1y).toFixed(2)) : undefined,
+            oneYearReturn: info["return_1y"] != null ? Number(Number(info["return_1y"]).toFixed(2)) : undefined,
             metrics: [
-              ...(info.return_1y ? [{ label: "1 Yıllık Getiri", value: `%${info.return_1y}` }] : []),
-              ...(info.fund_size ? [{ label: "Fon Büyüklüğü", value: formatLargeNum(Number(info.fund_size), "₺") || "" }] : []),
+              ...(info["return_1y"] ? [{ label: "1 Yıllık Getiri", value: `%${info["return_1y"]}` }] : []),
+              ...(info["fund_size"] ? [{ label: "Fon Büyüklüğü", value: formatLargeNum(Number(info["fund_size"]), "₺") || "" }] : []),
             ],
           };
           LOOKUP_CACHE.set(cacheKey, { data: companyData, timestamp: Date.now() });
@@ -284,10 +284,10 @@ export async function GET(request: Request) {
       success: true,
       data: companyData,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Lookup API error:", error);
     return NextResponse.json(
-      { success: false, error: error.message || "Varlık verisi alınamadı." },
+      { success: false, error: (error instanceof Error ? error.message : String(error)) || "Varlık verisi alınamadı." },
       { status: 500 }
     );
   }

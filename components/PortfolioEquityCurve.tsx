@@ -218,12 +218,11 @@ export default function PortfolioEquityCurve({
                 fontFamily: "monospace",
                 boxShadow: "0 10px 25px rgba(0,0,0,0.5)",
               }}
-              formatter={((value: number) => [
+              formatter={(value: unknown) => [
                 `${Number(value).toLocaleString("tr-TR")} ${currencySymbol}`,
                 "Portföy Değeri",
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              ]) as any}
-              labelFormatter={(label: any) => `Tarih: ${label}`}
+              ] as [string, string]}
+              labelFormatter={(label: unknown) => `Tarih: ${String(label)}`}
             />
 
             <Area

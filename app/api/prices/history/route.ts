@@ -66,13 +66,22 @@ export async function GET(request: Request) {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
-    // Call Yahoo Finance historical / chart API
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const chartResult = (await (yf as any).chart(ticker, {
+    // yahoo-finance2 chart() API — typed via local interface to avoid `any`
+    type ChartResult = {
+      quotes?: Array<{
+        date: Date | string;
+        close?: number;
+        open?: number;
+        high?: number;
+        low?: number;
+        volume?: number;
+      }>;
+    };
+    const chartResult = (await (yf as unknown as { chart: (ticker: string, opts: { period1: Date; period2: Date; interval: string }) => Promise<ChartResult> }).chart(ticker, {
       period1: startDate,
       period2: new Date(),
       interval,
-    })) as { quotes?: Array<{ date: Date | string; close?: number; open?: number; high?: number; low?: number; volume?: number }> };
+    })) as ChartResult;
 
     const quotes = chartResult?.quotes || [];
     const validPoints: HistoryPoint[] = [];

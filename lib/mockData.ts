@@ -62,6 +62,7 @@ export interface Company {
   nextEarningsDate?: string;        // Gelecek Bilanço Açıklanma Tarihi
   exDividendDate?: string;          // Temettü Hak Kullanım Tarihi
   dividendRate?: number;            // Yıllık Hisse Başı Temettü Tutarı (TL)
+  priceHistory?: Array<{ date: string; close: number }>; // Tarihsel fiyat serisi
 
   // Financial Highlights (Income Statement & Balance Sheet)
   totalRevenue?: string;            // Yıllık Toplam Hasılat / Ciro (Mr ₺)
