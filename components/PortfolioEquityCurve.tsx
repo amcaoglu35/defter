@@ -115,7 +115,7 @@ export default function PortfolioEquityCurve({
       if (!history || history.length === 0) continue;
 
       for (const pt of history) {
-        const val = quantity * pt.price;
+        const val = quantity * pt.close;
         dateValueMap.set(pt.date, (dateValueMap.get(pt.date) ?? 0) + val);
       }
     }
