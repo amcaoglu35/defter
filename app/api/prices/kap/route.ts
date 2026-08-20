@@ -97,7 +97,13 @@ export async function GET(request: Request) {
     // Use rss-parser for robust, encoding-safe XML parsing (replaces brittle regex approach)
     const feed = await rssParser.parseURL(kapRssUrl);
 
-    for (const entry of (feed.items || []).slice(0, 5)) {
+    const sortedItems = [...(feed.items || [])].sort((a, b) => {
+      const dateA = a.pubDate ? new Date(a.pubDate).getTime() : 0;
+      const dateB = b.pubDate ? new Date(b.pubDate).getTime() : 0;
+      return dateB - dateA;
+    });
+
+    for (const entry of sortedItems.slice(0, 5)) {
       const rawTitle = (entry.title || "").trim();
       const pubDate = entry.pubDate || new Date().toISOString();
 

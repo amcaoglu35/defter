@@ -156,15 +156,20 @@ export async function GET(request: Request) {
       console.warn(`[News API] Google News RSS fetch warning for ${cleanSymbol}:`, rssErr);
     }
 
+    // Yahoo Finance + Google News RSS sırasız birleştiği için burada
+    // en yeniden en eskiye sıralayıp ilk 8'i alıyoruz.
+    items.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+    const sortedLimitedItems = items.slice(0, 8);
+
     // Save to in-memory cache
-    newsCache.set(cacheKey, { timestamp: now, data: items });
+    newsCache.set(cacheKey, { timestamp: now, data: sortedLimitedItems });
 
     return NextResponse.json({
       success: true,
       symbol: cleanSymbol,
-      count: items.length,
+      count: sortedLimitedItems.length,
       source: "google_news_rss",
-      data: items,
+      data: sortedLimitedItems,
     });
   } catch (err: unknown) {
     console.warn(`[News API] Error fetching news for ${cleanSymbol}:`, err);
