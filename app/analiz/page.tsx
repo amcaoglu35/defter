@@ -85,177 +85,210 @@ export default function AnalizPage() {
           </div>
         </div>
 
-        {/* Konsolide Portföy Özet Şeridi */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="p-4 bg-[var(--card)] border border-[var(--line)] rounded-xl space-y-1">
-            <span className="text-xs text-[var(--muted)]">Toplam Portföy Değeri</span>
-            <p className="font-serif font-bold text-xl text-[var(--paper)]">
-              {xray.totalValue.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} ₺
-            </p>
-            <span className="text-[10px] text-[var(--muted)]">
-              Toplam Maliyet: {xray.totalCost.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} ₺
-            </span>
+        {/* Boş Portföy Kontrolü */}
+        {xray.holdings.length === 0 ? (
+          <div className="bg-[var(--card)] border border-[var(--line)] rounded-2xl p-8 sm:p-12 text-center space-y-5 shadow-lg">
+            <div className="w-16 h-16 rounded-2xl bg-[var(--brass-glow)] border border-[var(--brass-dim)] flex items-center justify-center text-[var(--brass)] mx-auto shadow-md">
+              <PieChart className="w-8 h-8" />
+            </div>
+            <div className="max-w-md mx-auto space-y-2">
+              <h3 className="font-serif font-bold text-xl text-[var(--paper)]">
+                Portföy Zekası İçin Varlık Bulunamadı
+              </h3>
+              <p className="text-xs sm:text-sm text-[var(--muted)] leading-relaxed">
+                Piyasa kıyaslaması, sektör röntgeni, canlı ısı haritası ve stres testlerinin çalışabilmesi için en az bir sepet veya pozisyon oluşturmalısınız.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <Link
+                href="/sepetlerim"
+                className="px-5 py-2.5 rounded-xl bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] text-xs font-bold transition-all shadow-md active:scale-95"
+              >
+                🧺 Hemen Sepet Oluştur
+              </Link>
+              <Link
+                href="/sirketler"
+                className="px-5 py-2.5 rounded-xl bg-[var(--ink-2)] hover:bg-[var(--ink-3)] border border-[var(--line)] text-[var(--paper)] text-xs font-mono transition-all active:scale-95"
+              >
+                🏢 Şirketler Kütüğünü İncele
+              </Link>
+            </div>
           </div>
+        ) : (
+          <>
+            {/* Konsolide Portföy Özet Şeridi */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="p-4 bg-[var(--card)] border border-[var(--line)] rounded-xl space-y-1">
+                <span className="text-xs text-[var(--muted)]">Toplam Portföy Değeri</span>
+                <p className="font-serif font-bold text-xl text-[var(--paper)]">
+                  {xray.totalValue.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} ₺
+                </p>
+                <span className="text-[10px] text-[var(--muted)]">
+                  Toplam Maliyet: {xray.totalCost.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} ₺
+                </span>
+              </div>
 
-          <div className="p-4 bg-[var(--card)] border border-[var(--line)] rounded-xl space-y-1">
-            <span className="text-xs text-[var(--muted)]">Kümülatif Net Kâr / Zarar</span>
-            <p
-              className={`font-serif font-bold text-xl ${
-                xray.totalProfitLoss >= 0 ? "text-emerald-400" : "text-rose-400"
-              }`}
-            >
-              {xray.totalProfitLoss >= 0 ? "+" : ""}
-              {xray.totalProfitLoss.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} ₺
-            </p>
-            <span
-              className={`text-[10px] font-mono font-bold ${
-                xray.totalProfitLossPct >= 0 ? "text-emerald-400" : "text-rose-400"
-              }`}
-            >
-              ({xray.totalProfitLossPct >= 0 ? "+" : ""}
-              {xray.totalProfitLossPct.toFixed(2)}%)
-            </span>
-          </div>
+              <div className="p-4 bg-[var(--card)] border border-[var(--line)] rounded-xl space-y-1">
+                <span className="text-xs text-[var(--muted)]">Kümülatif Net Kâr / Zarar</span>
+                <p
+                  className={`font-serif font-bold text-xl ${
+                    xray.totalProfitLoss >= 0 ? "text-emerald-400" : "text-rose-400"
+                  }`}
+                >
+                  {xray.totalProfitLoss >= 0 ? "+" : ""}
+                  {xray.totalProfitLoss.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} ₺
+                </p>
+                <span
+                  className={`text-[10px] font-mono font-bold ${
+                    xray.totalProfitLossPct >= 0 ? "text-emerald-400" : "text-rose-400"
+                  }`}
+                >
+                  ({xray.totalProfitLossPct >= 0 ? "+" : ""}
+                  {xray.totalProfitLossPct.toFixed(2)}%)
+                </span>
+              </div>
 
-          <div className="p-4 bg-[var(--card)] border border-[var(--line)] rounded-xl space-y-1">
-            <span className="text-xs text-[var(--muted)]">Çeşitlendirme Düzeyi</span>
-            <p className="font-serif font-bold text-xl text-[var(--paper)] flex items-center gap-1.5">
-              <ShieldCheck className="w-5 h-5 text-emerald-400" />
-              {xray.diversificationLevel}
-            </p>
-            <span className="text-[10px] text-[var(--muted)]">
-              HHI: {xray.hhiScore} | {xray.assetCount} Farklı Varlık
-            </span>
-          </div>
+              <div className="p-4 bg-[var(--card)] border border-[var(--line)] rounded-xl space-y-1">
+                <span className="text-xs text-[var(--muted)]">Çeşitlendirme Düzeyi</span>
+                <p className="font-serif font-bold text-xl text-[var(--paper)] flex items-center gap-1.5">
+                  <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                  {xray.diversificationLevel}
+                </p>
+                <span className="text-[10px] text-[var(--muted)]">
+                  HHI: {xray.hhiScore} | {xray.assetCount} Farklı Varlık
+                </span>
+              </div>
 
-          <div className="p-4 bg-[var(--card)] border border-[var(--line)] rounded-xl space-y-1">
-            <span className="text-xs text-[var(--muted)]">En Büyük Pozisyon</span>
-            <p className="font-serif font-bold text-xl text-[var(--paper)]">
-              {xray.holdings[0]?.symbol || "—"}
-            </p>
-            <span className="text-[10px] text-[var(--brass)] font-mono">
-              {xray.holdings[0] ? `Ağırlık: %${xray.holdings[0].weightPct.toFixed(1)}` : "Varlık Yok"}
-            </span>
-          </div>
-        </div>
+              <div className="p-4 bg-[var(--card)] border border-[var(--line)] rounded-xl space-y-1">
+                <span className="text-xs text-[var(--muted)]">En Büyük Pozisyon</span>
+                <p className="font-serif font-bold text-xl text-[var(--paper)]">
+                  {xray.holdings[0]?.symbol || "—"}
+                </p>
+                <span className="text-[10px] text-[var(--brass)] font-mono">
+                  {xray.holdings[0] ? `Ağırlık: %${xray.holdings[0].weightPct.toFixed(1)}` : "Varlık Yok"}
+                </span>
+              </div>
+            </div>
 
-        {/* Ana Sekme Butonları */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-[var(--line)]">
-          <button
-            onClick={() => setActiveTab("benchmark")}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === "benchmark"
-                ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-xs"
-                : "text-[var(--muted)] hover:text-[var(--paper)] hover:bg-[var(--line)]/40"
-            }`}
-          >
-            <TrendingUp className="w-4 h-4" />
-            Piyasa Kıyaslama (Benchmark)
-          </button>
+            {/* Ana Sekme Butonları */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-[var(--line)] scrollbar-none">
+              <button
+                onClick={() => setActiveTab("benchmark")}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
+                  activeTab === "benchmark"
+                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-xs"
+                    : "text-[var(--muted)] hover:text-[var(--paper)] hover:bg-[var(--line)]/40"
+                }`}
+              >
+                <TrendingUp className="w-4 h-4" />
+                Piyasa Kıyaslama (Benchmark)
+              </button>
 
-          <button
-            onClick={() => setActiveTab("treemap")}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === "treemap"
-                ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-xs"
-                : "text-[var(--muted)] hover:text-[var(--paper)] hover:bg-[var(--line)]/40"
-            }`}
-          >
-            <LayoutGrid className="w-4 h-4" />
-            Isı Haritası (Treemap)
-          </button>
+              <button
+                onClick={() => setActiveTab("treemap")}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
+                  activeTab === "treemap"
+                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-xs"
+                    : "text-[var(--muted)] hover:text-[var(--paper)] hover:bg-[var(--line)]/40"
+                }`}
+              >
+                <LayoutGrid className="w-4 h-4" />
+                Isı Haritası (Treemap)
+              </button>
 
-          <button
-            onClick={() => setActiveTab("xray")}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === "xray"
-                ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-xs"
-                : "text-[var(--muted)] hover:text-[var(--paper)] hover:bg-[var(--line)]/40"
-            }`}
-          >
-            <PieChart className="w-4 h-4" />
-            Sektörel Röntgen (X-Ray)
-          </button>
+              <button
+                onClick={() => setActiveTab("xray")}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
+                  activeTab === "xray"
+                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-xs"
+                    : "text-[var(--muted)] hover:text-[var(--paper)] hover:bg-[var(--line)]/40"
+                }`}
+              >
+                <PieChart className="w-4 h-4" />
+                Sektörel Röntgen (X-Ray)
+              </button>
 
-          <button
-            onClick={() => setActiveTab("dividends")}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === "dividends"
-                ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-xs"
-                : "text-[var(--muted)] hover:text-[var(--paper)] hover:bg-[var(--line)]/40"
-            }`}
-          >
-            <Flame className="w-4 h-4" />
-            Temettü, DRIP & FIRE
-          </button>
+              <button
+                onClick={() => setActiveTab("dividends")}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
+                  activeTab === "dividends"
+                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-xs"
+                    : "text-[var(--muted)] hover:text-[var(--paper)] hover:bg-[var(--line)]/40"
+                }`}
+              >
+                <Flame className="w-4 h-4" />
+                Temettü, DRIP & FIRE
+              </button>
 
-          <button
-            onClick={() => setActiveTab("rebalance")}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === "rebalance"
-                ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-xs"
-                : "text-[var(--muted)] hover:text-[var(--paper)] hover:bg-[var(--line)]/40"
-            }`}
-          >
-            <Scale className="w-4 h-4" />
-            Yeniden Dengeleme (Rebalance)
-          </button>
+              <button
+                onClick={() => setActiveTab("rebalance")}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
+                  activeTab === "rebalance"
+                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-xs"
+                    : "text-[var(--muted)] hover:text-[var(--paper)] hover:bg-[var(--line)]/40"
+                }`}
+              >
+                <Scale className="w-4 h-4" />
+                Yeniden Dengeleme (Rebalance)
+              </button>
 
-          <button
-            onClick={() => setActiveTab("stress")}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
-              activeTab === "stress"
-                ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-xs"
-                : "text-[var(--muted)] hover:text-[var(--paper)] hover:bg-[var(--line)]/40"
-            }`}
-          >
-            <AlertOctagon className="w-4 h-4" />
-            Stres Testi (What-If)
-          </button>
-        </div>
+              <button
+                onClick={() => setActiveTab("stress")}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
+                  activeTab === "stress"
+                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-xs"
+                    : "text-[var(--muted)] hover:text-[var(--paper)] hover:bg-[var(--line)]/40"
+                }`}
+              >
+                <AlertOctagon className="w-4 h-4" />
+                Stres Testi (What-If)
+              </button>
+            </div>
 
-        {/* Sekme İçerikleri */}
-        <div className="pt-2">
-          {activeTab === "benchmark" && (
-            <PortfolioBenchmarkHub
-              holdings={xray.holdings}
-              totalValue={xray.totalValue}
-              totalProfitLossPct={xray.totalProfitLossPct}
-            />
-          )}
+            {/* Sekme İçerikleri */}
+            <div className="pt-2">
+              {activeTab === "benchmark" && (
+                <PortfolioBenchmarkHub
+                  holdings={xray.holdings}
+                  totalValue={xray.totalValue}
+                  totalProfitLossPct={xray.totalProfitLossPct}
+                />
+              )}
 
-          {activeTab === "treemap" && (
-            <PortfolioTreemap
-              holdings={xray.holdings}
-              totalValue={xray.totalValue}
-            />
-          )}
+              {activeTab === "treemap" && (
+                <PortfolioTreemap
+                  holdings={xray.holdings}
+                  totalValue={xray.totalValue}
+                />
+              )}
 
-          {activeTab === "xray" && (
-            <PortfolioXRayView xray={xray} />
-          )}
+              {activeTab === "xray" && (
+                <PortfolioXRayView xray={xray} />
+              )}
 
-          {activeTab === "dividends" && (
-            <DividendFireHub
-              holdings={xray.holdings}
-              totalValue={xray.totalValue}
-            />
-          )}
+              {activeTab === "dividends" && (
+                <DividendFireHub
+                  holdings={xray.holdings}
+                  totalValue={xray.totalValue}
+                />
+              )}
 
-          {activeTab === "rebalance" && (
-            <PortfolioRebalanceHub
-              holdings={xray.holdings}
-              totalValue={xray.totalValue}
-            />
-          )}
+              {activeTab === "rebalance" && (
+                <PortfolioRebalanceHub
+                  holdings={xray.holdings}
+                  totalValue={xray.totalValue}
+                />
+              )}
 
-          {activeTab === "stress" && (
-            <PortfolioStressTestHub
-              holdings={xray.holdings}
-              totalValue={xray.totalValue}
-            />
-          )}
-        </div>
+              {activeTab === "stress" && (
+                <PortfolioStressTestHub
+                  holdings={xray.holdings}
+                  totalValue={xray.totalValue}
+                />
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       {/* CSV Import/Export Modal */}

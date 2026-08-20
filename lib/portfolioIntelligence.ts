@@ -4,6 +4,7 @@ export interface PortfolioAssetHolding {
   symbol: string;
   name: string;
   category: string;
+  exchange?: string;
   sector?: string;
   totalQuantity: number;
   totalCost: number;
@@ -88,6 +89,7 @@ export function calculateConsolidatedPortfolio(
       symbol: sym,
       name: company?.name || sym,
       category: company?.assetClass || "hisse",
+      exchange: company?.exchange || (company?.assetClass === "maden" ? "Emtia" : company?.assetClass === "doviz" ? "Döviz" : "BIST"),
       sector: company?.sector || "Genel / Tanımsız",
       totalQuantity: data.quantity,
       totalCost: data.cost,

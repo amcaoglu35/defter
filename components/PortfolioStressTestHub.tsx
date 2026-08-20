@@ -82,13 +82,21 @@ export default function PortfolioStressTestHub({
     const items = holdings.map((h) => {
       let impactPct = 0;
       const cat = h.category?.toLowerCase() || "hisse";
+      const isForeign = h.exchange === "ABD" || h.exchange === "Avrupa" || cat === "global";
 
-      if (cat === "hisse") impactPct = selectedScenario.bistImpact;
-      else if (cat === "maden") impactPct = selectedScenario.goldImpact;
-      else if (cat === "global") impactPct = selectedScenario.globalImpact;
-      else if (cat === "doviz") impactPct = selectedScenario.usdImpact;
-      else if (cat === "fon") impactPct = (selectedScenario.bistImpact + selectedScenario.globalImpact) / 2;
-      else impactPct = 0;
+      if (isForeign) {
+        impactPct = selectedScenario.globalImpact + (selectedScenario.usdImpact * 0.8);
+      } else if (cat === "hisse") {
+        impactPct = selectedScenario.bistImpact;
+      } else if (cat === "maden") {
+        impactPct = selectedScenario.goldImpact;
+      } else if (cat === "doviz") {
+        impactPct = selectedScenario.usdImpact;
+      } else if (cat === "fon") {
+        impactPct = (selectedScenario.bistImpact + selectedScenario.globalImpact) / 2;
+      } else {
+        impactPct = 0;
+      }
 
       const simVal = h.totalCurrentValue * (1 + impactPct / 100);
       simulatedTotal += simVal;

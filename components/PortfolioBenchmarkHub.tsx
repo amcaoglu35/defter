@@ -133,21 +133,16 @@ export default function PortfolioBenchmarkHub({
     };
   }, [selectedPeriod]);
 
-  // Birleştirilmiş Çizgi Grafik Verisi
+  // Birleştirilmiş Çizgi Grafik Verisi (Gerçek API Serileri)
   const chartData = useMemo(() => {
     // Referans tarih serisi olarak BIST 100 veya ALTIN serisini al
     const refSeries = benchmarkData.BIST100.length > 0 ? benchmarkData.BIST100 : benchmarkData.ALTIN;
     if (refSeries.length === 0) return [];
 
-    const totalPoints = refSeries.length;
     return refSeries.map((item, idx) => {
-      // Portföyün normalize getirisini orantısal eğriyle simüle et
-      const progress = totalPoints > 1 ? idx / (totalPoints - 1) : 1;
-      const portfolioCurve = parseFloat((totalProfitLossPct * Math.pow(progress, 0.9)).toFixed(2));
-
       const point: any = {
         date: item.date,
-        Portföy: portfolioCurve,
+        "Portföy Getirisi": parseFloat(totalProfitLossPct.toFixed(2)),
       };
 
       if (activeBenchmarks.BIST100 && benchmarkData.BIST100[idx]) {
@@ -170,12 +165,6 @@ export default function PortfolioBenchmarkHub({
   // Alpha (BIST'e göre ekstra getiri)
   const bistReturn = benchmarkReturns.BIST100 || 0;
   const alpha = totalProfitLossPct - bistReturn;
-
-  // Max Drawdown & Sharpe Tahmini
-  const estimatedVolatility = 14.8; // Portföy yıllık volatilite tahmini %
-  const riskFreeRate = 45.0; // Yıllık risksiz mevduat/tahvil oranı % (TR)
-  const sharpeRatio = ((totalProfitLossPct - 12) / estimatedVolatility).toFixed(2);
-  const maxDrawdown = Math.abs(Math.min(0, totalProfitLossPct * -0.35)).toFixed(1);
 
   return (
     <div className="bg-[var(--card)] border border-[var(--line)] rounded-xl p-5 shadow-xs space-y-5">
@@ -289,7 +278,7 @@ export default function PortfolioBenchmarkHub({
             />
             <Line
               type="monotone"
-              dataKey="Portföy"
+              dataKey="Portföy Getirisi"
               stroke="var(--brass)"
               strokeWidth={3}
               dot={false}
@@ -353,40 +342,55 @@ export default function PortfolioBenchmarkHub({
             {alpha >= 0 ? "+" : ""}
             {alpha.toFixed(2)}%
           </p>
-          <span className="text-[10px] text-[var(--muted)]">Piyasaya karşı ekstra getiri</span>
+          <span className="text-[10px] text-[var(--muted)]">Piyasaya karşı net fark</span>
         </div>
 
         <div className="p-3 bg-[var(--ink)]/50 border border-[var(--line)] rounded-lg">
           <div className="flex items-center gap-1.5 text-[var(--muted)] text-xs mb-1">
             <Activity className="w-3.5 h-3.5 text-blue-400" />
-            <span>Sharpe Oranı</span>
+            <span>BIST 100 ({selectedPeriod})</span>
           </div>
-          <p className="font-mono text-base font-bold text-[var(--paper)]">
-            {sharpeRatio}
+          <p
+            className={`font-mono text-base font-bold ${
+              (benchmarkReturns.BIST100 || 0) >= 0 ? "text-emerald-400" : "text-rose-400"
+            }`}
+          >
+            {(benchmarkReturns.BIST100 || 0) >= 0 ? "+" : ""}
+            {(benchmarkReturns.BIST100 || 0).toFixed(2)}%
           </p>
-          <span className="text-[10px] text-[var(--muted)]">Risk başına getiri verimi</span>
+          <span className="text-[10px] text-[var(--muted)]">Borsa İstanbul Endeksi</span>
         </div>
 
         <div className="p-3 bg-[var(--ink)]/50 border border-[var(--line)] rounded-lg">
           <div className="flex items-center gap-1.5 text-[var(--muted)] text-xs mb-1">
-            <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
-            <span>Max Drawdown</span>
+            <Award className="w-3.5 h-3.5 text-amber-400" />
+            <span>Gram Altın ({selectedPeriod})</span>
           </div>
-          <p className="font-mono text-base font-bold text-amber-400">
-            -%{maxDrawdown}
+          <p
+            className={`font-mono text-base font-bold ${
+              (benchmarkReturns.ALTIN || 0) >= 0 ? "text-emerald-400" : "text-rose-400"
+            }`}
+          >
+            {(benchmarkReturns.ALTIN || 0) >= 0 ? "+" : ""}
+            {(benchmarkReturns.ALTIN || 0).toFixed(2)}%
           </p>
-          <span className="text-[10px] text-[var(--muted)]">Tarihsel tepe-dip kaybı</span>
+          <span className="text-[10px] text-[var(--muted)]">Ons / Gram Altın Değişimi</span>
         </div>
 
         <div className="p-3 bg-[var(--ink)]/50 border border-[var(--line)] rounded-lg">
           <div className="flex items-center gap-1.5 text-[var(--muted)] text-xs mb-1">
-            <Percent className="w-3.5 h-3.5 text-purple-400" />
-            <span>Yıllık Oynaklık</span>
+            <Percent className="w-3.5 h-3.5 text-cyan-400" />
+            <span>USD / TRY ({selectedPeriod})</span>
           </div>
-          <p className="font-mono text-base font-bold text-[var(--paper)]">
-            %{estimatedVolatility}
+          <p
+            className={`font-mono text-base font-bold ${
+              (benchmarkReturns.USD || 0) >= 0 ? "text-emerald-400" : "text-rose-400"
+            }`}
+          >
+            {(benchmarkReturns.USD || 0) >= 0 ? "+" : ""}
+            {(benchmarkReturns.USD || 0).toFixed(2)}%
           </p>
-          <span className="text-[10px] text-[var(--muted)]">Standart sapma / risk</span>
+          <span className="text-[10px] text-[var(--muted)]">Dolar / TL Kuru Değişimi</span>
         </div>
       </div>
     </div>

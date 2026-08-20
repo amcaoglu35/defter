@@ -36,12 +36,42 @@ export default function PortfolioRebalanceHub({
   });
 
   const totalTargetWeight = useMemo(() => {
-    return Object.values(targetWeights).reduce((a, b) => a + b, 0);
+    return Object.values(targetWeights).reduce((a, b) => a + (isNaN(b) ? 0 : b), 0);
   }, [targetWeights]);
+
+  // Hızlı Dengeleme Aksiyonları
+  const handleNormalizeWeights = () => {
+    if (totalTargetWeight <= 0) return;
+    const next: Record<string, number> = {};
+    holdings.forEach((h) => {
+      const cur = targetWeights[h.symbol] || 0;
+      next[h.symbol] = parseFloat(((cur / totalTargetWeight) * 100).toFixed(1));
+    });
+    setTargetWeights(next);
+  };
+
+  const handleEqualWeights = () => {
+    if (holdings.length === 0) return;
+    const eq = parseFloat((100 / holdings.length).toFixed(1));
+    const next: Record<string, number> = {};
+    holdings.forEach((h) => {
+      next[h.symbol] = eq;
+    });
+    setTargetWeights(next);
+  };
+
+  const handleResetToCurrent = () => {
+    const next: Record<string, number> = {};
+    holdings.forEach((h) => {
+      next[h.symbol] = parseFloat(h.weightPct.toFixed(1));
+    });
+    setTargetWeights(next);
+  };
 
   // Rebalancing Hesabı
   const rebalancePlan = useMemo(() => {
-    const newTotal = totalValue + dcaBudget;
+    const safeDca = isNaN(dcaBudget) ? 0 : dcaBudget;
+    const newTotal = totalValue + safeDca;
 
     return holdings.map((h) => {
       const targetPct = targetWeights[h.symbol] || 0;
@@ -85,25 +115,58 @@ export default function PortfolioRebalanceHub({
           <span className="text-xs text-[var(--muted)]">Maaş / Yeni Para:</span>
           <input
             type="number"
-            value={dcaBudget}
-            onChange={(e) => setDcaBudget(Math.max(0, Number(e.target.value)))}
+            value={isNaN(dcaBudget) || dcaBudget === 0 ? "" : dcaBudget}
+            onChange={(e) => {
+              const v = parseFloat(e.target.value);
+              setDcaBudget(isNaN(v) ? 0 : Math.max(0, v));
+            }}
+            placeholder="0"
             className="w-24 bg-transparent font-mono font-bold text-xs text-[var(--paper)] text-right outline-none focus:text-[var(--brass)]"
           />
           <span className="text-xs text-[var(--muted)]">₺</span>
         </div>
       </div>
 
-      {/* Toplam Hedef Ağırlık Uyarısı */}
-      <div className="flex items-center justify-between text-xs px-2 py-1.5 bg-[var(--ink)]/30 rounded-lg border border-[var(--line)]">
-        <span className="text-[var(--muted)]">Hedef Ağırlıklar Toplamı:</span>
-        <span
-          className={`font-mono font-bold ${
-            Math.abs(totalTargetWeight - 100) < 0.5 ? "text-emerald-400" : "text-amber-400"
-          }`}
-        >
-          %{totalTargetWeight.toFixed(1)} / %100.0
-          {Math.abs(totalTargetWeight - 100) >= 0.5 && " (Toplam %100 olmalıdır)"}
-        </span>
+      {/* Toplam Hedef Ağırlık Uyarısı & Hızlı Butonlar */}
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs px-3 py-2 bg-[var(--ink)]/40 rounded-lg border border-[var(--line)]">
+        <div className="flex items-center gap-2">
+          <span className="text-[var(--muted)]">Hedef Ağırlıklar Toplamı:</span>
+          <span
+            className={`font-mono font-bold ${
+              Math.abs(totalTargetWeight - 100) < 0.5 ? "text-emerald-400" : "text-amber-400"
+            }`}
+          >
+            %{totalTargetWeight.toFixed(1)} / %100.0
+            {Math.abs(totalTargetWeight - 100) >= 0.5 && " (Toplam %100 olmalıdır)"}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={handleNormalizeWeights}
+            className="px-2.5 py-1 rounded bg-[var(--brass-glow)] border border-[var(--brass-dim)] text-[var(--brass)] hover:brightness-110 text-[11px] font-mono font-bold cursor-pointer transition-all active:scale-95"
+            title="Mevcut oranları orantısal olarak %100'e tamamlar"
+          >
+            ⚖️ %100'e Eşitle
+          </button>
+          <button
+            type="button"
+            onClick={handleEqualWeights}
+            className="px-2.5 py-1 rounded bg-[var(--card)] border border-[var(--line)] text-[var(--muted)] hover:text-[var(--paper)] text-[11px] font-mono cursor-pointer transition-all active:scale-95"
+            title="Tüm hisselere eşit ağırlık dağıtır"
+          >
+            🎯 Eşit Dağıt
+          </button>
+          <button
+            type="button"
+            onClick={handleResetToCurrent}
+            className="px-2.5 py-1 rounded bg-[var(--card)] border border-[var(--line)] text-[var(--muted)] hover:text-[var(--paper)] text-[11px] font-mono cursor-pointer transition-all active:scale-95"
+            title="Hedef ağırlıkları mevcut ağırlıklara eşitler"
+          >
+            ↺ Sıfırla
+          </button>
+        </div>
       </div>
 
       {/* Rebalance Tablosu */}

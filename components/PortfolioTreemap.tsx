@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { Treemap, ResponsiveContainer, Tooltip } from "recharts";
-import { LayoutGrid, TrendingUp, TrendingDown, Eye, Filter } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Treemap, ResponsiveContainer } from "recharts";
+import { LayoutGrid } from "lucide-react";
 import { PortfolioAssetHolding } from "@/lib/portfolioIntelligence";
-import Link from "next/link";
 
 interface PortfolioTreemapProps {
   holdings: PortfolioAssetHolding[];
@@ -35,15 +35,22 @@ function getReturnColor(change: number) {
 }
 
 const CustomizedContent = (props: any) => {
-  const { x, y, width, height, symbol, change24h, weightPct, value } = props;
+  const { x, y, width, height, symbol, change24h, weightPct, onSelect } = props;
 
-  if (width < 32 || height < 28) return null;
+  if (width < 28 || height < 24) return null;
 
   const bg = getReturnColor(change24h || 0);
   const isPositive = (change24h || 0) >= 0;
 
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (symbol && onSelect) {
+      onSelect(symbol);
+    }
+  };
+
   return (
-    <g>
+    <g onClick={handleClick} className="cursor-pointer group">
       <rect
         x={x + 2}
         y={y + 2}
@@ -53,42 +60,48 @@ const CustomizedContent = (props: any) => {
         ry={6}
         style={{
           fill: bg,
-          stroke: "rgba(0,0,0,0.3)",
+          stroke: "rgba(0,0,0,0.35)",
           strokeWidth: 1.5,
           cursor: "pointer",
         }}
+        className="hover:opacity-90 transition-opacity"
       />
-      {width > 60 && height > 45 && (
+      {width > 48 && height > 36 && (
         <>
           <text
             x={x + width / 2}
-            y={y + height / 2 - 6}
+            y={y + height / 2 - (height > 60 ? 6 : 0)}
             textAnchor="middle"
             fill="#ffffff"
-            fontSize={width > 100 ? 14 : 11}
+            fontSize={width > 90 ? 13 : 11}
             fontWeight="bold"
             fontFamily="monospace"
+            className="pointer-events-none select-none"
           >
             {symbol}
           </text>
-          <text
-            x={x + width / 2}
-            y={y + height / 2 + 10}
-            textAnchor="middle"
-            fill="#ffffff"
-            fontSize={width > 100 ? 11 : 9}
-            fontWeight="600"
-          >
-            {isPositive ? "+" : ""}
-            {(change24h || 0).toFixed(2)}%
-          </text>
-          {height > 70 && width > 90 && (
+          {height > 50 && (
+            <text
+              x={x + width / 2}
+              y={y + height / 2 + 10}
+              textAnchor="middle"
+              fill="#ffffff"
+              fontSize={width > 90 ? 11 : 9}
+              fontWeight="600"
+              className="pointer-events-none select-none"
+            >
+              {isPositive ? "+" : ""}
+              {(change24h || 0).toFixed(2)}%
+            </text>
+          )}
+          {height > 70 && width > 80 && (
             <text
               x={x + width / 2}
               y={y + height / 2 + 24}
               textAnchor="middle"
-              fill="rgba(255,255,255,0.75)"
+              fill="rgba(255,255,255,0.8)"
               fontSize={9}
+              className="pointer-events-none select-none"
             >
               %{weightPct?.toFixed(1)}
             </text>
@@ -100,8 +113,8 @@ const CustomizedContent = (props: any) => {
 };
 
 export default function PortfolioTreemap({ holdings, totalValue }: PortfolioTreemapProps) {
+  const router = useRouter();
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [hoveredAsset, setHoveredAsset] = useState<TreemapItem | null>(null);
 
   const categories = useMemo(() => {
     const set = new Set(holdings.map((h) => h.category));
@@ -146,7 +159,7 @@ export default function PortfolioTreemap({ holdings, totalValue }: PortfolioTree
           </div>
           <div>
             <h3 className="font-serif font-bold text-base text-[var(--paper)]">Portföy Isı Haritası (Treemap)</h3>
-            <p className="text-xs text-[var(--muted)]">Kutu boyutu varlık ağırlığını, renk ise 24s performansını gösterir.</p>
+            <p className="text-xs text-[var(--muted)]">Kutu boyutu varlık ağırlığını, renk ise 24s performansını gösterir. Detay için kutuya tıklayın.</p>
           </div>
         </div>
 
@@ -195,7 +208,11 @@ export default function PortfolioTreemap({ holdings, totalValue }: PortfolioTree
             dataKey="size"
             aspectRatio={4 / 3}
             stroke="#000"
-            content={<CustomizedContent />}
+            content={
+              <CustomizedContent
+                onSelect={(sym: string) => router.push(`/sirketler/${encodeURIComponent(sym)}`)}
+              />
+            }
           />
         </ResponsiveContainer>
       </div>

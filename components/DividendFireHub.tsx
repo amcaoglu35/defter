@@ -46,6 +46,7 @@ export default function DividendFireHub({
   const [expectedReturn, setExpectedReturn] = useState(7); // %7 reel getiri
 
   // DRIP Parametreleri
+  const [dripCapital, setDripCapital] = useState(totalValue > 0 ? totalValue : 50000);
   const [dripYield, setDripYield] = useState(6);
   const [dripYears, setDripYears] = useState(15);
 
@@ -84,15 +85,15 @@ export default function DividendFireHub({
   // DRIP Projeksiyonu
   const dripData = useMemo(() => {
     return calculateDripProjection({
-      initialInvestment: totalValue > 0 ? totalValue : 100000,
+      initialInvestment: dripCapital > 0 ? dripCapital : 10000,
       annualDividendYield: dripYield,
       annualCapitalGrowth: 8,
       annualDividendGrowth: 6,
       years: dripYears,
     });
-  }, [totalValue, dripYield, dripYears]);
+  }, [dripCapital, dripYield, dripYears]);
 
-  // Aylık Tahmini Temettü Dağılımı (Örnek Projeksiyon)
+  // Aylık Tahmini Temettü Dağılımı (BIST Tarihsel Mevsimsellik Modeli)
   const monthlyDivTimeline = [
     { month: "Oca", amount: totalAnnualDividends * 0.02 },
     { month: "Şub", amount: totalAnnualDividends * 0.04 },

@@ -24,16 +24,30 @@ interface PortfolioXRayViewProps {
 }
 
 const SECTOR_COLORS = [
-  "#3b82f6",
-  "#10b981",
-  "#f59e0b",
-  "#8b5cf6",
-  "#ec4899",
-  "#06b6d4",
-  "#f97316",
-  "#14b8a6",
-  "#6366f1",
-  "#84cc16",
+  "#3b82f6", // Mavi
+  "#10b981", // Zümrüt
+  "#f59e0b", // Kehribar
+  "#8b5cf6", // Mor
+  "#ec4899", // Pembe
+  "#06b6d4", // Camgöbeği
+  "#f97316", // Turuncu
+  "#14b8a6", // Teal
+  "#6366f1", // İndigo
+  "#84cc16", // Lime
+  "#e11d48", // Gül
+  "#d97706", // Sıcak Sarı
+  "#0284c7", // Gök Mavisi
+  "#7c3aed", // Menekşe
+  "#db2777", // Fuşya
+  "#059669", // Koyu Zümrüt
+  "#475569", // Arduvaz
+  "#ca8a04", // Altın
+  "#4f46e5", // Derin Mavi
+  "#0d9488", // Derin Teal
+  "#9333ea", // Parlak Mor
+  "#c026d3", // Orkide
+  "#2563eb", // Kraliyet Mavisi
+  "#16a34a", // Çimen Yeşili
 ];
 
 export default function PortfolioXRayView({ xray }: PortfolioXRayViewProps) {
