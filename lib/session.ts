@@ -44,7 +44,8 @@ export function isEmailAuthorized(email: string): boolean {
   const authorized = getAuthorizedEmails();
   
   if (authorized.length === 0) {
-    return true;
+    // In production: Fail closed to prevent arbitrary OAuth logins
+    return process.env.NODE_ENV !== "production";
   }
   return authorized.includes(email.trim().toLowerCase());
 }

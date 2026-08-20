@@ -59,6 +59,7 @@ import {
 } from "@/lib/aiService";
 import { OrakulCopilotChat } from "@/components/OrakulCopilotChat";
 import { AiBullBearDebateCard } from "@/components/AiBullBearDebateCard";
+import { AiAgentCommitteeCard } from "@/components/AiAgentCommitteeCard";
 import { AiAnalystTargetGauge } from "@/components/AiAnalystTargetGauge";
 import { AiReportPdfExporter } from "@/components/AiReportPdfExporter";
 
@@ -2071,6 +2072,23 @@ interface WeeklyLetterResult {
 
               {/* FinGPT Bull vs Bear AI Debate Card */}
               <AiBullBearDebateCard report={companyAnalysis as unknown as CompanyDiagnosisReport} companySymbol={companyAnalysis.symbol} />
+
+              {/* 10-Agent Investment Committee Debate Card */}
+              <AiAgentCommitteeCard
+                company={
+                  (companies.find((c) => c.symbol === companyAnalysis.symbol) || {
+                    id: companyAnalysis.symbol || "co",
+                    symbol: companyAnalysis.symbol || "BIST",
+                    name: companyAnalysis.symbol || "BIST",
+                    price: companyAnalysis.fairValue || 100,
+                    dailyChange: 0,
+                    sector: "BIST",
+                    exchange: "BIST",
+                    assetClass: "hisse",
+                    currency: "₺",
+                  }) as Company
+                }
+              />
 
               {/* 4 Quant Valuation Metrics Grid */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 font-mono text-xs">

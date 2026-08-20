@@ -23,6 +23,9 @@ import {
   Scale,
   ShieldCheck,
   FileText,
+  Mail,
+  Send,
+  MessageSquare,
 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import { useToast } from "@/components/ToastProvider";
@@ -76,7 +79,15 @@ export default function AyarlarPage() {
   const [testResult, setTestResult] = useState<{ isConfigured: boolean; message: string } | null>(null);
   const [testingKey, setTestingKey] = useState(false);
 
-  // Note: apiKeyInput initialized from aiApiKey directly in useState above
+  // External notification channels states
+  const [telegramBotToken, setTelegramBotToken] = useState("");
+  const [telegramChatId, setTelegramChatId] = useState("");
+  const [resendApiKey, setResendApiKey] = useState("");
+  const [emailTo, setEmailTo] = useState("");
+  const [testingTelegram, setTestingTelegram] = useState(false);
+  const [testingEmail, setTestingEmail] = useState(false);
+  const [testTelegramResult, setTestTelegramResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [testEmailResult, setTestEmailResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // Security password state
   const [currentPass, setCurrentPass] = useState("");
@@ -163,6 +174,64 @@ export default function AyarlarPage() {
       showToast("Test Hatası", "Sunucu bağlantı testi yapılamadı.", "error");
     } finally {
       setTestingKey(false);
+    }
+  };
+
+  const handleTestTelegram = async () => {
+    setTestingTelegram(true);
+    setTestTelegramResult(null);
+    try {
+      const res = await fetch("/api/notifications/test-channel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channel: "telegram",
+          telegramBotToken: telegramBotToken.trim(),
+          telegramChatId: telegramChatId.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setTestTelegramResult({ success: true, message: data.message });
+        showToast("Telegram Bağlantısı Başarılı", data.message, "success");
+      } else {
+        setTestTelegramResult({ success: false, message: data.error || "Gönderim başarısız" });
+        showToast("Telegram Hatası", data.error || "Gönderim başarısız", "error");
+      }
+    } catch (err) {
+      setTestTelegramResult({ success: false, message: err instanceof Error ? err.message : "Ağ hatası" });
+      showToast("Ağ Hatası", "Telegram servisine erişilemedi.", "error");
+    } finally {
+      setTestingTelegram(false);
+    }
+  };
+
+  const handleTestEmail = async () => {
+    setTestingEmail(true);
+    setTestEmailResult(null);
+    try {
+      const res = await fetch("/api/notifications/test-channel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channel: "email",
+          resendApiKey: resendApiKey.trim(),
+          emailTo: emailTo.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setTestEmailResult({ success: true, message: data.message });
+        showToast("E-posta Gönderildi", data.message, "success");
+      } else {
+        setTestEmailResult({ success: false, message: data.error || "Gönderim başarısız" });
+        showToast("E-posta Hatası", data.error || "Gönderim başarısız", "error");
+      }
+    } catch (err) {
+      setTestEmailResult({ success: false, message: err instanceof Error ? err.message : "Ağ hatası" });
+      showToast("Ağ Hatası", "E-posta servisine erişilemedi.", "error");
+    } finally {
+      setTestingEmail(false);
     }
   };
 
@@ -601,6 +670,159 @@ export default function AyarlarPage() {
               </div>
             );
           })}
+        </div>
+      </section>
+
+      {/* 2.2 Dış Bildirim Kanalları & Otomatik Rapor Dağıtımı */}
+      <section className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 sm:p-8 space-y-6 shadow-md">
+        <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
+          <div className="flex items-center gap-2.5 text-[var(--brass)] font-serif text-xl font-medium">
+            <Mail className="w-5 h-5" />
+            <h2>Dış Bildirim Kanalları (Telegram &amp; E-posta)</h2>
+          </div>
+          <span className="font-mono text-[11px] text-[var(--mist)] uppercase tracking-wider">
+            Otomasyon &amp; Rapor Dağıtımı
+          </span>
+        </div>
+
+        <p className="text-xs text-[var(--mist)] leading-relaxed font-sans">
+          Günlük piyasa kapanış brifingleri, haftalık strateji mektupları ve kritik portföy risk uyarılarını Telegram botunuza veya e-posta adresinize otomatik olarak yönlendirin.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Telegram Bot Setup Card */}
+          <div className="p-5 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-[var(--line)] pb-2.5">
+              <div className="flex items-center gap-2">
+                <Send className="w-4 h-4 text-sky-400" />
+                <h3 className="font-serif text-sm font-bold text-[var(--paper)]">
+                  Telegram Bot Kanalı
+                </h3>
+              </div>
+              <span className="font-mono text-[10px] text-sky-400 bg-sky-500/10 border border-sky-500/30 px-2 py-0.5 rounded">
+                Canlı Mesaj
+              </span>
+            </div>
+
+            <div className="space-y-3 font-mono text-xs">
+              <div>
+                <label className="text-[10px] text-[var(--mist)] uppercase block mb-1">
+                  Telegram Bot Token (BotFather):
+                </label>
+                <input
+                  type="password"
+                  value={telegramBotToken}
+                  onChange={(e) => setTelegramBotToken(e.target.value)}
+                  placeholder="123456789:ABCdefGhIJKlmNoPQ..."
+                  className="w-full bg-[var(--ink-2)] border border-[var(--line)] rounded px-3 py-1.5 text-[var(--paper)] outline-none focus:border-[var(--brass)] text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] text-[var(--mist)] uppercase block mb-1">
+                  Telegram Chat ID (@userinfobot):
+                </label>
+                <input
+                  type="text"
+                  value={telegramChatId}
+                  onChange={(e) => setTelegramChatId(e.target.value)}
+                  placeholder="Örn: 987654321"
+                  className="w-full bg-[var(--ink-2)] border border-[var(--line)] rounded px-3 py-1.5 text-[var(--paper)] outline-none focus:border-[var(--brass)] text-xs"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={handleTestTelegram}
+                  disabled={testingTelegram}
+                  className="px-3 py-1.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/40 hover:bg-sky-500/30 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <Send className={`w-3.5 h-3.5 ${testingTelegram ? "animate-spin" : ""}`} />
+                  <span>{testingTelegram ? "Gönderiliyor..." : "Test Mesajı Gönder"}</span>
+                </button>
+              </div>
+
+              {testTelegramResult && (
+                <div
+                  className={`p-2.5 rounded border text-[11px] font-sans ${
+                    testTelegramResult.success
+                      ? "bg-[rgba(91,140,123,0.15)] text-[var(--verdigris)] border-[var(--verdigris)]"
+                      : "bg-[rgba(163,59,59,0.15)] text-[var(--loss)] border-[var(--loss)]"
+                  }`}
+                >
+                  {testTelegramResult.message}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Resend Email Setup Card */}
+          <div className="p-5 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-[var(--line)] pb-2.5">
+              <div className="flex items-center gap-2">
+                <Mail className="w-4 h-4 text-emerald-400" />
+                <h3 className="font-serif text-sm font-bold text-[var(--paper)]">
+                  E-posta Raporlama (Resend)
+                </h3>
+              </div>
+              <span className="font-mono text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded">
+                HTML Rapor
+              </span>
+            </div>
+
+            <div className="space-y-3 font-mono text-xs">
+              <div>
+                <label className="text-[10px] text-[var(--mist)] uppercase block mb-1">
+                  Resend API Anahtarı (re_...):
+                </label>
+                <input
+                  type="password"
+                  value={resendApiKey}
+                  onChange={(e) => setResendApiKey(e.target.value)}
+                  placeholder="re_123456789_abcdef..."
+                  className="w-full bg-[var(--ink-2)] border border-[var(--line)] rounded px-3 py-1.5 text-[var(--paper)] outline-none focus:border-[var(--brass)] text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] text-[var(--mist)] uppercase block mb-1">
+                  Hedef E-posta Adresi:
+                </label>
+                <input
+                  type="email"
+                  value={emailTo}
+                  onChange={(e) => setEmailTo(e.target.value)}
+                  placeholder="ornek@alanadi.com"
+                  className="w-full bg-[var(--ink-2)] border border-[var(--line)] rounded px-3 py-1.5 text-[var(--paper)] outline-none focus:border-[var(--brass)] text-xs"
+                />
+              </div>
+
+              <div className="pt-2 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={handleTestEmail}
+                  disabled={testingEmail}
+                  className="px-3 py-1.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <Mail className={`w-3.5 h-3.5 ${testingEmail ? "animate-spin" : ""}`} />
+                  <span>{testingEmail ? "İletiliyor..." : "Test E-postası Gönder"}</span>
+                </button>
+              </div>
+
+              {testEmailResult && (
+                <div
+                  className={`p-2.5 rounded border text-[11px] font-sans ${
+                    testEmailResult.success
+                      ? "bg-[rgba(91,140,123,0.15)] text-[var(--verdigris)] border-[var(--verdigris)]"
+                      : "bg-[rgba(163,59,59,0.15)] text-[var(--loss)] border-[var(--loss)]"
+                  }`}
+                >
+                  {testEmailResult.message}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </section>
 

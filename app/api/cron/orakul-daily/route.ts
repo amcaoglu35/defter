@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin, isSupabaseAdminConfigured } from "@/lib/supabaseAdmin";
 import { generateDailyBriefing } from "@/lib/aiService";
 import { MOCK_COMPANIES, MOCK_BASKETS } from "@/lib/mockData";
+import { dispatchDailyReportToChannels } from "@/lib/notificationChannels";
 
 export async function GET(req: Request) {
   return handleDailyCron(req);
@@ -125,11 +126,18 @@ async function handleDailyCron(req: Request) {
       }
     }
 
+    // Dispatch to external channels (Telegram / Email) if configured in environment
+    const channelDispatch = await dispatchDailyReportToChannels({
+      title: "Günlük Piyasa & Portföy Kapanış Brifingi",
+      markdownText: `*${briefing.greeting}*\n\n${briefing.executiveSummary}\n\n*Taktiksel İpucu:* ${briefing.tacticalTip || "Disiplinli nakit akışı ve risk yönetimi."}`,
+    });
+
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),
       greeting: briefing.greeting,
       executiveSummary: briefing.executiveSummary,
+      channelDispatch,
     });
   } catch (err: unknown) {
     console.error("[Cron Orakul Daily Error]:", err);

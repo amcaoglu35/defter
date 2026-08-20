@@ -62,7 +62,9 @@ import TechnicalAnalysisPanel from "@/components/TechnicalAnalysisPanel";
 import { DuPontAnalysisCard } from "@/components/DuPontAnalysisCard";
 import { FinancialHealthScoreCard } from "@/components/FinancialHealthScoreCard";
 import DcaBacktestModal from "@/components/DcaBacktestModal";
+import { StrategyBacktestBuilder } from "@/components/StrategyBacktestBuilder";
 import { HealthRadarChart } from "@/components/HealthRadarChart";
+import { Hourglass } from "lucide-react";
 import { GrahamIntrinsicValueCard } from "@/components/GrahamIntrinsicValueCard";
 import { CompanyDividendHistoryCard } from "@/components/CompanyDividendHistoryCard";
 import { FactorGradesScorecard } from "@/components/FactorGradesScorecard";
@@ -124,6 +126,7 @@ export default function SirketDetayPage() {
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [alertModalOpen, setAlertModalOpen] = useState(false);
   const [dcaModalOpen, setDcaModalOpen] = useState(false);
+  const [strategyBacktestOpen, setStrategyBacktestOpen] = useState(false);
   const [isAlertHistoryOpen, setIsAlertHistoryOpen] = useState(false);
   const [aiReport, setAiReport] = useState<CompanyDiagnosisReport | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -594,6 +597,16 @@ export default function SirketDetayPage() {
           >
             <Calendar className="w-3.5 h-3.5" />
             <span>DCA Backtest</span>
+          </button>
+
+          {/* Technical Strategy Backtest Trigger */}
+          <button
+            onClick={() => setStrategyBacktestOpen(true)}
+            className="border border-[var(--brass-dim)] hover:border-[var(--brass)] text-[var(--brass)] bg-[var(--brass-glow)] px-3 py-1.5 rounded text-xs font-mono flex items-center gap-1.5 transition-all shadow cursor-pointer"
+            title="RSI, SMA, Bollinger ve MACD kural tabanlı strateji simülasyonu"
+          >
+            <Hourglass className="w-3.5 h-3.5" />
+            <span>Strateji Backtest</span>
           </button>
 
           {/* Buy/Sell Transaction Trigger */}
@@ -2390,6 +2403,19 @@ export default function SirketDetayPage() {
         currency={company.currency}
         historicalData={historyData || []}
       />
+
+      {/* Technical Rule-Based Strategy Backtest Modal */}
+      {strategyBacktestOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-5xl max-h-[90vh] overflow-y-auto scrollbar-thin">
+            <StrategyBacktestBuilder
+              initialSymbol={company.symbol}
+              companies={companies}
+              onClose={() => setStrategyBacktestOpen(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

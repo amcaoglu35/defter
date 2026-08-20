@@ -26,6 +26,8 @@ import { useToast } from "@/components/ToastProvider";
 import { isLiveSymbol } from "@/lib/liveSymbols";
 import Sparkline from "@/components/Sparkline";
 import GlobalAssetSearchModal from "@/components/GlobalAssetSearchModal";
+import { StockScreenerBuilder } from "@/components/StockScreenerBuilder";
+import { SlidersHorizontal } from "lucide-react";
 
 export const currencyForExchange = (exchange: string): string => {
   if (exchange === "ABD") return "$";
@@ -73,6 +75,7 @@ export default function SirketlerPage() {
   // Selection for comparison
   const [selectedSymbols, setSelectedSymbols] = useState<string[]>([]);
   const [compareModalOpen, setCompareModalOpen] = useState(false);
+  const [isScreenerOpen, setIsScreenerOpen] = useState(false);
 
   // Confirm delete modal state
   const [companyToDelete, setCompanyToDelete] = useState<{ symbol: string; name: string; warningMsg: string } | null>(null);
@@ -463,8 +466,30 @@ export default function SirketlerPage() {
             <Bookmark className="w-3.5 h-3.5" />
             <span>İzleme Listesi ({assetTabWatchlistCount})</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setIsScreenerOpen((prev) => !prev)}
+            className={`px-3 py-1.5 rounded text-xs font-mono border transition-all cursor-pointer flex items-center gap-1.5 ${
+              isScreenerOpen
+                ? "bg-[var(--brass)] text-[var(--ink)] border-[var(--brass)] font-bold shadow-md"
+                : "bg-[var(--ink-3)] text-[var(--brass)] border-[var(--brass-dim)] hover:text-[var(--paper)]"
+            }`}
+            title="Çok kriterli kesin hisse ve varlık tarayıcısını aç"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span>{isScreenerOpen ? "Filtreyi Kapat" : "Gelişmiş Filtre"}</span>
+          </button>
         </div>
       </div>
+
+      {/* 3.5. Expandable Multi-criteria Screener Panel */}
+      {isScreenerOpen && (
+        <StockScreenerBuilder
+          companies={companies}
+          onClose={() => setIsScreenerOpen(false)}
+        />
+      )}
 
       {/* 4. Filter Pills */}
       <div className="flex flex-wrap gap-1.5">

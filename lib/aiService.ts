@@ -46,11 +46,12 @@ const GEMINI_CANDIDATES = [
   "gemini-1.5-pro",
 ];
 
-export function getResolvedApiKey(provider: string = "gemini"): string | undefined {
+export function getResolvedApiKey(provider: string = "gemini", customApiKey?: string): string | undefined {
+  if (customApiKey && customApiKey.trim().length > 5) return customApiKey.trim();
   return provider === "openai" ? process.env.OPENAI_API_KEY : process.env.GEMINI_API_KEY;
 }
 
-async function fetchGeminiWithFallback(
+export async function fetchGeminiWithFallback(
   apiKey: string,
   bodyObj: Record<string, unknown>,
   customModel?: string
@@ -1262,7 +1263,7 @@ export interface BacktestResult {
   isRealHistoricalData: boolean;
 }
 
-async function fetchHistoricalDailyCloses(
+export async function fetchHistoricalDailyCloses(
   ticker: string,
   startDate: Date,
   endDate: Date

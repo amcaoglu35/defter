@@ -1,21 +1,21 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Sparkles, RefreshCw, X, MessageSquare } from "lucide-react";
+import { Send, Bot, User, Sparkles, RefreshCw } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
-import { chatWithOrakulCopilot } from "@/lib/aiService";
 
 export function OrakulCopilotChat() {
-  const { companies, baskets, userSettings, aiApiKey, aiProvider, geminiModel } = useDefterStore();
+  const { companies, baskets, aiApiKey, aiProvider, geminiModel } = useDefterStore();
   const [messages, setMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([
     {
       role: "assistant",
       content:
-        "Merhaba! Ben Orakul Yapay Zeka Finansal Asistanınızım. Portföyünüz, BIST hisseleri, bilanço yorumları veya strateji tercihleri hakkında istediğiniz soruyu sorabilirsiniz.",
+        "Merhaba! Ben Orakul Yapay Zeka Finansal Asistanınızım. Portföyünüz, BIST hisseleri, bilanço yorumları veya strateji tercihleriniz hakkında istediğiniz soruyu sorabilirsiniz.",
     },
   ]);
   const [inputMsg, setInputMsg] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isServerAiActive, setIsServerAiActive] = useState<boolean | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -26,13 +26,33 @@ export function OrakulCopilotChat() {
     scrollToBottom();
   }, [messages, loading]);
 
+  useEffect(() => {
+    let isCancelled = false;
+    fetch("/api/orakul")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!isCancelled && data.success) {
+          setIsServerAiActive(Boolean(data.isRealAiActive));
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) setIsServerAiActive(false);
+      });
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  const isRealAi = Boolean((aiApiKey && aiApiKey.trim().length > 5) || isServerAiActive);
+
   const handleSend = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!inputMsg.trim() || loading) return;
 
     const userText = inputMsg.trim();
     setInputMsg("");
-    setMessages((prev) => [...prev, { role: "user", content: userText }]);
+    const nextMessages = [...messages, { role: "user" as const, content: userText }];
+    setMessages(nextMessages);
     setLoading(true);
 
     try {
@@ -41,23 +61,45 @@ export function OrakulCopilotChat() {
         .map((c) => `${c.symbol} (${c.price} ₺)`)
         .join(", ")}.`;
 
-      const response = await chatWithOrakulCopilot(
-        userText,
-        messages,
-        portfolioSummary,
-        aiApiKey,
-        aiProvider,
-        geminiModel
-      );
+      const res = await fetch("/api/orakul", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "chat",
+          messages: nextMessages,
+          context: {
+            portfolioSummary,
+            companies: companies.slice(0, 20),
+            baskets,
+          },
+          provider: aiProvider,
+          model: geminiModel,
+          apiKey: aiApiKey, // Kişisel anahtar varsa öncelikli, yoksa sunucu env / cookie devreye girer
+        }),
+      });
 
-      setMessages((prev) => [...prev, { role: "assistant", content: response }]);
+      if (res.ok) {
+        const data = await res.json();
+        setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
+      } else {
+        const errJson = await res.json().catch(() => null);
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content:
+              errJson?.error ||
+              "Üzgünüm, yanıt oluşturulurken bir sorun oluştu. Lütfen bağlantınızı ve API ayarlarınızı kontrol edin.",
+          },
+        ]);
+      }
     } catch {
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
           content:
-            "Üzgünüm, yanıt oluşturulurken bir ağ hatası meydana geldi. Lütfen API anahtarınızı Ayarlar sayfasından kontrol edin.",
+            "Üzgünüm, yanıt oluşturulurken bir ağ hatası meydana geldi. Lütfen internet bağlantınızı kontrol edin.",
         },
       ]);
     } finally {
@@ -83,9 +125,15 @@ export function OrakulCopilotChat() {
           </div>
         </div>
 
-        <span className="font-mono text-[10px] text-[var(--brass)] bg-[var(--brass-glow)] border border-[var(--brass-dim)] px-2 py-0.5 rounded font-bold flex items-center gap-1">
-          <Sparkles className="w-3 h-3" />
-          <span>Canlı AI Ajanı</span>
+        <span
+          className={`font-mono text-[10px] px-2 py-0.5 rounded font-bold flex items-center gap-1 border ${
+            isRealAi
+              ? "text-[var(--brass)] bg-[var(--brass-glow)] border-[var(--brass-dim)]"
+              : "text-[var(--mist)] bg-[var(--ink-3)] border-[var(--line)]"
+          }`}
+        >
+          <Sparkles className="w-3 h-3 text-[var(--brass)]" />
+          <span>{isRealAi ? "Canlı AI Ajanı" : "Şablon Asistanı"}</span>
         </span>
       </div>
 
@@ -110,7 +158,7 @@ export function OrakulCopilotChat() {
               className={`p-3 rounded-xl max-w-[85%] leading-relaxed ${
                 m.role === "user"
                   ? "bg-[var(--brass)] text-[var(--ink)] font-semibold font-sans text-xs shadow"
-                  : "bg-[var(--ink-3)] text-[var(--paper)] border border-[var(--line)] font-sans text-xs"
+                  : "bg-[var(--ink-3)] text-[var(--paper)] border border-[var(--line)] font-sans text-xs whitespace-pre-wrap"
               }`}
             >
               {m.content}

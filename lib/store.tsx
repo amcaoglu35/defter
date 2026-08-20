@@ -1351,8 +1351,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // Transaction operations
   const addTransaction = useCallback(
-    (tx: Omit<Transaction, "id">, targetBasketId?: string) => {
-      const newTx: Transaction = { ...tx, id: `tx-${Date.now()}` };
+    (tx: Omit<Transaction, "id"> & { id?: string }, targetBasketId?: string) => {
+      const newTx: Transaction = {
+        ...tx,
+        id:
+          tx.id ||
+          (typeof crypto !== "undefined" && crypto.randomUUID
+            ? crypto.randomUUID()
+            : `tx-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`),
+      };
       if (targetBasketId) newTx.basketId = targetBasketId;
       setTransactions((prev) => [newTx, ...prev]);
       syncOrWarn("add_transaction", newTx, "İşlem kaydı ekleme");
@@ -1447,7 +1454,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
       addCompany(newCo);
 
-      const notifId = `notif-${Date.now()}`;
+      const notifId =
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
       const newNotif: NotificationItem = {
         id: notifId,
         type: "ipo",
@@ -1537,11 +1547,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const refreshPrices = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      const symbols = companies.map((c) => c.symbol);
-      const res = await fetch("/api/prices", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbols }),
+      const res = await fetch("/api/prices?refresh=true", {
+        method: "GET",
       });
       if (res.ok) {
         const json = await res.json();
@@ -1582,11 +1589,54 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsRefreshing(false);
     }
-  }, [companies]);
+  }, []);
 
   const setUpdateInterval = (interval: string) => {
     setUpdateIntervalState(interval);
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem("defter_update_interval", interval);
+      }
+    } catch {}
   };
+
+  // Automatic Price Update Timer (handles live / 15min / 1hour frequencies with visibility optimization)
+  useEffect(() => {
+    if (updateInterval === "manual") return;
+
+    let intervalMs = 15 * 60 * 1000;
+    if (updateInterval === "live") {
+      intervalMs = 15 * 1000; // 15 seconds
+    } else if (updateInterval === "15min") {
+      intervalMs = 15 * 60 * 1000; // 15 minutes
+    } else if (updateInterval === "1hour") {
+      intervalMs = 60 * 60 * 1000; // 1 hour
+    }
+
+    const intervalId = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) {
+        return; // Skip background tabs
+      }
+      refreshPrices();
+    }, intervalMs);
+
+    const handleVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        refreshPrices();
+      }
+    };
+
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+    }
+
+    return () => {
+      clearInterval(intervalId);
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+      }
+    };
+  }, [updateInterval, refreshPrices]);
 
   const markAllNotificationsRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
