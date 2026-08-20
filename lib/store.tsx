@@ -1084,7 +1084,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // Helper methods for autonomous scans
   const addAutonomousScan = (scan: AutonomousScan) => {
     setAutonomousScans(prev => {
-      const updated = [scan, ...prev].slice(0, 100);
+      const filtered = prev.filter(s => s.id !== scan.id);
+      const updated = [scan, ...filtered].slice(0, 500);
       try { localStorage.setItem(STORAGE_KEYS.AUTONOMOUS_SCANS, JSON.stringify(updated)); } catch {}
       return updated;
     });
@@ -1129,7 +1130,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // Helper methods for AI model baskets
   const addAiModelBasket = (basket: AiModelBasket) => {
     setAiModelBaskets((prev) => {
-      const updated = [basket, ...prev].slice(0, 100);
+      const filtered = prev.filter(b => b.id !== basket.id);
+      const updated = [basket, ...filtered].slice(0, 500);
       try { localStorage.setItem(STORAGE_KEYS.AI_MODEL_BASKETS, JSON.stringify(updated)); } catch {}
       return updated;
     });
@@ -1188,11 +1190,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // Add AI history entry
   const addAiHistory = useCallback((item: AiHistoryItem) => {
-    setAiHistory((prev) => [item, ...prev]);
-    try {
-      const stored = JSON.parse(localStorage.getItem(STORAGE_KEYS.AI_HISTORY) ?? "[]");
-      localStorage.setItem(STORAGE_KEYS.AI_HISTORY, JSON.stringify([item, ...stored]));
-    } catch {}
+    setAiHistory((prev) => {
+      const filtered = prev.filter((h) => h.id !== item.id);
+      const updated = [item, ...filtered].slice(0, 500);
+      try {
+        localStorage.setItem(STORAGE_KEYS.AI_HISTORY, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
     syncOrWarn("add_ai_history", item, "AI geçmişi ekleme");
   }, [syncOrWarn]);
 
@@ -1637,6 +1642,52 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       }
     };
   }, [updateInterval, refreshPrices]);
+
+  // Global Otonom Tarayıcı & Catch-Up Sync (Uygulama veya sekme kapalıyken kaçan taramaları telafi eder)
+  useEffect(() => {
+    if (!isLoaded) return;
+
+    const triggerAutonomousCatchUp = async () => {
+      try {
+        const lastScanStr = typeof window !== "undefined" ? localStorage.getItem("defter_last_auto_scan_time") : null;
+        const now = Date.now();
+        const lastScan = lastScanStr ? parseInt(lastScanStr, 10) : 0;
+        const diffMinutes = (now - lastScan) / (1000 * 60);
+
+        // Eğer son taramadan bu yana 15 dakikadan fazla geçmişse (veya ilk açılışsa)
+        if (diffMinutes >= 15 || !lastScanStr) {
+          if (typeof window !== "undefined") {
+            localStorage.setItem("defter_last_auto_scan_time", String(now));
+          }
+          const res = await fetch("/api/ai-tools/autonomous-scan", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ count: 6 }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data.scans) && data.scans.length > 0) {
+              data.scans.forEach((scan: AutonomousScan) => {
+                addAutonomousScan(scan);
+              });
+              evaluateAutonomousScans();
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("[AutoScan Catch-Up Error]:", err);
+      }
+    };
+
+    triggerAutonomousCatchUp();
+
+    // 10 dakikada bir arka planda otonom tarama yap
+    const autoScanInterval = setInterval(() => {
+      triggerAutonomousCatchUp();
+    }, 10 * 60 * 1000);
+
+    return () => clearInterval(autoScanInterval);
+  }, [isLoaded]);
 
   const markAllNotificationsRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
