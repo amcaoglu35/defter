@@ -13,9 +13,11 @@ import {
   ArrowLeft,
   Sparkles,
   ShieldCheck,
-  Coins,
-  Layers,
-  ArrowRightLeft,
+  Network,
+  Calculator,
+  Target,
+  Award,
+  FileText,
 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import { calculateConsolidatedPortfolio } from "@/lib/portfolioIntelligence";
@@ -25,14 +27,32 @@ import PortfolioXRayView from "@/components/PortfolioXRayView";
 import DividendFireHub from "@/components/DividendFireHub";
 import PortfolioRebalanceHub from "@/components/PortfolioRebalanceHub";
 import PortfolioStressTestHub from "@/components/PortfolioStressTestHub";
+import PortfolioCorrelationMatrix from "@/components/PortfolioCorrelationMatrix";
+import PortfolioQuantLab from "@/components/PortfolioQuantLab";
+import PortfolioModelTargetHub from "@/components/PortfolioModelTargetHub";
+import CompanyValuationLab from "@/components/CompanyValuationLab";
+import PortfolioAiCheckupModal from "@/components/PortfolioAiCheckupModal";
+import PortfolioExecutivePdfExport from "@/components/PortfolioExecutivePdfExport";
 import CsvImportExportModal from "@/components/CsvImportExportModal";
 
-type ActiveTab = "benchmark" | "treemap" | "xray" | "dividends" | "rebalance" | "stress";
+type ActiveTab =
+  | "benchmark"
+  | "quant"
+  | "correlation"
+  | "treemap"
+  | "xray"
+  | "valuation"
+  | "model"
+  | "dividends"
+  | "rebalance"
+  | "stress";
 
 export default function AnalizPage() {
   const { baskets, companies } = useDefterStore();
   const [activeTab, setActiveTab] = useState<ActiveTab>("benchmark");
   const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
+  const [isAiCheckupOpen, setIsAiCheckupOpen] = useState(false);
+  const [isPdfExportOpen, setIsPdfExportOpen] = useState(false);
 
   // Konsolide Portföy Hesaplaması
   const xray = useMemo(() => {
@@ -59,23 +79,42 @@ export default function AnalizPage() {
             <h1 className="font-serif font-bold text-2xl sm:text-3xl text-[var(--paper)] flex items-center gap-2.5">
               <span>Portföy Zekası &amp; Röntgen</span>
               <span className="text-xs font-mono font-normal uppercase px-2.5 py-0.5 rounded-full bg-[var(--brass-glow)] border border-[var(--brass-dim)] text-[var(--brass)]">
-                PRO ANALİTİK
+                PRO QUANT &amp; ANALİTİK
               </span>
             </h1>
             <p className="text-xs sm:text-sm text-[var(--mist)] font-mono">
-              Piyasa kıyaslaması, canlı ısı haritası, sektörel röntgen, temettü projeksiyonu ve stres testleri.
+              Piyasa kıyaslaması, Sharpe/VaR risk laboratuvarı, korelasyon matrisi, Graham/DuPont değerleme ve stres testleri.
             </p>
           </div>
 
           {/* Aksiyon Butonları */}
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {/* Orakul AI Check-Up Butonu */}
+            <button
+              onClick={() => setIsAiCheckupOpen(true)}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[var(--brass-glow)] border border-[var(--brass-dim)] text-xs font-mono font-bold text-[var(--brass)] hover:brightness-110 transition-all shadow-sm active:scale-95 cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>Orakul AI Check-Up</span>
+            </button>
+
+            {/* PDF Bülten İndir Butonu */}
+            <button
+              onClick={() => setIsPdfExportOpen(true)}
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[var(--ink-2)] border border-[var(--line)] hover:border-[var(--brass)] text-xs font-mono text-[var(--paper)] transition-all shadow-sm cursor-pointer"
+            >
+              <FileText className="w-4 h-4 text-[var(--brass)]" />
+              <span>Bülten (PDF)</span>
+            </button>
+
             <button
               onClick={() => setIsCsvModalOpen(true)}
               className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[var(--ink-2)] border border-[var(--line)] hover:border-[var(--brass)] text-xs font-mono text-[var(--paper)] transition-all shadow-sm cursor-pointer"
             >
               <FileSpreadsheet className="w-4 h-4 text-[var(--brass)]" />
-              <span>CSV İçe / Dışa Aktar</span>
+              <span>CSV</span>
             </button>
+
             <Link
               href="/sepetlerim"
               className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] text-xs font-bold font-mono transition-all shadow-sm active:scale-95"
@@ -96,7 +135,7 @@ export default function AnalizPage() {
                 Portföy Zekası İçin Varlık Bulunamadı
               </h3>
               <p className="text-xs sm:text-sm text-[var(--mist)] font-mono leading-relaxed">
-                Piyasa kıyaslaması, sektör röntgeni, canlı ısı haritası ve stres testlerinin çalışabilmesi için en az bir sepet veya pozisyon oluşturmalısınız.
+                Piyasa kıyaslaması, Sharpe/VaR risk laboratuvarı, korelasyon matrisi ve stres testlerinin çalışabilmesi için en az bir sepet veya pozisyon oluşturmalısınız.
               </p>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
@@ -181,7 +220,31 @@ export default function AnalizPage() {
                 }`}
               >
                 <TrendingUp className="w-4 h-4" />
-                <span>Piyasa Kıyaslama (Benchmark)</span>
+                <span>Piyasa Kıyaslama</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab("quant")}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-mono transition-all whitespace-nowrap cursor-pointer ${
+                  activeTab === "quant"
+                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-md"
+                    : "bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)]"
+                }`}
+              >
+                <Award className="w-4 h-4" />
+                <span>Sharpe / VaR Risk Lab</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab("correlation")}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-mono transition-all whitespace-nowrap cursor-pointer ${
+                  activeTab === "correlation"
+                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-md"
+                    : "bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)]"
+                }`}
+              >
+                <Network className="w-4 h-4" />
+                <span>Korelasyon Matrisi</span>
               </button>
 
               <button
@@ -205,7 +268,31 @@ export default function AnalizPage() {
                 }`}
               >
                 <PieChart className="w-4 h-4" />
-                <span>Sektörel Röntgen (X-Ray)</span>
+                <span>Sektörel Röntgen</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab("valuation")}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-mono transition-all whitespace-nowrap cursor-pointer ${
+                  activeTab === "valuation"
+                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-md"
+                    : "bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)]"
+                }`}
+              >
+                <Calculator className="w-4 h-4" />
+                <span>Değerleme Laboratuvarı</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab("model")}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-mono transition-all whitespace-nowrap cursor-pointer ${
+                  activeTab === "model"
+                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-md"
+                    : "bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)]"
+                }`}
+              >
+                <Target className="w-4 h-4" />
+                <span>Hedef Portföy Radarı</span>
               </button>
 
               <button
@@ -241,7 +328,7 @@ export default function AnalizPage() {
                 }`}
               >
                 <AlertOctagon className="w-4 h-4" />
-                <span>Stres Testi (What-If)</span>
+                <span>Stres Testi</span>
               </button>
             </div>
 
@@ -255,6 +342,18 @@ export default function AnalizPage() {
                 />
               )}
 
+              {activeTab === "quant" && (
+                <PortfolioQuantLab
+                  holdings={xray.holdings}
+                  totalValue={xray.totalValue}
+                  totalProfitLossPct={xray.totalProfitLossPct}
+                />
+              )}
+
+              {activeTab === "correlation" && (
+                <PortfolioCorrelationMatrix holdings={xray.holdings} />
+              )}
+
               {activeTab === "treemap" && (
                 <PortfolioTreemap
                   holdings={xray.holdings}
@@ -264,6 +363,14 @@ export default function AnalizPage() {
 
               {activeTab === "xray" && (
                 <PortfolioXRayView xray={xray} />
+              )}
+
+              {activeTab === "valuation" && (
+                <CompanyValuationLab companies={companies} />
+              )}
+
+              {activeTab === "model" && (
+                <PortfolioModelTargetHub holdings={xray.holdings} />
               )}
 
               {activeTab === "dividends" && (
@@ -290,6 +397,20 @@ export default function AnalizPage() {
           </>
         )}
       </div>
+
+      {/* Orakul AI Check-Up Modalı */}
+      <PortfolioAiCheckupModal
+        isOpen={isAiCheckupOpen}
+        onClose={() => setIsAiCheckupOpen(false)}
+        xray={xray}
+      />
+
+      {/* PDF / Bülten Dışa Aktarma Modalı */}
+      <PortfolioExecutivePdfExport
+        isOpen={isPdfExportOpen}
+        onClose={() => setIsPdfExportOpen(false)}
+        xray={xray}
+      />
 
       {/* CSV Import/Export Modal */}
       <CsvImportExportModal

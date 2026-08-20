@@ -32,6 +32,8 @@ export interface PortfolioXRayData {
   holdings: PortfolioAssetHolding[];
 }
 
+export type ConsolidatedPortfolio = PortfolioXRayData;
+
 export const CATEGORY_COLORS: Record<string, string> = {
   hisse: "#10b981", // zümrüt yeşili
   global: "#3b82f6", // mavi

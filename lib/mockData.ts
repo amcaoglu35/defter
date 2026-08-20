@@ -144,7 +144,7 @@ export interface NotificationItem {
 export interface AiHistoryItem {
   id: string;
   date: string;
-  type: "Sepet Önerisi" | "Anomali Tespiti" | "Şirket Değerleme" | "Haber Duygu Analizi" | "Reçete" | "Sohbet Analizi" | "Otonom Tarama" | "Bilanço Notu" | "Tuzak Taraması";
+  type: "Sepet Önerisi" | "Anomali Tespiti" | "Şirket Değerleme" | "Haber Duygu Analizi" | "Reçete" | "Sohbet Analizi" | "Otonom Tarama" | "Bilanço Notu" | "Tuzak Taraması" | "Teşhis" | "Check-Up";
   title: string;
   description: string;
   verdictTag: string;
