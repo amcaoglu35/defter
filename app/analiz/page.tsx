@@ -204,102 +204,182 @@ export default function AnalizPage() {
               </div>
             </div>
 
-            {/* 🏛️ 4 ANA MERKEZ SEKMELERİ (KUSURSUZ SADELEŞME) */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* 🏛️ 4 ANA MERKEZ SEKMELERİ (SON DERECE BELİRGİN & PREMIUM KUTULAR) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
               {/* 1. Portföy & Röntgen */}
               <button
                 onClick={() => setActiveHub("portfolio")}
-                className={`p-4 rounded-xl border text-left transition-all cursor-pointer space-y-1.5 ${
+                className={`p-4 rounded-2xl border-2 text-left transition-all duration-200 cursor-pointer relative overflow-hidden group ${
                   activeHub === "portfolio"
-                    ? "bg-[var(--ink-2)] border-[var(--brass)] shadow-md ring-1 ring-[var(--brass)]"
-                    : "bg-[var(--ink-2)]/60 border-[var(--line)] hover:border-[var(--brass-dim)] text-[var(--mist)]"
+                    ? "bg-gradient-to-b from-[var(--ink-3)] to-[var(--ink-2)] border-[var(--brass)] shadow-xl shadow-[var(--brass)]/10 ring-2 ring-[var(--brass)]/20"
+                    : "bg-[var(--ink-2)] border-[var(--line)] hover:border-[var(--brass-dim)] hover:bg-[var(--ink-3)] text-[var(--mist)] hover:-translate-y-0.5 shadow-sm"
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <Briefcase
-                    className={`w-4 h-4 ${
-                      activeHub === "portfolio" ? "text-[var(--brass)]" : "text-[var(--mist)]"
+                {activeHub === "portfolio" && (
+                  <div className="absolute top-0 right-0 w-16 h-16 bg-[var(--brass)]/10 rounded-bl-full pointer-events-none" />
+                )}
+                <div className="flex items-start justify-between gap-2">
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                      activeHub === "portfolio"
+                        ? "bg-[var(--brass)] text-[var(--ink)] shadow-md font-bold"
+                        : "bg-[var(--ink-3)] text-[var(--paper-dim)] border border-[var(--line)] group-hover:text-[var(--brass)] group-hover:border-[var(--brass-dim)]"
                     }`}
-                  />
-                  <span className="font-serif font-bold text-sm text-[var(--paper)]">
+                  >
+                    <Briefcase className="w-5 h-5" />
+                  </div>
+                  {activeHub === "portfolio" ? (
+                    <span className="px-2 py-0.5 rounded-full bg-[var(--brass-glow)] border border-[var(--brass-dim)] text-[var(--brass)] font-mono text-[10px] font-bold tracking-wider">
+                      SEÇİLİ
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-mono text-[var(--mist)] opacity-60">01</span>
+                  )}
+                </div>
+                <div className="mt-3 space-y-1">
+                  <span
+                    className={`font-serif font-bold text-base block ${
+                      activeHub === "portfolio" ? "text-[var(--brass)]" : "text-[var(--paper)]"
+                    }`}
+                  >
                     1. Portföy &amp; Röntgen
                   </span>
+                  <p className="text-xs font-mono text-[var(--paper-dim)] line-clamp-1">
+                    Benchmark, Treemap Isı Haritası &amp; Sektörler
+                  </p>
                 </div>
-                <p className="text-[11px] font-mono text-[var(--mist)] line-clamp-1">
-                  Piyasa Kıyaslama, Isı Haritası &amp; Sektörler
-                </p>
               </button>
 
               {/* 2. Quant & Risk Lab */}
               <button
                 onClick={() => setActiveHub("quant")}
-                className={`p-4 rounded-xl border text-left transition-all cursor-pointer space-y-1.5 ${
+                className={`p-4 rounded-2xl border-2 text-left transition-all duration-200 cursor-pointer relative overflow-hidden group ${
                   activeHub === "quant"
-                    ? "bg-[var(--ink-2)] border-[var(--brass)] shadow-md ring-1 ring-[var(--brass)]"
-                    : "bg-[var(--ink-2)]/60 border-[var(--line)] hover:border-[var(--brass-dim)] text-[var(--mist)]"
+                    ? "bg-gradient-to-b from-[var(--ink-3)] to-[var(--ink-2)] border-cyan-400 shadow-xl shadow-cyan-500/10 ring-2 ring-cyan-400/20"
+                    : "bg-[var(--ink-2)] border-[var(--line)] hover:border-cyan-500/40 hover:bg-[var(--ink-3)] text-[var(--mist)] hover:-translate-y-0.5 shadow-sm"
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <Award
-                    className={`w-4 h-4 ${
-                      activeHub === "quant" ? "text-[var(--brass)]" : "text-[var(--mist)]"
+                {activeHub === "quant" && (
+                  <div className="absolute top-0 right-0 w-16 h-16 bg-cyan-400/10 rounded-bl-full pointer-events-none" />
+                )}
+                <div className="flex items-start justify-between gap-2">
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                      activeHub === "quant"
+                        ? "bg-cyan-400 text-[var(--ink)] shadow-md font-bold"
+                        : "bg-[var(--ink-3)] text-[var(--paper-dim)] border border-[var(--line)] group-hover:text-cyan-400 group-hover:border-cyan-500/40"
                     }`}
-                  />
-                  <span className="font-serif font-bold text-sm text-[var(--paper)]">
+                  >
+                    <Award className="w-5 h-5" />
+                  </div>
+                  {activeHub === "quant" ? (
+                    <span className="px-2 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/40 text-cyan-300 font-mono text-[10px] font-bold tracking-wider">
+                      SEÇİLİ
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-mono text-[var(--mist)] opacity-60">02</span>
+                  )}
+                </div>
+                <div className="mt-3 space-y-1">
+                  <span
+                    className={`font-serif font-bold text-base block ${
+                      activeHub === "quant" ? "text-cyan-300" : "text-[var(--paper)]"
+                    }`}
+                  >
                     2. Quant &amp; Risk Lab
                   </span>
+                  <p className="text-xs font-mono text-[var(--paper-dim)] line-clamp-1">
+                    Monte Carlo 1000, Sharpe, VaR &amp; Omega
+                  </p>
                 </div>
-                <p className="text-[11px] font-mono text-[var(--mist)] line-clamp-1">
-                  Sharpe, VaR, Markowitz MPT &amp; Korelasyon
-                </p>
               </button>
 
               {/* 3. Strateji & Dengeleme */}
               <button
                 onClick={() => setActiveHub("strategy")}
-                className={`p-4 rounded-xl border text-left transition-all cursor-pointer space-y-1.5 ${
+                className={`p-4 rounded-2xl border-2 text-left transition-all duration-200 cursor-pointer relative overflow-hidden group ${
                   activeHub === "strategy"
-                    ? "bg-[var(--ink-2)] border-[var(--brass)] shadow-md ring-1 ring-[var(--brass)]"
-                    : "bg-[var(--ink-2)]/60 border-[var(--line)] hover:border-[var(--brass-dim)] text-[var(--mist)]"
+                    ? "bg-gradient-to-b from-[var(--ink-3)] to-[var(--ink-2)] border-emerald-400 shadow-xl shadow-emerald-500/10 ring-2 ring-emerald-400/20"
+                    : "bg-[var(--ink-2)] border-[var(--line)] hover:border-emerald-500/40 hover:bg-[var(--ink-3)] text-[var(--mist)] hover:-translate-y-0.5 shadow-sm"
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <Compass
-                    className={`w-4 h-4 ${
-                      activeHub === "strategy" ? "text-[var(--brass)]" : "text-[var(--mist)]"
+                {activeHub === "strategy" && (
+                  <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-400/10 rounded-bl-full pointer-events-none" />
+                )}
+                <div className="flex items-start justify-between gap-2">
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                      activeHub === "strategy"
+                        ? "bg-emerald-400 text-[var(--ink)] shadow-md font-bold"
+                        : "bg-[var(--ink-3)] text-[var(--paper-dim)] border border-[var(--line)] group-hover:text-emerald-400 group-hover:border-emerald-500/40"
                     }`}
-                  />
-                  <span className="font-serif font-bold text-sm text-[var(--paper)]">
+                  >
+                    <Compass className="w-5 h-5" />
+                  </div>
+                  {activeHub === "strategy" ? (
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 font-mono text-[10px] font-bold tracking-wider">
+                      SEÇİLİ
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-mono text-[var(--mist)] opacity-60">03</span>
+                  )}
+                </div>
+                <div className="mt-3 space-y-1">
+                  <span
+                    className={`font-serif font-bold text-base block ${
+                      activeHub === "strategy" ? "text-emerald-300" : "text-[var(--paper)]"
+                    }`}
+                  >
                     3. Strateji &amp; Dengeleme
                   </span>
+                  <p className="text-xs font-mono text-[var(--paper-dim)] line-clamp-1">
+                    Fama-French, Makro Elastikiyet &amp; Rebalance
+                  </p>
                 </div>
-                <p className="text-[11px] font-mono text-[var(--mist)] line-clamp-1">
-                  Rebalance DCA, Model Radar &amp; Stres Testi
-                </p>
               </button>
 
               {/* 4. Değerleme & Temettü */}
               <button
                 onClick={() => setActiveHub("valuation")}
-                className={`p-4 rounded-xl border text-left transition-all cursor-pointer space-y-1.5 ${
+                className={`p-4 rounded-2xl border-2 text-left transition-all duration-200 cursor-pointer relative overflow-hidden group ${
                   activeHub === "valuation"
-                    ? "bg-[var(--ink-2)] border-[var(--brass)] shadow-md ring-1 ring-[var(--brass)]"
-                    : "bg-[var(--ink-2)]/60 border-[var(--line)] hover:border-[var(--brass-dim)] text-[var(--mist)]"
+                    ? "bg-gradient-to-b from-[var(--ink-3)] to-[var(--ink-2)] border-amber-400 shadow-xl shadow-amber-500/10 ring-2 ring-amber-400/20"
+                    : "bg-[var(--ink-2)] border-[var(--line)] hover:border-amber-500/40 hover:bg-[var(--ink-3)] text-[var(--mist)] hover:-translate-y-0.5 shadow-sm"
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <Calculator
-                    className={`w-4 h-4 ${
-                      activeHub === "valuation" ? "text-[var(--brass)]" : "text-[var(--mist)]"
+                {activeHub === "valuation" && (
+                  <div className="absolute top-0 right-0 w-16 h-16 bg-amber-400/10 rounded-bl-full pointer-events-none" />
+                )}
+                <div className="flex items-start justify-between gap-2">
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                      activeHub === "valuation"
+                        ? "bg-amber-400 text-[var(--ink)] shadow-md font-bold"
+                        : "bg-[var(--ink-3)] text-[var(--paper-dim)] border border-[var(--line)] group-hover:text-amber-400 group-hover:border-amber-500/40"
                     }`}
-                  />
-                  <span className="font-serif font-bold text-sm text-[var(--paper)]">
+                  >
+                    <Calculator className="w-5 h-5" />
+                  </div>
+                  {activeHub === "valuation" ? (
+                    <span className="px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-300 font-mono text-[10px] font-bold tracking-wider">
+                      SEÇİLİ
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-mono text-[var(--mist)] opacity-60">04</span>
+                  )}
+                </div>
+                <div className="mt-3 space-y-1">
+                  <span
+                    className={`font-serif font-bold text-base block ${
+                      activeHub === "valuation" ? "text-amber-300" : "text-[var(--paper)]"
+                    }`}
+                  >
                     4. Değerleme &amp; Temettü
                   </span>
+                  <p className="text-xs font-mono text-[var(--paper-dim)] line-clamp-1">
+                    Piotroski 9/9, Merton İflas, Graham &amp; DCF
+                  </p>
                 </div>
-                <p className="text-[11px] font-mono text-[var(--mist)] line-clamp-1">
-                  Graham, DCF, Magic Formula &amp; FIRE Simülatörü
-                </p>
               </button>
             </div>
 
