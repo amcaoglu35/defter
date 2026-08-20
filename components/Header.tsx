@@ -11,9 +11,7 @@ import {
   RefreshCw,
   Sparkles,
   Search,
-  CloudCheck,
   ArrowRight,
-  TrendingUp,
   CircleDot,
   Eye,
   EyeOff,
@@ -50,7 +48,7 @@ export default function Header() {
 
   const notifRef = useRef<HTMLDivElement>(null);
 
-  // 1. Close Notification Dropdown on Click Outside
+  // Close Notification Dropdown on Click Outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
@@ -110,28 +108,28 @@ export default function Header() {
     { href: "/", label: "Ana Sayfa" },
     { href: "/sirketler", label: "Şirketler" },
     { href: "/sepetlerim", label: "Sepetlerim" },
-    { href: "/analiz", label: "Analiz & Röntgen", badge: "PRO" },
-    { href: "/orakul", label: "Orakul AI", badge: "AI" },
+    { href: "/analiz", label: "Analiz", badge: "PRO" },
+    { href: "/orakul", label: "Orakul", badge: "AI" },
     { href: "/halka-arz", label: "Halka Arz" },
     { href: "/ayarlar", label: "Ayarlar" },
   ];
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-[var(--ink)]/95 backdrop-blur-md border-b border-[var(--line)] px-4 sm:px-8 py-3 transition-all">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          {/* Brand */}
-          <div className="flex items-center gap-2">
-            <Link href="/" className="flex items-baseline gap-2.5 group cursor-pointer shrink-0">
+      <header className="sticky top-0 z-40 bg-[var(--ink)]/95 backdrop-blur-md border-b border-[var(--line)] px-3 sm:px-6 lg:px-8 py-2.5 transition-all">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
+          {/* Sol: Logo */}
+          <div className="flex items-center gap-2 shrink-0">
+            <Link href="/" className="flex items-baseline gap-2 group cursor-pointer shrink-0">
               <span className="font-serif font-bold text-2xl sm:text-3xl text-[var(--paper)] tracking-tight group-hover:text-[var(--brass)] transition-colors">
                 Defter
               </span>
-              <span className="font-mono text-[10px] text-[var(--brass)] uppercase tracking-widest border border-[var(--brass-dim)] px-1.5 py-0.5 rounded-xs bg-[var(--brass-glow)]">
-                KÜTÜK v1.2
+              <span className="font-mono text-[9px] text-[var(--brass)] uppercase tracking-widest border border-[var(--brass-dim)] px-1 py-0.5 rounded bg-[var(--brass-glow)]">
+                PRO
               </span>
             </Link>
 
-            {/* Mobile Sync Indicator Pill */}
+            {/* Mobile Sync Indicator */}
             <div className="md:hidden flex items-center ml-1">
               <span
                 className={`w-2 h-2 rounded-full ${
@@ -142,8 +140,8 @@ export default function Header() {
             </div>
           </div>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-5 lg:gap-7">
+          {/* Orta: Masaüstü Navigasyon (Düzenli, Sıkışmayan Linkler) */}
+          <nav className="hidden md:flex items-center gap-2.5 lg:gap-4 xl:gap-6 shrink-0">
             {navLinks.map((link) => {
               const isActive =
                 link.href === "/"
@@ -153,15 +151,15 @@ export default function Header() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`text-sm font-medium transition-all relative py-1 flex items-center gap-1.5 ${
+                  className={`text-xs lg:text-sm font-medium transition-all relative py-1 flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
                     isActive
                       ? "text-[var(--brass)] font-semibold"
                       : "text-[var(--mist)] hover:text-[var(--paper)]"
                   }`}
                 >
-                  {link.label}
+                  <span>{link.label}</span>
                   {link.badge && (
-                    <span className="text-[9px] font-mono font-bold bg-[var(--brass)] text-[var(--ink)] px-1.5 py-0.2 rounded-xs">
+                    <span className="text-[9px] font-mono font-bold bg-[var(--brass)] text-[var(--ink)] px-1 py-0.2 rounded">
                       {link.badge}
                     </span>
                   )}
@@ -173,83 +171,84 @@ export default function Header() {
             })}
           </nav>
 
-          {/* Right Actions: Search, Sync, AI Chat, Notifications & Privacy */}
-          <div className="flex items-center gap-1.5 sm:gap-2.5">
-            {/* Quick Command Palette Button (Responsive for md & lg) */}
+          {/* Sağ: Kompakt & Düzenli Araç Çubuğu */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* Hızlı Arama Butonu */}
             <button
               onClick={triggerCommandPalette}
-              className="hidden md:flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-[var(--line)] bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] text-xs font-mono transition-colors cursor-pointer"
+              className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[var(--line)] bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] text-xs font-mono transition-colors cursor-pointer"
               title="Komut Paleti (Ctrl + K)"
             >
               <Search className="w-3.5 h-3.5 text-[var(--brass)]" />
-              <span className="hidden lg:inline">Ara...</span>
+              <span>Ara...</span>
               <kbd className="bg-[var(--ink-3)] text-[var(--brass)] border border-[var(--line)] px-1 py-0.2 rounded text-[10px] font-bold">
                 Ctrl K
               </kbd>
             </button>
 
-            {/* Live Price Refresh Button */}
-            <button
-              onClick={handleRefreshPrices}
-              disabled={isRefreshing}
-              className="p-2 rounded-lg border border-[var(--line)] text-[var(--mist)] hover:text-[var(--brass)] hover:border-[var(--brass-dim)] bg-[var(--ink-2)] transition-colors cursor-pointer flex items-center gap-1.5 font-mono text-xs"
-              title={`Fiyatları Güncelle (Son: ${lastSyncTime})`}
-            >
-              <RefreshCw
-                className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-[var(--brass)]" : ""}`}
-              />
-              <span className="hidden xl:inline text-[11px]">{lastSyncTime}</span>
-            </button>
-
-            {/* Orakul Chat Trigger */}
+            {/* Orakul Chat Butonu */}
             <button
               onClick={() => setChatOpen(true)}
-              className="border border-[var(--brass-dim)] text-[var(--brass)] bg-[var(--brass-glow)] hover:bg-[rgba(201,162,75,0.25)] px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-mono font-semibold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
+              className="border border-[var(--brass-dim)] text-[var(--brass)] bg-[var(--brass-glow)] hover:bg-[rgba(201,162,75,0.25)] px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95 shrink-0"
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Orakul&apos;a Sor</span>
             </button>
 
-            {/* Currency Converter Quick Tool */}
+            {/* Canlı Fiyat Yenileme */}
             <button
-              onClick={() => setConverterOpen(true)}
-              title="Canlı Kur &amp; Varlık Çevirici"
-              className="hidden sm:inline-flex p-2 rounded-lg border border-[var(--line)] hover:border-[var(--brass-dim)] bg-[var(--ink-2)] hover:bg-[var(--ink-3)] text-[var(--mist)] hover:text-[var(--brass)] transition-colors cursor-pointer"
+              onClick={handleRefreshPrices}
+              disabled={isRefreshing}
+              className="p-1.5 sm:px-2 sm:py-1.5 rounded-lg border border-[var(--line)] text-[var(--mist)] hover:text-[var(--brass)] hover:border-[var(--brass-dim)] bg-[var(--ink-2)] transition-colors cursor-pointer flex items-center gap-1.5 font-mono text-xs shrink-0"
+              title={`Fiyatları Güncelle (Son: ${lastSyncTime})`}
             >
-              <Coins className="w-4 h-4 text-[var(--brass)]" />
+              <RefreshCw
+                className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-[var(--brass)]" : ""}`}
+              />
+              <span className="hidden xl:inline text-[10px]">{lastSyncTime}</span>
             </button>
 
-            {/* Privacy Mode (Hide Balances) Toggle */}
-            <button
-              onClick={handleTogglePrivacy}
-              title={isPrivacyMode ? "Gizlilik Modunu Kapat (Bakiyeleri Göster)" : "Gizlilik Modunu Aç (Bakiyeleri Gizle)"}
-              className={`p-2 rounded-lg border transition-colors cursor-pointer ${
-                isPrivacyMode
-                  ? "border-[var(--brass)] bg-[var(--brass-glow)] text-[var(--brass)]"
-                  : "border-[var(--line)] hover:border-[var(--brass-dim)] bg-[var(--ink-2)] hover:bg-[var(--ink-3)] text-[var(--mist)] hover:text-[var(--paper)]"
-              }`}
-            >
-              {isPrivacyMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4 text-[var(--mist)]" />}
-            </button>
+            {/* Kompakt Hızlı Araç Kutusu (Utility Island) */}
+            <div className="hidden sm:flex items-center gap-0.5 p-0.5 rounded-lg bg-[var(--ink-2)] border border-[var(--line)]">
+              {/* Kur Çevirici */}
+              <button
+                onClick={() => setConverterOpen(true)}
+                title="Canlı Kur &amp; Varlık Çevirici"
+                className="p-1.5 rounded-md hover:bg-[var(--ink-3)] text-[var(--mist)] hover:text-[var(--brass)] transition-colors cursor-pointer"
+              >
+                <Coins className="w-3.5 h-3.5 text-[var(--brass)]" />
+              </button>
 
-            {/* Theme Toggle Button */}
-            <div className="hidden sm:inline-flex">
-              <ThemeToggle />
+              {/* Gizlilik Modu */}
+              <button
+                onClick={handleTogglePrivacy}
+                title={isPrivacyMode ? "Gizlilik Modunu Kapat (Bakiyeleri Göster)" : "Gizlilik Modunu Aç (Bakiyeleri Gizle)"}
+                className={`p-1.5 rounded-md transition-colors cursor-pointer ${
+                  isPrivacyMode ? "bg-[var(--brass-glow)] text-[var(--brass)]" : "hover:bg-[var(--ink-3)] text-[var(--mist)] hover:text-[var(--paper)]"
+                }`}
+              >
+                {isPrivacyMode ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              </button>
+
+              {/* Tema Değiştirici */}
+              <div className="px-0.5">
+                <ThemeToggle />
+              </div>
+
+              {/* Görünüm Ölçeği */}
+              <div className="px-0.5">
+                <ViewModeToggle />
+              </div>
             </div>
 
-            {/* View Mode & Display Scale Toggle */}
-            <div className="hidden sm:inline-flex">
-              <ViewModeToggle />
-            </div>
-
-            {/* Notification Button with Click-Outside Ref */}
-            <div className="relative" ref={notifRef}>
+            {/* Bildirim Çanı */}
+            <div className="relative shrink-0" ref={notifRef}>
               <button
                 onClick={() => setNotifOpen(!notifOpen)}
                 className="relative p-2 rounded-lg border border-[var(--line)] text-[var(--mist)] hover:text-[var(--paper)] hover:border-[var(--brass-dim)] bg-[var(--ink-2)] transition-colors cursor-pointer"
                 aria-label="Bildirimler"
               >
-                <Bell className="w-4 h-4" />
+                <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 {unreadCount > 0 && (
                   <span className="absolute -top-1 -right-1 w-4 h-4 bg-[var(--brass)] text-[var(--ink)] font-mono text-[10px] font-bold rounded-full flex items-center justify-center">
                     {unreadCount}
@@ -257,7 +256,7 @@ export default function Header() {
                 )}
               </button>
 
-              {/* Notification Modal Dropdown */}
+              {/* Bildirim Dropdown */}
               {notifOpen && (
                 <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-[var(--ink-2)] border border-[var(--line)] rounded-xl shadow-2xl z-50 p-4 animate-in fade-in slide-in-from-top-2">
                   <div className="flex items-center justify-between pb-3 border-b border-[var(--line)]">
@@ -320,21 +319,21 @@ export default function Header() {
               )}
             </div>
 
-            {/* Mobile Menu Toggle */}
+            {/* Mobil Menü Aç/Kapa Butonu */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg border border-[var(--line)] text-[var(--mist)] hover:text-[var(--paper)] bg-[var(--ink-2)] cursor-pointer"
+              className="md:hidden p-2 rounded-lg border border-[var(--line)] text-[var(--mist)] hover:text-[var(--paper)] bg-[var(--ink-2)] cursor-pointer shrink-0"
               aria-label="Menü"
             >
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
             </button>
           </div>
         </div>
 
-        {/* Mobile Navigation Dropdown Panel */}
+        {/* Mobil Açılır Menü */}
         {mobileMenuOpen && (
           <div className="md:hidden mt-3 pt-3 border-t border-[var(--line)] flex flex-col gap-2 animate-in fade-in">
-            {/* Mobile Cloud Status & Quick Toolbar */}
+            {/* Mobil Senkronizasyon Şeridi */}
             <div className="grid grid-cols-2 gap-2 mb-1">
               <div className="px-3 py-2 flex items-center gap-1.5 text-xs font-mono bg-[var(--ink-3)] rounded-lg border border-[var(--line)]">
                 <CircleDot className={`w-3 h-3 ${isCloudConnected ? "text-[var(--verdigris)]" : "text-[var(--brass)]"}`} />
@@ -349,7 +348,7 @@ export default function Header() {
               </div>
             </div>
 
-            {/* Nav Links */}
+            {/* Mobil Linkler */}
             <div className="space-y-1">
               {navLinks.map((link) => {
                 const isActive =
@@ -369,7 +368,7 @@ export default function Header() {
                   >
                     <span>{link.label}</span>
                     {link.badge && (
-                      <span className="text-[10px] font-mono font-bold bg-[var(--brass)] text-[var(--ink)] px-1.5 py-0.5 rounded-xs">
+                      <span className="text-[10px] font-mono font-bold bg-[var(--brass)] text-[var(--ink)] px-1.5 py-0.5 rounded">
                         {link.badge}
                       </span>
                     )}
@@ -378,21 +377,18 @@ export default function Header() {
               })}
             </div>
 
-            {/* Mobile Quick Utility Actions Grid */}
+            {/* Mobil Araç Butonları */}
             <div className="grid grid-cols-2 gap-2 pt-3 border-t border-[var(--line)]">
-              {/* Theme Toggle in Mobile */}
               <div className="p-1 rounded-lg bg-[var(--ink-3)] border border-[var(--line)] flex items-center justify-between px-2.5">
                 <span className="text-xs font-mono text-[var(--mist)]">Tema:</span>
                 <ThemeToggle />
               </div>
 
-              {/* View Scale in Mobile */}
               <div className="p-1 rounded-lg bg-[var(--ink-3)] border border-[var(--line)] flex items-center justify-between px-2.5">
                 <span className="text-xs font-mono text-[var(--mist)]">Ölçek:</span>
                 <ViewModeToggle />
               </div>
 
-              {/* Currency Converter */}
               <button
                 type="button"
                 onClick={() => {
@@ -405,7 +401,6 @@ export default function Header() {
                 <span>Kur Çevirici</span>
               </button>
 
-              {/* Price Refresh */}
               <button
                 type="button"
                 onClick={() => {
@@ -423,10 +418,10 @@ export default function Header() {
         )}
       </header>
 
-      {/* Interactive Orakul AI Chat Modal */}
+      {/* Orakul Chat Modalı */}
       <OrakulChatModal isOpen={chatOpen} onClose={() => setChatOpen(false)} />
 
-      {/* Live Currency & Asset Converter Modal */}
+      {/* Canlı Kur Çevirici Modalı */}
       <CurrencyConverterModal isOpen={converterOpen} onClose={() => setConverterOpen(false)} />
     </>
   );
