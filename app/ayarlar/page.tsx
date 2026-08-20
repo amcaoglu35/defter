@@ -76,6 +76,28 @@ export default function AyarlarPage() {
   const [aiSavedSuccess, setAiSavedSuccess] = useState(false);
   const [testResult, setTestResult] = useState<{ isConfigured: boolean; message: string } | null>(null);
   const [testingKey, setTestingKey] = useState(false);
+  const [serverKeyConfigured, setServerKeyConfigured] = useState<boolean | null>(null);
+  const [checkingServerKey, setCheckingServerKey] = useState(true);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/user-ai-key", { method: "GET" });
+        if (!cancelled && res.ok) {
+          const data = await res.json();
+          setServerKeyConfigured(Boolean(data?.isConfigured));
+        }
+      } catch {
+        // Ağ hatasında sessizce "bilinmiyor" bırak
+      } finally {
+        if (!cancelled) setCheckingServerKey(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // External notification channels states (persisted locally)
   const [telegramBotToken, setTelegramBotToken] = useState("");
@@ -147,6 +169,9 @@ export default function AyarlarPage() {
   const handleSaveAiSettings = (e: React.FormEvent) => {
     e.preventDefault();
     setAiSettings(selectedProvider, activeModelStr, apiKeyInput.trim());
+    if (apiKeyInput.trim()) {
+      setServerKeyConfigured(true);
+    }
     setAiSavedSuccess(true);
     showToast(
       "AI Ayarları Güncellendi",
@@ -154,6 +179,17 @@ export default function AyarlarPage() {
       "success"
     );
     setTimeout(() => setAiSavedSuccess(false), 3000);
+  };
+
+  const handleRemoveApiKey = async () => {
+    try {
+      await fetch("/api/user-ai-key", { method: "DELETE" });
+    } catch {}
+    setApiKeyInput("");
+    setAiSettings(selectedProvider, activeModelStr, "");
+    setServerKeyConfigured(false);
+    setTestResult(null);
+    showToast("API Anahtarı Kaldırıldı", "Kayıtlı özel anahtar silindi. Sunucu varsayılan anahtarı (varsa) kullanılacak.", "success");
   };
 
   const handleTestServerKey = async () => {
@@ -510,7 +546,7 @@ export default function AyarlarPage() {
             )}
 
             {selectedProvider !== "local" && (
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <label className="block text-xs font-mono text-[var(--mist)] uppercase flex items-center justify-between">
                   <span className="flex items-center gap-1.5 text-[var(--brass)] font-semibold">
                     <Key className="w-3.5 h-3.5" />
@@ -525,6 +561,24 @@ export default function AyarlarPage() {
                     <span>{selectedProvider === "openai" ? "OpenAI'dan Anahtar Al ↗" : "Google AI Studio'dan Ücretsiz Anahtar Al ↗"}</span>
                   </a>
                 </label>
+
+                {/* Sunucuda Kayıtlı Anahtar Durum Rozeti */}
+                {serverKeyConfigured && !apiKeyInput && (
+                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-[rgba(91,140,123,0.15)] border border-[rgba(91,140,123,0.4)] text-[11px] font-mono text-[var(--verdigris)] animate-in fade-in">
+                    <span className="flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                      <span>✓ Kayıtlı bir özel API anahtarı aktif ve güvenle kilitli.</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleRemoveApiKey}
+                      className="text-rose-400 hover:text-rose-300 underline text-[10px] cursor-pointer ml-2"
+                    >
+                      Kaldır
+                    </button>
+                  </div>
+                )}
+
                 <div className="relative">
                   <input
                     type={showApiKey ? "text" : "password"}
@@ -534,7 +588,9 @@ export default function AyarlarPage() {
                       setTestResult(null);
                     }}
                     placeholder={
-                      selectedProvider === "openai"
+                      serverKeyConfigured && !apiKeyInput
+                        ? "•••••••• (kayıtlı anahtarı değiştirmek için yeni anahtar girin)"
+                        : selectedProvider === "openai"
                         ? "sk-proj-..."
                         : "AIzaSy..."
                     }
