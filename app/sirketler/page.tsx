@@ -629,36 +629,37 @@ export default function SirketlerPage() {
                       />
                     </div>
 
-                    {/* Company Name & Symbol */}
+                    {/* Company Name & Symbol (Avatar shows full unique symbol) */}
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded border border-[var(--line)] bg-[var(--ink-3)] flex items-center justify-center font-mono text-xs font-bold text-[var(--brass)] shrink-0">
-                        {c.symbol.slice(0, 3)}
+                      <div className="min-w-[42px] px-1.5 h-8 rounded border border-[var(--line)] bg-[var(--ink-3)] flex items-center justify-center font-mono text-[10px] tracking-tight font-bold text-[var(--brass)] shrink-0 select-none">
+                        {c.symbol}
                       </div>
-                      <div>
-                        <div className="flex items-center gap-1.5 flex-wrap">
+                      <div className="overflow-hidden">
+                        <div className="flex items-center gap-1.5 flex-nowrap overflow-hidden">
                           <Link
                             href={`/sirketler/${encodeURIComponent(c.symbol)}`}
-                            className="font-bold text-sm text-[var(--paper)] hover:text-[var(--brass)] transition-colors font-mono"
+                            className="font-bold text-sm text-[var(--paper)] hover:text-[var(--brass)] transition-colors font-mono truncate max-w-[200px]"
+                            title={c.name}
                           >
                             {c.name}
                           </Link>
                           <DataStatusBadge symbol={c.symbol} isLive={isLiveSymbol(c.symbol)} />
                           {c.volumeRatio && c.volumeRatio >= 1.4 && (
-                            <span className="font-mono text-[9px] bg-[rgba(201,162,75,0.2)] text-[var(--brass)] border border-[var(--brass)] px-1.5 py-0.2 rounded font-bold">
-                              ⚡ Hacim +%{Math.round((c.volumeRatio - 1) * 100)}
+                            <span className="font-mono text-[9px] bg-[rgba(201,162,75,0.15)] text-[var(--brass)] border border-[var(--brass-dim)] px-1 py-0 rounded font-bold shrink-0 leading-tight">
+                              ⚡ +%{Math.round((c.volumeRatio - 1) * 100)}
                             </span>
                           )}
                           {c.athDiscountPct !== undefined && c.athDiscountPct <= 5 && (
-                            <span className="font-mono text-[9px] bg-[rgba(91,140,123,0.2)] text-[var(--verdigris)] border border-[var(--verdigris)] px-1.5 py-0.2 rounded font-bold">
-                              🎯 Zirvede
+                            <span className="font-mono text-[9px] bg-[rgba(91,140,123,0.15)] text-[var(--verdigris)] border border-[rgba(91,140,123,0.4)] px-1 py-0 rounded font-bold shrink-0 leading-tight">
+                              🎯 Zirve
                             </span>
                           )}
                         </div>
-                        <div className="text-[11px] text-[var(--mist)] font-mono flex items-center gap-1.5 flex-wrap">
+                        <div className="text-[11px] text-[var(--mist)] font-mono flex items-center gap-1.5 truncate">
                           <span>{c.symbol} • {c.sector}</span>
                           {c.high52 && (
                             <span className="text-[10px] text-[var(--mist)] opacity-80">
-                              (52H Zirve: {c.high52} ₺)
+                              (52H: {c.high52} ₺)
                             </span>
                           )}
                         </div>
@@ -680,7 +681,7 @@ export default function SirketlerPage() {
                       {c.dailyChange}%
                     </div>
 
-                    {/* 7-Day Trend Sparkline & 52-Week Range Position */}
+                    {/* 7-Day Trend Sparkline & 52-Week Range Position (Handles both full range & single-sided High52) */}
                     <div className="flex flex-col items-center justify-center gap-1 w-[90px]">
                       <Sparkline
                         data={c.priceHistory ? c.priceHistory.map((p) => p.close) : undefined}
@@ -688,12 +689,23 @@ export default function SirketlerPage() {
                         height={20}
                       />
                       {c.high52 && c.low52 && c.high52 > c.low52 ? (
-                        <div className="w-full space-y-0.5">
+                        <div className="w-full space-y-0.5" title={`52H: ${c.low52} ₺ - ${c.high52} ₺`}>
                           <div className="w-full h-1 bg-[var(--ink-3)] rounded-full overflow-hidden border border-[var(--line)] flex">
                             <div
                               className={`h-full ${isDailyPos ? "bg-[var(--verdigris)]" : "bg-[var(--loss)]"}`}
                               style={{
                                 width: `${Math.max(5, Math.min(100, ((c.price - c.low52) / (c.high52 - c.low52)) * 100))}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ) : c.high52 && c.high52 > 0 ? (
+                        <div className="w-full space-y-0.5" title={`52H Zirve: ${c.high52} ₺`}>
+                          <div className="w-full h-1 bg-[var(--ink-3)] rounded-full overflow-hidden border border-[var(--line)] flex">
+                            <div
+                              className="h-full bg-[var(--brass)]"
+                              style={{
+                                width: `${Math.max(5, Math.min(100, (c.price / c.high52) * 100))}%`,
                               }}
                             />
                           </div>
@@ -769,8 +781,8 @@ export default function SirketlerPage() {
                           onChange={() => toggleSelect(c.symbol)}
                           className="accent-[var(--brass)] cursor-pointer w-4 h-4 shrink-0"
                         />
-                        <div className="w-7 h-7 rounded border border-[var(--line)] bg-[var(--ink-3)] flex items-center justify-center font-mono text-xs font-bold text-[var(--brass)] shrink-0">
-                          {c.symbol.slice(0, 3)}
+                        <div className="min-w-[36px] px-1 h-7 rounded border border-[var(--line)] bg-[var(--ink-3)] flex items-center justify-center font-mono text-[9px] tracking-tight font-bold text-[var(--brass)] shrink-0 select-none">
+                          {c.symbol}
                         </div>
                         <div>
                           <div className="flex items-center gap-1.5 flex-wrap">

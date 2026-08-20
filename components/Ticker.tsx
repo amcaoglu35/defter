@@ -50,7 +50,9 @@ export default function Ticker() {
     isMacro: false,
   }));
 
-  const tickerItems = [...indexItems, ...companyItems];
+  const tickerItems = [...indexItems, ...companyItems].filter(
+    (item) => item.symbol && item.price && item.price !== "0" && item.price !== "0,00 ₺"
+  );
 
   return (
     <div className="bg-[var(--ink-3)] border-b border-[var(--line)] py-1.5 overflow-hidden select-none text-[11px] font-mono w-full flex items-center">
