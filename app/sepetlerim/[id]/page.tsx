@@ -79,7 +79,7 @@ export default function SepetDetayPage() {
 
   // Real Analytics & Historical Portfolio Price Series
   const periodParam = period === "1A" ? "1m" : period === "3A" ? "3m" : period === "6A" ? "6m" : "1y";
-  const { riskProfile, portfolioPriceSeries, benchmarkPriceSeries, isLoading: isAnalyticsLoading } = useBasketRiskAnalytics(basket, periodParam);
+  const { riskProfile, portfolioPriceSeries, benchmarkPriceSeries, correlationMatrix, isLoading: isAnalyticsLoading } = useBasketRiskAnalytics(basket, periodParam);
 
   // Dynamic Weighted Dividend Yield Calculation
   const weightedDivYield = useMemo(() => {
@@ -333,7 +333,7 @@ export default function SepetDetayPage() {
       <MarketShockSimulatorCard basket={basket} />
 
       {/* Cross-Asset Pearson Correlation Heatmap */}
-      <CorrelationMatrixCard basket={basket} />
+      <CorrelationMatrixCard basket={basket} correlationResults={correlationMatrix} />
 
       {/* Sectoral & Asset Class Treemap */}
       <BasketTreemap basket={basket} companies={companies} />
