@@ -11,9 +11,12 @@ import {
   AlertTriangle,
   Flame,
   CheckCircle2,
+  XCircle,
   Wand2,
   Coins,
   ShieldAlert,
+  Activity,
+  HeartPulse,
 } from "lucide-react";
 import { Company } from "@/lib/mockData";
 import { calculateValuationFormulas, ValuationMetrics } from "@/lib/quantEngine";
@@ -77,7 +80,7 @@ export default function CompanyValuationLab({
               Şirket Değerleme &amp; Finansal Matematik Laboratuvarı
             </h3>
             <p className="text-xs font-mono text-[var(--mist)]">
-              Graham Sayısı, DCF Adil Değeri, Magic Formula, DuPont ROE ve Beneish Makyaj Dedektörü.
+              Graham, DCF, Piotroski 9/9, Merton İflas Olasılığı, Hurst Trendi ve DuPont ROE.
             </p>
           </div>
         </div>
@@ -143,7 +146,7 @@ export default function CompanyValuationLab({
           </div>
         </div>
 
-        {/* DCF (İndirgenmiş Nakit) Adil Değeri */}
+        {/* DCF Adil Değeri */}
         <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2">
           <div className="flex items-center justify-between text-xs font-mono">
             <span className="text-[var(--mist)]">DCF Adil Değeri</span>
@@ -208,61 +211,97 @@ export default function CompanyValuationLab({
         </div>
       </div>
 
-      {/* 2. JOEL GREENBLATT SIHİRLİ FORMÜLÜ (MAGIC FORMULA) & BENISHE MANİPÜLASYON SKORU */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Magic Formula Kartı */}
-        <div className="p-4 bg-[var(--ink-3)] border border-[var(--brass-dim)] rounded-xl space-y-3">
-          <div className="flex items-center justify-between border-b border-[var(--line)] pb-2">
-            <div className="flex items-center gap-1.5 text-xs font-serif font-bold text-[var(--paper)]">
-              <Wand2 className="w-4 h-4 text-[var(--brass)]" />
-              <span>Joel Greenblatt Sihirli Formülü (Magic Formula)</span>
-            </div>
-            <span className="px-2 py-0.5 rounded bg-[var(--brass-glow)] text-[var(--brass)] font-mono text-xs font-bold">
-              {valuation.magicFormulaRank} ({valuation.magicFormulaScore} Puan)
-            </span>
+      {/* 2. PIOTROSKI F-SCORE 9 KRİTERLİ BİLANÇO MATRİSİ */}
+      <div className="p-5 bg-[var(--ink-3)] border border-[var(--brass-dim)] rounded-xl space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] pb-3">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5 text-[var(--brass)]" />
+            <h4 className="font-serif font-bold text-sm text-[var(--paper)]">
+              Piotroski F-Score (Stanford 9 Kriterli Bilanço Matrisi)
+            </h4>
           </div>
-          <div className="grid grid-cols-2 gap-3 text-xs font-mono">
-            <div className="p-2.5 rounded-lg bg-[var(--ink-2)] border border-[var(--line)]">
-              <span className="text-[10px] text-[var(--mist)] block">1. Kazanç Verimi (EBIT / EV)</span>
-              <span className="font-bold text-emerald-400 text-base">%{valuation.earningsYieldPct}</span>
-              <span className="text-[9px] text-[var(--mist)] block">Firma değerine göre kâr</span>
-            </div>
-            <div className="p-2.5 rounded-lg bg-[var(--ink-2)] border border-[var(--line)]">
-              <span className="text-[10px] text-[var(--mist)] block">2. Sermaye Kârlılığı (ROIC)</span>
-              <span className="font-bold text-cyan-400 text-base">%{valuation.roicPct}</span>
-              <span className="text-[9px] text-[var(--mist)] block">Yatırılan sermayenin verimi</span>
-            </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-mono text-[var(--mist)]">Toplam Skor:</span>
+            <span
+              className={`px-3 py-1 rounded-lg font-mono text-sm font-bold ${
+                valuation.piotroskiFScore >= 8
+                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                  : valuation.piotroskiFScore >= 5
+                  ? "bg-amber-500/20 text-amber-400 border border-amber-500/40"
+                  : "bg-rose-500/20 text-rose-400 border border-rose-500/40"
+              }`}
+            >
+              {valuation.piotroskiFScore} / 9 ({valuation.piotroskiRank})
+            </span>
           </div>
         </div>
 
-        {/* Beneish M-Score & Muhasebe Hilesi Dedektörü */}
-        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-3">
-          <div className="flex items-center justify-between border-b border-[var(--line)] pb-2">
-            <div className="flex items-center gap-1.5 text-xs font-serif font-bold text-[var(--paper)]">
-              <ShieldAlert className="w-4 h-4 text-amber-400" />
-              <span>Beneish M-Score (Bilanço Makyaj Dedektörü)</span>
-            </div>
-            <span
-              className={`px-2 py-0.5 rounded font-mono text-xs font-bold ${
-                valuation.beneishStatus === "Temiz Bilanço"
-                  ? "bg-emerald-950/40 text-emerald-300 border border-emerald-600/30"
-                  : "bg-rose-950/40 text-rose-300 border border-rose-600/30"
-              }`}
+        {/* 9 Kriter Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 font-mono text-xs">
+          {valuation.piotroskiDetails.map((item, idx) => (
+            <div
+              key={idx}
+              className="p-2.5 rounded-lg bg-[var(--ink-2)] border border-[var(--line)] flex items-center justify-between"
             >
-              {valuation.beneishStatus}
-            </span>
-          </div>
-          <div className="flex items-center justify-between text-xs font-mono pt-1">
-            <span className="text-[var(--mist)]">Hesaplanan M-Skoru:</span>
-            <span className="font-bold text-[var(--paper)]">{valuation.beneishMScore}</span>
-          </div>
-          <p className="text-[11px] font-mono text-[var(--mist)] leading-relaxed">
-            -1.78 eşiğinin altındaki skorlar bilançonun hilesiz ve organik faaliyetlerle üretildiğini gösterir.
-          </p>
+              <span className="text-[var(--paper-dim)] text-[11px]">{item.criterion}</span>
+              {item.passed ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              ) : (
+                <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
+              )}
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* 3. DUPONT 3 KADEMELİ ROE AYRIŞTIRMASI */}
+      {/* 3. MERTON İFLAS OLASILIĞI, HURST EXPONENT & MAGIC FORMULA */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Merton İflas Modeli */}
+        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2">
+          <div className="flex items-center justify-between text-xs font-mono">
+            <span className="text-[var(--mist)]">Merton İflas Olasılığı</span>
+            <span className="text-[10px] text-rose-400">1 Yıllık Risk</span>
+          </div>
+          <p className="font-mono text-2xl font-bold text-[var(--paper)]">
+            %{valuation.mertonDefaultProbabilityPct}
+          </p>
+          <span className="text-[10px] font-mono text-emerald-400 block font-bold">
+            {valuation.mertonDefaultProbabilityPct < 5
+              ? "✅ Güvenli Bilanço (Temerrüt Riski Çok Düşük)"
+              : "⚠️ İzlenmeli (Borç Riski Mevcut)"}
+          </span>
+        </div>
+
+        {/* Hurst Exponent Trend */}
+        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2">
+          <div className="flex items-center justify-between text-xs font-mono">
+            <span className="text-[var(--mist)]">Hurst Üssü (Fraktal Trend)</span>
+            <span className="text-[10px] text-cyan-400">H: {valuation.hurstExponent}</span>
+          </div>
+          <p className="font-mono text-lg font-bold text-cyan-400">
+            {valuation.hurstTrendType}
+          </p>
+          <span className="text-[10px] font-mono text-[var(--mist)] block">
+            Fiyat hareketlerinin kalıcı momentum gücü
+          </span>
+        </div>
+
+        {/* Magic Formula */}
+        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2">
+          <div className="flex items-center justify-between text-xs font-mono">
+            <span className="text-[var(--mist)]">Magic Formula Skoru</span>
+            <span className="text-[10px] text-[var(--brass)]">{valuation.magicFormulaRank}</span>
+          </div>
+          <p className="font-mono text-2xl font-bold text-[var(--brass)]">
+            {valuation.magicFormulaScore} Puan
+          </p>
+          <span className="text-[10px] font-mono text-[var(--mist)] block">
+            Kazanç Verimi: %{valuation.earningsYieldPct} | ROIC: %{valuation.roicPct}
+          </span>
+        </div>
+      </div>
+
+      {/* 4. DUPONT 3 KADEMELİ ROE AYRIŞTIRMASI */}
       <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] pb-2">
           <h4 className="font-serif font-bold text-sm text-[var(--paper)] flex items-center gap-1.5">
@@ -276,72 +315,25 @@ export default function CompanyValuationLab({
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
           <div className="p-3 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg text-center space-y-1">
-            <span className="text-[11px] font-mono text-[var(--mist)] block">1. Net Kâr Marjı (Fiyatlama Gücü)</span>
+            <span className="text-[11px] font-mono text-[var(--mist)] block">1. Net Kâr Marjı</span>
             <p className="font-mono text-lg font-bold text-emerald-400">
               %{valuation.dupontNetMarginPct}
             </p>
-            <span className="text-[10px] font-mono text-[var(--mist)]">Her 100 ₺ cironun net kârı</span>
           </div>
 
           <div className="p-3 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg text-center space-y-1">
-            <span className="text-[11px] font-mono text-[var(--mist)] block">2. Varlık Devir Hızı (Operasyonel Hız)</span>
+            <span className="text-[11px] font-mono text-[var(--mist)] block">2. Varlık Devir Hızı</span>
             <p className="font-mono text-lg font-bold text-cyan-400">
               {valuation.dupontAssetTurnover}x
             </p>
-            <span className="text-[10px] font-mono text-[var(--mist)]">Varlıkların ciroya dönüşüm hızı</span>
           </div>
 
           <div className="p-3 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg text-center space-y-1">
-            <span className="text-[11px] font-mono text-[var(--mist)] block">3. Finansal Kaldıraç (Borç Çarpanı)</span>
+            <span className="text-[11px] font-mono text-[var(--mist)] block">3. Finansal Kaldıraç</span>
             <p className="font-mono text-lg font-bold text-amber-400">
               {valuation.dupontLeverageMultiplier}x
             </p>
-            <span className="text-[10px] font-mono text-[var(--mist)]">Toplam Varlıklar / Özkaynak</span>
           </div>
-        </div>
-      </div>
-
-      {/* 4. ALTMAN Z-SCORE, EVA & KELLY */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* Altman Z-Score */}
-        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-1.5">
-          <span className="text-xs font-mono text-[var(--mist)]">Altman Z-Score (İflas Eşiği)</span>
-          <p className="font-mono text-xl font-bold text-[var(--paper)]">
-            {valuation.altmanZScore || "—"}
-          </p>
-          <span
-            className={`text-xs font-mono font-bold block ${
-              valuation.altmanZone === "Güvenli Bölge"
-                ? "text-emerald-400"
-                : valuation.altmanZone === "Gri / İzleme Bölgesi"
-                ? "text-amber-400"
-                : "text-rose-400"
-            }`}
-          >
-            {valuation.altmanZone}
-          </span>
-        </div>
-
-        {/* FCF Yield */}
-        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-1.5">
-          <span className="text-xs font-mono text-[var(--mist)]">Serbest Nakit Akımı (FCF) Verimi</span>
-          <p className="font-mono text-xl font-bold text-emerald-400">
-            %{valuation.fcfYieldPct || "—"}
-          </p>
-          <span className="text-[10px] font-mono text-[var(--mist)] block">
-            Piyasa değerine oranla kasada kalan saf nakit
-          </span>
-        </div>
-
-        {/* Kelly Kriteri */}
-        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-1.5">
-          <span className="text-xs font-mono text-[var(--mist)]">Kelly Kriteri Optimal Portföy Payı</span>
-          <p className="font-mono text-xl font-bold text-[var(--brass)]">
-            %{valuation.kellySuggestedPct} Tavan
-          </p>
-          <span className="text-[10px] font-mono text-emerald-400 block font-bold">
-            ✅ Güvenli risk-getiri bütçe sınırı
-          </span>
         </div>
       </div>
     </div>

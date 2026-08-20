@@ -30,6 +30,7 @@ import PortfolioRebalanceHub from "@/components/PortfolioRebalanceHub";
 import PortfolioStressTestHub from "@/components/PortfolioStressTestHub";
 import PortfolioQuantLab from "@/components/PortfolioQuantLab";
 import PortfolioModelTargetHub from "@/components/PortfolioModelTargetHub";
+import PortfolioMacroStressRadar from "@/components/PortfolioMacroStressRadar";
 import CompanyValuationLab from "@/components/CompanyValuationLab";
 import PortfolioAiCheckupModal from "@/components/PortfolioAiCheckupModal";
 import PortfolioExecutivePdfExport from "@/components/PortfolioExecutivePdfExport";
@@ -41,7 +42,7 @@ export default function AnalizPage() {
   const { baskets, companies } = useDefterStore();
   const [activeHub, setActiveHub] = useState<MainHub>("portfolio");
   const [portfolioSubTab, setPortfolioSubTab] = useState<"benchmark" | "treemap" | "xray">("benchmark");
-  const [strategySubTab, setStrategySubTab] = useState<"rebalance" | "model" | "stress">("rebalance");
+  const [strategySubTab, setStrategySubTab] = useState<"rebalance" | "macro" | "model" | "stress">("rebalance");
   const [valuationSubTab, setValuationSubTab] = useState<"valuation" | "dividends">("valuation");
 
   const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
@@ -378,6 +379,16 @@ export default function AnalizPage() {
                       Yeniden Dengeleme &amp; DCA
                     </button>
                     <button
+                      onClick={() => setStrategySubTab("macro")}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer ${
+                        strategySubTab === "macro"
+                          ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-sm"
+                          : "bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)]"
+                      }`}
+                    >
+                      Makro Duyarlılık &amp; Fama-French
+                    </button>
+                    <button
                       onClick={() => setStrategySubTab("model")}
                       className={`px-3.5 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer ${
                         strategySubTab === "model"
@@ -403,6 +414,12 @@ export default function AnalizPage() {
                     <PortfolioRebalanceHub
                       holdings={xray.holdings}
                       totalValue={xray.totalValue}
+                    />
+                  )}
+                  {strategySubTab === "macro" && (
+                    <PortfolioMacroStressRadar
+                      holdings={xray.holdings}
+                      portfolioBeta={1.05}
                     />
                   )}
                   {strategySubTab === "model" && (
