@@ -8,9 +8,9 @@ import {
   Activity,
   Award,
   Zap,
-  Info,
   Sliders,
-  DollarSign,
+  Network,
+  HeartPulse,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -28,6 +28,7 @@ import {
   calculatePortfolioRiskMetrics,
   generateEfficientFrontier,
 } from "@/lib/quantEngine";
+import PortfolioCorrelationMatrix from "@/components/PortfolioCorrelationMatrix";
 
 interface PortfolioQuantLabProps {
   holdings: PortfolioAssetHolding[];
@@ -147,22 +148,25 @@ export default function PortfolioQuantLab({
           </span>
         </div>
 
-        {/* Jensen Alfası */}
+        {/* Ülser Stres Endeksi (Ulcer Index) */}
         <div className="p-4 bg-[var(--ink-2)] border border-[var(--line)] rounded-xl space-y-1 shadow-sm">
           <div className="flex items-center gap-1.5 text-xs font-mono text-[var(--mist)]">
-            <Percent className="w-4 h-4 text-emerald-400" />
-            <span>Jensen Alfası (α)</span>
+            <HeartPulse className="w-4 h-4 text-rose-400" />
+            <span>Ülser Stres Endeksi</span>
           </div>
           <p
             className={`font-serif font-bold text-2xl ${
-              riskMetrics.jensenAlpha >= 0 ? "text-emerald-400" : "text-rose-400"
+              riskMetrics.ulcerIndex < 6.0
+                ? "text-emerald-400"
+                : riskMetrics.ulcerIndex < 12.0
+                ? "text-amber-400"
+                : "text-rose-400"
             }`}
           >
-            {riskMetrics.jensenAlpha >= 0 ? "+" : ""}
-            {riskMetrics.jensenAlpha.toFixed(2)}%
+            {riskMetrics.ulcerIndex}
           </p>
           <span className="text-[11px] font-mono text-[var(--mist)] block">
-            Piyasa Modeli Üzeri Net Katma Değer
+            {riskMetrics.ulcerStressLevel} Çöküş Riski
           </span>
         </div>
       </div>
@@ -319,6 +323,9 @@ export default function PortfolioQuantLab({
           </span>
         </div>
       </div>
+
+      {/* 4. KORELASYON ISI MATRİSİ ALT MODÜLÜ */}
+      <PortfolioCorrelationMatrix holdings={holdings} />
     </div>
   );
 }

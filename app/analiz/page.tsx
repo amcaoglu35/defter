@@ -13,11 +13,12 @@ import {
   ArrowLeft,
   Sparkles,
   ShieldCheck,
-  Network,
   Calculator,
   Target,
   Award,
   FileText,
+  Briefcase,
+  Compass,
 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import { calculateConsolidatedPortfolio } from "@/lib/portfolioIntelligence";
@@ -27,7 +28,6 @@ import PortfolioXRayView from "@/components/PortfolioXRayView";
 import DividendFireHub from "@/components/DividendFireHub";
 import PortfolioRebalanceHub from "@/components/PortfolioRebalanceHub";
 import PortfolioStressTestHub from "@/components/PortfolioStressTestHub";
-import PortfolioCorrelationMatrix from "@/components/PortfolioCorrelationMatrix";
 import PortfolioQuantLab from "@/components/PortfolioQuantLab";
 import PortfolioModelTargetHub from "@/components/PortfolioModelTargetHub";
 import CompanyValuationLab from "@/components/CompanyValuationLab";
@@ -35,21 +35,15 @@ import PortfolioAiCheckupModal from "@/components/PortfolioAiCheckupModal";
 import PortfolioExecutivePdfExport from "@/components/PortfolioExecutivePdfExport";
 import CsvImportExportModal from "@/components/CsvImportExportModal";
 
-type ActiveTab =
-  | "benchmark"
-  | "quant"
-  | "correlation"
-  | "treemap"
-  | "xray"
-  | "valuation"
-  | "model"
-  | "dividends"
-  | "rebalance"
-  | "stress";
+type MainHub = "portfolio" | "quant" | "strategy" | "valuation";
 
 export default function AnalizPage() {
   const { baskets, companies } = useDefterStore();
-  const [activeTab, setActiveTab] = useState<ActiveTab>("benchmark");
+  const [activeHub, setActiveHub] = useState<MainHub>("portfolio");
+  const [portfolioSubTab, setPortfolioSubTab] = useState<"benchmark" | "treemap" | "xray">("benchmark");
+  const [strategySubTab, setStrategySubTab] = useState<"rebalance" | "model" | "stress">("rebalance");
+  const [valuationSubTab, setValuationSubTab] = useState<"valuation" | "dividends">("valuation");
+
   const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
   const [isAiCheckupOpen, setIsAiCheckupOpen] = useState(false);
   const [isPdfExportOpen, setIsPdfExportOpen] = useState(false);
@@ -83,7 +77,7 @@ export default function AnalizPage() {
               </span>
             </h1>
             <p className="text-xs sm:text-sm text-[var(--mist)] font-mono">
-              Piyasa kıyaslaması, Sharpe/VaR risk laboratuvarı, korelasyon matrisi, Graham/DuPont değerleme ve stres testleri.
+              Piyasa kıyaslaması, Sharpe/VaR risk laboratuvarı, korelasyon matrisi, Graham/DCF değerleme ve stres testleri.
             </p>
           </div>
 
@@ -209,140 +203,159 @@ export default function AnalizPage() {
               </div>
             </div>
 
-            {/* Ana Sekme Butonları */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-[var(--line)] scrollbar-none">
+            {/* 🏛️ 4 ANA MERKEZ SEKMELERİ (KUSURSUZ SADELEŞME) */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {/* 1. Portföy & Röntgen */}
               <button
-                onClick={() => setActiveTab("benchmark")}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-mono transition-all whitespace-nowrap cursor-pointer ${
-                  activeTab === "benchmark"
-                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-md"
-                    : "bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)]"
+                onClick={() => setActiveHub("portfolio")}
+                className={`p-4 rounded-xl border text-left transition-all cursor-pointer space-y-1.5 ${
+                  activeHub === "portfolio"
+                    ? "bg-[var(--ink-2)] border-[var(--brass)] shadow-md ring-1 ring-[var(--brass)]"
+                    : "bg-[var(--ink-2)]/60 border-[var(--line)] hover:border-[var(--brass-dim)] text-[var(--mist)]"
                 }`}
               >
-                <TrendingUp className="w-4 h-4" />
-                <span>Piyasa Kıyaslama</span>
+                <div className="flex items-center gap-2">
+                  <Briefcase
+                    className={`w-4 h-4 ${
+                      activeHub === "portfolio" ? "text-[var(--brass)]" : "text-[var(--mist)]"
+                    }`}
+                  />
+                  <span className="font-serif font-bold text-sm text-[var(--paper)]">
+                    1. Portföy &amp; Röntgen
+                  </span>
+                </div>
+                <p className="text-[11px] font-mono text-[var(--mist)] line-clamp-1">
+                  Piyasa Kıyaslama, Isı Haritası &amp; Sektörler
+                </p>
               </button>
 
+              {/* 2. Quant & Risk Lab */}
               <button
-                onClick={() => setActiveTab("quant")}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-mono transition-all whitespace-nowrap cursor-pointer ${
-                  activeTab === "quant"
-                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-md"
-                    : "bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)]"
+                onClick={() => setActiveHub("quant")}
+                className={`p-4 rounded-xl border text-left transition-all cursor-pointer space-y-1.5 ${
+                  activeHub === "quant"
+                    ? "bg-[var(--ink-2)] border-[var(--brass)] shadow-md ring-1 ring-[var(--brass)]"
+                    : "bg-[var(--ink-2)]/60 border-[var(--line)] hover:border-[var(--brass-dim)] text-[var(--mist)]"
                 }`}
               >
-                <Award className="w-4 h-4" />
-                <span>Sharpe / VaR Risk Lab</span>
+                <div className="flex items-center gap-2">
+                  <Award
+                    className={`w-4 h-4 ${
+                      activeHub === "quant" ? "text-[var(--brass)]" : "text-[var(--mist)]"
+                    }`}
+                  />
+                  <span className="font-serif font-bold text-sm text-[var(--paper)]">
+                    2. Quant &amp; Risk Lab
+                  </span>
+                </div>
+                <p className="text-[11px] font-mono text-[var(--mist)] line-clamp-1">
+                  Sharpe, VaR, Markowitz MPT &amp; Korelasyon
+                </p>
               </button>
 
+              {/* 3. Strateji & Dengeleme */}
               <button
-                onClick={() => setActiveTab("correlation")}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-mono transition-all whitespace-nowrap cursor-pointer ${
-                  activeTab === "correlation"
-                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-md"
-                    : "bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)]"
+                onClick={() => setActiveHub("strategy")}
+                className={`p-4 rounded-xl border text-left transition-all cursor-pointer space-y-1.5 ${
+                  activeHub === "strategy"
+                    ? "bg-[var(--ink-2)] border-[var(--brass)] shadow-md ring-1 ring-[var(--brass)]"
+                    : "bg-[var(--ink-2)]/60 border-[var(--line)] hover:border-[var(--brass-dim)] text-[var(--mist)]"
                 }`}
               >
-                <Network className="w-4 h-4" />
-                <span>Korelasyon Matrisi</span>
+                <div className="flex items-center gap-2">
+                  <Compass
+                    className={`w-4 h-4 ${
+                      activeHub === "strategy" ? "text-[var(--brass)]" : "text-[var(--mist)]"
+                    }`}
+                  />
+                  <span className="font-serif font-bold text-sm text-[var(--paper)]">
+                    3. Strateji &amp; Dengeleme
+                  </span>
+                </div>
+                <p className="text-[11px] font-mono text-[var(--mist)] line-clamp-1">
+                  Rebalance DCA, Model Radar &amp; Stres Testi
+                </p>
               </button>
 
+              {/* 4. Değerleme & Temettü */}
               <button
-                onClick={() => setActiveTab("treemap")}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-mono transition-all whitespace-nowrap cursor-pointer ${
-                  activeTab === "treemap"
-                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-md"
-                    : "bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)]"
+                onClick={() => setActiveHub("valuation")}
+                className={`p-4 rounded-xl border text-left transition-all cursor-pointer space-y-1.5 ${
+                  activeHub === "valuation"
+                    ? "bg-[var(--ink-2)] border-[var(--brass)] shadow-md ring-1 ring-[var(--brass)]"
+                    : "bg-[var(--ink-2)]/60 border-[var(--line)] hover:border-[var(--brass-dim)] text-[var(--mist)]"
                 }`}
               >
-                <LayoutGrid className="w-4 h-4" />
-                <span>Isı Haritası (Treemap)</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab("xray")}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-mono transition-all whitespace-nowrap cursor-pointer ${
-                  activeTab === "xray"
-                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-md"
-                    : "bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)]"
-                }`}
-              >
-                <PieChart className="w-4 h-4" />
-                <span>Sektörel Röntgen</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab("valuation")}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-mono transition-all whitespace-nowrap cursor-pointer ${
-                  activeTab === "valuation"
-                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-md"
-                    : "bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)]"
-                }`}
-              >
-                <Calculator className="w-4 h-4" />
-                <span>Değerleme Laboratuvarı</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab("model")}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-mono transition-all whitespace-nowrap cursor-pointer ${
-                  activeTab === "model"
-                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-md"
-                    : "bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)]"
-                }`}
-              >
-                <Target className="w-4 h-4" />
-                <span>Hedef Portföy Radarı</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab("dividends")}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-mono transition-all whitespace-nowrap cursor-pointer ${
-                  activeTab === "dividends"
-                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-md"
-                    : "bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)]"
-                }`}
-              >
-                <Flame className="w-4 h-4" />
-                <span>Temettü &amp; FIRE</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab("rebalance")}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-mono transition-all whitespace-nowrap cursor-pointer ${
-                  activeTab === "rebalance"
-                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-md"
-                    : "bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)]"
-                }`}
-              >
-                <Scale className="w-4 h-4" />
-                <span>Yeniden Dengeleme</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab("stress")}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-mono transition-all whitespace-nowrap cursor-pointer ${
-                  activeTab === "stress"
-                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-md"
-                    : "bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)]"
-                }`}
-              >
-                <AlertOctagon className="w-4 h-4" />
-                <span>Stres Testi</span>
+                <div className="flex items-center gap-2">
+                  <Calculator
+                    className={`w-4 h-4 ${
+                      activeHub === "valuation" ? "text-[var(--brass)]" : "text-[var(--mist)]"
+                    }`}
+                  />
+                  <span className="font-serif font-bold text-sm text-[var(--paper)]">
+                    4. Değerleme &amp; Temettü
+                  </span>
+                </div>
+                <p className="text-[11px] font-mono text-[var(--mist)] line-clamp-1">
+                  Graham, DCF, Magic Formula &amp; FIRE Simülatörü
+                </p>
               </button>
             </div>
 
-            {/* Sekme İçerikleri */}
+            {/* SEÇİLEN MERKEZİN İÇERİĞİ */}
             <div className="pt-2">
-              {activeTab === "benchmark" && (
-                <PortfolioBenchmarkHub
-                  holdings={xray.holdings}
-                  totalValue={xray.totalValue}
-                  totalProfitLossPct={xray.totalProfitLossPct}
-                />
+              {/* 1. PORTFÖY & RÖNTGEN MERKEZİ */}
+              {activeHub === "portfolio" && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 border-b border-[var(--line)] pb-2 overflow-x-auto">
+                    <button
+                      onClick={() => setPortfolioSubTab("benchmark")}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer ${
+                        portfolioSubTab === "benchmark"
+                          ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-sm"
+                          : "bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)]"
+                      }`}
+                    >
+                      Piyasa Kıyaslama (Benchmark)
+                    </button>
+                    <button
+                      onClick={() => setPortfolioSubTab("treemap")}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer ${
+                        portfolioSubTab === "treemap"
+                          ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-sm"
+                          : "bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)]"
+                      }`}
+                    >
+                      Canlı Isı Haritası (Treemap)
+                    </button>
+                    <button
+                      onClick={() => setPortfolioSubTab("xray")}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer ${
+                        portfolioSubTab === "xray"
+                          ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-sm"
+                          : "bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)]"
+                      }`}
+                    >
+                      Sektörel Röntgen (X-Ray)
+                    </button>
+                  </div>
+
+                  {portfolioSubTab === "benchmark" && (
+                    <PortfolioBenchmarkHub
+                      holdings={xray.holdings}
+                      totalValue={xray.totalValue}
+                      totalProfitLossPct={xray.totalProfitLossPct}
+                    />
+                  )}
+                  {portfolioSubTab === "treemap" && (
+                    <PortfolioTreemap holdings={xray.holdings} totalValue={xray.totalValue} />
+                  )}
+                  {portfolioSubTab === "xray" && <PortfolioXRayView xray={xray} />}
+                </div>
               )}
 
-              {activeTab === "quant" && (
+              {/* 2. QUANT & RISK LABORATUVARI (Sharpe, VaR, MPT, Korelasyon) */}
+              {activeHub === "quant" && (
                 <PortfolioQuantLab
                   holdings={xray.holdings}
                   totalValue={xray.totalValue}
@@ -350,48 +363,96 @@ export default function AnalizPage() {
                 />
               )}
 
-              {activeTab === "correlation" && (
-                <PortfolioCorrelationMatrix holdings={xray.holdings} />
+              {/* 3. STRATEJİ & DENGELEME MERKEZİ */}
+              {activeHub === "strategy" && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 border-b border-[var(--line)] pb-2 overflow-x-auto">
+                    <button
+                      onClick={() => setStrategySubTab("rebalance")}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer ${
+                        strategySubTab === "rebalance"
+                          ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-sm"
+                          : "bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)]"
+                      }`}
+                    >
+                      Yeniden Dengeleme &amp; DCA
+                    </button>
+                    <button
+                      onClick={() => setStrategySubTab("model")}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer ${
+                        strategySubTab === "model"
+                          ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-sm"
+                          : "bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)]"
+                      }`}
+                    >
+                      Hedef Model Portföy Radarı
+                    </button>
+                    <button
+                      onClick={() => setStrategySubTab("stress")}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer ${
+                        strategySubTab === "stress"
+                          ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-sm"
+                          : "bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)]"
+                      }`}
+                    >
+                      Kriz Stres Testi (What-If)
+                    </button>
+                  </div>
+
+                  {strategySubTab === "rebalance" && (
+                    <PortfolioRebalanceHub
+                      holdings={xray.holdings}
+                      totalValue={xray.totalValue}
+                    />
+                  )}
+                  {strategySubTab === "model" && (
+                    <PortfolioModelTargetHub holdings={xray.holdings} />
+                  )}
+                  {strategySubTab === "stress" && (
+                    <PortfolioStressTestHub
+                      holdings={xray.holdings}
+                      totalValue={xray.totalValue}
+                    />
+                  )}
+                </div>
               )}
 
-              {activeTab === "treemap" && (
-                <PortfolioTreemap
-                  holdings={xray.holdings}
-                  totalValue={xray.totalValue}
-                />
-              )}
+              {/* 4. DEĞERLEME & TEMETTÜ MERKEZİ */}
+              {activeHub === "valuation" && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 border-b border-[var(--line)] pb-2 overflow-x-auto">
+                    <button
+                      onClick={() => setValuationSubTab("valuation")}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer ${
+                        valuationSubTab === "valuation"
+                          ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-sm"
+                          : "bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)]"
+                      }`}
+                    >
+                      Değerleme &amp; Finans Laboratuvarı (Graham, DCF, Magic Formula)
+                    </button>
+                    <button
+                      onClick={() => setValuationSubTab("dividends")}
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-mono transition-all cursor-pointer ${
+                        valuationSubTab === "dividends"
+                          ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-sm"
+                          : "bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)]"
+                      }`}
+                    >
+                      Temettü Projeksiyonu &amp; FIRE Simülatörü
+                    </button>
+                  </div>
 
-              {activeTab === "xray" && (
-                <PortfolioXRayView xray={xray} />
-              )}
-
-              {activeTab === "valuation" && (
-                <CompanyValuationLab companies={companies} />
-              )}
-
-              {activeTab === "model" && (
-                <PortfolioModelTargetHub holdings={xray.holdings} />
-              )}
-
-              {activeTab === "dividends" && (
-                <DividendFireHub
-                  holdings={xray.holdings}
-                  totalValue={xray.totalValue}
-                />
-              )}
-
-              {activeTab === "rebalance" && (
-                <PortfolioRebalanceHub
-                  holdings={xray.holdings}
-                  totalValue={xray.totalValue}
-                />
-              )}
-
-              {activeTab === "stress" && (
-                <PortfolioStressTestHub
-                  holdings={xray.holdings}
-                  totalValue={xray.totalValue}
-                />
+                  {valuationSubTab === "valuation" && (
+                    <CompanyValuationLab companies={companies} />
+                  )}
+                  {valuationSubTab === "dividends" && (
+                    <DividendFireHub
+                      holdings={xray.holdings}
+                      totalValue={xray.totalValue}
+                    />
+                  )}
+                </div>
               )}
             </div>
           </>

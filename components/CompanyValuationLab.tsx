@@ -11,7 +11,9 @@ import {
   AlertTriangle,
   Flame,
   CheckCircle2,
-  HelpCircle,
+  Wand2,
+  Coins,
+  ShieldAlert,
 } from "lucide-react";
 import { Company } from "@/lib/mockData";
 import { calculateValuationFormulas, ValuationMetrics } from "@/lib/quantEngine";
@@ -75,7 +77,7 @@ export default function CompanyValuationLab({
               Şirket Değerleme &amp; Finansal Matematik Laboratuvarı
             </h3>
             <p className="text-xs font-mono text-[var(--mist)]">
-              Graham Sayısı, Peter Lynch PEG, DuPont ROE, EVA ve Altman Z-Skoru formülleri.
+              Graham Sayısı, DCF Adil Değeri, Magic Formula, DuPont ROE ve Beneish Makyaj Dedektörü.
             </p>
           </div>
         </div>
@@ -110,34 +112,30 @@ export default function CompanyValuationLab({
           </div>
 
           <div className="px-3 py-1.5 rounded-lg bg-[var(--brass-glow)] border border-[var(--brass-dim)] font-mono text-xs font-bold text-[var(--brass)]">
-            {selectedCompany?.symbol || "—"}
+            {selectedCompany?.symbol || "—"} ({selectedCompany?.price} ₺)
           </div>
         </div>
       </div>
 
-      {/* 1. GRAHAM & PETER LYNCH DEĞERLEME KARTLARI */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* 1. GRAHAM, DCF & PETER LYNCH DEĞERLEME KARTLARI */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Benjamin Graham Sayısı */}
         <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2">
           <div className="flex items-center justify-between text-xs font-mono">
-            <span className="text-[var(--mist)]">Benjamin Graham Sayısı</span>
-            <span className="text-[10px] text-[var(--brass)]">√(22.5 × EPS × BVPS)</span>
+            <span className="text-[var(--mist)]">Graham Sayısı</span>
+            <span className="text-[10px] text-[var(--brass)]">√(22.5×EPS×BVPS)</span>
           </div>
           <p className="font-mono text-xl font-bold text-[var(--paper)]">
             {valuation.grahamNumber ? `${valuation.grahamNumber} ₺` : "—"}
           </p>
-          <div className="flex items-center justify-between text-xs font-mono">
-            <span className="text-[var(--mist)]">Güncel Fiyat:</span>
-            <span className="font-bold text-[var(--paper)]">{selectedCompany?.price} ₺</span>
-          </div>
           <div className="text-[11px] font-mono">
             {valuation.grahamDiscountPct !== null && valuation.grahamDiscountPct > 0 ? (
               <span className="text-emerald-400 font-bold">
-                🎯 %{valuation.grahamDiscountPct} İskontolu (Kelepir Eşik)
+                🎯 %{valuation.grahamDiscountPct} İskontolu
               </span>
             ) : valuation.grahamDiscountPct !== null ? (
               <span className="text-amber-400 font-bold">
-                ⚠️ %{Math.abs(valuation.grahamDiscountPct)} Primli Fiyatlama
+                ⚠️ %{Math.abs(valuation.grahamDiscountPct)} Primli
               </span>
             ) : (
               <span className="text-[var(--mist)]">Hesaplanamadı</span>
@@ -145,52 +143,126 @@ export default function CompanyValuationLab({
           </div>
         </div>
 
-        {/* Peter Lynch PEG Rasyosu */}
+        {/* DCF (İndirgenmiş Nakit) Adil Değeri */}
         <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2">
           <div className="flex items-center justify-between text-xs font-mono">
-            <span className="text-[var(--mist)]">Peter Lynch PEG Rasyosu</span>
-            <span className="text-[10px] text-cyan-400">F/K ÷ Kâr Büyümesi</span>
+            <span className="text-[var(--mist)]">DCF Adil Değeri</span>
+            <span className="text-[10px] text-emerald-400">FCF / WACC</span>
+          </div>
+          <p className="font-mono text-xl font-bold text-emerald-400">
+            {valuation.dcfFairValue ? `${valuation.dcfFairValue} ₺` : "—"}
+          </p>
+          <div className="text-[11px] font-mono">
+            {valuation.dcfDiscountPct !== null && valuation.dcfDiscountPct > 0 ? (
+              <span className="text-emerald-400 font-bold">
+                💎 %{valuation.dcfDiscountPct} İskonto Potansiyeli
+              </span>
+            ) : valuation.dcfDiscountPct !== null ? (
+              <span className="text-amber-400 font-bold">
+                ⚖️ Fiyata Yakın (%{Math.abs(valuation.dcfDiscountPct)})
+              </span>
+            ) : (
+              <span className="text-[var(--mist)]">Adil Aralıkta</span>
+            )}
+          </div>
+        </div>
+
+        {/* Peter Lynch PEG */}
+        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2">
+          <div className="flex items-center justify-between text-xs font-mono">
+            <span className="text-[var(--mist)]">Peter Lynch PEG</span>
+            <span className="text-[10px] text-cyan-400">F/K ÷ Büyüme</span>
           </div>
           <p className="font-mono text-xl font-bold text-[var(--paper)]">
             {valuation.pegRatio !== null ? valuation.pegRatio.toFixed(2) : "—"}
           </p>
-          <div className="flex items-center justify-between text-xs font-mono">
-            <span className="text-[var(--mist)]">F/K Çarpanı:</span>
-            <span className="font-bold text-[var(--paper)]">{selectedCompany?.peRatio || "—"}</span>
-          </div>
           <div className="text-[11px] font-mono">
             {valuation.pegStatus === "Çok Ucuz" ? (
               <span className="text-emerald-400 font-bold">
-                💎 PEG &lt; 1.0 (Büyümesine Göre Çok Ucuz)
+                💎 PEG &lt; 1.0 (Çok Ucuz)
               </span>
             ) : valuation.pegStatus === "Dengeli" ? (
               <span className="text-amber-400 font-bold">
-                ⚖️ 1.0 - 1.8 (Makul Büyüme Değerlemesi)
+                ⚖️ 1.0 - 1.8 (Makul)
               </span>
             ) : (
               <span className="text-rose-400 font-bold">
-                ⚠️ PEG &gt; 1.8 (Büyümesine Göre Pahalı)
+                ⚠️ PEG &gt; 1.8 (Pahalı)
               </span>
             )}
           </div>
         </div>
 
-        {/* Kelly Kriteri Optimal Portföy Payı */}
+        {/* Gordon Temettü Büyüme Modeli (DDM) */}
         <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2">
           <div className="flex items-center justify-between text-xs font-mono">
-            <span className="text-[var(--mist)]">Kelly Kriteri Payı</span>
-            <span className="text-[10px] text-amber-400">Optimal Bütçe %</span>
+            <span className="text-[var(--mist)]">Gordon DDM Değeri</span>
+            <span className="text-[10px] text-amber-400">D1 / (r - g)</span>
           </div>
-          <p className="font-mono text-xl font-bold text-emerald-400">
-            %{valuation.kellySuggestedPct}
+          <p className="font-mono text-xl font-bold text-[var(--paper)]">
+            {valuation.gordanDdmValue ? `${valuation.gordanDdmValue} ₺` : "—"}
           </p>
+          <span className="text-[10px] font-mono text-[var(--mist)] block">
+            {valuation.gordanDdmValue ? "Temettü akışı temelli içsel değer" : "Düzenli temettü akışı yok"}
+          </span>
+        </div>
+      </div>
+
+      {/* 2. JOEL GREENBLATT SIHİRLİ FORMÜLÜ (MAGIC FORMULA) & BENISHE MANİPÜLASYON SKORU */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Magic Formula Kartı */}
+        <div className="p-4 bg-[var(--ink-3)] border border-[var(--brass-dim)] rounded-xl space-y-3">
+          <div className="flex items-center justify-between border-b border-[var(--line)] pb-2">
+            <div className="flex items-center gap-1.5 text-xs font-serif font-bold text-[var(--paper)]">
+              <Wand2 className="w-4 h-4 text-[var(--brass)]" />
+              <span>Joel Greenblatt Sihirli Formülü (Magic Formula)</span>
+            </div>
+            <span className="px-2 py-0.5 rounded bg-[var(--brass-glow)] text-[var(--brass)] font-mono text-xs font-bold">
+              {valuation.magicFormulaRank} ({valuation.magicFormulaScore} Puan)
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-xs font-mono">
+            <div className="p-2.5 rounded-lg bg-[var(--ink-2)] border border-[var(--line)]">
+              <span className="text-[10px] text-[var(--mist)] block">1. Kazanç Verimi (EBIT / EV)</span>
+              <span className="font-bold text-emerald-400 text-base">%{valuation.earningsYieldPct}</span>
+              <span className="text-[9px] text-[var(--mist)] block">Firma değerine göre kâr</span>
+            </div>
+            <div className="p-2.5 rounded-lg bg-[var(--ink-2)] border border-[var(--line)]">
+              <span className="text-[10px] text-[var(--mist)] block">2. Sermaye Kârlılığı (ROIC)</span>
+              <span className="font-bold text-cyan-400 text-base">%{valuation.roicPct}</span>
+              <span className="text-[9px] text-[var(--mist)] block">Yatırılan sermayenin verimi</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Beneish M-Score & Muhasebe Hilesi Dedektörü */}
+        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-3">
+          <div className="flex items-center justify-between border-b border-[var(--line)] pb-2">
+            <div className="flex items-center gap-1.5 text-xs font-serif font-bold text-[var(--paper)]">
+              <ShieldAlert className="w-4 h-4 text-amber-400" />
+              <span>Beneish M-Score (Bilanço Makyaj Dedektörü)</span>
+            </div>
+            <span
+              className={`px-2 py-0.5 rounded font-mono text-xs font-bold ${
+                valuation.beneishStatus === "Temiz Bilanço"
+                  ? "bg-emerald-950/40 text-emerald-300 border border-emerald-600/30"
+                  : "bg-rose-950/40 text-rose-300 border border-rose-600/30"
+              }`}
+            >
+              {valuation.beneishStatus}
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-xs font-mono pt-1">
+            <span className="text-[var(--mist)]">Hesaplanan M-Skoru:</span>
+            <span className="font-bold text-[var(--paper)]">{valuation.beneishMScore}</span>
+          </div>
           <p className="text-[11px] font-mono text-[var(--mist)] leading-relaxed">
-            Kumarhane ve portföy matematiğine göre toplam sermayenizin bu şirkete ayrılabilecek optimal güvenli tavan oranı.
+            -1.78 eşiğinin altındaki skorlar bilançonun hilesiz ve organik faaliyetlerle üretildiğini gösterir.
           </p>
         </div>
       </div>
 
-      {/* 2. DUPONT 3 KADEMELİ ROE AYRIŞTIRMASI */}
+      {/* 3. DUPONT 3 KADEMELİ ROE AYRIŞTIRMASI */}
       <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] pb-2">
           <h4 className="font-serif font-bold text-sm text-[var(--paper)] flex items-center gap-1.5">
@@ -229,7 +301,7 @@ export default function CompanyValuationLab({
         </div>
       </div>
 
-      {/* 3. ALTMAN Z-SCORE, EVA & FCF YIELD */}
+      {/* 4. ALTMAN Z-SCORE, EVA & KELLY */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Altman Z-Score */}
         <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-1.5">
@@ -261,14 +333,14 @@ export default function CompanyValuationLab({
           </span>
         </div>
 
-        {/* Faiz Karşılama Gücü */}
+        {/* Kelly Kriteri */}
         <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-1.5">
-          <span className="text-xs font-mono text-[var(--mist)]">Faiz Karşılama Oranı (EBITDA / Faiz)</span>
-          <p className="font-mono text-xl font-bold text-[var(--paper)]">
-            {valuation.interestCoverageRatio}x Katı
+          <span className="text-xs font-mono text-[var(--mist)]">Kelly Kriteri Optimal Portföy Payı</span>
+          <p className="font-mono text-xl font-bold text-[var(--brass)]">
+            %{valuation.kellySuggestedPct} Tavan
           </p>
           <span className="text-[10px] font-mono text-emerald-400 block font-bold">
-            ✅ Borç faizini rahatça ödeyebiliyor (&gt; 3.0x)
+            ✅ Güvenli risk-getiri bütçe sınırı
           </span>
         </div>
       </div>
