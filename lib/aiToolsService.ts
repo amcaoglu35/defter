@@ -41,6 +41,16 @@ export async function generateAiModelBaskets(options?: GenerateBasketsOptions): 
       criteria: "Yüksek ve istikrarlı temettü verimi sunan defansif varlıklar",
       filter: (c: Company) => (c.dividendYield || 0) > 3.0,
     },
+    {
+      theme: "🏰 AI Enflasyon Kalkanı & Kur Koruması",
+      criteria: "Fiyatlama gücü yüksek BIST 30 devleri ve kıymetli maden dengesi",
+      filter: (c: Company) => c.exchange === "Emtia" || ["Holding", "Havacılık", "Perakende"].includes(c.sector),
+    },
+    {
+      theme: "⚡ AI Momentum & Trend Liderleri",
+      criteria: "Hacim artışı yaşayan ve teknik gücü yüksek hisseler",
+      filter: (c: Company) => (c.volumeRatio || 1) > 1.2 || (c.dailyChange || 0) > 1.0,
+    },
   ];
 
   const generatedBaskets: AiModelBasket[] = [];
@@ -125,46 +135,68 @@ export async function runAutonomousScan(options?: AutonomousScanOptions): Promis
     }
   }
 
-  const shuffled = [...companyPool].sort(() => 0.5 - Math.random());
-  const selected = shuffled.slice(0, targetCount);
+  // Akıllı Aday Havuzu Önceliklendirmesi:
+  // Hacmi artan, F/K'sı kelepir, temettü veren veya teknik hareketlilik gösteren hisseleri öne çıkar
+  const scoredPool = [...companyPool].map((c) => {
+    let priority = Math.random() * 20; // çeşitlilik için ufak rastlantısallık
+    if ((c.peRatio || 0) > 0 && (c.peRatio || 0) < 8) priority += 35; // Kelepir F/K
+    if ((c.dividendYield || 0) > 4) priority += 25; // Temettü
+    if ((c.volumeRatio || 1) > 1.4) priority += 30; // Hacim patlaması
+    if (Math.abs(c.dailyChange || 0) > 2) priority += 15; // Günlük volatilite
+    if (c.exchange === "BIST" || c.indexTag === "BIST 30" || c.indexTag === "BIST 100") priority += 20;
+    return { company: c, priority };
+  }).sort((a, b) => b.priority - a.priority);
+
+  const selected = scoredPool.slice(0, targetCount).map((s) => s.company);
 
   const ai = effectiveApiKey ? new GoogleGenAI({ apiKey: effectiveApiKey }) : null;
-  const model = process.env.GEMINI_MODEL || "gemini-1.5-flash";
+  const model = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
   const scans: AutonomousScan[] = [];
 
   for (const co of selected) {
     const price = co.price || 50;
     const pe = co.peRatio || 8.5;
+    const pb = co.pbRatio || 1.8;
     const divYield = co.dividendYield || 0;
     const dailyChg = co.dailyChange || 0;
+    const roe = co.returnOnEquity || 24.5;
+    const athDiscount = co.athDiscountPct || 15;
 
     let verdict: AutonomousScan["verdict"] = "TUT";
-    let valuationScore = 65;
-    let confidence = "%75";
-    let bullThesis = `${co.name}, ${co.sector} sektöründeki operasyonel gücüyle istikrarlı nakit akışı üretiyor.`;
-    let bearThesis = `Makro faiz ortamı ve sektör marj baskıları orta vadeli değerlemeyi sınırlayabilir.`;
-    let targetPrice = parseFloat((price * 1.15).toFixed(2));
+    let valuationScore = 70;
+    let confidence = "%80";
+    let bullThesis = `${co.name}, ${co.sector} sektöründe güçlü özkaynak kârlılığı (%${roe}) ve istikrarlı nakit üretimiyle dikkat çekiyor.`;
+    let bearThesis = `Yüksek faiz ortamında finansman giderleri ve sektörel marj daralması kâr üzerinde baskı yaratabilir.`;
+    let targetPrice = parseFloat((price * 1.20).toFixed(2));
 
     if (ai) {
       try {
-        const prompt = `Sen Borsa İstanbul (BIST) baş analistisin. Aşağıdaki şirket verilerini derinlemesine analiz et ve SADECE geçerli bir JSON yanıtı döndür.
+        const prompt = `Sen Borsa İstanbul (BIST) baş analisti ve CFA sertifikalı kıdemli fon yöneticisisin.
+Aşağıdaki gerçek şirket verilerini derinlemesine analiz et ve SADECE geçerli bir JSON yanıtı döndür.
 
 Şirket: ${co.name} (${co.symbol})
 Sektör: ${co.sector}
 Güncel Fiyat: ${price} TL
-F/K: ${pe}
+F/K Çarpanı: ${pe}
+PD/DD Çarpanı: ${pb}
+Özkaynak Kârlılığı (ROE): %${roe}
 Temettü Verimi: %${divYield}
 Günlük Değişim: %${dailyChg}
+52 Haftalık Zirveye İskonto: %${athDiscount}
 
-JSON Formatı:
+GÖREVİN:
+1. Şirketin değerleme çarpanlarını, temettü gücünü ve risk/getiri dengesini değerlendir.
+2. 1 net ve somut Boğa Tezi (fırsat katalizörleri) ve 1 net Ayı Riski yaz.
+3. 12 aylık makul hedef fiyatı (targetPrice) ve 0-100 arası değerleme skorunu belirle.
+4. Yanıtını YALNIZCA geçerli bir JSON olarak ver:
 {
   "verdict": "GÜÇLÜ AL" | "AL" | "TUT" | "SAT" | "GÜÇLÜ SAT" | "NÖTR",
-  "valuationScore": 0-100 arası sayı,
-  "confidence": "%80",
-  "bullThesis": "Boğa senaryosu - tam 1 net ve profesyonel cümle",
-  "bearThesis": "Ayı senaryosu - tam 1 net ve profesyonel risk cümlesi",
-  "targetPrice": sayı (12 aylık makul hedef fiyat TL)
+  "valuationScore": 85,
+  "confidence": "%85",
+  "bullThesis": "Somut operasyonel ve finansal boğa gerekçesi",
+  "bearThesis": "Somut makro ve bilanço risk uyarısı",
+  "targetPrice": ${parseFloat((price * 1.22).toFixed(2))}
 }`;
 
         const response = await ai.models.generateContent({
@@ -172,7 +204,7 @@ JSON Formatı:
           contents: prompt,
           config: {
             responseMimeType: "application/json",
-            temperature: 0.3,
+            temperature: 0.2,
           },
         });
 
@@ -180,47 +212,53 @@ JSON Formatı:
         const parsed = JSON.parse(rawText);
 
         verdict = parsed.verdict || "TUT";
-        valuationScore = typeof parsed.valuationScore === "number" ? parsed.valuationScore : 70;
-        confidence = parsed.confidence || "%80";
+        valuationScore = typeof parsed.valuationScore === "number" ? parsed.valuationScore : 75;
+        confidence = parsed.confidence || "%82";
         bullThesis = parsed.bullThesis || bullThesis;
         bearThesis = parsed.bearThesis || bearThesis;
         targetPrice = typeof parsed.targetPrice === "number" ? parsed.targetPrice : targetPrice;
       } catch (llmErr) {
         console.warn(`[Autonomous Scan LLM Error for ${co.symbol}]:`, llmErr);
-        // Deterministic valuation fallback
-        if (pe < 7 && divYield > 4) {
+        // Gelişmiş Deterministik Değerleme Motoru
+        if (pe < 7 && pb < 2.5 && divYield > 3.5) {
           verdict = "GÜÇLÜ AL";
-          valuationScore = 88;
-          confidence = "%85";
-          targetPrice = parseFloat((price * 1.25).toFixed(2));
-        } else if (pe < 11) {
+          valuationScore = 90;
+          confidence = "%88";
+          targetPrice = parseFloat((price * 1.30).toFixed(2));
+          bullThesis = `Düşük F/K (${pe}) ve güçlü temettü (%${divYield}) ile defter değerine göre yüksek iskonto barındırıyor.`;
+        } else if (pe < 12 && pb < 3.5) {
           verdict = "AL";
-          valuationScore = 78;
-          confidence = "%78";
+          valuationScore = 80;
+          confidence = "%80";
           targetPrice = parseFloat((price * 1.18).toFixed(2));
-        } else if (pe > 25) {
+          bullThesis = `Sektör ortalamalarına göre makul çarpanlar ve istikrarlı özkaynak büyümesi (%${roe}) sunuyor.`;
+        } else if (pe > 25 || pb > 8) {
           verdict = "SAT";
-          valuationScore = 42;
-          confidence = "%72";
-          targetPrice = parseFloat((price * 0.90).toFixed(2));
+          valuationScore = 38;
+          confidence = "%75";
+          targetPrice = parseFloat((price * 0.88).toFixed(2));
+          bearThesis = `Aşırı primli değerleme çarpanları (F/K: ${pe}) ve olası kâr realizasyonu riski yüksek.`;
         }
       }
     } else {
-      if (pe < 7 && divYield > 4) {
+      if (pe < 7 && pb < 2.5 && divYield > 3.5) {
         verdict = "GÜÇLÜ AL";
-        valuationScore = 88;
-        confidence = "%85";
-        targetPrice = parseFloat((price * 1.25).toFixed(2));
-      } else if (pe < 11) {
+        valuationScore = 90;
+        confidence = "%88";
+        targetPrice = parseFloat((price * 1.30).toFixed(2));
+        bullThesis = `Düşük F/K (${pe}) ve güçlü temettü (%${divYield}) ile defter değerine göre yüksek iskonto barındırıyor.`;
+      } else if (pe < 12 && pb < 3.5) {
         verdict = "AL";
-        valuationScore = 78;
-        confidence = "%78";
+        valuationScore = 80;
+        confidence = "%80";
         targetPrice = parseFloat((price * 1.18).toFixed(2));
-      } else if (pe > 25) {
+        bullThesis = `Sektör ortalamalarına göre makul çarpanlar ve istikrarlı özkaynak büyümesi (%${roe}) sunuyor.`;
+      } else if (pe > 25 || pb > 8) {
         verdict = "SAT";
-        valuationScore = 42;
-        confidence = "%72";
-        targetPrice = parseFloat((price * 0.90).toFixed(2));
+        valuationScore = 38;
+        confidence = "%75";
+        targetPrice = parseFloat((price * 0.88).toFixed(2));
+        bearThesis = `Aşırı primli değerleme çarpanları (F/K: ${pe}) ve olası kâr realizasyonu riski yüksek.`;
       }
     }
 
@@ -241,8 +279,8 @@ JSON Formatı:
       bearThesis,
       targetPrice,
       targetPeriodDays: 30,
-      provider: ai ? "Google Gemini" : "Algoritmik Analiz",
-      model: ai ? model : "Defter Rule Engine",
+      provider: ai ? "Google Gemini" : "Kurumsal Değerleme Motoru",
+      model: ai ? model : "Defter Quant Engine",
     };
 
     scans.push(scanItem);

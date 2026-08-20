@@ -95,6 +95,17 @@ export default function Header() {
     }
   };
 
+  const handleTogglePrivacy = () => {
+    togglePrivacyMode();
+    showToast(
+      !isPrivacyMode ? "Gizlilik Modu Açıldı" : "Gizlilik Modu Kapatıldı",
+      !isPrivacyMode
+        ? "Tüm bakiyeler ve kâr/zarar tutarları yıldızlandı (••••••)."
+        : "Portföy tutarları ve bakiyeler yeniden görünür yapıldı.",
+      "info"
+    );
+  };
+
   const navLinks = [
     { href: "/", label: "Ana Sayfa" },
     { href: "/sirketler", label: "Şirketler" },
@@ -107,7 +118,7 @@ export default function Header() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-[var(--ink)]/95 backdrop-blur-md border-b border-[var(--line)] px-4 sm:px-8 py-3.5 transition-all">
+      <header className="sticky top-0 z-40 bg-[var(--ink)]/95 backdrop-blur-md border-b border-[var(--line)] px-4 sm:px-8 py-3 transition-all">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           {/* Brand */}
           <div className="flex items-center gap-2">
@@ -132,7 +143,7 @@ export default function Header() {
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-6 lg:gap-8">
+          <nav className="hidden md:flex items-center gap-5 lg:gap-7">
             {navLinks.map((link) => {
               const isActive =
                 link.href === "/"
@@ -163,11 +174,11 @@ export default function Header() {
           </nav>
 
           {/* Right Actions: Search, Sync, AI Chat, Notifications & Privacy */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2.5">
             {/* Quick Command Palette Button (Responsive for md & lg) */}
             <button
               onClick={triggerCommandPalette}
-              className="hidden md:flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-[var(--line)] bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] text-xs font-mono transition-colors cursor-pointer"
+              className="hidden md:flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-[var(--line)] bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] text-xs font-mono transition-colors cursor-pointer"
               title="Komut Paleti (Ctrl + K)"
             >
               <Search className="w-3.5 h-3.5 text-[var(--brass)]" />
@@ -181,7 +192,7 @@ export default function Header() {
             <button
               onClick={handleRefreshPrices}
               disabled={isRefreshing}
-              className="p-2 rounded-md border border-[var(--line)] text-[var(--mist)] hover:text-[var(--brass)] hover:border-[var(--brass-dim)] bg-[var(--ink-2)] transition-colors cursor-pointer flex items-center gap-1.5 font-mono text-xs"
+              className="p-2 rounded-lg border border-[var(--line)] text-[var(--mist)] hover:text-[var(--brass)] hover:border-[var(--brass-dim)] bg-[var(--ink-2)] transition-colors cursor-pointer flex items-center gap-1.5 font-mono text-xs"
               title={`Fiyatları Güncelle (Son: ${lastSyncTime})`}
             >
               <RefreshCw
@@ -190,28 +201,10 @@ export default function Header() {
               <span className="hidden xl:inline text-[11px]">{lastSyncTime}</span>
             </button>
 
-            {/* Cloud Sync Status Indicator */}
-            {isCloudConnected ? (
-              <div
-                className="hidden md:flex items-center gap-1 text-[10px] font-mono text-[var(--brass)] bg-[var(--brass-glow)] border border-[var(--brass-dim)] px-2 py-1 rounded"
-                title="Supabase Bulut Senkronizasyonu Aktif"
-              >
-                <CloudCheck className="w-3.5 h-3.5 text-[var(--brass)]" />
-                <span className="hidden lg:inline font-semibold">Bulut</span>
-              </div>
-            ) : (
-              <div
-                className="hidden md:flex items-center gap-1 text-[10px] font-mono text-[var(--mist)] bg-[var(--ink-2)] border border-[var(--line)] px-2 py-1 rounded"
-                title="Supabase servis anahtarı bağlı değil. Veriler yalnızca bu cihazda (localStorage) tutuluyor."
-              >
-                <span className="hidden lg:inline font-semibold">📌 Yerel Mod</span>
-              </div>
-            )}
-
             {/* Orakul Chat Trigger */}
             <button
               onClick={() => setChatOpen(true)}
-              className="border border-[var(--brass-dim)] text-[var(--brass)] bg-[var(--brass-glow)] hover:bg-[rgba(201,162,75,0.25)] px-3 py-1.5 rounded-md text-xs font-mono font-semibold flex items-center gap-1.5 transition-all shadow cursor-pointer active:scale-95"
+              className="border border-[var(--brass-dim)] text-[var(--brass)] bg-[var(--brass-glow)] hover:bg-[rgba(201,162,75,0.25)] px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-mono font-semibold flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Orakul&apos;a Sor</span>
@@ -220,36 +213,40 @@ export default function Header() {
             {/* Currency Converter Quick Tool */}
             <button
               onClick={() => setConverterOpen(true)}
-              title="Canlı Kur & Varlık Çevirici"
-              className="p-2 rounded-md border border-[var(--line)] hover:border-[var(--brass-dim)] bg-[var(--ink-2)] hover:bg-[var(--ink-3)] text-[var(--mist)] hover:text-[var(--brass)] transition-colors cursor-pointer"
+              title="Canlı Kur &amp; Varlık Çevirici"
+              className="hidden sm:inline-flex p-2 rounded-lg border border-[var(--line)] hover:border-[var(--brass-dim)] bg-[var(--ink-2)] hover:bg-[var(--ink-3)] text-[var(--mist)] hover:text-[var(--brass)] transition-colors cursor-pointer"
             >
               <Coins className="w-4 h-4 text-[var(--brass)]" />
             </button>
 
             {/* Privacy Mode (Hide Balances) Toggle */}
             <button
-              onClick={togglePrivacyMode}
+              onClick={handleTogglePrivacy}
               title={isPrivacyMode ? "Gizlilik Modunu Kapat (Bakiyeleri Göster)" : "Gizlilik Modunu Aç (Bakiyeleri Gizle)"}
-              className={`p-2 rounded-md border transition-colors cursor-pointer ${
+              className={`p-2 rounded-lg border transition-colors cursor-pointer ${
                 isPrivacyMode
                   ? "border-[var(--brass)] bg-[var(--brass-glow)] text-[var(--brass)]"
                   : "border-[var(--line)] hover:border-[var(--brass-dim)] bg-[var(--ink-2)] hover:bg-[var(--ink-3)] text-[var(--mist)] hover:text-[var(--paper)]"
               }`}
             >
-              {isPrivacyMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {isPrivacyMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4 text-[var(--mist)]" />}
             </button>
 
             {/* Theme Toggle Button */}
-            <ThemeToggle />
+            <div className="hidden sm:inline-flex">
+              <ThemeToggle />
+            </div>
 
             {/* View Mode & Display Scale Toggle */}
-            <ViewModeToggle />
+            <div className="hidden sm:inline-flex">
+              <ViewModeToggle />
+            </div>
 
             {/* Notification Button with Click-Outside Ref */}
             <div className="relative" ref={notifRef}>
               <button
                 onClick={() => setNotifOpen(!notifOpen)}
-                className="relative p-2 rounded-md border border-[var(--line)] text-[var(--mist)] hover:text-[var(--paper)] hover:border-[var(--brass-dim)] bg-[var(--ink-2)] transition-colors cursor-pointer"
+                className="relative p-2 rounded-lg border border-[var(--line)] text-[var(--mist)] hover:text-[var(--paper)] hover:border-[var(--brass-dim)] bg-[var(--ink-2)] transition-colors cursor-pointer"
                 aria-label="Bildirimler"
               >
                 <Bell className="w-4 h-4" />
@@ -262,7 +259,7 @@ export default function Header() {
 
               {/* Notification Modal Dropdown */}
               {notifOpen && (
-                <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg shadow-2xl z-50 p-4 animate-in fade-in slide-in-from-top-2">
+                <div className="absolute right-0 mt-3 w-80 sm:w-96 bg-[var(--ink-2)] border border-[var(--line)] rounded-xl shadow-2xl z-50 p-4 animate-in fade-in slide-in-from-top-2">
                   <div className="flex items-center justify-between pb-3 border-b border-[var(--line)]">
                     <div className="flex items-center gap-2">
                       <span className="font-serif font-semibold text-[var(--paper)]">
@@ -326,7 +323,7 @@ export default function Header() {
             {/* Mobile Menu Toggle */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-md border border-[var(--line)] text-[var(--mist)] hover:text-[var(--paper)] bg-[var(--ink-2)] cursor-pointer"
+              className="md:hidden p-2 rounded-lg border border-[var(--line)] text-[var(--mist)] hover:text-[var(--paper)] bg-[var(--ink-2)] cursor-pointer"
               aria-label="Menü"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -334,71 +331,92 @@ export default function Header() {
           </div>
         </div>
 
-        {/* Mobile Navigation Dropdown */}
+        {/* Mobile Navigation Dropdown Panel */}
         {mobileMenuOpen && (
-          <div className="md:hidden mt-4 pt-4 border-t border-[var(--line)] flex flex-col gap-2 animate-in fade-in">
-            {/* Mobile Cloud Status Row */}
-            <div className="px-3 py-1.5 mb-1 flex items-center justify-between text-xs font-mono bg-[var(--ink-3)] rounded border border-[var(--line)]">
-              <span className="text-[var(--mist)]">Kasa Durumu:</span>
-              <span className={isCloudConnected ? "text-[var(--verdigris)] font-bold flex items-center gap-1" : "text-[var(--brass)] font-semibold"}>
-                <CircleDot className="w-3 h-3" />
-                {isCloudConnected ? "Bulut Senkronize" : "📌 Yerel Mod"}
-              </span>
+          <div className="md:hidden mt-3 pt-3 border-t border-[var(--line)] flex flex-col gap-2 animate-in fade-in">
+            {/* Mobile Cloud Status & Quick Toolbar */}
+            <div className="grid grid-cols-2 gap-2 mb-1">
+              <div className="px-3 py-2 flex items-center gap-1.5 text-xs font-mono bg-[var(--ink-3)] rounded-lg border border-[var(--line)]">
+                <CircleDot className={`w-3 h-3 ${isCloudConnected ? "text-[var(--verdigris)]" : "text-[var(--brass)]"}`} />
+                <span className="text-[11px] text-[var(--paper-dim)] truncate">
+                  {isCloudConnected ? "Bulut Senkronize" : "📌 Yerel Mod"}
+                </span>
+              </div>
+
+              <div className="px-3 py-2 flex items-center justify-between text-xs font-mono bg-[var(--ink-3)] rounded-lg border border-[var(--line)]">
+                <span className="text-[10px] text-[var(--mist)]">Son:</span>
+                <span className="text-[11px] text-[var(--brass)] font-bold">{lastSyncTime}</span>
+              </div>
             </div>
 
-            {navLinks.map((link) => {
-              const isActive =
-                link.href === "/"
-                  ? pathname === "/"
-                  : pathname.startsWith(link.href);
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`text-sm py-2 px-3 rounded-md transition-colors flex items-center justify-between ${
-                    isActive
-                      ? "bg-[var(--ink-2)] text-[var(--brass)] font-semibold border-l-2 border-[var(--brass)]"
-                      : "text-[var(--mist)] hover:text-[var(--paper)]"
-                  }`}
-                >
-                  <span>{link.label}</span>
-                  {link.badge && (
-                    <span className="text-[10px] font-mono font-bold bg-[var(--brass)] text-[var(--ink)] px-1.5 py-0.5 rounded-xs">
-                      {link.badge}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
+            {/* Nav Links */}
+            <div className="space-y-1">
+              {navLinks.map((link) => {
+                const isActive =
+                  link.href === "/"
+                    ? pathname === "/"
+                    : pathname.startsWith(link.href);
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`text-sm py-2 px-3 rounded-lg transition-colors flex items-center justify-between ${
+                      isActive
+                        ? "bg-[var(--ink-2)] text-[var(--brass)] font-semibold border-l-2 border-[var(--brass)]"
+                        : "text-[var(--mist)] hover:text-[var(--paper)]"
+                    }`}
+                  >
+                    <span>{link.label}</span>
+                    {link.badge && (
+                      <span className="text-[10px] font-mono font-bold bg-[var(--brass)] text-[var(--ink)] px-1.5 py-0.5 rounded-xs">
+                        {link.badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
 
-            {/* Mobile Quick Action Buttons */}
-            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[var(--line)]">
+            {/* Mobile Quick Utility Actions Grid */}
+            <div className="grid grid-cols-2 gap-2 pt-3 border-t border-[var(--line)]">
+              {/* Theme Toggle in Mobile */}
+              <div className="p-1 rounded-lg bg-[var(--ink-3)] border border-[var(--line)] flex items-center justify-between px-2.5">
+                <span className="text-xs font-mono text-[var(--mist)]">Tema:</span>
+                <ThemeToggle />
+              </div>
+
+              {/* View Scale in Mobile */}
+              <div className="p-1 rounded-lg bg-[var(--ink-3)] border border-[var(--line)] flex items-center justify-between px-2.5">
+                <span className="text-xs font-mono text-[var(--mist)]">Ölçek:</span>
+                <ViewModeToggle />
+              </div>
+
+              {/* Currency Converter */}
               <button
                 type="button"
                 onClick={() => {
                   setConverterOpen(true);
                   setMobileMenuOpen(false);
                 }}
-                className="p-2.5 rounded-lg bg-[var(--ink-3)] border border-[var(--line)] text-xs font-mono text-[var(--paper)] flex items-center justify-center gap-1.5 cursor-pointer"
+                className="p-2 rounded-lg bg-[var(--ink-3)] border border-[var(--line)] text-xs font-mono text-[var(--paper)] flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Coins className="w-4 h-4 text-[var(--brass)]" />
                 <span>Kur Çevirici</span>
               </button>
 
+              {/* Price Refresh */}
               <button
                 type="button"
                 onClick={() => {
-                  togglePrivacyMode();
+                  handleRefreshPrices();
+                  setMobileMenuOpen(false);
                 }}
-                className={`p-2.5 rounded-lg border text-xs font-mono flex items-center justify-center gap-1.5 cursor-pointer ${
-                  isPrivacyMode
-                    ? "bg-[var(--brass-glow)] border-[var(--brass)] text-[var(--brass)] font-bold"
-                    : "bg-[var(--ink-3)] border-[var(--line)] text-[var(--paper)]"
-                }`}
+                disabled={isRefreshing}
+                className="p-2 rounded-lg bg-[var(--ink-3)] border border-[var(--line)] text-xs font-mono text-[var(--paper)] flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
-                {isPrivacyMode ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                <span>{isPrivacyMode ? "Bakiyeler Gizli" : "Bakiyeyi Gizle"}</span>
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-[var(--brass)]" : "text-[var(--brass)]"}`} />
+                <span>{isRefreshing ? "Yenileniyor..." : "Fiyat Güncelle"}</span>
               </button>
             </div>
           </div>
