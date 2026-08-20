@@ -134,7 +134,7 @@ export default function PortfolioCorrelationMatrix({
                   {rowSym}
                 </td>
                 {symbols.map((colSym, colIdx) => {
-                  const val = matrix[rowIdx][colIdx];
+                  const val = matrix[rowIdx]?.[colIdx] ?? (rowIdx === colIdx ? 1 : 0);
                   const isDiag = rowIdx === colIdx;
                   return (
                     <td key={colSym} className="p-1 text-center">

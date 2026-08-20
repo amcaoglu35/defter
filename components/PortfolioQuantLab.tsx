@@ -49,36 +49,49 @@ export default function PortfolioQuantLab({
   const [activeFormulaKey, setActiveFormulaKey] = useState<string | null>(null);
 
   const quantAssets = useMemo(() => {
-    return holdings.map((h) => ({
+    return (holdings || []).map((h) => ({
       symbol: h.symbol,
       name: h.name,
       category: h.category,
       sector: h.sector,
-      totalCurrentValue: h.totalCurrentValue,
-      weightPct: h.weightPct,
-      unrealizedProfitLossPct: h.unrealizedProfitLossPct,
+      totalCurrentValue: Number(h.totalCurrentValue) || 0,
+      weightPct: Number(h.weightPct) || 0,
+      unrealizedProfitLossPct: Number(h.unrealizedProfitLossPct) || 0,
       currency: h.currency,
-      dailyChangePct: h.change24h,
+      dailyChangePct: Number(h.change24h) || 0,
     }));
   }, [holdings]);
 
   const riskMetrics = useMemo(() => {
     return calculatePortfolioRiskMetrics(
       quantAssets,
-      totalValue,
-      totalProfitLossPct,
+      Number(totalValue) || 0,
+      Number(totalProfitLossPct) || 0,
       28.5,
       riskFreeRate
     );
   }, [quantAssets, totalValue, totalProfitLossPct, riskFreeRate]);
 
+  const safeRisk = {
+    sharpeRatio: Number(riskMetrics?.sharpeRatio ?? 0),
+    sortinoRatio: Number(riskMetrics?.sortinoRatio ?? 0),
+    portfolioBeta: Number(riskMetrics?.portfolioBeta ?? 1.0),
+    ulcerIndex: Number(riskMetrics?.ulcerIndex ?? 0),
+    ulcerStressLevel: riskMetrics?.ulcerStressLevel ?? "Düşük (Huzurlu)",
+    var95MonthlyAmount: Number(riskMetrics?.var95MonthlyAmount ?? 0),
+    var95MonthlyPct: Number(riskMetrics?.var95MonthlyPct ?? 0),
+    cvar95MonthlyAmount: Number(riskMetrics?.cvar95MonthlyAmount ?? 0),
+    diversificationBenefitPct: Number(riskMetrics?.diversificationBenefitPct ?? 0),
+    annualizedVolatility: Number(riskMetrics?.annualizedVolatility ?? 25),
+  };
+
   const frontierPoints = useMemo(() => {
     return generateEfficientFrontier(
       quantAssets,
-      riskMetrics.annualizedVolatility,
-      Math.max(10, totalProfitLossPct)
+      safeRisk.annualizedVolatility,
+      Math.max(10, Number(totalProfitLossPct) || 0)
     );
-  }, [quantAssets, riskMetrics.annualizedVolatility, totalProfitLossPct]);
+  }, [quantAssets, safeRisk.annualizedVolatility, totalProfitLossPct]);
 
   return (
     <div className="space-y-6">
@@ -101,19 +114,19 @@ export default function PortfolioQuantLab({
           </div>
           <p
             className={`font-serif font-bold text-2xl ${
-              riskMetrics.sharpeRatio >= 1.0
+              safeRisk.sharpeRatio >= 1.0
                 ? "text-emerald-400"
-                : riskMetrics.sharpeRatio >= 0
+                : safeRisk.sharpeRatio >= 0
                 ? "text-amber-400"
                 : "text-rose-400"
             }`}
           >
-            {riskMetrics.sharpeRatio.toFixed(2)}
+            {safeRisk.sharpeRatio.toFixed(2)}
           </p>
           <span className="text-[11px] font-mono text-[var(--mist)] block">
-            {riskMetrics.sharpeRatio >= 1.5
+            {safeRisk.sharpeRatio >= 1.5
               ? "💎 Mükemmel Risk-Getiri Verimi"
-              : riskMetrics.sharpeRatio >= 0.5
+              : safeRisk.sharpeRatio >= 0.5
               ? "⚖️ Dengeli Getiri / Risk"
               : "⚠️ Faiz Altı / Yüksek Volatilite"}
           </span>
@@ -136,14 +149,14 @@ export default function PortfolioQuantLab({
           </div>
           <p
             className={`font-serif font-bold text-2xl ${
-              riskMetrics.sortinoRatio >= 1.0
+              safeRisk.sortinoRatio >= 1.0
                 ? "text-emerald-400"
-                : riskMetrics.sortinoRatio >= 0
+                : safeRisk.sortinoRatio >= 0
                 ? "text-amber-400"
                 : "text-rose-400"
             }`}
           >
-            {riskMetrics.sortinoRatio.toFixed(2)}
+            {safeRisk.sortinoRatio.toFixed(2)}
           </p>
           <span className="text-[11px] font-mono text-[var(--mist)] block">
             Zarar Yönlü Dalgalanma Koruması
@@ -160,12 +173,12 @@ export default function PortfolioQuantLab({
             <span className="text-[10px] text-[var(--mist)]">Rf: %{riskFreeRate}</span>
           </div>
           <p className="font-serif font-bold text-2xl text-[var(--paper)]">
-            {riskMetrics.portfolioBeta.toFixed(2)}
+            {safeRisk.portfolioBeta.toFixed(2)}
           </p>
           <span className="text-[11px] font-mono text-[var(--mist)] block">
-            {riskMetrics.portfolioBeta > 1.15
+            {safeRisk.portfolioBeta > 1.15
               ? "🔥 BIST'ten Daha Agresif"
-              : riskMetrics.portfolioBeta < 0.85
+              : safeRisk.portfolioBeta < 0.85
               ? "🛡️ Defansif / Düşük Salınım"
               : "⚖️ BIST 100 ile Paralel"}
           </span>
@@ -188,17 +201,17 @@ export default function PortfolioQuantLab({
           </div>
           <p
             className={`font-serif font-bold text-2xl ${
-              riskMetrics.ulcerIndex < 6.0
+              safeRisk.ulcerIndex < 6.0
                 ? "text-emerald-400"
-                : riskMetrics.ulcerIndex < 12.0
+                : safeRisk.ulcerIndex < 12.0
                 ? "text-amber-400"
                 : "text-rose-400"
             }`}
           >
-            {riskMetrics.ulcerIndex}
+            {safeRisk.ulcerIndex.toFixed(1)}
           </p>
           <span className="text-[11px] font-mono text-[var(--mist)] block">
-            {riskMetrics.ulcerStressLevel} Çöküş Riski
+            {safeRisk.ulcerStressLevel} Çöküş Riski
           </span>
         </div>
       </div>
@@ -220,10 +233,10 @@ export default function PortfolioQuantLab({
             </button>
           </div>
           <p className="font-mono text-2xl font-bold text-rose-400">
-            -{riskMetrics.var95MonthlyAmount.toLocaleString("tr-TR")} ₺
+            -{safeRisk.var95MonthlyAmount.toLocaleString("tr-TR")} ₺
           </p>
           <p className="text-[11px] font-mono text-[var(--mist)] leading-relaxed">
-            %95 güven düzeyinde önümüzdeki 1 ayda görebileceğiniz tahmini maksimum kayıp (%{riskMetrics.var95MonthlyPct}).
+            %95 güven düzeyinde önümüzdeki 1 ayda görebileceğiniz tahmini maksimum kayıp (%{safeRisk.var95MonthlyPct.toFixed(1)}).
           </p>
         </div>
 
@@ -234,7 +247,7 @@ export default function PortfolioQuantLab({
             <span className="font-bold">CVaR (Kriz Beklenen Kaybı)</span>
           </div>
           <p className="font-mono text-2xl font-bold text-amber-400">
-            -{riskMetrics.cvar95MonthlyAmount.toLocaleString("tr-TR")} ₺
+            -{safeRisk.cvar95MonthlyAmount.toLocaleString("tr-TR")} ₺
           </p>
           <p className="text-[11px] font-mono text-[var(--mist)] leading-relaxed">
             Piyasada %5&apos;lik aşırı sert kriz/şok dalgası oluştuğunda katlanılacak ortalama kuyruk kaybı.
@@ -248,7 +261,7 @@ export default function PortfolioQuantLab({
             <span className="font-bold">Çeşitlendirme Kalkanı</span>
           </div>
           <p className="font-mono text-2xl font-bold text-emerald-400">
-            -%{riskMetrics.diversificationBenefitPct}
+            -%{safeRisk.diversificationBenefitPct.toFixed(1)}
           </p>
           <p className="text-[11px] font-mono text-[var(--mist)] leading-relaxed">
             Farklı varlık sınıflarınız sayesinde portföy volatilitesinin ne kadar sönümlendiği.
@@ -258,9 +271,9 @@ export default function PortfolioQuantLab({
 
       {/* 3. 1.000 PATİKALI MONTE CARLO GELECEK SİMÜLATÖRÜ */}
       <PortfolioMonteCarloSimulator
-        totalValue={totalValue}
-        totalProfitLossPct={totalProfitLossPct}
-        annualizedVolatility={riskMetrics.annualizedVolatility}
+        totalValue={Number(totalValue) || 0}
+        totalProfitLossPct={Number(totalProfitLossPct) || 0}
+        annualizedVolatility={safeRisk.annualizedVolatility}
       />
 
       {/* 4. HEDGE FON & İLERİ QUANT METRİKLERİ */}
@@ -294,60 +307,66 @@ export default function PortfolioQuantLab({
           </div>
         </div>
 
-        <div className="w-full h-80 bg-[var(--ink-3)] rounded-xl p-3 border border-[var(--line)] shadow-inner">
-          <ResponsiveContainer width="100%" height="100%">
-            <ScatterChart margin={{ top: 20, right: 20, bottom: 10, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" opacity={0.4} />
-              <XAxis
-                type="number"
-                dataKey="risk"
-                name="Risk (Standart Sapma)"
-                unit="%"
-                stroke="var(--mist)"
-                fontSize={10}
-                fontFamily="monospace"
-              />
-              <YAxis
-                type="number"
-                dataKey="returnRate"
-                name="Beklenen Getiri"
-                unit="%"
-                stroke="var(--mist)"
-                fontSize={10}
-                fontFamily="monospace"
-              />
-              <ZAxis range={[60, 200]} />
-              <Tooltip
-                cursor={{ strokeDasharray: "3 3" }}
-                contentStyle={{
-                  backgroundColor: "var(--ink-2)",
-                  borderColor: "var(--brass-dim)",
-                  borderRadius: "8px",
-                  fontSize: "12px",
-                  color: "var(--paper)",
-                  fontFamily: "monospace",
-                }}
-                formatter={(val: any, name: any) => [
-                  `%${val}`,
-                  name === "risk" ? "Risk (Volatilite)" : "Beklenen Getiri",
-                ]}
-              />
-              <Scatter data={frontierPoints} fill="#C9A24B">
-                {frontierPoints.map((entry, index) => {
-                  if (entry.isCurrent) {
-                    return <Cell key={`cell-${index}`} fill="#10b981" stroke="#fff" strokeWidth={2} />;
-                  }
-                  if (entry.isMaxSharpe) {
-                    return <Cell key={`cell-${index}`} fill="#C9A24B" stroke="#f59e0b" strokeWidth={2} />;
-                  }
-                  if (entry.isMinVariance) {
-                    return <Cell key={`cell-${index}`} fill="#38bdf8" stroke="#0284c7" strokeWidth={2} />;
-                  }
-                  return <Cell key={`cell-${index}`} fill="#64748b" opacity={0.6} />;
-                })}
-              </Scatter>
-            </ScatterChart>
-          </ResponsiveContainer>
+        <div className="w-full h-80 min-h-[320px] bg-[var(--ink-3)] rounded-xl p-3 border border-[var(--line)] shadow-inner">
+          {frontierPoints.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%" minHeight={300}>
+              <ScatterChart margin={{ top: 20, right: 20, bottom: 10, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" opacity={0.4} />
+                <XAxis
+                  type="number"
+                  dataKey="risk"
+                  name="Risk (Standart Sapma)"
+                  unit="%"
+                  stroke="var(--mist)"
+                  fontSize={10}
+                  fontFamily="monospace"
+                />
+                <YAxis
+                  type="number"
+                  dataKey="returnRate"
+                  name="Beklenen Getiri"
+                  unit="%"
+                  stroke="var(--mist)"
+                  fontSize={10}
+                  fontFamily="monospace"
+                />
+                <ZAxis range={[60, 200]} />
+                <Tooltip
+                  cursor={{ strokeDasharray: "3 3" }}
+                  contentStyle={{
+                    backgroundColor: "var(--ink-2)",
+                    borderColor: "var(--brass-dim)",
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                    color: "var(--paper)",
+                    fontFamily: "monospace",
+                  }}
+                  formatter={(val: any, name: any) => [
+                    `%${val}`,
+                    name === "risk" ? "Risk (Volatilite)" : "Beklenen Getiri",
+                  ]}
+                />
+                <Scatter data={frontierPoints} fill="#C9A24B">
+                  {frontierPoints.map((entry, index) => {
+                    if (entry.isCurrent) {
+                      return <Cell key={`cell-${index}`} fill="#10b981" stroke="#fff" strokeWidth={2} />;
+                    }
+                    if (entry.isMaxSharpe) {
+                      return <Cell key={`cell-${index}`} fill="#C9A24B" stroke="#f59e0b" strokeWidth={2} />;
+                    }
+                    if (entry.isMinVariance) {
+                      return <Cell key={`cell-${index}`} fill="#38bdf8" stroke="#0284c7" strokeWidth={2} />;
+                    }
+                    return <Cell key={`cell-${index}`} fill="#64748b" opacity={0.6} />;
+                  })}
+                </Scatter>
+              </ScatterChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-full text-xs font-mono text-[var(--mist)]">
+              Etkin sınır hesaplanıyor...
+            </div>
+          )}
         </div>
       </div>
 

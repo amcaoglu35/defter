@@ -352,22 +352,25 @@ export function runMonteCarloSimulation(
   horizonMonths: number = 36
 ): MonteCarloSimulationPoint[] {
   const points: MonteCarloSimulationPoint[] = [];
-  const mu = (annualReturnPct / 100) / 12; // Aylık beklenen getiri
-  const sigma = (annualVolPct / 100) / Math.sqrt(12); // Aylık volatilite
+  const safeInit = Math.max(100, Number(initialValue) || 100000);
+  const safeReturn = isNaN(annualReturnPct) ? 25 : Number(annualReturnPct);
+  const safeVol = Math.max(5, isNaN(annualVolPct) ? 28 : Number(annualVolPct));
 
-  points.push({ day: 0, month: 0, p5Worst: initialValue, p50Median: initialValue, p95Best: initialValue });
+  const mu = (safeReturn / 100) / 12; // Aylık beklenen getiri
+  const sigma = (safeVol / 100) / Math.sqrt(12); // Aylık volatilite
+
+  points.push({ day: 0, month: 0, p5Worst: safeInit, p50Median: safeInit, p95Best: safeInit });
 
   for (let m = 1; m <= horizonMonths; m++) {
     const t = m;
-    // GBM Matematiksel Güven Bantları
     const drift = (mu - (sigma * sigma) / 2) * t;
-    const diffusionWorst = -1.645 * sigma * Math.sqrt(t); // %5 Sol Kuyruk (Kriz)
-    const diffusionMedian = 0; // %50 Medyan
-    const diffusionBest = 1.645 * sigma * Math.sqrt(t); // %95 Sağ Kuyruk (Boğa)
+    const diffusionWorst = -1.645 * sigma * Math.sqrt(t);
+    const diffusionMedian = 0;
+    const diffusionBest = 1.645 * sigma * Math.sqrt(t);
 
-    const p5Worst = Math.round(initialValue * Math.exp(drift + diffusionWorst));
-    const p50Median = Math.round(initialValue * Math.exp(drift + diffusionMedian));
-    const p95Best = Math.round(initialValue * Math.exp(drift + diffusionBest));
+    const p5Worst = Math.max(0, Math.round(safeInit * Math.exp(drift + diffusionWorst)) || 0);
+    const p50Median = Math.max(0, Math.round(safeInit * Math.exp(drift + diffusionMedian)) || 0);
+    const p95Best = Math.max(0, Math.round(safeInit * Math.exp(drift + diffusionBest)) || 0);
 
     points.push({ day: m * 30, month: m, p5Worst, p50Median, p95Best });
   }

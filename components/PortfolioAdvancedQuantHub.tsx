@@ -18,13 +18,29 @@ import { RiskMetrics } from "@/lib/quantEngine";
 import FormulaInfoModal from "@/components/FormulaInfoModal";
 
 interface PortfolioAdvancedQuantHubProps {
-  metrics: RiskMetrics;
+  metrics?: RiskMetrics;
 }
 
 export default function PortfolioAdvancedQuantHub({
   metrics,
 }: PortfolioAdvancedQuantHubProps) {
   const [activeFormulaKey, setActiveFormulaKey] = useState<string | null>(null);
+
+  const safeMetrics = {
+    omegaRatio: Number(metrics?.omegaRatio ?? 1.0),
+    treynorRatio: Number(metrics?.treynorRatio ?? 0),
+    informationRatio: Number(metrics?.informationRatio ?? 0),
+    gainToPainRatio: Number(metrics?.gainToPainRatio ?? 1.0),
+    mSquaredPct: Number(metrics?.mSquaredPct ?? 0),
+    upMarketCapturePct: Number(metrics?.upMarketCapturePct ?? 100),
+    downMarketCapturePct: Number(metrics?.downMarketCapturePct ?? 100),
+    shannonEntropyPct: Number(metrics?.shannonEntropyPct ?? 0),
+    maxDrawdownPct: Number(metrics?.maxDrawdownPct ?? 0),
+    recoveryDays: Number(metrics?.recoveryDays ?? 0),
+    kRatio: Number(metrics?.kRatio ?? 1.0),
+    skewness: Number(metrics?.skewness ?? 0),
+    kurtosis: Number(metrics?.kurtosis ?? 3.0),
+  };
 
   return (
     <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-5 shadow-sm space-y-6">
@@ -64,17 +80,17 @@ export default function PortfolioAdvancedQuantHub({
           </div>
           <p
             className={`font-serif font-bold text-xl ${
-              metrics.omegaRatio >= 1.5
+              safeMetrics.omegaRatio >= 1.5
                 ? "text-emerald-400"
-                : metrics.omegaRatio >= 1.0
+                : safeMetrics.omegaRatio >= 1.0
                 ? "text-amber-400"
                 : "text-rose-400"
             }`}
           >
-            {metrics.omegaRatio.toFixed(2)}
+            {safeMetrics.omegaRatio.toFixed(2)}
           </p>
           <span className="text-[10px] font-mono text-[var(--mist)] block">
-            {metrics.omegaRatio >= 1.5 ? "💎 Asimetrik Kazanç Üstünlüğü" : "⚖️ Normal Kazanç Dağılımı"}
+            {safeMetrics.omegaRatio >= 1.5 ? "💎 Asimetrik Kazanç Üstünlüğü" : "⚖️ Normal Kazanç Dağılımı"}
           </span>
         </div>
 
@@ -91,7 +107,7 @@ export default function PortfolioAdvancedQuantHub({
             </button>
           </div>
           <p className="font-serif font-bold text-xl text-[var(--paper)]">
-            {metrics.treynorRatio.toFixed(2)}
+            {safeMetrics.treynorRatio.toFixed(2)}
           </p>
           <span className="text-[10px] font-mono text-[var(--mist)] block">
             Sistematik Piyasa Riski Başına Alfa
@@ -112,13 +128,13 @@ export default function PortfolioAdvancedQuantHub({
           </div>
           <p
             className={`font-serif font-bold text-xl ${
-              metrics.informationRatio > 0.5 ? "text-emerald-400" : "text-amber-400"
+              safeMetrics.informationRatio > 0.5 ? "text-emerald-400" : "text-amber-400"
             }`}
           >
-            {metrics.informationRatio.toFixed(2)}
+            {safeMetrics.informationRatio.toFixed(2)}
           </p>
           <span className="text-[10px] font-mono text-[var(--mist)] block">
-            {metrics.informationRatio > 0.75 ? "🏆 Üstün Fon Yöneticisi Kalitesi" : "⚖️ Piyasa Ortalaması Takibi"}
+            {safeMetrics.informationRatio > 0.75 ? "🏆 Üstün Fon Yöneticisi Kalitesi" : "⚖️ Piyasa Ortalaması Takibi"}
           </span>
         </div>
 
@@ -135,7 +151,7 @@ export default function PortfolioAdvancedQuantHub({
             </button>
           </div>
           <p className="font-serif font-bold text-xl text-emerald-400">
-            {metrics.gainToPainRatio.toFixed(2)}
+            {safeMetrics.gainToPainRatio.toFixed(2)}
           </p>
           <span className="text-[10px] font-mono text-[var(--mist)] block">
             Her 1 ₺ Acıya Karşı Net Kâr
@@ -158,7 +174,7 @@ export default function PortfolioAdvancedQuantHub({
             </button>
           </div>
           <p className="font-mono text-2xl font-bold text-emerald-400">
-            %{metrics.mSquaredPct}
+            %{safeMetrics.mSquaredPct.toFixed(2)}
           </p>
           <p className="text-[11px] font-mono text-[var(--mist)] leading-relaxed">
             Portföyünüz BIST 100 ile aynı riskte olsaydı üreteceği saf kümülatif getiri.
@@ -180,11 +196,11 @@ export default function PortfolioAdvancedQuantHub({
           <div className="flex items-center justify-between text-xs font-mono pt-1">
             <div className="space-y-0.5">
               <span className="text-[10px] text-emerald-400 block">Up-Capture (Boğa)</span>
-              <span className="text-lg font-bold text-emerald-400">%{metrics.upMarketCapturePct}</span>
+              <span className="text-lg font-bold text-emerald-400">%{safeMetrics.upMarketCapturePct.toFixed(0)}</span>
             </div>
             <div className="space-y-0.5 text-right">
               <span className="text-[10px] text-rose-400 block">Down-Capture (Ayı)</span>
-              <span className="text-lg font-bold text-rose-400">%{metrics.downMarketCapturePct}</span>
+              <span className="text-lg font-bold text-rose-400">%{safeMetrics.downMarketCapturePct.toFixed(0)}</span>
             </div>
           </div>
         </div>
@@ -202,7 +218,7 @@ export default function PortfolioAdvancedQuantHub({
             </button>
           </div>
           <p className="font-mono text-2xl font-bold text-cyan-400">
-            %{metrics.shannonEntropyPct}
+            %{safeMetrics.shannonEntropyPct.toFixed(1)}
           </p>
           <p className="text-[11px] font-mono text-[var(--mist)] leading-relaxed">
             Claude Shannon bilgi teorisine göre portföyün homojen dağılım mükemmelliği.
@@ -215,18 +231,18 @@ export default function PortfolioAdvancedQuantHub({
         <div className="p-3.5 rounded-lg bg-[var(--ink-3)] border border-[var(--line)] flex items-center justify-between">
           <div>
             <span className="text-[var(--mist)] block text-[10px]">Tarihsel Max Çöküş (MDD)</span>
-            <span className="text-rose-400 font-bold text-base">-%{metrics.maxDrawdownPct}</span>
+            <span className="text-rose-400 font-bold text-base">-%{safeMetrics.maxDrawdownPct.toFixed(1)}</span>
           </div>
           <div className="text-right">
             <span className="text-[var(--mist)] block text-[10px]">Tahmini Toparlanma</span>
-            <span className="text-[var(--paper)] font-bold text-base">{metrics.recoveryDays} Gün</span>
+            <span className="text-[var(--paper)] font-bold text-base">{safeMetrics.recoveryDays} Gün</span>
           </div>
         </div>
 
         <div className="p-3.5 rounded-lg bg-[var(--ink-3)] border border-[var(--line)] flex items-center justify-between">
           <div>
             <span className="text-[var(--mist)] block text-[10px]">K-Ratio (Büyüme Pürüzsüzlüğü)</span>
-            <span className="text-emerald-400 font-bold text-base">{metrics.kRatio}</span>
+            <span className="text-emerald-400 font-bold text-base">{safeMetrics.kRatio.toFixed(2)}</span>
           </div>
           <div className="text-right text-[10px] text-[var(--mist)]">
             Merdiven Gibi Düzenli Artış
@@ -237,7 +253,7 @@ export default function PortfolioAdvancedQuantHub({
           <div>
             <span className="text-[var(--mist)] block text-[10px]">Çarpıklık &amp; Basıklık (Tail Risk)</span>
             <span className="text-[var(--brass)] font-bold text-sm">
-              S: {metrics.skewness} | K: {metrics.kurtosis}
+              S: {safeMetrics.skewness.toFixed(2)} | K: {safeMetrics.kurtosis.toFixed(2)}
             </span>
           </div>
           <div className="text-right text-[10px] text-[var(--mist)]">
