@@ -44,15 +44,12 @@ import { BasketDeviationAlertBar } from "@/components/BasketDeviationAlertBar";
 import { BasketBenchmarkComparison } from "@/components/BasketBenchmarkComparison";
 import { MarketShockSimulatorCard } from "@/components/MarketShockSimulatorCard";
 import { useBasketRiskAnalytics } from "@/lib/useBasketRiskAnalytics";
-
-type PeriodType = "1A" | "3A" | "6A" | "1Y";
+import { BasketInteractiveChart, ChartPeriod } from "@/components/BasketInteractiveChart";
 
 export default function SepetDetayPage() {
   const params = useParams();
   const router = useRouter();
   const basketId = params.id as string;
-  const chartUid = useId();
-  const basketGradId = `basket-chart-grad-${chartUid}`;
   const { showToast } = useToast();
 
   const {
@@ -66,7 +63,7 @@ export default function SepetDetayPage() {
     addTransaction,
   } = useDefterStore();
 
-  const [period, setPeriod] = useState<PeriodType>("6A");
+  const [period, setPeriod] = useState<ChartPeriod>("6A");
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [printModalOpen, setPrintModalOpen] = useState(false);
@@ -78,7 +75,7 @@ export default function SepetDetayPage() {
 
   // Real Analytics & Historical Portfolio Price Series
   const periodParam = period === "1A" ? "1m" : period === "3A" ? "3m" : period === "6A" ? "6m" : "1y";
-  const { riskProfile, portfolioPriceSeries, isLoading: isAnalyticsLoading } = useBasketRiskAnalytics(basket, periodParam);
+  const { riskProfile, portfolioPriceSeries, benchmarkPriceSeries, isLoading: isAnalyticsLoading } = useBasketRiskAnalytics(basket, periodParam);
 
   // Dynamic Weighted Dividend Yield Calculation
   const weightedDivYield = useMemo(() => {
@@ -94,59 +91,6 @@ export default function SepetDetayPage() {
     });
     return totalWeight > 0 ? (weightedSum / totalWeight).toFixed(1) : "0.0";
   }, [basket, companies]);
-
-  // Real Historical Chart Points & Date Labels using portfolioPriceSeries
-  const chartData = useMemo(() => {
-    if (!basket || !portfolioPriceSeries || portfolioPriceSeries.length < 2) {
-      return { points: [], pathD: "", areaD: "", labels: [], minVal: 0, maxVal: 0 };
-    }
-
-    const totalVal = basket.totalValue || 0;
-    const lastClose = portfolioPriceSeries[portfolioPriceSeries.length - 1]?.close || 100;
-    const scale = lastClose > 0 ? totalVal / lastClose : 1;
-
-    const values = portfolioPriceSeries.map((pt) => ({
-      date: pt.date,
-      val: Math.round(pt.close * scale),
-    }));
-
-    const rawVals = values.map((v) => v.val);
-    const minV = Math.min(...rawVals) * 0.98;
-    const maxV = Math.max(...rawVals) * 1.02;
-    const range = maxV - minV || 1;
-
-    const svgWidth = 500;
-    const svgHeight = 120;
-    const count = values.length;
-
-    const coords = values.map((item, idx) => {
-      const x = count > 1 ? (idx / (count - 1)) * svgWidth : svgWidth / 2;
-      const y = svgHeight - ((item.val - minV) / range) * (svgHeight - 20) - 10;
-      return { x, y, val: item.val, date: item.date };
-    });
-
-    let pathD = `M ${coords[0].x},${coords[0].y}`;
-    for (let i = 0; i < coords.length - 1; i++) {
-      const curr = coords[i];
-      const next = coords[i + 1];
-      const cpX = (curr.x + next.x) / 2;
-      pathD += ` C ${cpX},${curr.y} ${cpX},${next.y} ${next.x},${next.y}`;
-    }
-
-    const areaD = `${pathD} L ${svgWidth},${svgHeight} L 0,${svgHeight} Z`;
-
-    const labelStep = Math.max(1, Math.floor(count / 5));
-    const labels = coords
-      .filter((_, idx) => idx % labelStep === 0 || idx === count - 1)
-      .map((c) => {
-        const d = new Date(c.date);
-        return isNaN(d.getTime())
-          ? c.date
-          : d.toLocaleDateString("tr-TR", { day: "numeric", month: "short" });
-      });
-
-    return { points: coords, pathD, areaD, labels, minVal: minV, maxVal: maxV };
-  }, [basket, portfolioPriceSeries]);
 
   if (!basket) {
     return (
@@ -287,105 +231,15 @@ export default function SepetDetayPage() {
 
       {/* 3. Performance Chart & Risk Meter */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <h3 className="font-mono text-xs uppercase tracking-wider text-[var(--brass)] font-semibold">
-                Sepet Performans Eğrisi
-              </h3>
-              <span
-                className="inline-flex items-center gap-1 font-mono text-[10px] bg-[var(--ink-3)] text-[var(--mist)] border border-[var(--line)] px-2 py-0.5 rounded cursor-help"
-                title="Grafik eğrisi, sepetinizdeki varlıkların BIST ve küresel piyasalardaki gerçek ağırlıklı günlük kapanış fiyat geçmişini temsil eder."
-              >
-                <Info className="w-3 h-3 text-[var(--brass)]" />
-                <span>📌 Canlı Varlık Kapanış Verileri</span>
-              </span>
-            </div>
-            <div className="flex gap-1.5 font-mono text-[11px]">
-              {(["1A", "3A", "6A", "1Y"] as const).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPeriod(p)}
-                  className={`px-2.5 py-1 rounded cursor-pointer transition-colors ${
-                    period === p
-                      ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow"
-                      : "text-[var(--mist)] hover:text-[var(--paper)] bg-[var(--ink-3)]"
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Dynamic SVG Chart */}
-          <div className="h-44 w-full relative flex items-end pt-6 pb-2">
-            {isAnalyticsLoading ? (
-              <div className="w-full h-full flex flex-col items-center justify-center space-y-2 text-[var(--mist)] font-mono text-xs">
-                <Loader2 className="w-5 h-5 animate-spin text-[var(--brass)]" />
-                <span>Sepet Tarihsel Fiyat Akışı Yükleniyor...</span>
-              </div>
-            ) : chartData.points.length === 0 ? (
-              <div className="w-full h-full flex flex-col items-center justify-center text-[var(--mist)] font-mono text-xs text-center p-4">
-                <span className="font-bold text-[var(--paper)]">Seçili Dönem İçin Veri Yok</span>
-                <span className="text-[11px] text-[var(--mist)] mt-1">
-                  Varlıkların canlı fiyat geçmişi çekilemedi.
-                </span>
-              </div>
-            ) : (
-              <svg className="w-full h-full overflow-visible" viewBox="0 0 500 120">
-                <defs>
-                  <linearGradient id={basketGradId} x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop
-                      offset="0%"
-                      stopColor={isProfitPositive ? "#5B8C7B" : "#A33B3B"}
-                      stopOpacity="0.4"
-                    />
-                    <stop
-                      offset="100%"
-                      stopColor={isProfitPositive ? "#5B8C7B" : "#A33B3B"}
-                      stopOpacity="0.0"
-                    />
-                  </linearGradient>
-                </defs>
-
-                {/* Filled Area */}
-                <path d={chartData.areaD} fill={`url(#${basketGradId})`} />
-
-                {/* Stroke Line */}
-                <path
-                  d={chartData.pathD}
-                  fill="none"
-                  stroke={isProfitPositive ? "#5B8C7B" : "#A33B3B"}
-                  strokeWidth="2.5"
-                />
-
-                {/* Data Points */}
-                {chartData.points.map((pt, idx) => (
-                  <circle
-                    key={idx}
-                    cx={pt.x}
-                    cy={pt.y}
-                    r={idx === chartData.points.length - 1 ? 5 : 3.5}
-                    fill={idx === chartData.points.length - 1 ? "#C9A24B" : (isProfitPositive ? "#5B8C7B" : "#A33B3B")}
-                    className="transition-all"
-                  />
-                ))}
-              </svg>
-            )}
-          </div>
-
-          {/* Dynamic X-Axis Date Labels */}
-          <div className="flex justify-between font-mono text-[11px] text-[var(--mist)] pt-2 border-t border-dashed border-[var(--line)]">
-            {chartData.labels.map((lbl, idx) => (
-              <span
-                key={idx}
-                className={idx === chartData.labels.length - 1 ? "text-[var(--brass)] font-semibold" : ""}
-              >
-                {lbl}
-              </span>
-            ))}
-          </div>
+        <div className="lg:col-span-2">
+          <BasketInteractiveChart
+            basket={basket}
+            portfolioPriceSeries={portfolioPriceSeries}
+            benchmarkPriceSeries={benchmarkPriceSeries}
+            isLoading={isAnalyticsLoading}
+            period={period}
+            onPeriodChange={setPeriod}
+          />
         </div>
 
         {/* Risk meter & summary info */}
