@@ -99,6 +99,7 @@ export default function Header() {
     { href: "/", label: "Ana Sayfa" },
     { href: "/sirketler", label: "Şirketler" },
     { href: "/sepetlerim", label: "Sepetlerim" },
+    { href: "/analiz", label: "Analiz & Röntgen", badge: "PRO" },
     { href: "/orakul", label: "Orakul AI", badge: "AI" },
     { href: "/halka-arz", label: "Halka Arz" },
     { href: "/ayarlar", label: "Ayarlar" },

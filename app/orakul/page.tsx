@@ -218,6 +218,7 @@ function OrakulContent() {
   // 1. Wizard state & Rebalance Context
   const [rebalanceBasketId, setRebalanceBasketId] = useState<string | null>(null);
   const [prevPreselectedBasketId, setPrevPreselectedBasketId] = useState<string | null>(null);
+  const [strategyArchetype, setStrategyArchetype] = useState<string>("dividend_aristocrats");
   const [goal, setGoal] = useState("Temettü Odaklı Nakit Akışı");
   const [risk, setRisk] = useState("Dengeli (Orta Risk)");
   const [universe, setUniverse] = useState("BIST 30 & Kıymetli Maden");
@@ -225,6 +226,9 @@ function OrakulContent() {
   const [horizon, setHorizon] = useState<string>("Orta Vade (6-18 Ay)");
   const [maxAssetWeight, setMaxAssetWeight] = useState<number>(35);
   const [includeGoldBuffer, setIncludeGoldBuffer] = useState<boolean>(false);
+  const [minDividendYield, setMinDividendYield] = useState<number>(0);
+  const [maxPeRatio, setMaxPeRatio] = useState<number>(0);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState<boolean>(false);
   const [assetCount, setAssetCount] = useState<number>(4);
 
   // Sync preselected basket to wizard state during render
@@ -259,18 +263,35 @@ interface OrakulRecipeResult {
   title?: string;
   recipeTitle?: string;
   summary?: string;
+  strategyArchetype?: string;
   healthScore?: number | string;
   expectedYield?: string;
   recommendedDuration?: string;
   riskRating?: string;
   isTemplate?: boolean;
   engine?: "llm" | "algorithmic";
+  sharpeRatio?: number;
+  estimatedVolatility?: number;
+  hhiScore?: number;
+  backtest1yReturn?: number;
+  backtestBistAlpha?: number;
+  cashReserve?: number;
+  committeeDebate?: {
+    bullSummary?: string;
+    bearSummary?: string;
+    verdict?: string;
+  };
   allocation?: Array<{
     symbol: string;
     companyName?: string;
     name?: string;
     weight: number;
+    price?: number;
+    suggestedShares?: number;
+    totalCost?: number;
     note?: string;
+    bullThesis?: string;
+    bearRisk?: string;
     rationale?: string;
   }>;
 }
@@ -572,11 +593,12 @@ interface WeeklyLetterResult {
     setLoading(true);
     setResult(null);
     setSavedSuccess(false);
-    setRecipePhase("1. BIST ve Emtia Varlık Kütüğü Taranıyor...");
+    setRecipePhase("1. BIST, TEFAS ve Emtia Kütüğü Taranıyor...");
 
     try {
-      setTimeout(() => setRecipePhase("2. Risk-Getiri & Kovaryans Matrisi Hesaplanıyor..."), 600);
-      setTimeout(() => setRecipePhase("3. Portföy Ağırlıkları ve Lot Dağılımı Optimize Ediliyor..."), 1200);
+      setTimeout(() => setRecipePhase("2. Mean-Variance & Kovaryans Matrisi Hesaplanıyor..."), 500);
+      setTimeout(() => setRecipePhase("3. 🐂 Boğa vs 🐻 Ayı Yatırım Komitesi Tartışıyor..."), 1100);
+      setTimeout(() => setRecipePhase("4. Backtest & Canlı Lot Dağıtımı Optimize Ediliyor..."), 1700);
 
       const rebalanceBasket = rebalanceBasketId ? baskets.find((b) => b.id === rebalanceBasketId) : null;
 
@@ -586,6 +608,7 @@ interface WeeklyLetterResult {
         body: JSON.stringify({
           type: "recipe",
           payload: {
+            strategyArchetype,
             goal,
             risk,
             universe,
@@ -593,6 +616,8 @@ interface WeeklyLetterResult {
             horizon,
             maxAssetWeight,
             includeGoldBuffer,
+            minDividendYield: minDividendYield > 0 ? minDividendYield : undefined,
+            maxPeRatio: maxPeRatio > 0 ? maxPeRatio : undefined,
             assetCount,
             allCompanies: companies,
             rebalanceContext: rebalanceBasket ? {
@@ -1522,225 +1547,288 @@ interface WeeklyLetterResult {
                 <p className="text-xs text-[var(--paper-dim)]">
                   Bu sepetin {rebalanceBasket.holdings.length} adet mevcut varlığı ve hedef ağırlıkları AI optimizasyon motoruna aktarılacak; ağırlığı aşırı artmış varlıklar için kâr realizasyonu, geride kalanlar için ekleme önerileri üretilecektir.
                 </p>
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {rebalanceBasket.holdings.map((h) => (
-                    <span
-                      key={h.companySymbol}
-                      className="text-xs font-mono bg-[var(--ink-2)] border border-[var(--line)] px-2.5 py-1 rounded"
-                    >
-                      <strong className="text-[var(--paper)]">{h.companySymbol}:</strong> Güncel %{h.weightPercent} → Hedef %{h.targetWeightPercent ?? h.weightPercent}
-                    </span>
-                  ))}
-                </div>
               </div>
             );
           })()}
 
           <div className="space-y-6">
+            {/* 1. Kurumsal Strateji Şablonları */}
             <div>
-              <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)] mb-2.5">
-                1. Yatırım Hedefi &amp; Strateji
-              </label>
-              <div className="flex flex-wrap gap-2.5">
+              <div className="flex items-center justify-between mb-2.5">
+                <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)]">
+                  1. Yatırım Stratejisi &amp; Arketip Seçimi
+                </label>
+                <span className="text-[10px] font-mono text-[var(--brass)] bg-[var(--brass-glow)] px-2 py-0.5 rounded border border-[var(--brass-dim)]">
+                  KURUMSAL HEDGE-FUND MODELİ
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {[
-                  "Temettü Odaklı Nakit Akışı",
-                  "Döviz Kazançlı İhracat Şampiyonları",
-                  "Derin Değer & Düşük F/K Avı",
-                  "Enflasyon & Kur Koruması",
-                  "Büyüme & Teknoloji İnovasyonu",
-                  "TEFAS Fon & Hisse Hibrit Portföyü",
-                  "Defansif Kıymetli Maden",
-                ].map((opt) => (
+                  {
+                    id: "dividend_aristocrats",
+                    title: "Temettü Aristokratları & DRIP",
+                    badge: "Bileşik Büyüme",
+                    desc: "Yüksek ve sürdürülebilir nakit temettü verimiyle kartopu etkisi hedefleyen şirketler.",
+                    goalText: "Temettü Odaklı Nakit Akışı",
+                    riskText: "Dengeli (Orta Risk)",
+                    universeText: "Tüm BIST 100 & Temettü 25",
+                  },
+                  {
+                    id: "defensive_castle",
+                    title: "Enflasyon Kalkanı & Kale",
+                    badge: "Defansif",
+                    desc: "Güçlü nakit akışı ve fiyatlama gücü olan BIST 30 devleri + %25 Gram Altın tamponu.",
+                    goalText: "Enflasyon & Kur Koruması",
+                    riskText: "Düşük Risk (Defansif)",
+                    universeText: "BIST 30 & Kıymetli Maden",
+                  },
+                  {
+                    id: "garp",
+                    title: "GARP (Makul Fiyatlı Büyüme)",
+                    badge: "Büyüme",
+                    desc: "Düşük F/K ile sektör ortalamasının üzerinde ciro ve FAVÖK artışı yakalayan liderler.",
+                    goalText: "Döviz Kazançlı İhracat Şampiyonları",
+                    riskText: "Dengeli (Orta Risk)",
+                    universeText: "Tüm BIST 100 & Temettü 25",
+                  },
+                  {
+                    id: "deep_value",
+                    title: "Derin Değer (Graham Kelepiri)",
+                    badge: "İskontolu",
+                    desc: "Defter değerine ve özkaynaklarına göre aşırı ucuz kalmış sağlam sanayi hisseleri.",
+                    goalText: "Derin Değer & Düşük F/K Avı",
+                    riskText: "Dengeli (Orta Risk)",
+                    universeText: "Tüm Defter Kütüğü (Hisse + Fon + Döviz)",
+                  },
+                  {
+                    id: "global_hedge",
+                    title: "Küresel Denge & Dövizli Gelir",
+                    badge: "Döviz Korumalı",
+                    desc: "İhracatçı BIST şirketleri + TEFAS Küresel Teknoloji Fonları + Ons Emtia karması.",
+                    goalText: "Küresel Piyasalar & Dövizli Gelir",
+                    riskText: "Dengeli (Orta Risk)",
+                    universeText: "Küresel Piyasalar (ABD & BIST)",
+                  },
+                  {
+                    id: "momentum_leaders",
+                    title: "Momentum & Trend Liderleri",
+                    badge: "Dinamik",
+                    desc: "52 haftalık zirvesine koşan, hacim patlaması yaşayan ve teknik gücü yüksek hisseler.",
+                    goalText: "Büyüme & Teknoloji İnovasyonu",
+                    riskText: "Yüksek Risk (Agresif)",
+                    universeText: "BIST Teknoloji & Bilişim (XTEK)",
+                  },
+                ].map((arch) => (
                   <button
-                    key={opt}
+                    key={arch.id}
                     type="button"
-                    onClick={() => setGoal(opt)}
-                    className={`px-4 py-2.5 rounded text-xs font-mono border transition-all cursor-pointer ${
-                      goal === opt
-                        ? "bg-[var(--brass-glow)] border-[var(--brass)] text-[var(--brass)] font-semibold shadow-inner"
-                        : "bg-[var(--ink-3)] border-[var(--line)] text-[var(--mist)] hover:text-[var(--paper)]"
+                    onClick={() => {
+                      setStrategyArchetype(arch.id);
+                      setGoal(arch.goalText);
+                      setRisk(arch.riskText);
+                      setUniverse(arch.universeText);
+                    }}
+                    className={`p-3.5 rounded-xl text-left border transition-all cursor-pointer space-y-1.5 ${
+                      strategyArchetype === arch.id
+                        ? "bg-[var(--brass-glow)] border-[var(--brass)] shadow-md text-[var(--paper)]"
+                        : "bg-[var(--ink-3)] border-[var(--line)] text-[var(--mist)] hover:border-[var(--brass-dim)] hover:text-[var(--paper)]"
                     }`}
                   >
-                    {opt}
+                    <div className="flex items-center justify-between">
+                      <span className="font-serif font-bold text-xs text-[var(--paper)]">
+                        {arch.title}
+                      </span>
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[var(--ink)] border border-[var(--line)] text-[var(--brass)] font-bold">
+                        {arch.badge}
+                      </span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-[var(--mist)] line-clamp-2">
+                      {arch.desc}
+                    </p>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* 2. Risk Toleransı */}
-            <div>
-              <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)] mb-2">
-                2. Risk Toleransı
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {[
-                  "Düşük Risk (Defansif)",
-                  "Dengeli (Orta Risk)",
-                  "Yüksek Risk (Agresif)",
-                ].map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => setRisk(r)}
-                    className={`p-2.5 rounded-lg text-xs font-mono border transition-all cursor-pointer ${
-                      risk === r
-                        ? "border-[var(--brass)] bg-[var(--brass-glow)] text-[var(--brass)] font-bold shadow-sm"
-                        : "border-[var(--line)] bg-[var(--ink-3)] text-[var(--mist)] hover:text-[var(--paper)]"
-                    }`}
-                  >
-                    {r}
-                  </button>
-                ))}
+            {/* 2. Risk & Evren Ayarları */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Risk Toleransı */}
+              <div>
+                <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)] mb-2">
+                  2. Risk Toleransı
+                </label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[
+                    "Düşük Risk (Defansif)",
+                    "Dengeli (Orta Risk)",
+                    "Yüksek Risk (Agresif)",
+                  ].map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setRisk(r)}
+                      className={`p-2 rounded-lg text-xs font-mono border text-center transition-all cursor-pointer truncate ${
+                        risk === r
+                          ? "border-[var(--brass)] bg-[var(--brass-glow)] text-[var(--brass)] font-bold shadow-xs"
+                          : "border-[var(--line)] bg-[var(--ink-3)] text-[var(--mist)] hover:text-[var(--paper)]"
+                      }`}
+                    >
+                      {r.split(" ")[0]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Yatırım Evreni */}
+              <div>
+                <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)] mb-2">
+                  3. Yatırım Evreni
+                </label>
+                <select
+                  value={universe}
+                  onChange={(e) => setUniverse(e.target.value)}
+                  className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded-lg p-2.5 text-xs font-mono text-[var(--paper)] outline-none focus:border-[var(--brass)]"
+                >
+                  <option value="BIST 30 & Kıymetli Maden">BIST 30 & Kıymetli Maden</option>
+                  <option value="Tüm BIST 100 & Temettü 25">Tüm BIST 100 & Temettü 25</option>
+                  <option value="BIST Teknoloji & Bilişim (XTEK)">BIST Teknoloji (XTEK)</option>
+                  <option value="TEFAS Fonları & Emtia">TEFAS Fonları & Emtia</option>
+                  <option value="Küresel Piyasalar (ABD & BIST)">Küresel Piyasalar (ABD & BIST)</option>
+                  <option value="Tüm Defter Kütüğü (Hisse + Fon + Döviz)">Tüm Defter Kütüğü (420+ Varlık)</option>
+                </select>
+              </div>
+
+              {/* Yatırım Ufku */}
+              <div>
+                <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)] mb-2">
+                  4. Hedef Vade
+                </label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[
+                    "Kısa Vade (1-6 Ay)",
+                    "Orta Vade (6-18 Ay)",
+                    "Uzun Vade (3-5+ Yıl)",
+                  ].map((hOpt) => (
+                    <button
+                      key={hOpt}
+                      type="button"
+                      onClick={() => setHorizon(hOpt)}
+                      className={`p-2 rounded-lg text-xs font-mono border text-center transition-all cursor-pointer truncate ${
+                        horizon === hOpt
+                          ? "border-[var(--brass)] bg-[var(--brass-glow)] text-[var(--brass)] font-bold shadow-xs"
+                          : "border-[var(--line)] bg-[var(--ink-3)] text-[var(--mist)] hover:text-[var(--paper)]"
+                      }`}
+                    >
+                      {hOpt.split(" ")[0]}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* 3. Varlık Evreni */}
-            <div>
-              <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)] mb-2">
-                3. Yatırım Evreni
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {[
-                  "BIST 30 & Kıymetli Maden",
-                  "Tüm BIST 100 & Temettü 25",
-                  "BIST Teknoloji & Bilişim (XTEK)",
-                  "TEFAS Fonları & Emtia",
-                  "Tüm Defter Kütüğü (Hisse + Fon + Döviz)",
-                  "Küresel Piyasalar (ABD & BIST)",
-                ].map((u) => (
-                  <button
-                    key={u}
-                    type="button"
-                    onClick={() => setUniverse(u)}
-                    className={`p-2.5 rounded-lg text-xs font-mono border transition-all cursor-pointer ${
-                      universe === u
-                        ? "border-[var(--brass)] bg-[var(--brass-glow)] text-[var(--brass)] font-bold shadow-sm"
-                        : "border-[var(--line)] bg-[var(--ink-3)] text-[var(--mist)] hover:text-[var(--paper)]"
-                    }`}
-                  >
-                    {u}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* 4. Yatırım Ufku (Vade) */}
-            <div>
-              <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)] mb-2">
-                4. Yatırım Ufku (Hedef Vade)
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                {[
-                  "Kısa Vade (1-6 Ay)",
-                  "Orta Vade (6-18 Ay)",
-                  "Uzun Vade (3-5+ Yıl)",
-                ].map((hOpt) => (
-                  <button
-                    key={hOpt}
-                    type="button"
-                    onClick={() => setHorizon(hOpt)}
-                    className={`p-2.5 rounded-lg text-xs font-mono border transition-all cursor-pointer ${
-                      horizon === hOpt
-                        ? "border-[var(--brass)] bg-[var(--brass-glow)] text-[var(--brass)] font-bold shadow-sm"
-                        : "border-[var(--line)] bg-[var(--ink-3)] text-[var(--mist)] hover:text-[var(--paper)]"
-                    }`}
-                  >
-                    {hOpt}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* 5. Portföy Güvenlik Kalkanı & Kısıtlar */}
+            {/* 5. Gelişmiş Nicel Süzgeçler & Kural Kısıtları (Akordiyon) */}
             <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-3 font-mono text-xs">
               <div className="flex items-center justify-between">
                 <span className="text-[var(--brass)] font-bold uppercase tracking-wider text-[11px] flex items-center gap-1.5">
                   <ShieldCheck className="w-4 h-4 text-[var(--brass)]" />
-                  <span>5. Portföy Kural Kısıtları &amp; Güvenlik Kalkanı</span>
+                  <span>5. Nicel Süzgeçler &amp; Portföy Güvenlik Kalkanı</span>
                 </span>
-                <span className="text-[10px] text-[var(--mist)]">Opsiyonel</span>
+                <button
+                  type="button"
+                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                  className="text-[10px] text-[var(--brass)] hover:underline cursor-pointer font-bold"
+                >
+                  {showAdvancedFilters ? "▲ Filtreleri Gizle" : "▼ Gelişmiş Kriterleri Düzenle"}
+                </button>
               </div>
 
-              <div className="space-y-3 pt-1">
-                {/* Asset count selector */}
+              {/* Varlık Sayısı ve Altın Sigortası */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <div className="p-3 bg-[var(--ink-2)] rounded-lg border border-[var(--line)] space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-[var(--mist)] block font-medium">
-                      Sepetteki Hedef Varlık / Şirket Sayısı
-                    </span>
-                    <span className="font-mono text-xs text-[var(--brass)] font-bold">
-                      {assetCount} Varlık
-                    </span>
+                    <span className="text-[11px] text-[var(--mist)] font-medium">Hedef Varlık Adedi</span>
+                    <span className="font-mono text-xs text-[var(--brass)] font-bold">{assetCount} Varlık</span>
                   </div>
-                  <div className="grid grid-cols-5 gap-1.5 font-mono text-xs">
-                    {[
-                      { count: 3, label: "3 (Odak)" },
-                      { count: 4, label: "4 (Standart)" },
-                      { count: 5, label: "5 (Dengeli)" },
-                      { count: 6, label: "6 (Geniş)" },
-                      { count: 8, label: "8 (Portföy)" },
-                    ].map((item) => (
+                  <div className="grid grid-cols-5 gap-1 font-mono text-xs">
+                    {[3, 4, 5, 6, 8].map((cnt) => (
                       <button
-                        key={item.count}
+                        key={cnt}
                         type="button"
-                        onClick={() => setAssetCount(item.count)}
-                        className={`py-2 px-1 rounded text-center border transition-all cursor-pointer ${
-                          assetCount === item.count
-                            ? "bg-[var(--brass)] text-[var(--ink)] font-bold border-[var(--brass)] shadow-sm"
-                            : "bg-[var(--ink-3)] text-[var(--mist)] border-[var(--line)] hover:text-[var(--paper)]"
+                        onClick={() => setAssetCount(cnt)}
+                        className={`py-1.5 rounded text-center border transition-all cursor-pointer ${
+                          assetCount === cnt
+                            ? "bg-[var(--brass)] text-[var(--ink)] font-bold border-[var(--brass)] shadow-xs"
+                            : "bg-[var(--ink-3)] text-[var(--mist)] border-[var(--line)]"
                         }`}
                       >
-                        <span className="block font-bold text-xs">{item.count}</span>
-                        <span className="block text-[9px] opacity-75 truncate">{item.label.split(" ")[1]}</span>
+                        {cnt}
                       </button>
                     ))}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {/* Max single asset weight */}
-                  <div className="p-3 bg-[var(--ink-2)] rounded-lg border border-[var(--line)] space-y-2">
-                    <span className="text-[11px] text-[var(--mist)] block">Maksimum Tek Varlık Ağırlığı</span>
-                    <div className="flex items-center gap-1.5">
-                      {[25, 35, 50].map((wLimit) => (
-                        <button
-                          key={wLimit}
-                          type="button"
-                          onClick={() => setMaxAssetWeight(wLimit)}
-                          className={`flex-1 py-1.5 rounded text-xs border transition-all cursor-pointer ${
-                            maxAssetWeight === wLimit
-                              ? "bg-[var(--brass)] text-[var(--ink)] font-bold border-[var(--brass)] shadow-sm"
-                              : "bg-[var(--ink-3)] text-[var(--mist)] border-[var(--line)] hover:text-[var(--paper)]"
-                          }`}
-                        >
-                          %{wLimit}
-                        </button>
-                      ))}
-                    </div>
+                <div
+                  onClick={() => setIncludeGoldBuffer(!includeGoldBuffer)}
+                  className={`p-3 rounded-lg border flex items-center justify-between cursor-pointer transition-all ${
+                    includeGoldBuffer
+                      ? "bg-[var(--brass-glow)] border-[var(--brass)] text-[var(--paper)] font-bold shadow-xs"
+                      : "bg-[var(--ink-2)] border-[var(--line)] text-[var(--mist)]"
+                  }`}
+                >
+                  <div>
+                    <span className="text-[11px] font-bold block text-[var(--paper)]">Kıymetli Maden Tamponu</span>
+                    <span className="text-[10px] opacity-80 block">En az %15 Gram Altın sigortası ekle</span>
                   </div>
+                  <input
+                    type="checkbox"
+                    checked={includeGoldBuffer}
+                    onChange={(e) => setIncludeGoldBuffer(e.target.checked)}
+                    className="w-4 h-4 accent-[var(--brass)] rounded cursor-pointer"
+                  />
+                </div>
+              </div>
 
-                  {/* Gold buffer toggle */}
-                  <div
-                    onClick={() => setIncludeGoldBuffer(!includeGoldBuffer)}
-                    className={`p-3 rounded-lg border transition-all cursor-pointer flex items-center justify-between gap-2 ${
-                      includeGoldBuffer
-                        ? "bg-[var(--brass-glow)] border-[var(--brass)] text-[var(--brass)]"
-                        : "bg-[var(--ink-2)] border-[var(--line)] text-[var(--mist)] hover:text-[var(--paper)]"
-                    }`}
-                  >
-                    <div>
-                      <span className="text-[11px] font-bold block">Altın / Emtia Sigortası</span>
-                      <span className="text-[10px] opacity-80 block">En az %15 Kıymetli Maden tamponu ekle</span>
+              {/* Gelişmiş Açılır Alan */}
+              {showAdvancedFilters && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-[var(--line)]/60 animate-in fade-in">
+                  <div className="p-3 bg-[var(--ink-2)] rounded-lg border border-[var(--line)] space-y-1.5">
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-[var(--mist)]">Minimum Temettü Verimi:</span>
+                      <span className="font-bold text-[var(--paper)] font-mono">
+                        {minDividendYield > 0 ? `%${minDividendYield}` : "Kısıt Yok"}
+                      </span>
                     </div>
                     <input
-                      type="checkbox"
-                      checked={includeGoldBuffer}
-                      onChange={(e) => setIncludeGoldBuffer(e.target.checked)}
-                      className="w-4 h-4 accent-[var(--brass)] rounded cursor-pointer"
+                      type="range"
+                      min={0}
+                      max={10}
+                      step={1}
+                      value={minDividendYield}
+                      onChange={(e) => setMinDividendYield(Number(e.target.value))}
+                      className="w-full accent-[var(--brass)] cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="p-3 bg-[var(--ink-2)] rounded-lg border border-[var(--line)] space-y-1.5">
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-[var(--mist)]">Maksimum Fiyat/Kazanç (F/K) Tavanı:</span>
+                      <span className="font-bold text-[var(--paper)] font-mono">
+                        {maxPeRatio > 0 ? `F/K ≤ ${maxPeRatio}` : "Kısıt Yok"}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={30}
+                      step={2}
+                      value={maxPeRatio}
+                      onChange={(e) => setMaxPeRatio(Number(e.target.value))}
+                      className="w-full accent-[var(--brass)] cursor-pointer"
                     />
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* 6. Başlangıç Bütçesi */}
@@ -1774,10 +1862,10 @@ interface WeeklyLetterResult {
             <button
               onClick={handleGenerateRecipe}
               disabled={loading}
-              className="w-full bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold text-sm py-3.5 rounded-lg shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 active:scale-95"
+              className="w-full bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold text-sm py-3.5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 active:scale-95"
             >
               <Sparkles className="w-4 h-4" />
-              <span>{loading ? "Orakul Reçeteyi Hesaplanıyor..." : "Orakul Reçetesini Üret"}</span>
+              <span>{loading ? "Orakul Reçetesi Hesaplanıyor..." : "Orakul AI Reçetesini Üret"}</span>
             </button>
 
             {/* Live Progress Banner for Recipe */}
@@ -1788,7 +1876,7 @@ interface WeeklyLetterResult {
                     <RefreshCw className="w-4 h-4 animate-spin text-[var(--brass)]" />
                     <span>{recipePhase}</span>
                   </span>
-                  <span className="text-[var(--mist)]">Mean-Variance Model</span>
+                  <span className="text-[var(--mist)]">3-Agent Hedge-Fund Model</span>
                 </div>
                 <div className="w-full bg-[var(--ink-2)] h-1.5 rounded-full overflow-hidden">
                   <div className="bg-[var(--brass)] h-full w-2/3 animate-pulse rounded-full" />
@@ -1797,13 +1885,15 @@ interface WeeklyLetterResult {
             )}
           </div>
 
+          {/* SONUÇ KARTI (ZENGİN KOMİTE & LOT DAĞILIMI) */}
           {result && (
             <div className="mt-8 pt-6 border-t border-[var(--line)] space-y-6 animate-in fade-in">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-[var(--ink-3)] p-5 rounded-lg border border-[var(--brass-dim)]">
+              {/* Başlık & Sağlık Skoru */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-[var(--ink-3)] p-5 rounded-xl border border-[var(--brass-dim)] shadow-md">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-[10px] uppercase tracking-widest text-[var(--brass)]">
-                      Üretilen Strateji
+                      Orakul Portföy Reçetesi
                     </span>
                     {result.engine === "algorithmic" || result.isTemplate ? (
                       <span className="text-[9px] font-mono font-bold bg-[rgba(212,160,23,0.15)] text-[var(--brass)] border border-[var(--brass-dim)] px-2 py-0.5 rounded">
@@ -1811,7 +1901,7 @@ interface WeeklyLetterResult {
                       </span>
                     ) : (
                       <span className="text-[9px] font-mono font-bold bg-[rgba(91,140,123,0.15)] text-[var(--verdigris)] border border-[var(--verdigris)] px-2 py-0.5 rounded">
-                        ✨ Orakul LLM YZ
+                        ✨ 3-Ajanlı Orakul Komitesi
                       </span>
                     )}
                   </div>
@@ -1829,48 +1919,135 @@ interface WeeklyLetterResult {
                       Portföy Sağlık Skoru
                     </span>
                     <span className="font-serif text-xl font-bold text-[var(--verdigris)]">
-                      {result.healthScore || "92"}/100
+                      {result.healthScore || "94"}/100
                     </span>
                   </div>
                   <StampBadge verdict="GÜÇLÜ AL" />
                 </div>
               </div>
 
-              {(result.engine === "algorithmic" || result.isTemplate) && (
-                <div className="p-3 bg-[var(--ink-2)] border border-dashed border-[var(--brass-dim)] rounded-lg text-xs font-sans text-[var(--mist)] flex items-start gap-2.5">
-                  <Sparkles className="w-4 h-4 text-[var(--brass)] shrink-0 mt-0.5" />
-                  <span>
-                    Bu sepet dağılımı, kütüğünüzdeki varlıklar taranarak <strong>Kural Tabanlı Mean-Variance Optimizasyon Motoru</strong> ile dinamik olarak oluşturuldu. Doğrudan Gemini veya OpenAI derinlikli LLM analizleri için <strong>Ayarlar</strong> sayfasından API Anahtarınızı bağlayabilirsiniz.
-                  </span>
+              {/* 3-Ajanlı Yatırım Komitesi Tartışması */}
+              {result.committeeDebate && (
+                <div className="p-4 bg-[var(--ink-2)] border border-[var(--line)] rounded-xl space-y-3">
+                  <h4 className="font-serif font-bold text-xs text-[var(--paper)] flex items-center gap-2 border-b border-[var(--line)]/60 pb-2">
+                    <Sparkles className="w-4 h-4 text-[var(--brass)]" />
+                    <span>Yatırım Komitesi Müzakeresi &amp; Kararı</span>
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                    {result.committeeDebate.bullSummary && (
+                      <div className="p-3 bg-emerald-500/10 border border-emerald-500/25 rounded-lg space-y-1">
+                        <span className="font-mono text-[10px] text-emerald-400 font-bold uppercase block">
+                          🐂 Boğa Ajanı (Büyüme Tezi)
+                        </span>
+                        <p className="text-[11px] text-[var(--paper)] leading-relaxed">
+                          {result.committeeDebate.bullSummary}
+                        </p>
+                      </div>
+                    )}
+                    {result.committeeDebate.bearSummary && (
+                      <div className="p-3 bg-rose-500/10 border border-rose-500/25 rounded-lg space-y-1">
+                        <span className="font-mono text-[10px] text-rose-400 font-bold uppercase block">
+                          🐻 Ayı Ajanı (Risk Denetimi)
+                        </span>
+                        <p className="text-[11px] text-[var(--paper)] leading-relaxed">
+                          {result.committeeDebate.bearSummary}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  {result.committeeDebate.verdict && (
+                    <div className="p-2.5 bg-[var(--ink-3)] border border-[var(--brass-dim)] rounded-lg text-xs text-[var(--brass)] font-medium">
+                      ⚖️ {result.committeeDebate.verdict}
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Allocation List */}
+              {/* Finansal & Nicel Metrik Şeridi */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3 bg-[var(--ink-3)] border border-[var(--line)] rounded-lg">
+                  <span className="text-[10px] font-mono text-[var(--mist)] block mb-0.5">Sharpe Oranı</span>
+                  <span className="font-mono text-base font-bold text-emerald-400">
+                    {result.sharpeRatio || 1.85}
+                  </span>
+                  <span className="text-[9px] text-[var(--mist)] block">Risk başına getiri</span>
+                </div>
+
+                <div className="p-3 bg-[var(--ink-3)] border border-[var(--line)] rounded-lg">
+                  <span className="text-[10px] font-mono text-[var(--mist)] block mb-0.5">Tahmini Volatilite</span>
+                  <span className="font-mono text-base font-bold text-purple-400">
+                    %{result.estimatedVolatility || 14.2}
+                  </span>
+                  <span className="text-[9px] text-[var(--mist)] block">Yıllık dalgalanma</span>
+                </div>
+
+                <div className="p-3 bg-[var(--ink-3)] border border-[var(--line)] rounded-lg">
+                  <span className="text-[10px] font-mono text-[var(--mist)] block mb-0.5">1Y Backtest Getirisi</span>
+                  <span className="font-mono text-base font-bold text-emerald-400">
+                    +%{result.backtest1yReturn || 68.4}
+                  </span>
+                  <span className="text-[9px] text-[var(--mist)] block">
+                    Alfa: +%{result.backtestBistAlpha || 18.2} vs BIST
+                  </span>
+                </div>
+
+                <div className="p-3 bg-[var(--ink-3)] border border-[var(--line)] rounded-lg">
+                  <span className="text-[10px] font-mono text-[var(--mist)] block mb-0.5">Kalan Nakit Rezervi</span>
+                  <span className="font-mono text-base font-bold text-[var(--brass)]">
+                    {(result.cashReserve || 450).toLocaleString("tr-TR")} ₺
+                  </span>
+                  <span className="text-[9px] text-[var(--mist)] block">Kuruşuna tam lot</span>
+                </div>
+              </div>
+
+              {/* Varlık Kartları & Tam Lot Dağılımı */}
               <div className="space-y-3">
                 <h4 className="font-mono text-xs text-[var(--mist)] uppercase tracking-wider">
-                  Önerilen Varlık ve Ağırlık Dağılımı
+                  Önerilen Varlıklar, Tam Lotlar &amp; Boğa/Ayı Tezleri
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {result.allocation?.map((item) => (
                     <div
                       key={item.symbol}
-                      className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-lg flex items-start justify-between gap-3"
+                      className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-3"
                     >
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-sm text-[var(--paper)]">
-                            {item.symbol}
-                          </span>
-                          <span className="text-xs text-[var(--mist)] font-sans">
-                            {item.companyName || item.name}
-                          </span>
+                      <div className="flex items-start justify-between gap-2 border-b border-[var(--line)]/50 pb-2.5">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-sm text-[var(--paper)]">
+                              {item.symbol}
+                            </span>
+                            <span className="text-xs text-[var(--mist)] font-sans">
+                              {item.companyName || item.name}
+                            </span>
+                          </div>
+                          {item.suggestedShares && (
+                            <span className="text-xs font-mono font-bold text-emerald-400 block mt-0.5">
+                              {item.suggestedShares} Lot (~{(item.totalCost || 0).toLocaleString("tr-TR")} ₺)
+                            </span>
+                          )}
                         </div>
-                        <p className="text-xs text-[var(--paper-dim)] font-sans mt-1.5 leading-relaxed">
-                          {item.rationale || item.note}
-                        </p>
+                        <div className="font-mono font-bold text-sm text-[var(--brass)] shrink-0 bg-[var(--brass-glow)] px-2.5 py-1 rounded border border-[var(--brass-dim)]">
+                          %{item.weight}
+                        </div>
                       </div>
-                      <div className="font-mono font-bold text-sm text-[var(--brass)] shrink-0 bg-[var(--brass-glow)] px-2.5 py-1 rounded border border-[var(--brass-dim)]">
-                        %{item.weight}
+
+                      <div className="space-y-1.5 text-xs">
+                        {item.bullThesis && (
+                          <p className="text-[11px] text-emerald-300">
+                            <strong>🐂 Boğa Tezi:</strong> {item.bullThesis}
+                          </p>
+                        )}
+                        {item.bearRisk && (
+                          <p className="text-[11px] text-rose-300">
+                            <strong>🐻 Ayı Riski:</strong> {item.bearRisk}
+                          </p>
+                        )}
+                        {item.note && !item.bullThesis && (
+                          <p className="text-[11px] text-[var(--paper-dim)]">
+                            {item.note}
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}

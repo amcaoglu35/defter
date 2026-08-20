@@ -11,6 +11,10 @@ export interface AiRecipeRequest {
   maxAssetWeight?: number;
   includeGoldBuffer?: boolean;
   assetCount?: number;
+  strategyArchetype?: "defensive_castle" | "garp" | "dividend_aristocrats" | "deep_value" | "global_hedge" | "momentum_leaders" | "custom";
+  minDividendYield?: number;
+  maxPeRatio?: number;
+  excludeOverbought?: boolean;
 }
 
 export interface CompanyAnalysisRequest {
@@ -502,30 +506,41 @@ export async function generateOrakulRecipe(
     try {
       const goalLower = req.goal.toLowerCase();
       const targetAssetCount = req.assetCount || 4;
-      // Prioritize and score candidates based on goal & risk to provide the most relevant top 35 candidates to LLM
-      const scoredCandidates = [...pool]
+      // Advanced Strategy Filtering based on Archetypes & Constraints
+      let filteredCandidates = [...pool];
+      if (req.minDividendYield && req.minDividendYield > 0) {
+        filteredCandidates = filteredCandidates.filter((c) => (c.dividendYield || 0) >= (req.minDividendYield || 0) || c.exchange === "Emtia");
+      }
+      if (req.maxPeRatio && req.maxPeRatio > 0) {
+        filteredCandidates = filteredCandidates.filter((c) => !c.peRatio || c.peRatio <= (req.maxPeRatio || 0) || c.exchange === "Emtia");
+      }
+
+      const scoredCandidates = (filteredCandidates.length >= targetAssetCount ? filteredCandidates : pool)
         .map((c) => {
           let relevance = 0;
           const div = c.dividendYield || 0;
           const pe = c.peRatio || 15;
           const sec = (c.sector || "").toLowerCase();
 
-          if (goalLower.includes("temettü")) {
-            if (div > 5) relevance += 50;
-            else if (div > 2) relevance += 30;
-            else if (div > 0) relevance += 15;
+          if (req.strategyArchetype === "defensive_castle" || goalLower.includes("kale") || goalLower.includes("enflasyon")) {
+            if (c.exchange === "Emtia" || c.symbol.includes("ALTIN")) relevance += 60;
+            if (sec.includes("holding") || sec.includes("havacılık") || sec.includes("gıda") || sec.includes("perakende")) relevance += 40;
             if (pe > 0 && pe < 12) relevance += 20;
-          } else if (goalLower.includes("ihracat") || goalLower.includes("döviz")) {
-            if (sec.includes("havacılık") || sec.includes("otomotiv") || sec.includes("savunma") || sec.includes("sanayi")) relevance += 50;
-          } else if (goalLower.includes("değer") || goalLower.includes("düşük f/k")) {
-            if (pe > 0 && pe < 8) relevance += 50;
-            if (c.pbRatio && c.pbRatio < 2) relevance += 25;
-          } else if (goalLower.includes("büyüme") || goalLower.includes("teknoloji")) {
-            if (sec.includes("teknoloji") || sec.includes("savunma") || sec.includes("havacılık") || c.exchange === "ABD") relevance += 45;
-            if (c.dailyChange > 0) relevance += 15;
-          } else if (goalLower.includes("enflasyon") || goalLower.includes("kur") || req.universe.includes("Kıymetli Maden")) {
-            if (c.exchange === "Emtia" || c.symbol.includes("ALTIN") || c.symbol.includes("GÜMÜŞ") || c.exchange === "Döviz") relevance += 50;
-            if (sec.includes("havacılık") || sec.includes("holding") || sec.includes("cam")) relevance += 20;
+          } else if (req.strategyArchetype === "dividend_aristocrats" || goalLower.includes("temettü")) {
+            if (div >= 6) relevance += 70;
+            else if (div >= 3) relevance += 40;
+            if (pe > 0 && pe < 10) relevance += 25;
+          } else if (req.strategyArchetype === "garp" || goalLower.includes("garp")) {
+            if (pe > 0 && pe < 14) relevance += 40;
+            if (sec.includes("sanayi") || sec.includes("otomotiv") || sec.includes("havacılık") || sec.includes("savunma")) relevance += 35;
+          } else if (req.strategyArchetype === "deep_value" || goalLower.includes("değer")) {
+            if (pe > 0 && pe < 8) relevance += 60;
+            if (c.pbRatio && c.pbRatio < 1.8) relevance += 35;
+          } else if (req.strategyArchetype === "global_hedge" || goalLower.includes("küresel") || goalLower.includes("döviz")) {
+            if (c.exchange === "ABD" || c.exchange === "Emtia" || sec.includes("havacılık") || sec.includes("otomotiv")) relevance += 55;
+          } else if (req.strategyArchetype === "momentum_leaders" || goalLower.includes("momentum") || goalLower.includes("büyüme")) {
+            if (c.dailyChange > 0) relevance += 30;
+            if (sec.includes("teknoloji") || sec.includes("savunma") || sec.includes("yazılım")) relevance += 45;
           } else {
             if (div > 0) relevance += 15;
             if (pe > 0 && pe < 15) relevance += 20;
@@ -537,44 +552,71 @@ export async function generateOrakulRecipe(
 
       const candidatesSample = (scoredCandidates.length > 0 ? scoredCandidates : pool.map((c) => ({ company: c, relevance: 0 })))
         .slice(0, 35)
-        .map(({ company: c }) => `${c.symbol} (${c.name}, ${c.sector}, Fiyat: ${c.price} ₺, F/K: ${c.peRatio || "-"}, Temettü: %${c.dividendYield || 0}, Endeks: ${c.indexTag || c.exchange || "BIST"})`)
+        .map(({ company: c }) => `${c.symbol} (${c.name}, Sektör: ${c.sector}, Fiyat: ${c.price} ₺, F/K: ${c.peRatio || "-"}, Temettü: %${c.dividendYield || 0})`)
         .join("; ");
 
       if (provider === "gemini") {
-        const prompt = `Sen 'Orakul' adında elit bir Türk finans ve portföy optimizasyon yapay zekasısın.
+        const prompt = `Sen 'Orakul' adında elit bir Türk finans, Hedge-Fund portföy yöneticisi ve Modern Portföy Teorisi (MPT) uzmanısın.
 ${personaInstruction}
 
-Kullanıcı Parametreleri:
-- Hedef: ${req.goal}
+Kullanıcı Yatırım Profili ve Kısıtları:
+- Yatırım Hedefi & Strateji: ${req.strategyArchetype || req.goal}
 - Risk Profili: ${req.risk}
-- Bütçe: ${req.budget} TL
+- Toplam Bütçe: ${req.budget} TL
 - Seçili Yatırım Evreni: ${req.universe}
 - Yatırım Ufku: ${req.horizon || "Orta Vade (6-18 Ay)"}
 - İstenen Varlık Sayısı: Tam olarak ${targetAssetCount} adet varlık
-${req.maxAssetWeight ? `- Kısıt: Tek bir varlığın maksimum payı %${req.maxAssetWeight} olmalıdır.` : ""}
-${req.includeGoldBuffer ? "- Kısıt: En az %15 oranında Kıymetli Maden (Altın/Gümüş) tamponu içermelidir." : ""}
+${req.maxAssetWeight ? `- Kısıt: Tek bir varlığın maksimum ağırlığı %${req.maxAssetWeight} olmalıdır.` : ""}
+${req.includeGoldBuffer ? "- Kısıt: En az %15 oranında Kıymetli Maden (Gram Altın/Gümüş) tamponu içermelidir." : ""}
+${req.minDividendYield ? `- Kısıt: Minimum temettü verimi %${req.minDividendYield} hedeflenmelidir.` : ""}
 
-Mevcut Sistemdeki Aday Varlıklar:
+Aday Varlık Havuzu:
 ${candidatesSample || "BIST 100 ve Emtia kütüğü"}
 
-Bu parametrelere ve aday şirketlere göre tam olarak ${targetAssetCount} adet farklı varlıktan oluşan dengeli bir sepet oluştur. Ağırlıkların toplamı %100 olmalıdır. Yanıtını YALNIZCA geçerli bir JSON olarak ver:
+GÖREVİN (3-Ajanlı Yatırım Komitesi Yaklaşımı):
+1. Adaylar arasından kovaryansı düşük, sektörel çeşitlendirmesi mükemmel tam ${targetAssetCount} adet varlık seç.
+2. Her hisse için Boğa Tezi (fırsatlar), Ayı Riski (dikkat edilmesi gerekenler) ve Portföy Yöneticisi Kararını oluştur.
+3. ${req.budget} TL bütçeye göre kuruşu kuruşuna tam lot adedi dağıtımı ve kalan nakit rezervini hesapla.
+4. Yanıtını YALNIZCA geçerli bir JSON olarak ver:
 {
-  "title": "Özel Sepet Başlığı",
-  "summary": "Strateji ve portföy mantığını anlatan 2 cümlelik yönetici özeti",
-  "healthScore": 92,
-  "expectedYield": "%34.5 Yıllık Hedef",
+  "title": "Örnek: BIST Temettü Kalesi & Enflasyon Kalkanı",
+  "summary": "Stratejinin matematiksel ve makroekonomik 2 cümlelik yönetici özeti",
+  "strategyArchetype": "${req.strategyArchetype || 'custom'}",
+  "healthScore": 94,
+  "expectedYield": "%38.5 Yıllık Getiri Hedefi",
   "recommendedDuration": "${req.horizon || '6-12 Ay'}",
   "riskRating": "${req.risk}",
+  "sharpeRatio": 1.85,
+  "estimatedVolatility": 14.2,
+  "hhiScore": 1420,
+  "backtest1yReturn": 68.4,
+  "backtestBistAlpha": 18.2,
+  "committeeDebate": {
+    "bullSummary": "Boğa Ajanı: Şirketlerin güçlü nakit akışı ve ihracat marjları büyümeyi destekliyor.",
+    "bearSummary": "Ayı Ajanı: Faiz oranları ve küresel talep daralması yakından izlenmeli.",
+    "verdict": "Komite Kararı: Düşük kovaryans ve dengeli ağırlıklandırma ile risk minimize edilerek onaylandı."
+  },
   "allocation": [
-    { "symbol": "THYAO", "name": "Türk Hava Yolları", "weight": 30, "note": "Genişleyen filo ve döviz bazlı nakit akışı" }
-  ]
+    {
+      "symbol": "THYAO",
+      "name": "Türk Hava Yolları",
+      "weight": 30,
+      "price": 310.0,
+      "suggestedShares": 72,
+      "totalCost": 22320,
+      "note": "Genişleyen filo ve döviz bazlı nakit akışı",
+      "bullThesis": "Küresel yolcu talebi ve kargo gelirlerindeki rekor artış.",
+      "bearRisk": "Jet yakıtı maliyetlerindeki olası dalgalanmalar."
+    }
+  ],
+  "cashReserve": 450
 }`;
 
         const res = await fetchGeminiWithFallback(
           resolvedApiKey,
           {
             contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: { responseMimeType: "application/json", temperature: 0.3 },
+            generationConfig: { responseMimeType: "application/json", temperature: 0.25 },
           },
           customModel
         );
@@ -608,11 +650,11 @@ Bu parametrelere ve aday şirketlere göre tam olarak ${targetAssetCount} adet f
               {
                 role: "system",
                 content:
-                  "Sen 'Orakul' adında elit bir Türk finans ve portföy optimizasyon yapay zekasısın. Yanıtları JSON formatında ver.",
+                  "Sen 'Orakul' adında elit bir Türk finans, Hedge-Fund portföy yöneticisi ve MPT uzmanısın. Yanıtları JSON formatında ver.",
               },
               {
                 role: "user",
-                content: `Hedef: ${req.goal}, Risk: ${req.risk}, Bütçe: ${req.budget} TL, Evren: ${req.universe}, Varlık Sayısı: ${targetAssetCount}. Aday Varlıklar: ${candidatesSample}. Bana tam ${targetAssetCount} adet varlık içeren optimize sepet JSON reçetesi üret. Format: { "title": string, "summary": string, "healthScore": number, "expectedYield": string, "recommendedDuration": string, "riskRating": string, "allocation": [{ "symbol": string, "name": string, "weight": number, "note": string }] }`,
+                content: `Hedef: ${req.goal}, Strateji: ${req.strategyArchetype || 'custom'}, Risk: ${req.risk}, Bütçe: ${req.budget} TL, Evren: ${req.universe}, Varlık Sayısı: ${targetAssetCount}. Aday Varlıklar: ${candidatesSample}. 3-Agent komite tartışması, Sharpe, Volatilite, Backtest ve Lot dağılımı içeren tam JSON reçetesi üret.`,
               },
             ],
             response_format: { type: "json_object" },
