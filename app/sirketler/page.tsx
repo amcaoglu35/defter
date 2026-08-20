@@ -42,35 +42,83 @@ export default function SirketlerPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // --- URL-synced state (survives refresh + browser back/forward) ---
-  const assetTab = (searchParams.get("tab") as "hisse" | "maden" | "fon" | "doviz") || "hisse";
-  const subTab = (searchParams.get("sub") as "all" | "watchlist") || "all";
-  const searchQuery = searchParams.get("q") || "";
-  const filterPill = searchParams.get("filter") || "all";
-  const currentPage = Number(searchParams.get("page") || "1");
+  // --- Local Reactive State (Immediate 0ms response on click) ---
+  const [assetTab, setAssetTabState] = useState<"hisse" | "maden" | "fon" | "doviz">(() => {
+    return (searchParams.get("tab") as "hisse" | "maden" | "fon" | "doviz") || "hisse";
+  });
+  const [subTab, setSubTabState] = useState<"all" | "watchlist">(() => {
+    return (searchParams.get("sub") as "all" | "watchlist") || "all";
+  });
+  const [searchQuery, setSearchQueryState] = useState<string>(() => {
+    return searchParams.get("q") || "";
+  });
+  const [filterPill, setFilterPillState] = useState<string>(() => {
+    return searchParams.get("filter") || "all";
+  });
+  const [currentPage, setCurrentPageState] = useState<number>(() => {
+    return Number(searchParams.get("page") || "1") || 1;
+  });
   const [pageSize] = useState<number>(30);
 
-  // URL update helper
-  const updateParams = useCallback(
-    (updates: Record<string, string | null>) => {
-      const params = new URLSearchParams(searchParams.toString());
-      Object.entries(updates).forEach(([k, v]) => {
-        if (v == null || v === "" || v === "all" || v === "1") {
-          params.delete(k);
-        } else {
-          params.set(k, v);
-        }
-      });
-      router.replace(`/sirketler${params.size > 0 ? `?${params.toString()}` : ""}`, { scroll: false });
+  // Sync state changes with URL shallowly
+  const syncUrl = useCallback(
+    (updates: {
+      tab?: string;
+      sub?: string;
+      q?: string;
+      filter?: string;
+      page?: number;
+    }) => {
+      try {
+        const nextTab = updates.tab !== undefined ? updates.tab : assetTab;
+        const nextSub = updates.sub !== undefined ? updates.sub : subTab;
+        const nextQ = updates.q !== undefined ? updates.q : searchQuery;
+        const nextFilter = updates.filter !== undefined ? updates.filter : filterPill;
+        const nextPage = updates.page !== undefined ? updates.page : currentPage;
+
+        const params = new URLSearchParams();
+        if (nextTab && nextTab !== "hisse") params.set("tab", nextTab);
+        if (nextSub && nextSub !== "all") params.set("sub", nextSub);
+        if (nextQ) params.set("q", nextQ);
+        if (nextFilter && nextFilter !== "all") params.set("filter", nextFilter);
+        if (nextPage && nextPage > 1) params.set("page", String(nextPage));
+
+        const url = `/sirketler${params.toString() ? `?${params.toString()}` : ""}`;
+        window.history.replaceState(null, "", url);
+      } catch {}
     },
-    [router, searchParams]
+    [assetTab, subTab, searchQuery, filterPill, currentPage]
   );
 
-  const setAssetTab = (tab: "hisse" | "maden" | "fon" | "doviz") => updateParams({ tab, filter: null, page: null, q: null });
-  const setSubTab = (sub: "all" | "watchlist") => updateParams({ sub, page: null });
-  const setSearchQuery = (q: string) => updateParams({ q, page: null });
-  const setFilterPill = (filter: string) => updateParams({ filter, page: null });
-  const setCurrentPage = (page: number) => updateParams({ page: String(page) });
+  const handleAssetTabChange = (tab: "hisse" | "maden" | "fon" | "doviz") => {
+    setAssetTabState(tab);
+    setFilterPillState("all");
+    setCurrentPageState(1);
+    syncUrl({ tab, filter: "all", page: 1, q: "" });
+  };
+
+  const handleSubTabChange = (sub: "all" | "watchlist") => {
+    setSubTabState(sub);
+    setCurrentPageState(1);
+    syncUrl({ sub, page: 1 });
+  };
+
+  const handleSearchChange = (q: string) => {
+    setSearchQueryState(q);
+    setCurrentPageState(1);
+    syncUrl({ q, page: 1 });
+  };
+
+  const handleFilterPillChange = (filter: string) => {
+    setFilterPillState(filter);
+    setCurrentPageState(1);
+    syncUrl({ filter, page: 1 });
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPageState(page);
+    syncUrl({ page });
+  };
 
   // Selection for comparison
   const [selectedSymbols, setSelectedSymbols] = useState<string[]>([]);
@@ -80,11 +128,6 @@ export default function SirketlerPage() {
   // Confirm delete modal state
   const [companyToDelete, setCompanyToDelete] = useState<{ symbol: string; name: string; warningMsg: string } | null>(null);
 
-  // Reset filter pill and page when switching asset tabs
-  const handleAssetTabChange = (tab: "hisse" | "maden" | "fon" | "doviz") => {
-    setAssetTab(tab);
-  };
-
   // Dynamic filter pill options per asset tab
   const filterPillOptions = useMemo(() => {
     switch (assetTab) {
@@ -93,13 +136,13 @@ export default function SirketlerPage() {
           { id: "all", label: "Tümü" },
           { id: "bist30", label: "BIST 30" },
           { id: "bist100", label: "BIST 100" },
-          { id: "volumeSpike", label: "⚡ Hacim Liderleri (>1.4x)" },
-          { id: "athNear", label: "🎯 Zirvesine Yakın (<%10)" },
-          { id: "athDiscount", label: "📉 52H İskontolu (>%25)" },
+          { id: "volumeSpike", label: "⚡ Hacim Liderleri (>1.3x)" },
+          { id: "athNear", label: "🎯 Zirvesine Yakın (<%15)" },
+          { id: "athDiscount", label: "📉 52H İskontolu (>%20)" },
           { id: "us", label: "ABD Borsası" },
           { id: "eu", label: "Avrupa" },
-          { id: "highDividend", label: "Yüksek Temettü (>%3)" },
-          { id: "lowPe", label: "Düşük F/K (<10x)" },
+          { id: "highDividend", label: "Yüksek Temettü (>%2.5)" },
+          { id: "lowPe", label: "Düşük F/K (<12x)" },
         ];
       case "maden":
         return [
@@ -111,14 +154,14 @@ export default function SirketlerPage() {
       case "fon":
         return [
           { id: "all", label: "Tümü" },
-          { id: "tefas", label: "TEFAS Yerli / Yabancı Hisse" },
-          { id: "etf", label: "Küresel Borsa Yatırım Fonu (ETF)" },
+          { id: "tefas", label: "TEFAS Yatırım Fonları" },
+          { id: "etf", label: "Küresel ETF Fonları" },
         ];
       case "doviz":
         return [
           { id: "all", label: "Tümü" },
-          { id: "tl", label: "TL Kurları" },
-          { id: "cross", label: "Çapraz Pariteler" },
+          { id: "tl", label: "TL Kurları (USD/TRY, EUR/TRY)" },
+          { id: "cross", label: "Çapraz Pariteler (EUR/USD, GBP/USD)" },
         ];
     }
   }, [assetTab]);
@@ -304,22 +347,22 @@ export default function SirketlerPage() {
       }
 
       if (filterPill !== "all") {
-        if (filterPill === "bist30" && c.indexTag !== "BIST 30") return false;
-        if (filterPill === "bist100" && c.indexTag !== "BIST 100" && c.indexTag !== "BIST 30") return false;
-        if (filterPill === "volumeSpike" && (!c.volumeRatio || c.volumeRatio < 1.35)) return false;
-        if (filterPill === "athNear" && (c.athDiscountPct === undefined || c.athDiscountPct > 10.0)) return false;
-        if (filterPill === "athDiscount" && (c.athDiscountPct === undefined || c.athDiscountPct < 25.0)) return false;
+        if (filterPill === "bist30" && !c.indexTag?.includes("BIST 30")) return false;
+        if (filterPill === "bist100" && !c.indexTag?.includes("BIST 100") && !c.indexTag?.includes("BIST 30")) return false;
+        if (filterPill === "volumeSpike" && (!c.volumeRatio || c.volumeRatio < 1.25)) return false;
+        if (filterPill === "athNear" && (c.athDiscountPct === undefined || c.athDiscountPct > 15.0)) return false;
+        if (filterPill === "athDiscount" && (c.athDiscountPct === undefined || c.athDiscountPct < 20.0)) return false;
         if (filterPill === "us" && c.exchange !== "ABD") return false;
         if (filterPill === "eu" && c.exchange !== "Avrupa") return false;
-        if (filterPill === "highDividend" && (!c.dividendYield || c.dividendYield < 3.0)) return false;
-        if (filterPill === "lowPe" && (!c.peRatio || c.peRatio > 10.0)) return false;
-        if (filterPill === "gold" && c.madenKategori !== "altin") return false;
-        if (filterPill === "metals" && c.madenKategori !== "gumus_platin") return false;
-        if (filterPill === "commodities" && c.madenKategori !== "enerji_sanayi") return false;
-        if (filterPill === "tefas" && c.exchange !== "BIST" && !c.sector?.includes("Fon") && c.indexTag !== "TEFAS") return false;
-        if (filterPill === "etf" && c.exchange !== "ABD" && c.indexTag !== "ETF") return false;
-        if (filterPill === "tl" && !c.symbol?.includes("/TRY")) return false;
-        if (filterPill === "cross" && c.symbol?.includes("/TRY")) return false;
+        if (filterPill === "highDividend" && (!c.dividendYield || c.dividendYield < 2.5)) return false;
+        if (filterPill === "lowPe" && (!c.peRatio || c.peRatio <= 0 || c.peRatio > 12.5)) return false;
+        if (filterPill === "gold" && c.madenKategori !== "altin" && !c.symbol.includes("ALTIN") && !c.name.toLowerCase().includes("altın")) return false;
+        if (filterPill === "metals" && c.madenKategori !== "gumus_platin" && !c.symbol.includes("GÜMÜŞ") && !c.symbol.includes("PLATIN")) return false;
+        if (filterPill === "commodities" && c.madenKategori !== "enerji_sanayi" && c.exchange !== "Emtia") return false;
+        if (filterPill === "tefas" && c.indexTag !== "TEFAS" && !c.sector?.includes("Fon")) return false;
+        if (filterPill === "etf" && c.exchange !== "ABD" && c.indexTag !== "ETF" && !c.sector?.includes("ETF")) return false;
+        if (filterPill === "tl" && !c.symbol?.includes("TRY") && !c.symbol?.includes("USD") && !c.symbol?.includes("EUR")) return false;
+        if (filterPill === "cross" && c.symbol?.includes("TRY")) return false;
       }
 
       return true;
@@ -342,9 +385,9 @@ export default function SirketlerPage() {
   // Clamp currentPage safely in useEffect when filtered dataset shrinks
   useEffect(() => {
     if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
+      handlePageChange(totalPages);
     }
-  }, [currentPage, totalPages, setCurrentPage]);
+  }, [currentPage, totalPages]);
 
   const paginatedCompanies = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
@@ -353,29 +396,39 @@ export default function SirketlerPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-8">
-      {/* 1. Page Header & Action Bar */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[var(--line)] pb-6">
+      {/* 1. Header with Stats & Actions */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <span className="font-mono text-xs text-[var(--brass)] uppercase tracking-wider">
-            Sermaye Kütüğü
-          </span>
-          <h1 className="font-serif text-3xl sm:text-4xl text-[var(--paper)] font-medium mt-1">
-            Şirketler, Emtia &amp; Varlıklar
-          </h1>
-          <p className="text-xs text-[var(--mist)] mt-1 font-mono">
-            Toplam {companies.length} kayıtlı enstrüman • Canlı fiyatlar ve finansal çarpanlar
+          <div className="flex items-center gap-2">
+            <h1 className="font-serif text-3xl font-bold text-[var(--paper)]">
+              Şirket &amp; Varlık Kütüğü
+            </h1>
+            <MarketStatusBadge />
+          </div>
+          <p className="font-mono text-xs text-[var(--mist)] mt-1">
+            BIST 100, ABD/Avrupa Hisseleri, Kıymetli Madenler, TEFAS Fonları ve Döviz Kurları
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 self-start md:self-auto">
+        <div className="flex flex-wrap items-center gap-2.5">
           {selectedSymbols.length > 0 && (
-            <button
-              onClick={() => setCompareModalOpen(true)}
-              className="bg-[var(--ink-3)] border border-[var(--brass)] text-[var(--brass)] font-mono text-xs px-3.5 py-2.5 rounded flex items-center gap-2 shadow cursor-pointer transition-all hover:bg-[var(--ink)]"
-            >
-              <Scale className="w-4 h-4" />
-              <span>Karşılaştır ({selectedSymbols.length}/3)</span>
-            </button>
+            <div className="flex items-center gap-2 bg-[var(--ink-2)] border border-[var(--brass-dim)] px-3 py-1.5 rounded text-xs font-mono">
+              <span className="text-[var(--brass)] font-bold">{selectedSymbols.length}/3 Seçildi</span>
+              <button
+                onClick={() => setCompareModalOpen(true)}
+                className="bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold px-2.5 py-1 rounded flex items-center gap-1 transition-colors cursor-pointer"
+              >
+                <Scale className="w-3.5 h-3.5" />
+                <span>Karşılaştır</span>
+              </button>
+              <button
+                onClick={() => setSelectedSymbols([])}
+                className="text-[var(--mist)] hover:text-[var(--paper)] transition-colors cursor-pointer"
+                title="Seçimi Temizle"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           )}
 
           <button
@@ -429,10 +482,7 @@ export default function SirketlerPage() {
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1);
-            }}
+            onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="Sembol, şirket veya sektör ara (Örn: THYAO, Tüpraş, Savunma)..."
             className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded-lg pl-10 pr-4 py-2 text-xs font-mono text-[var(--paper)] outline-none focus:border-[var(--brass)] placeholder:text-[var(--mist)]"
           />
@@ -441,10 +491,7 @@ export default function SirketlerPage() {
         {/* Sub tab toggles */}
         <div className="flex items-center gap-2">
           <button
-            onClick={() => {
-              setSubTab("all");
-              setCurrentPage(1);
-            }}
+            onClick={() => handleSubTabChange("all")}
             className={`px-3 py-1.5 rounded text-xs font-mono transition-colors cursor-pointer ${
               subTab === "all"
                 ? "bg-[var(--ink-3)] text-[var(--paper)] border border-[var(--line)] font-bold"
@@ -455,10 +502,7 @@ export default function SirketlerPage() {
           </button>
 
           <button
-            onClick={() => {
-              setSubTab("watchlist");
-              setCurrentPage(1);
-            }}
+            onClick={() => handleSubTabChange("watchlist")}
             className={`px-3 py-1.5 rounded text-xs font-mono transition-colors cursor-pointer flex items-center gap-1.5 ${
               subTab === "watchlist"
                 ? "bg-[var(--brass-glow)] text-[var(--brass)] border border-[var(--brass-dim)] font-bold"
@@ -498,10 +542,7 @@ export default function SirketlerPage() {
         {filterPillOptions.map((p) => (
           <button
             key={p.id}
-            onClick={() => {
-              setFilterPill(p.id);
-              setCurrentPage(1);
-            }}
+            onClick={() => handleFilterPillChange(p.id)}
             className={`px-3 py-1 rounded-full text-xs font-mono transition-all cursor-pointer ${
               filterPill === p.id
                 ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-sm"
@@ -801,7 +842,7 @@ export default function SirketlerPage() {
             <div className="flex items-center gap-2">
               <button
                 disabled={currentPage <= 1}
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
                 className="px-3 py-1 rounded bg-[var(--ink-2)] border border-[var(--line)] text-[var(--paper)] disabled:opacity-40 cursor-pointer"
               >
                 Önceki
@@ -813,7 +854,7 @@ export default function SirketlerPage() {
 
               <button
                 disabled={currentPage >= totalPages}
-                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
                 className="px-3 py-1 rounded bg-[var(--ink-2)] border border-[var(--line)] text-[var(--paper)] disabled:opacity-40 cursor-pointer"
               >
                 Sonraki
