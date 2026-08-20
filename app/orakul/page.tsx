@@ -428,13 +428,14 @@ interface WeeklyLetterResult {
       return;
     }
 
+    const price = allocatingPick.price || 0;
     addTransaction(
       {
         type: "BUY",
         companySymbol: allocatingPick.symbol,
         quantity: lots,
-        price: allocatingPick.price || 100,
-        totalAmount: (allocatingPick.price || 100) * lots,
+        price: price,
+        totalAmount: price * lots,
         date: new Date().toISOString().split("T")[0],
         note: "Orakul AI Hisse Tarayıcısı ile eklendi",
         basketId: allocateBasketId,
@@ -1106,19 +1107,19 @@ interface WeeklyLetterResult {
       description: result.summary || "",
       aiNote: "Orakul AI yapay zeka reçetesi tarafından otomatik oluşturulmuştur.",
       holdings: (result.allocation || []).map((item) => {
-            const co = companies.find((c) => c.symbol === item.symbol);
-            const price = co ? co.price : 100;
-            const allocatedMoney = (budgetNum * item.weight) / 100;
-            const qty = parseFloat((allocatedMoney / price).toFixed(1));
+        const co = companies.find((c) => c.symbol.toUpperCase() === item.symbol.toUpperCase());
+        const price = co ? co.price : 0;
+        const allocatedMoney = (budgetNum * item.weight) / 100;
+        const qty = price > 0 ? parseFloat((allocatedMoney / price).toFixed(1)) : 0;
 
-            return {
-              companySymbol: item.symbol,
-              weightPercent: item.weight,
-              quantity: qty,
-              avgCost: price,
-              currentPrice: price,
-            };
-          }),
+        return {
+          companySymbol: item.symbol,
+          weightPercent: item.weight,
+          quantity: qty,
+          avgCost: price,
+          currentPrice: price,
+        };
+      }),
     };
 
     createBasket(newBasket);

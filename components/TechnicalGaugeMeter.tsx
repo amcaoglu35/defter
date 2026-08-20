@@ -1,25 +1,29 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { Activity, Gauge, TrendingUp, TrendingDown, RefreshCw } from "lucide-react";
+import { Gauge } from "lucide-react";
 import { Company } from "@/lib/mockData";
+import { performTechnicalAnalysis } from "@/lib/technicalAnalysis";
 
 interface TechnicalGaugeMeterProps {
   company: Company;
+  closes?: number[];
 }
 
-export function TechnicalGaugeMeter({ company }: TechnicalGaugeMeterProps) {
+export function TechnicalGaugeMeter({ company, closes }: TechnicalGaugeMeterProps) {
   const technicalAnalysis = useMemo(() => {
-    const dailyChg = company.dailyChange || 0;
-    const price = company.price || 100;
+    if (!closes || closes.length < 15) {
+      return null;
+    }
 
-    // Synthesize technical oscillators dynamically
-    const rsi = Math.min(95, Math.max(15, Math.round(50 + dailyChg * 4.5)));
-    const macdSignal = dailyChg >= 0.5 ? "AL" : dailyChg <= -0.5 ? "SAT" : "NÖTR";
-    const stoch = Math.min(95, Math.max(10, Math.round(48 + dailyChg * 5)));
-    const ema20 = price * (1 - dailyChg * 0.005);
-    const ema50 = price * (1 - dailyChg * 0.01);
-    const ema200 = price * (1 - dailyChg * 0.02);
+    const result = performTechnicalAnalysis(closes);
+    if (!result) return null;
+
+    const { rsi14, macd, sma20, sma50, sma200, overallScore } = result;
+
+    const rsi = rsi14 !== null ? rsi14 : 50;
+    const macdSignal = macd ? (macd.trend === "BOĞA (YUKARI)" ? "AL" : macd.trend === "AYI (AŞAĞI)" ? "SAT" : "NÖTR") : "NÖTR";
+    const stoch = Math.min(100, Math.max(0, Math.round(rsi * 0.95)));
 
     let buyCount = 0;
     let sellCount = 0;
@@ -33,27 +37,27 @@ export function TechnicalGaugeMeter({ company }: TechnicalGaugeMeterProps) {
     else if (macdSignal === "SAT") sellCount += 2;
     else neutralCount += 1;
 
-    if (price > ema20) buyCount += 1; else sellCount += 1;
-    if (price > ema50) buyCount += 1; else sellCount += 1;
-    if (price > ema200) buyCount += 1; else sellCount += 1;
+    if (company.price > (sma20 || 0)) buyCount += 1; else sellCount += 1;
+    if (company.price > (sma50 || 0)) buyCount += 1; else sellCount += 1;
+    if (company.price > (sma200 || 0)) buyCount += 1; else sellCount += 1;
 
     let overallVerdict = "NÖTR";
     let overallColor = "var(--brass)";
     let needleAngle = 0; // -90 (Aşırı Sat) to +90 (Aşırı Al)
 
-    if (buyCount > sellCount + 2) {
+    if (overallScore.score > 30) {
       overallVerdict = "GÜÇLÜ AL";
       overallColor = "var(--verdigris)";
       needleAngle = 60;
-    } else if (buyCount > sellCount) {
+    } else if (overallScore.score > 0) {
       overallVerdict = "AL";
       overallColor = "var(--verdigris)";
       needleAngle = 30;
-    } else if (sellCount > buyCount + 2) {
+    } else if (overallScore.score < -30) {
       overallVerdict = "GÜÇLÜ SAT";
       overallColor = "var(--loss)";
       needleAngle = -60;
-    } else if (sellCount > buyCount) {
+    } else if (overallScore.score < 0) {
       overallVerdict = "SAT";
       overallColor = "var(--loss)";
       needleAngle = -30;
@@ -65,9 +69,9 @@ export function TechnicalGaugeMeter({ company }: TechnicalGaugeMeterProps) {
       rsi,
       stoch,
       macdSignal,
-      ema20: parseFloat(ema20.toFixed(2)),
-      ema50: parseFloat(ema50.toFixed(2)),
-      ema200: parseFloat(ema200.toFixed(2)),
+      ema20: sma20 ? parseFloat(sma20.toFixed(2)) : null,
+      ema50: sma50 ? parseFloat(sma50.toFixed(2)) : null,
+      ema200: sma200 ? parseFloat(sma200.toFixed(2)) : null,
       buyCount,
       sellCount,
       neutralCount,
@@ -75,7 +79,21 @@ export function TechnicalGaugeMeter({ company }: TechnicalGaugeMeterProps) {
       overallColor,
       needleAngle,
     };
-  }, [company]);
+  }, [closes, company.price]);
+
+  if (!technicalAnalysis) {
+    return (
+      <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-5 font-mono text-xs text-[var(--mist)] space-y-2">
+        <div className="flex items-center gap-2 text-[var(--paper)] font-bold">
+          <Gauge className="w-4 h-4 text-[var(--brass)]" />
+          <span>⏱️ TradingView Teknik İndikatör İbresi</span>
+        </div>
+        <p className="text-[11px]">
+          {company.symbol} için canlı geçmiş fiyat verisi yükleniyor veya yeterli seri bulunamadı.
+        </p>
+      </div>
+    );
+  }
 
   const {
     rsi,
@@ -193,21 +211,22 @@ export function TechnicalGaugeMeter({ company }: TechnicalGaugeMeterProps) {
           </div>
 
           <div className="p-2.5 bg-[var(--ink-3)] rounded-lg border border-[var(--line)] flex justify-between items-center">
-            <span className="text-[var(--mist)] text-[11px]">EMA 20:</span>
-            <span className="font-bold text-[var(--brass)]">{ema20} ₺</span>
+            <span className="text-[var(--mist)] text-[11px]">SMA 20:</span>
+            <span className="font-bold text-[var(--brass)]">{ema20 ? `${ema20} ₺` : "—"}</span>
           </div>
 
           <div className="p-2.5 bg-[var(--ink-3)] rounded-lg border border-[var(--line)] flex justify-between items-center">
-            <span className="text-[var(--mist)] text-[11px]">EMA 50:</span>
-            <span className="font-bold text-[var(--paper-dim)]">{ema50} ₺</span>
+            <span className="text-[var(--mist)] text-[11px]">SMA 50:</span>
+            <span className="font-bold text-[var(--paper-dim)]">{ema50 ? `${ema50} ₺` : "—"}</span>
           </div>
 
           <div className="p-2.5 bg-[var(--ink-3)] rounded-lg border border-[var(--line)] flex justify-between items-center">
-            <span className="text-[var(--mist)] text-[11px]">EMA 200:</span>
-            <span className="font-bold text-[var(--paper-dim)]">{ema200} ₺</span>
+            <span className="text-[var(--mist)] text-[11px]">SMA 200:</span>
+            <span className="font-bold text-[var(--paper-dim)]">{ema200 ? `${ema200} ₺` : "—"}</span>
           </div>
         </div>
       </div>
     </div>
   );
 }
+

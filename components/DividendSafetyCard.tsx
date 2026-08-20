@@ -12,14 +12,13 @@ export function DividendSafetyCard({ company }: DividendSafetyCardProps) {
   const dividendSafety = useMemo(() => {
     const { dividendYield, peRatio, currency } = company;
 
-    if (!dividendYield || dividendYield <= 0) {
+    if (!dividendYield || dividendYield <= 0 || !peRatio || peRatio <= 0) {
       return null;
     }
 
     // Payout Ratio % = (Dividend Yield * P/E Ratio)
     // Example: Yield 5% * P/E 10x = 50% Payout Ratio
-    const pe = peRatio || 12;
-    const payoutRatioPct = Math.min(100, Math.round(dividendYield * pe));
+    const payoutRatioPct = Math.min(100, Math.round(dividendYield * peRatio));
     const coverageRatio = parseFloat((100 / (payoutRatioPct || 1)).toFixed(2));
 
     let safetyVerdict = "MAKUL / DENGELİ";

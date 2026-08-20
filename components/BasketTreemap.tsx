@@ -17,7 +17,7 @@ export function BasketTreemap({ basket, companies }: BasketTreemapProps) {
     basket.holdings.forEach((h) => {
       const co = companies.find((c) => c.symbol.toUpperCase() === h.companySymbol.toUpperCase());
       const sector = co?.sector || "Diğer Varlıklar";
-      const val = h.quantity * (co?.price || h.currentPrice || 100);
+      const val = h.quantity * (co?.price || h.currentPrice || h.avgCost || 0);
 
       if (!map.has(sector)) {
         map.set(sector, { sector, value: 0, holdings: [] });

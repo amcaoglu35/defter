@@ -75,13 +75,13 @@ export function MarketShockSimulatorCard({ basket }: MarketShockSimulatorCardPro
   }, [selectedScenarioId]);
 
   const shockAnalysis = useMemo(() => {
-    const totalValue = basket.totalValue || 100000;
-    if (!basket.holdings || basket.holdings.length === 0) {
+    const totalValue = basket.totalValue || 0;
+    if (!basket.holdings || basket.holdings.length === 0 || totalValue <= 0) {
       return {
         simulatedChangeTL: 0,
         simulatedChangePct: 0,
         finalSimulatedValue: totalValue,
-        resilience: "NÖTR",
+        resilience: "NÖTR (Varlık Yok)",
         resilienceColor: "var(--mist)",
       };
     }

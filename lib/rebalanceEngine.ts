@@ -251,8 +251,8 @@ export function computePortfolioRebalancing(
 
   const inputs: RebalanceItemInput[] = basket.holdings.map((h) => {
     const co = companies.find((c) => c.symbol.toUpperCase() === h.companySymbol.toUpperCase());
-    const price = co?.price || 100;
-    const qty = h.quantity || (h.amountBought ? h.amountBought / price : 100);
+    const price = co?.price || (h as { currentPrice?: number }).currentPrice || (h as { avgCost?: number }).avgCost || 0;
+    const qty = h.quantity || (h.amountBought && price > 0 ? h.amountBought / price : 0);
     return {
       symbol: h.companySymbol.toUpperCase(),
       currentQuantity: qty,

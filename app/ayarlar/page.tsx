@@ -57,17 +57,15 @@ export default function AyarlarPage() {
   const [currency, setCurrency] = useState(userSettings?.currency || "₺ TRY");
   const [commissionRate, setCommissionRate] = useState<number>(userSettings?.commissionRate ?? 0.15);
   const [bsmvRate, setBsmvRate] = useState<number>(userSettings?.bsmvRate ?? 5);
-  const [prevUserSettings, setPrevUserSettings] = useState(userSettings);
 
-  if (userSettings !== prevUserSettings) {
-    setPrevUserSettings(userSettings);
+  React.useEffect(() => {
     if (userSettings) {
-      setUserName(userSettings.userName);
-      setCurrency(userSettings.currency);
+      setUserName(userSettings.userName || "Defter Sahibi");
+      setCurrency(userSettings.currency || "₺ TRY");
       setCommissionRate(userSettings.commissionRate ?? 0.15);
       setBsmvRate(userSettings.bsmvRate ?? 5);
     }
-  }
+  }, [userSettings]);
 
   // AI states
   const [selectedProvider, setSelectedProvider] = useState(aiProvider || "gemini");
@@ -79,15 +77,37 @@ export default function AyarlarPage() {
   const [testResult, setTestResult] = useState<{ isConfigured: boolean; message: string } | null>(null);
   const [testingKey, setTestingKey] = useState(false);
 
-  // External notification channels states
+  // External notification channels states (persisted locally)
   const [telegramBotToken, setTelegramBotToken] = useState("");
   const [telegramChatId, setTelegramChatId] = useState("");
   const [resendApiKey, setResendApiKey] = useState("");
   const [emailTo, setEmailTo] = useState("");
+  const [channelsSaved, setChannelsSaved] = useState(false);
   const [testingTelegram, setTestingTelegram] = useState(false);
   const [testingEmail, setTestingEmail] = useState(false);
   const [testTelegramResult, setTestTelegramResult] = useState<{ success: boolean; message: string } | null>(null);
   const [testEmailResult, setTestEmailResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      setTelegramBotToken(localStorage.getItem("defter_telegram_token") || "");
+      setTelegramChatId(localStorage.getItem("defter_telegram_chat_id") || "");
+      setResendApiKey(localStorage.getItem("defter_resend_key") || "");
+      setEmailTo(localStorage.getItem("defter_report_email") || "");
+    }
+  }, []);
+
+  const handleSaveChannels = () => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("defter_telegram_token", telegramBotToken.trim());
+      localStorage.setItem("defter_telegram_chat_id", telegramChatId.trim());
+      localStorage.setItem("defter_resend_key", resendApiKey.trim());
+      localStorage.setItem("defter_report_email", emailTo.trim());
+      setChannelsSaved(true);
+      showToast("Bildirim Kanalları Kaydedildi", "Telegram ve e-posta ayarları yerel kasanıza kaydedildi.", "success");
+      setTimeout(() => setChannelsSaved(false), 3000);
+    }
+  };
 
   // Security password state
   const [currentPass, setCurrentPass] = useState("");
@@ -823,6 +843,21 @@ export default function AyarlarPage() {
               )}
             </div>
           </div>
+        </div>
+
+        <div className="pt-3 border-t border-[var(--line)] flex items-center justify-between">
+          <button
+            type="button"
+            onClick={handleSaveChannels}
+            className="bg-[var(--brass)] text-[var(--ink)] font-bold text-xs px-5 py-2.5 rounded hover:bg-[#d9b35a] transition-all cursor-pointer shadow"
+          >
+            Bildirim Kanallarını Kaydet
+          </button>
+          {channelsSaved && (
+            <span className="text-xs font-mono text-[var(--verdigris)] flex items-center gap-1">
+              <Check className="w-3.5 h-3.5" /> Bildirim kanalları kaydedildi ✓
+            </span>
+          )}
         </div>
       </section>
 

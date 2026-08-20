@@ -53,11 +53,11 @@ export function generateDeterministicCommitteeReport(
 ): MultiAgentCommitteeReport {
   const techScore = technical?.overallScore?.score != null ? Math.max(0, Math.min(100, Math.round((technical.overallScore.score + 100) / 2))) : 50;
   const fundScore = health?.overallScore != null ? health.overallScore : 60;
-  const price = company.price || 100;
+  const price = company.price || 0;
   
-  // Valuation multiplier check
-  const pe = company.peRatio || 15;
-  const valScore = pe < 8 ? 85 : pe < 15 ? 70 : pe < 25 ? 50 : 35;
+  // Valuation multiplier check (Zero-Mock Rule: only calculate if authentic P/E exists)
+  const pe = company.peRatio;
+  const valScore = pe != null && pe > 0 ? (pe < 8 ? 85 : pe < 15 ? 70 : pe < 25 ? 50 : 35) : 50;
   
   const macroScore = 55;
   const sentimentScore = company.dailyChange > 0 ? 65 : company.dailyChange < 0 ? 40 : 50;
@@ -215,7 +215,7 @@ export function generateDeterministicCommitteeReport(
     companyName: company.name,
     overallScore: weightedOverall,
     consensusVerdict,
-    targetPrice12M: company.targetMeanPrice || Number((price * (consensusVerdict === "GÜÇLÜ AL" ? 1.25 : consensusVerdict === "AL" ? 1.15 : 1.05)).toFixed(2)),
+    targetPrice12M: company.targetMeanPrice || undefined,
     confidenceScore: 88,
     executiveSummary: `${company.name} (${company.symbol}) için 10 ajanlı yatırım komitesi toplantısı tamamlandı. Temel kârlılık (${fundScore}/100) ve teknik göstergelerin (${techScore}/100) ağırlıklı değerlendirmesi sonucunda komite konsensüsü "${consensusVerdict}" olarak tescillendi.`,
     isFallbackMode: true,
@@ -230,8 +230,8 @@ export function generateDeterministicCommitteeReport(
     opinions,
     actionableRecommendation: {
       recommendedPositionSizePct: consensusVerdict === "GÜÇLÜ AL" ? 12 : consensusVerdict === "AL" ? 8 : consensusVerdict === "TUT" ? 4 : 0,
-      stopLossPrice: Number((price * 0.92).toFixed(2)),
-      takeProfitTarget: Number((price * 1.20).toFixed(2)),
+      stopLossPrice: price > 0 ? Number((price * 0.92).toFixed(2)) : undefined,
+      takeProfitTarget: price > 0 ? Number((price * 1.20).toFixed(2)) : undefined,
       timeHorizon: "6 - 12 Ay",
     },
   };

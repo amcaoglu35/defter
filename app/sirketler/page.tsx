@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -316,8 +316,8 @@ export default function SirketlerPage() {
         if (filterPill === "gold" && c.madenKategori !== "altin") return false;
         if (filterPill === "metals" && c.madenKategori !== "gumus_platin") return false;
         if (filterPill === "commodities" && c.madenKategori !== "enerji_sanayi") return false;
-        if (filterPill === "tefas" && c.exchange !== "BIST") return false;
-        if (filterPill === "etf" && c.exchange !== "ABD") return false;
+        if (filterPill === "tefas" && c.exchange !== "BIST" && !c.sector?.includes("Fon") && c.indexTag !== "TEFAS") return false;
+        if (filterPill === "etf" && c.exchange !== "ABD" && c.indexTag !== "ETF") return false;
         if (filterPill === "tl" && !c.symbol?.includes("/TRY")) return false;
         if (filterPill === "cross" && c.symbol?.includes("/TRY")) return false;
       }
@@ -339,10 +339,12 @@ export default function SirketlerPage() {
   // Paginated dataset
   const totalPages = Math.ceil(filteredCompanies.length / pageSize) || 1;
 
-  // Clamp currentPage during render when filtered dataset shrinks
-  if (currentPage > totalPages) {
-    setCurrentPage(totalPages);
-  }
+  // Clamp currentPage safely in useEffect when filtered dataset shrinks
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages, setCurrentPage]);
 
   const paginatedCompanies = useMemo(() => {
     const start = (currentPage - 1) * pageSize;

@@ -92,6 +92,17 @@ const STRATEGY_TEMPLATES: StrategyTemplate[] = [
   },
 ];
 
+function slugifyBasketName(name: string): string {
+  const charMap: Record<string, string> = {
+    ç: "c", Ç: "c", ğ: "g", Ğ: "g", ı: "i", İ: "i", ö: "o", Ö: "o", ş: "s", Ş: "s", ü: "u", Ü: "u"
+  };
+  const replaced = name.replace(/[çğışöüÇĞİŞÖÜ]/g, (char) => charMap[char] || char);
+  return replaced
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export default function SepetlerimPage() {
   const { baskets, createBasket, deleteBasket, dividends, companies, isPrivacyMode } = useDefterStore();
   const { showToast } = useToast();
@@ -123,8 +134,8 @@ export default function SepetlerimPage() {
 
     if (selectedTemplate && selectedTemplate.holdings.length > 0) {
       initialHoldings = selectedTemplate.holdings.map((h) => {
-        const co = companies.find((c) => c.symbol === h.symbol);
-        const price = co ? co.price : 100;
+        const co = companies.find((c) => c.symbol.toUpperCase() === h.symbol.toUpperCase());
+        const price = co ? co.price : 0;
         return {
           id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `h-${h.symbol}-${Date.now()}`,
           companySymbol: h.symbol,
@@ -137,8 +148,9 @@ export default function SepetlerimPage() {
       });
     }
 
+    const slug = slugifyBasketName(basketName) || "sepet";
     const newBasket: Basket = {
-      id: basketName.toLowerCase().replace(/[^a-z0-9]/g, "-") + "-" + Date.now().toString().slice(-4),
+      id: `${slug}-${Date.now().toString().slice(-4)}`,
       name: basketName,
       subtitle: basketSubtitle || "Kişisel Özel Portföy",
       riskLevel: riskLevel,

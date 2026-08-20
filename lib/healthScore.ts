@@ -46,7 +46,7 @@ export function calculatePortfolioHealthScore(
       if (co && co.sector) {
         sectorSet.add(co.sector);
       }
-      const val = (h.quantity || 1) * (co ? co.price : h.currentPrice || 100);
+      const val = (h.quantity || 1) * (co ? co.price : h.currentPrice || h.avgCost || 0);
       symbolWeights[h.companySymbol] = (symbolWeights[h.companySymbol] || 0) + val;
       totalPortfolioVal += val;
     });

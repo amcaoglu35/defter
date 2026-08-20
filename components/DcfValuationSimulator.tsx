@@ -15,8 +15,13 @@ export function DcfValuationSimulator({ company }: DcfValuationSimulatorProps) {
 
   // DCF Fair Value Calculation
   const dcfResults = useMemo(() => {
-    const price = company.price || 100;
-    const pe = company.peRatio || 15;
+    const price = company.price;
+    const pe = company.peRatio;
+
+    if (!price || price <= 0 || !pe || pe <= 0) {
+      return null;
+    }
+
     const eps = price / pe;
 
     // Project 5 years cash flows / earnings per share
@@ -59,6 +64,20 @@ export function DcfValuationSimulator({ company }: DcfValuationSimulatorProps) {
       currency: company.currency || "₺",
     };
   }, [company, growthRate, discountRate, terminalGrowth]);
+
+  if (!dcfResults) {
+    return (
+      <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-5 font-mono text-xs text-[var(--mist)] space-y-2">
+        <div className="flex items-center gap-2 text-[var(--paper)] font-bold">
+          <Sliders className="w-4 h-4 text-[var(--brass)]" />
+          <span>🎛️ Canlı DCF (Nakit Akım İskonto) Değerleme Simülatörü</span>
+        </div>
+        <p className="text-[11px]">
+          {company.symbol} için F/K veya HBK (Net Kâr) verisi eksik/negatif (net zarar) olduğu için Nakit Akım İskonto (DCF) simülatörü çalıştırılamıyor.
+        </p>
+      </div>
+    );
+  }
 
   const { baseFairValue, bearFairValue, bullFairValue, marginOfSafetyPct, isUndervalued, currency } = dcfResults;
 

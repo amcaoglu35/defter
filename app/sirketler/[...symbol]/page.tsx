@@ -104,6 +104,7 @@ export default function SirketDetayPage() {
     deleteTransaction,
     baskets,
     dividends,
+    aiApiKey,
     aiProvider,
     geminiModel,
     userSettings,
@@ -235,33 +236,6 @@ export default function SirketDetayPage() {
     };
   }, [company]);
 
-  // Fetch Live Historical Candlesticks / Close Series
-  useEffect(() => {
-    if (!company) return;
-    let isCancelled = false;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Asenkron fiyat geçmişi veri çekme yan etkisi
-    setHistoryLoading(true);
-
-    fetch(`/api/prices/history?symbol=${encodeURIComponent(company.symbol)}&period=${period}`)
-      .then((res) => res.json())
-      .then((res) => {
-        if (!isCancelled && res.success && Array.isArray(res.data) && res.data.length >= 2) {
-          setHistoryData(res.data);
-        } else if (!isCancelled) {
-          setHistoryData(null);
-        }
-      })
-      .catch(() => {
-        if (!isCancelled) setHistoryData(null);
-      })
-      .finally(() => {
-        if (!isCancelled) setHistoryLoading(false);
-      });
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [company, period]);
 
   // Fetch Live Google News & Yahoo Finance Feed
   useEffect(() => {
@@ -497,6 +471,7 @@ export default function SirketDetayPage() {
           payload: company,
           provider: aiProvider,
           model: geminiModel,
+          apiKey: aiApiKey,
         }),
       });
 
@@ -702,11 +677,6 @@ export default function SirketDetayPage() {
             symbol={company.symbol}
           />
 
-          {/* DuPont Return on Equity (ROE) 3-Pillar Decomposition Card */}
-          <DuPontAnalysisCard company={company} />
-
-          {/* Piotroski F-Score (0-9) & Altman Z-Score Bankruptcy/Solvency Model */}
-          <FinancialHealthScoreCard company={company} />
 
           {/* Google / Yahoo Finance Live Market & Likidity Card */}
           <div className="bg-[var(--ink-2)] border border-[var(--brass-dim)] rounded-xl p-6 space-y-5">
@@ -734,10 +704,11 @@ export default function SirketDetayPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {/* 52-Week Range Bar */}
               {(() => {
-                const high52 = company.high52 || Number((company.price * 1.22).toFixed(2));
-                const low52 = company.low52 || Number((company.price * 0.72).toFixed(2));
-                const athDiscount = high52 > 0 ? (((high52 - company.price) / high52) * 100).toFixed(1) : "0.0";
-                const rangePct = high52 > low52 ? Math.min(100, Math.max(0, ((company.price - low52) / (high52 - low52)) * 100)) : 50;
+                const high52 = company.high52;
+                const low52 = company.low52;
+                const hasValid52Data = Boolean(high52 && low52 && high52 > low52);
+                const athDiscount = hasValid52Data && high52 ? (((high52 - company.price) / high52) * 100).toFixed(1) : undefined;
+                const rangePct = hasValid52Data && high52 && low52 ? Math.min(100, Math.max(0, ((company.price - low52) / (high52 - low52)) * 100)) : 50;
 
                 return (
                   <div className="bg-[var(--ink-3)] border border-[var(--line)] rounded-lg p-4 space-y-2.5">
@@ -746,26 +717,40 @@ export default function SirketDetayPage() {
                         <Target className="w-3.5 h-3.5 text-[var(--brass)]" />
                         <span>52 Haftalık Zirve &amp; Dip</span>
                       </span>
-                      <span className="font-mono text-xs font-bold text-[var(--brass)]">
-                        {parseFloat(athDiscount) <= 5
-                          ? "🎯 Zirvesine Çok Yakın"
-                          : `-%${athDiscount} İskontolu`}
-                      </span>
+                      {hasValid52Data && athDiscount !== undefined ? (
+                        <span className="font-mono text-xs font-bold text-[var(--brass)]">
+                          {parseFloat(athDiscount) <= 5
+                            ? "🎯 Zirvesine Çok Yakın"
+                            : `-%${athDiscount} İskontolu`}
+                        </span>
+                      ) : (
+                        <span className="font-mono text-[10px] text-[var(--mist)] opacity-70">
+                          📌 Kapsam Dışı / Veri Yok
+                        </span>
+                      )}
                     </div>
 
                     {/* Progress Slider */}
                     <div className="space-y-1">
-                      <div className="relative w-full h-2 bg-[var(--ink)] rounded-full overflow-hidden border border-[var(--line)]">
-                        <div
-                          className="h-full bg-gradient-to-r from-[var(--loss)] via-[var(--brass)] to-[var(--verdigris)] rounded-full"
-                          style={{ width: `${rangePct}%` }}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between font-mono text-[10px] text-[var(--mist)] pt-0.5">
-                        <span>52H Dip: {low52.toLocaleString("tr-TR")} {company.currency}</span>
-                        <span className="font-bold text-[var(--paper)]">Şimdi: {company.price.toLocaleString("tr-TR")}</span>
-                        <span>52H Zirve: {high52.toLocaleString("tr-TR")} {company.currency}</span>
-                      </div>
+                      {hasValid52Data && high52 && low52 ? (
+                        <>
+                          <div className="relative w-full h-2 bg-[var(--ink)] rounded-full overflow-hidden border border-[var(--line)]">
+                            <div
+                              className="h-full bg-gradient-to-r from-[var(--loss)] via-[var(--brass)] to-[var(--verdigris)] rounded-full"
+                              style={{ width: `${rangePct}%` }}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between font-mono text-[10px] text-[var(--mist)] pt-0.5">
+                            <span>52H Dip: {low52.toLocaleString("tr-TR")} {company.currency}</span>
+                            <span className="font-bold text-[var(--paper)]">Şimdi: {company.price.toLocaleString("tr-TR")}</span>
+                            <span>52H Zirve: {high52.toLocaleString("tr-TR")} {company.currency}</span>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="py-2 text-[11px] font-mono text-[var(--mist)] text-center opacity-70">
+                          Bu varlık için resmi 52 haftalık uç değer kaydı bulunmuyor.
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -773,10 +758,11 @@ export default function SirketDetayPage() {
 
               {/* Day Range & Open Price */}
               {(() => {
-                const dayHigh = company.dayHigh || Number((company.price * 1.018).toFixed(2));
-                const dayLow = company.dayLow || Number((company.price * 0.985).toFixed(2));
-                const openPrice = company.openPrice || Number((company.price / (1 + (company.dailyChange || 0) / 100)).toFixed(2));
-                const dayRangePct = dayHigh > dayLow ? Math.min(100, Math.max(0, ((company.price - dayLow) / (dayHigh - dayLow)) * 100)) : 50;
+                const dayHigh = company.dayHigh;
+                const dayLow = company.dayLow;
+                const openPrice = company.openPrice;
+                const hasDayRange = Boolean(dayHigh && dayLow && dayHigh >= dayLow);
+                const dayRangePct = hasDayRange && dayHigh && dayLow && dayHigh > dayLow ? Math.min(100, Math.max(0, ((company.price - dayLow) / (dayHigh - dayLow)) * 100)) : 50;
 
                 return (
                   <div className="bg-[var(--ink-3)] border border-[var(--line)] rounded-lg p-4 space-y-2.5">
@@ -786,21 +772,33 @@ export default function SirketDetayPage() {
                         <span>Günün İşlem Aralığı (Spread)</span>
                       </span>
                       <span className="font-mono text-xs text-[var(--mist)]">
-                        Açılış: <strong className="text-[var(--paper)]">{openPrice.toLocaleString("tr-TR")} {company.currency}</strong>
+                        {openPrice ? (
+                          <>Açılış: <strong className="text-[var(--paper)]">{openPrice.toLocaleString("tr-TR")} {company.currency}</strong></>
+                        ) : (
+                          <span className="text-[10px] opacity-70">Açılış: —</span>
+                        )}
                       </span>
                     </div>
 
                     <div className="space-y-1">
-                      <div className="relative w-full h-2 bg-[var(--ink)] rounded-full overflow-hidden border border-[var(--line)]">
-                        <div
-                          className="h-full bg-[var(--verdigris)] rounded-full"
-                          style={{ width: `${dayRangePct}%` }}
-                        />
-                      </div>
-                      <div className="flex items-center justify-between font-mono text-[10px] text-[var(--mist)] pt-0.5">
-                        <span>Gün En Düşük: {dayLow.toLocaleString("tr-TR")}</span>
-                        <span>Gün En Yüksek: {dayHigh.toLocaleString("tr-TR")}</span>
-                      </div>
+                      {hasDayRange && dayHigh && dayLow ? (
+                        <>
+                          <div className="relative w-full h-2 bg-[var(--ink)] rounded-full overflow-hidden border border-[var(--line)]">
+                            <div
+                              className="h-full bg-[var(--verdigris)] rounded-full"
+                              style={{ width: `${dayRangePct}%` }}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between font-mono text-[10px] text-[var(--mist)] pt-0.5">
+                            <span>Gün En Düşük: {dayLow.toLocaleString("tr-TR")}</span>
+                            <span>Gün En Yüksek: {dayHigh.toLocaleString("tr-TR")}</span>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="py-2 text-[11px] font-mono text-[var(--mist)] text-center opacity-70">
+                          Günlük seans içi fiyat aralığı verisi mevcut değil.
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -1164,7 +1162,7 @@ export default function SirketDetayPage() {
             {/* 4. Graham Intrinsic Value & Technical Gauge Meter Dual Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <GrahamIntrinsicValueCard company={company} />
-              <TechnicalGaugeMeter company={company} />
+              <TechnicalGaugeMeter company={company} closes={(historyData || []).map((d) => d.close)} />
             </div>
 
             {/* 5. Financial Health Scores & DuPont Analysis Grid */}
@@ -1266,8 +1264,6 @@ export default function SirketDetayPage() {
             )}
           </div>
 
-          {/* Sektörel Rakip Kıyaslama Radarı (Peer Comparison Matrix) */}
-          <PeerComparisonMatrix currentCompany={company} allCompanies={companies} />
 
           {/* Live Google News & Official KAP Disclosures Feed Card */}
           <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 space-y-4">

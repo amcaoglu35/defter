@@ -158,9 +158,9 @@ export async function generateCompanyAnalysis(
   persona: string = "deger"
 ): Promise<CompanyDiagnosisReport> {
   const symbol = company.symbol.toUpperCase();
-  const price = company.price || 100;
-  const pe = company.peRatio || 7.5;
-  const pb = company.pbRatio || 1.8;
+  const price = company.price || 0;
+  const pe = company.peRatio;
+  const pb = company.pbRatio;
   const divYield = company.dividendYield || 0;
   const personaInstruction = getPersonaInstruction(persona);
 
@@ -207,7 +207,7 @@ Aşağıdaki şirket verilerini derinlemesine inceleyerek kurumsal bir değerlem
 Fiyat: ${price} ${company.currency || "₺"}
 Günlük Değişim: %${company.dailyChange}
 Sektör: ${company.sector}
-F/K: ${pe} | PD/DD: ${pb} | Temettü Verimi: %${divYield}
+F/K: ${pe !== undefined ? pe : "Kapsam Dışı / Tanımsız"} | PD/DD: ${pb !== undefined ? pb : "Kapsam Dışı / Tanımsız"} | Temettü Verimi: %${divYield}
 ${feedbackContext}
 
 İndirgenmiş Nakit Akımı (DCF), Çarpan İskontosu, Piotroski F-Score, DuPont analizi, Boğa vs Ayı analizi (bullCase, bearCase), Makro Senaryo Stres Testi (stressTest) ve 4-5 adımlı şeffaf Kanıt Zinciri (evidenceChain) oluşturarak aşağıdaki JSON formatında YALNIZCA geçerli JSON olarak dön:

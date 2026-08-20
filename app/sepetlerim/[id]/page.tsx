@@ -86,7 +86,7 @@ export default function SepetDetayPage() {
     let totalWeight = 0;
     let weightedSum = 0;
     basket.holdings.forEach((h) => {
-      const co = companies.find((c) => c.symbol === h.companySymbol);
+      const co = companies.find((c) => c.symbol.toUpperCase() === h.companySymbol.toUpperCase());
       const yieldPct = co?.dividendYield || 0;
       const w = h.weightPercent || 1;
       weightedSum += w * yieldPct;
@@ -97,7 +97,7 @@ export default function SepetDetayPage() {
 
   // Real Historical Chart Points & Date Labels using portfolioPriceSeries
   const chartData = useMemo(() => {
-    if (!basket || !portfolioPriceSeries || portfolioPriceSeries.length === 0) {
+    if (!basket || !portfolioPriceSeries || portfolioPriceSeries.length < 2) {
       return { points: [], pathD: "", areaD: "", labels: [], minVal: 0, maxVal: 0 };
     }
 
@@ -748,7 +748,8 @@ export default function SepetDetayPage() {
         onClose={() => setMonteCarloModalOpen(false)}
         basketName={basket.name}
         initialValue={basket.totalValue}
-        annualReturnPct={basket.totalProfitPercent > 0 ? Math.min(65, basket.totalProfitPercent * 2) : 32}
+        annualReturnPct={basket.totalProfitPercent > 0 ? Math.min(50, Math.max(15, basket.totalProfitPercent)) : 30}
+        annualVolPct={riskProfile?.volatilityAnnualizedPct ?? 22}
       />
 
       {/* Deterministic Portfolio Rebalancing Assistant Modal */}

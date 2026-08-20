@@ -72,10 +72,16 @@ export function AiModelPortfolios() {
   };
 
   const handleCloneBasket = useCallback((modelBasket: AiModelBasket) => {
-    const newBasketId = `basket-${modelBasket.theme.toLowerCase().replace(/[^a-z0-9]/g, "-").slice(0, 15)}-${Math.floor(Math.random() * 100000)}`;
+    const cleanTheme = modelBasket.theme
+      .replace(/[çğışöüÇĞİŞÖÜ]/g, (c) => ({ ç: "c", Ç: "c", ğ: "g", Ğ: "g", ı: "i", İ: "i", ö: "o", Ö: "o", ş: "s", Ş: "s", ü: "u", Ü: "u" }[c] || c))
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 15);
+    const newBasketId = `basket-${cleanTheme || "model"}-${Math.floor(Math.random() * 100000)}`;
     const newHoldings = modelBasket.allocation.map((alloc) => {
-      const co = companies.find((c) => c.symbol === alloc.symbol);
-      const price = co?.price || alloc.priceAtCreation;
+      const co = companies.find((c) => c.symbol.toUpperCase() === alloc.symbol.toUpperCase());
+      const price = co?.price || alloc.priceAtCreation || 0;
       return {
         companySymbol: alloc.symbol,
         weightPercent: alloc.weight,

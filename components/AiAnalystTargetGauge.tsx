@@ -12,10 +12,10 @@ interface AiAnalystTargetGaugeProps {
 
 export function AiAnalystTargetGauge({ company, report }: AiAnalystTargetGaugeProps) {
   const targetMetrics = useMemo(() => {
-    const price = company.price || 100;
+    const price = company.price || 0;
     const targetPrice = report?.targetPrice12M;
 
-    if (!targetPrice || targetPrice <= 0) {
+    if (price <= 0 || !targetPrice || targetPrice <= 0) {
       return {
         hasTarget: false,
         price,

@@ -13,10 +13,19 @@ interface ForeignTaxModalProps {
 
 export default function ForeignTaxModal({ isOpen, onClose }: ForeignTaxModalProps) {
   useEscapeKey(isOpen, onClose);
-  const { indices } = useDefterStore();
+  const { indices, companies } = useDefterStore();
 
   const [grossDividendUsd, setGrossDividendUsd] = useState<number>(2500);
-  const usdRate = indices["USD/TRY"]?.price || 47.88;
+  const usdRate = useMemo(() => {
+    if (indices["USD/TRY"]?.price && indices["USD/TRY"].price > 0) {
+      return indices["USD/TRY"].price;
+    }
+    const usdCo = companies.find((c) => c.symbol.toUpperCase() === "USD/TRY" || c.symbol.toUpperCase() === "USDTRY");
+    if (usdCo?.price && usdCo.price > 0) {
+      return usdCo.price;
+    }
+    return 47.88;
+  }, [indices, companies]);
 
   const taxResult = useMemo(() => {
     return calculateForeignStockTax(grossDividendUsd, usdRate);

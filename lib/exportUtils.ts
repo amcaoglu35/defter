@@ -348,6 +348,14 @@ export function exportTransactionsToCsv(transactions: Transaction[]) {
   downloadCsvFile(`defter_islemler_${dateStr}.csv`, csvContent);
 }
 
+export function normalizeTurkishChars(text: string): string {
+  if (!text) return "";
+  const charMap: Record<string, string> = {
+    ç: "c", Ç: "C", ğ: "g", Ğ: "G", ı: "i", İ: "I", ö: "o", Ö: "O", ş: "s", Ş: "S", ü: "u", Ü: "U"
+  };
+  return text.replace(/[çğışöüÇĞİŞÖÜ]/g, (char) => charMap[char] || char);
+}
+
 /**
  * Export a single basket's holdings and summary to a vector PDF report using jsPDF & autoTable.
  */
@@ -370,7 +378,9 @@ export function exportBasketToPdf(basket: Basket, companies: Company[], userName
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
   doc.setTextColor(201, 162, 75); // Brass gold (#C9A24B)
-  doc.text(`Sepet: ${basket.name.toUpperCase()}  |  Yatirimci: ${userName}  |  Tarih: ${new Date().toLocaleDateString("tr-TR")}`, 14, 22);
+  const cleanBasketName = normalizeTurkishChars(basket.name).toUpperCase();
+  const cleanUserName = normalizeTurkishChars(userName);
+  doc.text(`Sepet: ${cleanBasketName}  |  Yatirimci: ${cleanUserName}  |  Tarih: ${new Date().toLocaleDateString("tr-TR")}`, 14, 22);
 
   // Key Summary Cards
   const totalVal = basket.totalValue;
@@ -386,7 +396,7 @@ export function exportBasketToPdf(basket: Basket, companies: Company[], userName
   doc.setFontSize(7.5);
   doc.setTextColor(100, 116, 139);
   doc.text("TOPLAM SEPET DEGERI", 18, 42);
-  doc.text("TOPLAM KÂR / ZARAR", 80, 42);
+  doc.text("TOPLAM KAR / ZARAR", 80, 42);
   doc.text("KUMULATIF GETIRI", 142, 42);
 
   doc.setFontSize(11);
@@ -407,7 +417,8 @@ export function exportBasketToPdf(basket: Basket, companies: Company[], userName
   // Holdings Table
   const tableData = basket.holdings.map((h) => {
     const co = companies.find((c) => c.symbol.toUpperCase() === h.companySymbol.toUpperCase());
-    const name = co ? co.name : h.companySymbol;
+    const rawName = co ? co.name : h.companySymbol;
+    const name = normalizeTurkishChars(rawName);
     const currentPrice = co ? co.price : (h.currentPrice || h.avgCost);
     const itemVal = h.quantity * currentPrice;
     const itemCost = h.quantity * h.avgCost;
@@ -454,10 +465,10 @@ export function exportBasketToPdf(basket: Basket, companies: Company[], userName
   doc.setFontSize(7);
   doc.setFont("helvetica", "italic");
   doc.setTextColor(148, 163, 184);
-  doc.text("Bu rapor Defter Kişisel Yatırım Takip Uygulaması tarafından üretilmiştir. Yatırım tavsiyesi niteliğinde değildir.", 14, pageHeight - 8);
+  doc.text("Bu rapor Defter Kisisel Yatirim Takip Uygulamasi tarafindan uretilmistir. Yatirim tavsiyesi niteliginde degildir.", 14, pageHeight - 8);
 
-  const cleanName = basket.name.toLowerCase().replace(/[^a-z0-9]/gi, "_");
+  const cleanFileName = normalizeTurkishChars(basket.name).toLowerCase().replace(/[^a-z0-9]/gi, "_");
   const reportDateStr = new Date().toISOString().split("T")[0];
-  doc.save(`defter_rapor_${cleanName}_${reportDateStr}.pdf`);
+  doc.save(`defter_rapor_${cleanFileName}_${reportDateStr}.pdf`);
 }
 
