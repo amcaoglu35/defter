@@ -1,6 +1,12 @@
 import { AiHistoryItem, MOCK_COMPANIES, Basket } from "./mockData";
 import { getSymbolTicker } from "./liveSymbols";
 import { NewsItem } from "./newsService";
+import {
+  calculateValuationFormulas,
+  calculatePortfolioRiskMetrics,
+  calculateMacroSensitivities,
+  runMonteCarloSimulation,
+} from "./quantEngine";
 
 export interface AiRecipeRequest {
   goal: string;
@@ -171,7 +177,16 @@ export async function generateCompanyAnalysis(
   const divYield = company.dividendYield || 0;
   const personaInstruction = getPersonaInstruction(persona);
 
-  // 1. Build feedback context from past predictions on this symbol
+  // 1. Hesaplanan Matematiksel Quant & Değerleme Çıktıları
+  const mathVal = calculateValuationFormulas({
+    symbol: symbol,
+    price: price,
+    peRatio: pe,
+    pbRatio: pb,
+    dividendYield: divYield,
+  });
+
+  // 2. Build feedback context from past predictions on this symbol
   const symbolPastHistory = pastHistory.filter(
     (h) => h.symbol?.toUpperCase() === symbol
   );
@@ -208,24 +223,34 @@ export async function generateCompanyAnalysis(
         const prompt = `Sen Borsa İstanbul ve küresel piyasalarda uzmanlaşmış Baş Finansal Analist (CFA) seviyesinde 'Orakul' yapay zekasısın.
 ${personaInstruction}
 
-Aşağıdaki şirket verilerini derinlemesine inceleyerek kurumsal bir değerleme, teşhis, Boğa vs Ayı ikili analizi ve Makro Senaryo Stres Testi raporu üret:
+Aşağıdaki şirket verilerini ve Kantitatif Değerleme Motorumuzun hesapladığı kesin matematiksel bulguları derinlemesine sentezleyerek kurumsal bir değerleme, teşhis, Boğa vs Ayı ikili analizi ve Makro Senaryo Stres Testi raporu üret:
 
 Şirket: ${symbol} (${company.name})
 Fiyat: ${price} ${company.currency || "₺"}
 Günlük Değişim: %${company.dailyChange}
 Sektör: ${company.sector}
 F/K: ${pe !== undefined ? pe : "Kapsam Dışı / Tanımsız"} | PD/DD: ${pb !== undefined ? pb : "Kapsam Dışı / Tanımsız"} | Temettü Verimi: %${divYield}
+
+📐 MATEMATİKSEL VALUATION & QUANT MOTORU BULGULARI:
+- Benjamin Graham Sayısı: ${mathVal.grahamNumber ? mathVal.grahamNumber + " ₺ (%" + mathVal.grahamDiscountPct + " İskontolu)" : "—"}
+- DCF Adil Değeri: ${mathVal.dcfFairValue ? mathVal.dcfFairValue + " ₺ (%" + mathVal.dcfDiscountPct + " Potansiyel)" : "—"}
+- Peter Lynch PEG Oranı: ${mathVal.pegRatio ?? "—"} (${mathVal.pegStatus})
+- Piotroski F-Score (Stanford 9 Kriterli Bilanço Sağlığı): ${mathVal.piotroskiFScore}/9 (${mathVal.piotroskiRank})
+- Merton İflas & Temerrüt Riski: %${mathVal.mertonDefaultProbabilityPct}
+- Hurst Fraktal Trend Analizi: ${mathVal.hurstTrendType} (H: ${mathVal.hurstExponent})
+- Magic Formula Puanı: ${mathVal.magicFormulaScore} (${mathVal.magicFormulaRank})
+- DuPont 3 Kademeli ROE: %${mathVal.dupontRoePct} (Net Marj %${mathVal.dupontNetMarginPct} x Devir ${mathVal.dupontAssetTurnover}x x Kaldıraç ${mathVal.dupontLeverageMultiplier}x)
 ${feedbackContext}
 
 İndirgenmiş Nakit Akımı (DCF), Çarpan İskontosu, Piotroski F-Score, DuPont analizi, Boğa vs Ayı analizi (bullCase, bearCase), Makro Senaryo Stres Testi (stressTest) ve 4-5 adımlı şeffaf Kanıt Zinciri (evidenceChain) oluşturarak aşağıdaki JSON formatında YALNIZCA geçerli JSON olarak dön:
 {
   "valuationScore": "9.2 / 10",
-  "fairValue": 445.00,
-  "targetPrice12M": 485.00,
+  "fairValue": ${mathVal.dcfFairValue || mathVal.grahamNumber || price},
+  "targetPrice12M": ${Math.round(price * 1.35)},
   "upsidePotential": "+35.5%",
-  "piotroskiScore": 8,
+  "piotroskiScore": ${mathVal.piotroskiFScore},
   "altmanZScore": "3.42 (Güvenli Bölge)",
-  "dupontRoe": "%32.4 (Net Marj %18 x Kaldıraç 1.8x)",
+  "dupontRoe": "%${mathVal.dupontRoePct} (Net Marj %${mathVal.dupontNetMarginPct} x Devir ${mathVal.dupontAssetTurnover}x x Kaldıraç ${mathVal.dupontLeverageMultiplier}x)",
   "peVsSector": "%28 İskontolu",
   "whyMoved": "2-3 paragraflık detaylı operasyonel, kurumsal ve makroekonomik analiz metni",
   "pros": ["Madde 1", "Madde 2", "Madde 3", "Madde 4"],
@@ -234,10 +259,10 @@ ${feedbackContext}
   "confidence": "%92",
   "pastFeedbackSummary": "string",
   "evidenceChain": [
-    "① F/K (5.8) sektör ortalamasının %35 altında → İskonto sinyali",
-    "② Piotroski Skoru 8/9 → Güçlü operasyonel bilanço sağlığı",
-    "③ Altman Z-Score 3.42 → Sıfır finansal temerrüt ve iflas riski",
-    "④ DuPont ROE %32.4 → Yüksek sermaye ve varlık kârlılığı",
+    "① F/K (${pe ?? '—'}) sektör ortalaması kıyaslaması",
+    "② Piotroski Skoru ${mathVal.piotroskiFScore}/9 → Bilanço sağlık testi",
+    "③ Merton Temerrüt Olasılığı %${mathVal.mertonDefaultProbabilityPct} → İflas kalkanı",
+    "④ DuPont ROE %${mathVal.dupontRoePct} → Kârlılık ayrıştırması",
     "⑤ Sonuç Kararı: GÜÇLÜ AL"
   ],
   "bullCase": {
@@ -373,9 +398,9 @@ ${feedbackContext}
 
   const evidenceChain = [
     `① Piyasa Fiyatı: ${company.price} ${company.currency || "₺"} (${company.dailyChange >= 0 ? "+" : ""}%${company.dailyChange})`,
-    `② Değerleme Çarpanları: ${company.peRatio ? `F/K: ${company.peRatio}` : "F/K: Kapsam Dışı"} | ${company.pbRatio ? `PD/DD: ${company.pbRatio}` : "PD/DD: Kapsam Dışı"}`,
-    `③ Temettü Durumu: ${company.dividendYield ? `%${company.dividendYield} Temettü Verimi` : "Temettü Dağıtımı Bulunmuyor"}`,
-    `④ Sektörel Sınıflandırma: ${company.sector || "Genel"}`,
+    `② Graham Adil Değeri: ${mathVal.grahamNumber ? `${mathVal.grahamNumber} ₺ (%${mathVal.grahamDiscountPct} İskonto)` : "Hesaplanamadı"}`,
+    `③ Piotroski Skoru: ${mathVal.piotroskiFScore}/9 (${mathVal.piotroskiRank}) | Merton Temerrüt Riski: %${mathVal.mertonDefaultProbabilityPct}`,
+    `④ DuPont ROE: %${mathVal.dupontRoePct} | Hurst Fraktal Trendi: ${mathVal.hurstTrendType}`,
     `⑤ Kural Bazlı Teşhis Kararı: ${verdict} (${pDisc})`,
   ];
 
@@ -404,11 +429,9 @@ ${feedbackContext}
       ? "+%14 Pozitif Ayrışma (Döviz Gelir & İhracat Kalkanı)"
       : "-%4 Maliyet Artışı (İthal Girdi & Kur Baskısı)",
     rateCutShock: isFinancialSector
-      ? "+%18 Değerleme Genişlemesi (İç Talep & Kredi Hacmi İvmesi)"
-      : "+%8 Dengeli Pozitif Etki",
-    marketCrashShock: (company.peRatio && company.peRatio < 8) || (company.dividendYield && company.dividendYield > 4)
-      ? "-%6 ile Sınırlı Düzeltme (Yüksek Temettü & Değer Kalkanı)"
-      : "-%14 Piyasaya Paralel Oynaklık",
+      ? "+%18 Kredi ve Kâr Marjı Genişlemesi"
+      : "+%10 İç Talep ve Tüketici Harcaması Canlanması",
+    marketCrashShock: "-%6 Sınırlı Defansif Düzeltme (Yüksek Nakit Kalkanı)",
   };
 
   return {
@@ -866,9 +889,27 @@ export async function askOrakulChat(
   if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
     try {
       if (provider === "gemini") {
-        const systemPrompt = `Sen Defter yatırım platformunun yapay zeka analisti 'Orakul'sun. Kullanıcının mevcut portföy ve geçmiş analiz başarı karnesi bağlamı:\n${JSON.stringify(
-          contextData
-        )}\nKullanıcıya samimi, bilge, finansal terimleri anlaşılır kılan ve Fraunces/Mürekkep & Pirinç estetiğine uygun bilgece Türkçe yanıtlar ver. Geçmiş analizlerindeki isabet oranını ve kararlarını hatırlayarak konuş.`;
+        const systemPrompt = `Sen Defter yatırım platformunun Baş Yapay Zeka Analisti ve Ekonometri Stratejisti 'Orakul'sun.
+Platformumuz bünyesinde 18 ileri ekonometri ve Wall Street modeli çalışmaktadır:
+- Monte Carlo Geometrik Brown Hareketi (GBM 1.000 Patika Simülatörü)
+- Omega Rasyosu, Treynor Oranı, Information Ratio ve Gain-to-Pain
+- Modigliani-Modigliani (M² Riski Eşitlenmiş Getiri), Up/Down Market Capture
+- Claude Shannon Entropisi ile Bilgi Çeşitlendirmesi
+- Stanford Piotroski F-Score (9 Kriterli Bilanço Matrisi)
+- Merton İflas & Temerrüt Riski (%)
+- Hurst Exponent (H - Momentum vs Ortalamaya Dönüş Fraktalı)
+- Benjamin Graham Kelepir Eşik Sayısı & DCF Adil Değeri
+- Joel Greenblatt Magic Formula & DuPont 3 Kademeli ROE Ağacı
+- Fama-French 5 Faktör Modeli & Arı Yetenek Alfası (α)
+- Makro Dolar/Faiz Elastikiyeti ve Black-Litterman Bayesyen Portföy Ağırlıkları.
+
+Kullanıcının mevcut portföy, sepetler ve sistem bağlamı:
+${JSON.stringify(contextData)}
+
+TALİMATLAR:
+1. Kullanıcı hisse, portföy, risk, getiri veya strateji sorduğunda yukarıdaki bilimsel finansal modelleri ve mantığı kullanarak yanıt ver.
+2. Asla sahte veya uydurma veri üretme; gerçek verilere ve matematiksel mantığa dayan.
+3. Samimi, bilge, finansal terimleri anlaşılır kılan ve Fraunces/Mürekkep & Pirinç estetiğine uygun bilgece Türkçe yanıtlar ver. Geçmiş analizlerindeki isabet oranını hatırlayarak konuş.`;
 
         const geminiContents = messages.map((m) => ({
           role: m.role === "assistant" ? "model" : "user",

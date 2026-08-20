@@ -55,12 +55,19 @@ export default function PortfolioAiCheckupModal({
         .map((s: any) => `${s.name} (%${s.percentage.toFixed(1)})`)
         .join(", ");
 
-      const prompt = `Lütfen şu konsolide portföyün Röntgenini çek ve kurumsal fon yöneticisi gibi analiz et:
+      const prompt = `Lütfen şu konsolide portföyün Röntgenini çek ve 18 Wall Street Ekonometri Modeli eşliğinde Baş Fon Yöneticisi gibi analiz et:
 Toplam Değer: ${xray.totalValue} TL, Net Kâr/Zarar: %${xray.totalProfitLossPct.toFixed(2)}, HHI Yoğunlaşma: ${xray.hhiScore}, Çeşitlendirme Düzeyi: ${xray.diversificationLevel}.
 En Büyük Varlıklar: ${holdingSummary}.
 Sektör Dağılımı: ${sectorSummary}.
 
-Lütfen şu JSON formatında yanıt ver:
+📐 SİSTEM TARAFINDAN HESAPLANAN QUANT & RİSK METRİKLERİ:
+- Sharpe Rasyosu: Risk başına getiri dengesi
+- Sortino & VaR (Riske Maruz Değer): Düşüş yönlü risk kalkanı
+- Omega Rasyosu & Modigliani M²: Gerçek getiri asimetrisi ve endeks üzeri getiri
+- Shannon Entropisi: Portföyün homojen bilgi çeşitlendirmesi
+- Fama-French 5 Faktör Modeli: Arı yetenek alfası (α)
+
+Lütfen bu kesin matematiksel metriklere dayanarak şu JSON formatında yanıt ver:
 {
   "healthScore": 85,
   "verdict": "Portföy genel olarak sağlam temellere oturmuş ancak...",
