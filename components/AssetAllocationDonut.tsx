@@ -46,8 +46,11 @@ export default function AssetAllocationDonut({
           (c) => c.symbol.toUpperCase() === h.companySymbol.toUpperCase()
         );
         const assetClass = co ? inferAssetClass(co) : "hisse";
-        const currentPrice = co ? co.price : (h.currentPrice || h.avgCost);
-        const itemVal = (h.quantity || 1) * currentPrice;
+        const currentPrice = co ? co.price : (h.currentPrice || h.avgCost || 0);
+        const itemVal =
+          h.quantity && h.quantity > 0
+            ? h.quantity * currentPrice
+            : ((h.weightPercent || 0) / 100) * (b.totalValue || 0);
         classTotals[assetClass] = (classTotals[assetClass] || 0) + itemVal;
       });
     });

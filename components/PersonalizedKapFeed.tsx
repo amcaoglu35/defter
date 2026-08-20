@@ -63,6 +63,9 @@ export function PersonalizedKapFeed() {
       });
     });
 
+    // En yeni bildirim en üstte olacak şekilde tarihe göre sırala
+    list.sort((a, b) => new Date(b.publishDate).getTime() - new Date(a.publishDate).getTime());
+
     if (selectedFilter !== "ALL") {
       return list.filter((item) => item.companySymbol === selectedFilter);
     }

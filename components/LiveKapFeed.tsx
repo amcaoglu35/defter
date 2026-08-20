@@ -33,25 +33,35 @@ export default function LiveKapFeed({
     setLoading(true);
     setError(null);
     try {
-      const targets = symbols.slice(0, 3);
+      const targets = symbols.slice(0, 5);
       const fetchedItems: KapDisclosureItem[] = [];
 
-      for (const sym of targets) {
-        try {
+      const results = await Promise.allSettled(
+        targets.map(async (sym) => {
           const res = await fetch(`/api/prices/kap?symbol=${encodeURIComponent(sym)}`);
           if (res.ok) {
             const data = await res.json();
             if (Array.isArray(data.data)) {
-              for (const item of data.data) {
-                fetchedItems.push({
-                  ...item,
-                  symbol: sym,
-                });
-              }
+              return data.data.map((item: KapDisclosureItem) => ({
+                ...item,
+                symbol: sym,
+              }));
             }
           }
-        } catch {}
+          return [];
+        })
+      );
+
+      for (const r of results) {
+        if (r.status === "fulfilled" && Array.isArray(r.value)) {
+          fetchedItems.push(...r.value);
+        }
       }
+
+      // En yeniden en eskiye sırala
+      fetchedItems.sort(
+        (a, b) => new Date(b.publishDate).getTime() - new Date(a.publishDate).getTime()
+      );
 
       if (fetchedItems.length > 0) {
         setItems(fetchedItems.slice(0, maxItems));

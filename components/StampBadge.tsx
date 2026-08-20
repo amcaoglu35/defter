@@ -1,14 +1,14 @@
 import React from "react";
 
 interface StampBadgeProps {
-  verdict: "AL" | "GÜÇLÜ AL" | "SAT" | "GÜÇLÜ SAT" | "TUT" | "NÖTR" | "YÜKSEK RİSK" | "DENGELİ";
+  verdict?: "AL" | "GÜÇLÜ AL" | "SAT" | "GÜÇLÜ SAT" | "TUT" | "NÖTR" | "YÜKSEK RİSK" | "DENGELİ" | string;
   className?: string;
   animate?: boolean;
 }
 
-export default function StampBadge({ verdict, className = "", animate = true }: StampBadgeProps) {
+export default function StampBadge({ verdict = "NÖTR", className = "", animate = true }: StampBadgeProps) {
   let styleClass = "stamp-notr";
-  const label = verdict;
+  const label = verdict || "NÖTR";
 
   if (verdict === "AL" || verdict === "GÜÇLÜ AL") {
     styleClass = "stamp-al";
