@@ -92,27 +92,27 @@ export default function PortfolioRebalanceHub({
   }, [holdings, totalValue, dcaBudget, targetWeights]);
 
   return (
-    <div className="bg-[var(--card)] border border-[var(--line)] rounded-xl p-5 shadow-xs space-y-5">
+    <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-5 shadow-sm space-y-5">
       {/* Başlık */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--line)] pb-4">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-xs">
             <Scale className="w-4 h-4" />
           </div>
           <div>
             <h3 className="font-serif font-bold text-base text-[var(--paper)]">
-              Yeniden Dengeleme (Rebalance) & DCA Asistanı
+              Yeniden Dengeleme (Rebalance) &amp; DCA Asistanı
             </h3>
-            <p className="text-xs text-[var(--muted)]">
+            <p className="text-xs font-mono text-[var(--mist)]">
               Hedef varlık ağırlıklarını belirleyin, sistem sapmaları tek tıkla al/sat lotlarına dönüştürsün.
             </p>
           </div>
         </div>
 
         {/* DCA Bütçe Girişi */}
-        <div className="flex items-center gap-2 bg-[var(--ink)]/60 px-3 py-1.5 rounded-lg border border-[var(--line)]">
+        <div className="flex items-center gap-2 bg-[var(--ink-3)] px-3 py-1.5 rounded-lg border border-[var(--line)]">
           <DollarSign className="w-4 h-4 text-[var(--brass)]" />
-          <span className="text-xs text-[var(--muted)]">Maaş / Yeni Para:</span>
+          <span className="text-xs font-mono text-[var(--mist)]">Maaş / Yeni Para:</span>
           <input
             type="number"
             value={isNaN(dcaBudget) || dcaBudget === 0 ? "" : dcaBudget}
@@ -123,16 +123,16 @@ export default function PortfolioRebalanceHub({
             placeholder="0"
             className="w-24 bg-transparent font-mono font-bold text-xs text-[var(--paper)] text-right outline-none focus:text-[var(--brass)]"
           />
-          <span className="text-xs text-[var(--muted)]">₺</span>
+          <span className="text-xs font-mono text-[var(--mist)]">₺</span>
         </div>
       </div>
 
       {/* Toplam Hedef Ağırlık Uyarısı & Hızlı Butonlar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs px-3 py-2 bg-[var(--ink)]/40 rounded-lg border border-[var(--line)]">
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs px-3 py-2 bg-[var(--ink-3)] rounded-lg border border-[var(--line)] font-mono">
         <div className="flex items-center gap-2">
-          <span className="text-[var(--muted)]">Hedef Ağırlıklar Toplamı:</span>
+          <span className="text-[var(--mist)]">Hedef Ağırlıklar Toplamı:</span>
           <span
-            className={`font-mono font-bold ${
+            className={`font-bold ${
               Math.abs(totalTargetWeight - 100) < 0.5 ? "text-emerald-400" : "text-amber-400"
             }`}
           >
@@ -145,7 +145,7 @@ export default function PortfolioRebalanceHub({
           <button
             type="button"
             onClick={handleNormalizeWeights}
-            className="px-2.5 py-1 rounded bg-[var(--brass-glow)] border border-[var(--brass-dim)] text-[var(--brass)] hover:brightness-110 text-[11px] font-mono font-bold cursor-pointer transition-all active:scale-95"
+            className="px-2.5 py-1 rounded bg-[var(--brass-glow)] border border-[var(--brass-dim)] text-[var(--brass)] hover:brightness-110 text-[11px] font-bold cursor-pointer transition-all active:scale-95"
             title="Mevcut oranları orantısal olarak %100'e tamamlar"
           >
             ⚖️ %100'e Eşitle
@@ -153,7 +153,7 @@ export default function PortfolioRebalanceHub({
           <button
             type="button"
             onClick={handleEqualWeights}
-            className="px-2.5 py-1 rounded bg-[var(--card)] border border-[var(--line)] text-[var(--muted)] hover:text-[var(--paper)] text-[11px] font-mono cursor-pointer transition-all active:scale-95"
+            className="px-2.5 py-1 rounded bg-[var(--ink-2)] border border-[var(--line)] text-[var(--mist)] hover:text-[var(--paper)] text-[11px] cursor-pointer transition-all active:scale-95"
             title="Tüm hisselere eşit ağırlık dağıtır"
           >
             🎯 Eşit Dağıt
@@ -161,7 +161,7 @@ export default function PortfolioRebalanceHub({
           <button
             type="button"
             onClick={handleResetToCurrent}
-            className="px-2.5 py-1 rounded bg-[var(--card)] border border-[var(--line)] text-[var(--muted)] hover:text-[var(--paper)] text-[11px] font-mono cursor-pointer transition-all active:scale-95"
+            className="px-2.5 py-1 rounded bg-[var(--ink-2)] border border-[var(--line)] text-[var(--mist)] hover:text-[var(--paper)] text-[11px] cursor-pointer transition-all active:scale-95"
             title="Hedef ağırlıkları mevcut ağırlıklara eşitler"
           >
             ↺ Sıfırla
@@ -173,7 +173,7 @@ export default function PortfolioRebalanceHub({
       <div className="overflow-x-auto">
         <table className="w-full text-xs text-left">
           <thead>
-            <tr className="text-[var(--muted)] border-b border-[var(--line)]/60 font-mono">
+            <tr className="text-[var(--mist)] border-b border-[var(--line)] font-mono">
               <th className="pb-2">Varlık</th>
               <th className="pb-2 text-right">Mevcut Ağırlık</th>
               <th className="pb-2 text-right w-24">Hedef %</th>
@@ -183,13 +183,13 @@ export default function PortfolioRebalanceHub({
               <th className="pb-2 text-right">Önerilen Talimat</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[var(--line)]/30">
+          <tbody className="divide-y divide-[var(--line)]">
             {rebalancePlan.map((item) => (
-              <tr key={item.symbol} className="hover:bg-[var(--ink)]/30 transition-colors">
+              <tr key={item.symbol} className="hover:bg-[var(--ink-3)] transition-colors">
                 <td className="py-2.5 font-bold font-mono text-[var(--paper)]">
                   {item.symbol}
                 </td>
-                <td className="py-2.5 text-right font-mono text-[var(--muted)]">
+                <td className="py-2.5 text-right font-mono text-[var(--mist)]">
                   %{item.weightPct.toFixed(1)}
                 </td>
                 <td className="py-2.5 text-right font-mono">
@@ -205,7 +205,7 @@ export default function PortfolioRebalanceHub({
                         [item.symbol]: Number(e.target.value),
                       }))
                     }
-                    className="w-16 bg-[var(--ink)]/70 border border-[var(--line)] rounded px-1.5 py-0.5 text-right font-bold text-[var(--paper)] focus:border-[var(--brass)] outline-none"
+                    className="w-16 bg-[var(--ink-3)] border border-[var(--line)] rounded px-1.5 py-0.5 text-right font-bold text-[var(--paper)] focus:border-[var(--brass)] outline-none"
                   />
                 </td>
                 <td className="py-2.5 text-right font-mono text-[var(--paper)]">
@@ -216,7 +216,7 @@ export default function PortfolioRebalanceHub({
                 </td>
                 <td
                   className={`py-2.5 text-right font-mono font-bold ${
-                    item.diffVal > 0 ? "text-emerald-400" : item.diffVal < 0 ? "text-rose-400" : "text-[var(--muted)]"
+                    item.diffVal > 0 ? "text-emerald-400" : item.diffVal < 0 ? "text-rose-400" : "text-[var(--mist)]"
                   }`}
                 >
                   {item.diffVal > 0 ? "+" : ""}
@@ -236,9 +236,9 @@ export default function PortfolioRebalanceHub({
                     </span>
                   )}
                   {item.action === "TUT" && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[var(--line)]/50 text-[var(--muted)]">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[var(--ink-3)] border border-[var(--line)] text-[var(--mist)]">
                       <CheckCircle2 className="w-3 h-3" />
-                      Dengede
+                      Dengeli
                     </span>
                   )}
                 </td>

@@ -142,24 +142,24 @@ export default function PortfolioTreemap({ holdings, totalValue }: PortfolioTree
 
   if (!holdings || holdings.length === 0) {
     return (
-      <div className="p-8 text-center bg-[var(--card)] border border-[var(--line)] rounded-xl">
-        <LayoutGrid className="w-10 h-10 text-[var(--muted)] mx-auto mb-3 opacity-40" />
-        <p className="text-sm text-[var(--muted)]">Portföyünüzde henüz görselleştirilecek varlık bulunmuyor.</p>
+      <div className="p-8 text-center bg-[var(--ink-2)] border border-[var(--line)] rounded-xl">
+        <LayoutGrid className="w-10 h-10 text-[var(--mist)] mx-auto mb-3 opacity-40" />
+        <p className="text-sm font-mono text-[var(--mist)]">Portföyünüzde henüz görselleştirilecek varlık bulunmuyor.</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-[var(--card)] border border-[var(--line)] rounded-xl p-5 shadow-xs space-y-4">
+    <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-5 shadow-sm space-y-4">
       {/* Header & Filtreler */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] pb-3">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-[var(--brass-glow)] border border-[var(--brass-dim)] flex items-center justify-center text-[var(--brass)]">
+          <div className="w-8 h-8 rounded-lg bg-[var(--brass-glow)] border border-[var(--brass-dim)] flex items-center justify-center text-[var(--brass)] shadow-xs">
             <LayoutGrid className="w-4 h-4" />
           </div>
           <div>
             <h3 className="font-serif font-bold text-base text-[var(--paper)]">Portföy Isı Haritası (Treemap)</h3>
-            <p className="text-xs text-[var(--muted)]">Kutu boyutu varlık ağırlığını, renk ise 24s performansını gösterir. Detay için kutuya tıklayın.</p>
+            <p className="text-xs font-mono text-[var(--mist)]">Kutu boyutu varlık ağırlığını, renk ise 24s performansını gösterir. Detay için kutuya tıklayın.</p>
           </div>
         </div>
 
@@ -169,10 +169,10 @@ export default function PortfolioTreemap({ holdings, totalValue }: PortfolioTree
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`text-xs px-2.5 py-1 rounded-md transition-all font-medium whitespace-nowrap cursor-pointer ${
+              className={`text-xs px-3 py-1.5 rounded-lg transition-all font-mono whitespace-nowrap cursor-pointer ${
                 selectedCategory === cat
                   ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-xs"
-                  : "bg-[var(--line)]/50 text-[var(--muted)] hover:text-[var(--paper)]"
+                  : "bg-[var(--ink-3)] border border-[var(--line)] text-[var(--mist)] hover:text-[var(--paper)]"
               }`}
             >
               {cat === "all" ? "Tümü" : cat.toUpperCase()}
@@ -182,26 +182,21 @@ export default function PortfolioTreemap({ holdings, totalValue }: PortfolioTree
       </div>
 
       {/* Renk Skalası Göstergesi */}
-      <div className="flex items-center justify-between text-[11px] text-[var(--muted)] px-1">
-        <div className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-xs bg-[#b91c1c] inline-block" />
-          <span>-5% altı</span>
-          <span className="w-3 h-3 rounded-xs bg-[#ef4444] inline-block" />
-          <span>-2%</span>
-          <span className="w-3 h-3 rounded-xs bg-[#64748b] inline-block" />
-          <span>0%</span>
-          <span className="w-3 h-3 rounded-xs bg-[#10b981] inline-block" />
-          <span>+2%</span>
-          <span className="w-3 h-3 rounded-xs bg-[#059669] inline-block" />
-          <span>+5% üstü</span>
+      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-[var(--mist)] px-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-xs bg-[#b91c1c] inline-block shadow-xs" />-5% altı</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-xs bg-[#ef4444] inline-block shadow-xs" />-2%</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-xs bg-[#64748b] inline-block shadow-xs" />0%</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-xs bg-[#10b981] inline-block shadow-xs" />+2%</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-xs bg-[#059669] inline-block shadow-xs" />+5% üstü</span>
         </div>
-        <span className="font-mono text-xs text-[var(--paper)]">
-          Toplam: {totalValue.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} ₺
+        <span className="font-mono text-xs text-[var(--paper)] font-bold">
+          Konsolide Değer: {totalValue.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} ₺
         </span>
       </div>
 
       {/* Treemap Görselleştirme */}
-      <div className="w-full h-80 sm:h-96 rounded-lg overflow-hidden bg-[var(--ink)]/40 p-1 border border-[var(--line)]/60">
+      <div className="w-full h-80 sm:h-96 rounded-xl overflow-hidden bg-[var(--ink-3)] p-1.5 border border-[var(--line)] shadow-inner">
         <ResponsiveContainer width="100%" height="100%">
           <Treemap
             data={filteredData}

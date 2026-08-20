@@ -110,57 +110,57 @@ export default function DividendFireHub({
   ];
 
   return (
-    <div className="bg-[var(--card)] border border-[var(--line)] rounded-xl p-5 shadow-xs space-y-5">
+    <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-5 shadow-sm space-y-5">
       {/* Başlık & Sekmeler */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--line)] pb-4">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-orange-400">
+          <div className="w-8 h-8 rounded-lg bg-orange-500/10 border border-orange-500/30 flex items-center justify-center text-orange-400 shadow-xs">
             <Flame className="w-4 h-4" />
           </div>
           <div>
             <h3 className="font-serif font-bold text-base text-[var(--paper)]">
-              Temettü, DRIP & Finansal Özgürlük (FIRE)
+              Temettü, DRIP &amp; Finansal Özgürlük (FIRE)
             </h3>
-            <p className="text-xs text-[var(--muted)]">
+            <p className="text-xs font-mono text-[var(--mist)]">
               Pasif gelir takvimi, bileşik kartopu simülatörü ve emeklilik hedefi.
             </p>
           </div>
         </div>
 
         {/* Sekme Butonları */}
-        <div className="flex items-center gap-1 bg-[var(--ink)]/60 p-1 rounded-lg border border-[var(--line)]">
+        <div className="flex items-center gap-1 bg-[var(--ink-3)] p-1 rounded-lg border border-[var(--line)]">
           <button
             onClick={() => setActiveTab("fire")}
-            className={`text-xs px-3 py-1.5 rounded-md transition-all font-medium flex items-center gap-1.5 cursor-pointer ${
+            className={`text-xs px-3 py-1.5 rounded-md transition-all font-mono font-medium flex items-center gap-1.5 cursor-pointer ${
               activeTab === "fire"
                 ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-xs"
-                : "text-[var(--muted)] hover:text-[var(--paper)]"
+                : "text-[var(--mist)] hover:text-[var(--paper)]"
             }`}
           >
             <Flame className="w-3.5 h-3.5" />
-            FIRE Simülatörü
+            <span>FIRE Simülatörü</span>
           </button>
           <button
             onClick={() => setActiveTab("drip")}
-            className={`text-xs px-3 py-1.5 rounded-md transition-all font-medium flex items-center gap-1.5 cursor-pointer ${
+            className={`text-xs px-3 py-1.5 rounded-md transition-all font-mono font-medium flex items-center gap-1.5 cursor-pointer ${
               activeTab === "drip"
                 ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-xs"
-                : "text-[var(--muted)] hover:text-[var(--paper)]"
+                : "text-[var(--mist)] hover:text-[var(--paper)]"
             }`}
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            DRIP Kartopu
+            <span>DRIP Kartopu</span>
           </button>
           <button
             onClick={() => setActiveTab("calendar")}
-            className={`text-xs px-3 py-1.5 rounded-md transition-all font-medium flex items-center gap-1.5 cursor-pointer ${
+            className={`text-xs px-3 py-1.5 rounded-md transition-all font-mono font-medium flex items-center gap-1.5 cursor-pointer ${
               activeTab === "calendar"
                 ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-xs"
-                : "text-[var(--muted)] hover:text-[var(--paper)]"
+                : "text-[var(--mist)] hover:text-[var(--paper)]"
             }`}
           >
             <Calendar className="w-3.5 h-3.5" />
-            Temettü Akışı
+            <span>Temettü Akışı</span>
           </button>
         </div>
       </div>
@@ -170,36 +170,36 @@ export default function DividendFireHub({
         <div className="space-y-5">
           {/* Metrik Özet Kartları */}
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-            <div className="p-3 bg-[var(--ink)]/40 border border-[var(--line)] rounded-lg">
-              <span className="text-xs text-[var(--muted)] block mb-1">Hedef FIRE Rakamı (4%)</span>
+            <div className="p-3 bg-[var(--ink-3)] border border-[var(--line)] rounded-lg">
+              <span className="text-xs font-mono text-[var(--mist)] block mb-1">Hedef FIRE Rakamı (4%)</span>
               <p className="font-mono text-base font-bold text-[var(--paper)]">
                 {fireMetrics.targetFireNumber.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} ₺
               </p>
-              <span className="text-[10px] text-[var(--muted)]">Finansal bağımsızlık eşiği</span>
+              <span className="text-[10px] font-mono text-[var(--mist)]">Finansal bağımsızlık eşiği</span>
             </div>
 
-            <div className="p-3 bg-[var(--ink)]/40 border border-[var(--line)] rounded-lg">
-              <span className="text-xs text-[var(--muted)] block mb-1">İlerleme Oranı</span>
+            <div className="p-3 bg-[var(--ink-3)] border border-[var(--line)] rounded-lg">
+              <span className="text-xs font-mono text-[var(--mist)] block mb-1">İlerleme Oranı</span>
               <p className="font-mono text-base font-bold text-emerald-400">
                 %{fireMetrics.progressPct.toFixed(1)}
               </p>
-              <span className="text-[10px] text-[var(--muted)]">Hedefe ulaşılan kısım</span>
+              <span className="text-[10px] font-mono text-[var(--mist)]">Hedefe ulaşılan kısım</span>
             </div>
 
-            <div className="p-3 bg-[var(--ink)]/40 border border-[var(--line)] rounded-lg">
-              <span className="text-xs text-[var(--muted)] block mb-1">Emekliliğe Kalan Süre</span>
+            <div className="p-3 bg-[var(--ink-3)] border border-[var(--line)] rounded-lg">
+              <span className="text-xs font-mono text-[var(--mist)] block mb-1">Emekliliğe Kalan Süre</span>
               <p className="font-mono text-base font-bold text-amber-400">
                 {fireMetrics.yearsToFire > 50 ? "> 50 Yıl" : `${fireMetrics.yearsToFire} Yıl`}
               </p>
-              <span className="text-[10px] text-[var(--muted)]">({fireMetrics.monthsToFire} Ay)</span>
+              <span className="text-[10px] font-mono text-[var(--mist)]">({fireMetrics.monthsToFire} Ay)</span>
             </div>
 
-            <div className="p-3 bg-[var(--ink)]/40 border border-[var(--line)] rounded-lg">
-              <span className="text-xs text-[var(--muted)] block mb-1">Mevcut Güvenli Pasif Gelir</span>
+            <div className="p-3 bg-[var(--ink-3)] border border-[var(--line)] rounded-lg">
+              <span className="text-xs font-mono text-[var(--mist)] block mb-1">Mevcut Güvenli Pasif Gelir</span>
               <p className="font-mono text-base font-bold text-[var(--brass)]">
                 {fireMetrics.monthlySafeIncome.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} ₺ / ay
               </p>
-              <span className="text-[10px] text-[var(--muted)]">Anapara erimeden çekilebilir</span>
+              <span className="text-[10px] font-mono text-[var(--mist)]">Anapara erimeden çekilebilir</span>
             </div>
           </div>
 
@@ -209,7 +209,7 @@ export default function DividendFireHub({
               <span className="text-[var(--paper)] font-medium">FIRE İlerleme Durumu</span>
               <span className="text-emerald-400 font-bold">%{fireMetrics.progressPct.toFixed(1)}</span>
             </div>
-            <div className="w-full h-3 bg-[var(--ink)] rounded-full overflow-hidden border border-[var(--line)] p-0.5">
+            <div className="w-full h-3 bg-[var(--ink-3)] rounded-full overflow-hidden border border-[var(--line)] p-0.5">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-amber-500 via-emerald-500 to-teal-400 transition-all duration-500"
                 style={{ width: `${fireMetrics.progressPct}%` }}
@@ -218,11 +218,11 @@ export default function DividendFireHub({
           </div>
 
           {/* İnteraktif Simülatör Kaydırıcıları */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-[var(--ink)]/30 border border-[var(--line)] rounded-xl">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl">
             <div className="space-y-2">
-              <div className="flex justify-between text-xs">
-                <span className="text-[var(--muted)]">Aylık Hedef Harcama:</span>
-                <span className="font-mono font-bold text-[var(--paper)]">
+              <div className="flex justify-between text-xs font-mono">
+                <span className="text-[var(--mist)]">Aylık Hedef Harcama:</span>
+                <span className="font-bold text-[var(--paper)]">
                   {monthlyExpenses.toLocaleString("tr-TR")} ₺
                 </span>
               </div>
@@ -238,9 +238,9 @@ export default function DividendFireHub({
             </div>
 
             <div className="space-y-2">
-              <div className="flex justify-between text-xs">
-                <span className="text-[var(--muted)]">Aylık Yeni Tasarruf / Ekleme:</span>
-                <span className="font-mono font-bold text-[var(--paper)]">
+              <div className="flex justify-between text-xs font-mono">
+                <span className="text-[var(--mist)]">Aylık Yeni Tasarruf / Ekleme:</span>
+                <span className="font-bold text-[var(--paper)]">
                   {monthlySavings.toLocaleString("tr-TR")} ₺
                 </span>
               </div>
@@ -256,9 +256,9 @@ export default function DividendFireHub({
             </div>
 
             <div className="space-y-2">
-              <div className="flex justify-between text-xs">
-                <span className="text-[var(--muted)]">Beklenen Yıllık Reel Getiri:</span>
-                <span className="font-mono font-bold text-[var(--paper)]">%{expectedReturn}</span>
+              <div className="flex justify-between text-xs font-mono">
+                <span className="text-[var(--mist)]">Beklenen Yıllık Reel Getiri:</span>
+                <span className="font-bold text-[var(--paper)]">%{expectedReturn}</span>
               </div>
               <input
                 type="range"
@@ -277,38 +277,41 @@ export default function DividendFireHub({
       {/* 2. DRIP KARTOPU SİMÜLATÖRÜ */}
       {activeTab === "drip" && (
         <div className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-            <p className="text-[var(--muted)] max-w-xl">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
+            <p className="text-[var(--mist)] max-w-xl">
               Temettüleri nakit çekmeyip aynı hisselere geri yatırdığınızda oluşan <strong>Bileşik Kartopu Etkisi</strong>.
             </p>
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-1.5 font-mono">
-                <span className="text-[var(--muted)]">Kartopu Çarpanı:</span>
+                <span className="text-[var(--mist)]">Kartopu Çarpanı:</span>
                 <span className="text-emerald-400 font-bold text-sm">{dripData.multiplier}x Katı</span>
               </div>
             </div>
           </div>
 
-          <div className="w-full h-72 bg-[var(--ink)]/40 rounded-lg p-2 border border-[var(--line)]/60">
+          <div className="w-full h-72 bg-[var(--ink-3)] rounded-xl p-3 border border-[var(--line)] shadow-inner">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={dripData.projection} margin={{ top: 10, right: 15, left: -10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" opacity={0.4} />
-                <XAxis dataKey="year" stroke="var(--muted)" fontSize={10} />
+                <XAxis dataKey="year" stroke="var(--mist)" fontSize={10} fontFamily="monospace" />
                 <YAxis
-                  stroke="var(--muted)"
+                  stroke="var(--mist)"
                   fontSize={10}
+                  fontFamily="monospace"
                   tickFormatter={(v) => `${(v / 1000).toFixed(0)}k ₺`}
                 />
                 <Tooltip
                   formatter={(val: any) => [`${Number(val).toLocaleString("tr-TR")} ₺`, ""]}
                   contentStyle={{
-                    backgroundColor: "var(--card)",
-                    borderColor: "var(--line)",
+                    backgroundColor: "var(--ink-2)",
+                    borderColor: "var(--brass-dim)",
                     borderRadius: "8px",
                     fontSize: "12px",
+                    color: "var(--paper)",
+                    fontFamily: "monospace",
                   }}
                 />
-                <Legend wrapperStyle={{ fontSize: "11px" }} />
+                <Legend wrapperStyle={{ fontSize: "11px", fontFamily: "monospace" }} />
                 <Line
                   type="monotone"
                   dataKey="withDrip"
@@ -336,43 +339,46 @@ export default function DividendFireHub({
       {activeTab === "calendar" && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="p-3 bg-[var(--ink)]/40 border border-[var(--line)] rounded-lg">
-              <span className="text-xs text-[var(--muted)] block mb-1">Tahmini Yıllık Temettü</span>
+            <div className="p-3 bg-[var(--ink-3)] border border-[var(--line)] rounded-lg">
+              <span className="text-xs font-mono text-[var(--mist)] block mb-1">Tahmini Yıllık Temettü</span>
               <p className="font-mono text-base font-bold text-emerald-400">
                 {totalAnnualDividends.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} ₺
               </p>
             </div>
-            <div className="p-3 bg-[var(--ink)]/40 border border-[var(--line)] rounded-lg">
-              <span className="text-xs text-[var(--muted)] block mb-1">Aylık Ortalama Temettü</span>
+            <div className="p-3 bg-[var(--ink-3)] border border-[var(--line)] rounded-lg">
+              <span className="text-xs font-mono text-[var(--mist)] block mb-1">Aylık Ortalama Temettü</span>
               <p className="font-mono text-base font-bold text-[var(--paper)]">
                 {(totalAnnualDividends / 12).toLocaleString("tr-TR", { maximumFractionDigits: 0 })} ₺ / ay
               </p>
             </div>
-            <div className="p-3 bg-[var(--ink)]/40 border border-[var(--line)] rounded-lg">
-              <span className="text-xs text-[var(--muted)] block mb-1">Portföy Temettü Verimi</span>
+            <div className="p-3 bg-[var(--ink-3)] border border-[var(--line)] rounded-lg">
+              <span className="text-xs font-mono text-[var(--mist)] block mb-1">Portföy Temettü Verimi</span>
               <p className="font-mono text-base font-bold text-[var(--brass)]">
                 %{portfolioDividendYield.toFixed(2)}
               </p>
             </div>
           </div>
 
-          <div className="w-full h-64 bg-[var(--ink)]/40 rounded-lg p-2 border border-[var(--line)]/60">
+          <div className="w-full h-64 bg-[var(--ink-3)] rounded-xl p-3 border border-[var(--line)] shadow-inner">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthlyDivTimeline} margin={{ top: 10, right: 15, left: -10, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" opacity={0.4} />
-                <XAxis dataKey="month" stroke="var(--muted)" fontSize={11} />
+                <XAxis dataKey="month" stroke="var(--mist)" fontSize={11} fontFamily="monospace" />
                 <YAxis
-                  stroke="var(--muted)"
+                  stroke="var(--mist)"
                   fontSize={10}
+                  fontFamily="monospace"
                   tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
                 />
                 <Tooltip
                   formatter={(val: any) => [`${Number(val).toLocaleString("tr-TR", { maximumFractionDigits: 0 })} ₺`, "Tahmini Temettü"]}
                   contentStyle={{
-                    backgroundColor: "var(--card)",
-                    borderColor: "var(--line)",
+                    backgroundColor: "var(--ink-2)",
+                    borderColor: "var(--brass-dim)",
                     borderRadius: "8px",
                     fontSize: "12px",
+                    color: "var(--paper)",
+                    fontFamily: "monospace",
                   }}
                 />
                 <Bar dataKey="amount" fill="#f59e0b" radius={[4, 4, 0, 0]} />

@@ -121,18 +121,18 @@ export default function PortfolioStressTestHub({
   }, [holdings, totalValue, selectedScenario]);
 
   return (
-    <div className="bg-[var(--card)] border border-[var(--line)] rounded-xl p-5 shadow-xs space-y-5">
+    <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-5 shadow-sm space-y-5">
       {/* Başlık */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--line)] pb-4">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400">
+          <div className="w-8 h-8 rounded-lg bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 shadow-xs">
             <AlertOctagon className="w-4 h-4" />
           </div>
           <div>
             <h3 className="font-serif font-bold text-base text-[var(--paper)]">
-              Stres Testi & Şok Senaryoları (What-If)
+              Stres Testi &amp; Şok Senaryoları (What-If)
             </h3>
-            <p className="text-xs text-[var(--muted)]">
+            <p className="text-xs font-mono text-[var(--mist)]">
               Portföyünüzün ani kur şoku, faiz kararı veya küresel krizlerdeki dayanıklılığını test edin.
             </p>
           </div>
@@ -145,16 +145,16 @@ export default function PortfolioStressTestHub({
           <button
             key={sc.id}
             onClick={() => setSelectedScenarioId(sc.id)}
-            className={`p-3 rounded-xl border text-left transition-all cursor-pointer space-y-1.5 ${
+            className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer space-y-1.5 ${
               selectedScenarioId === sc.id
-                ? "bg-[var(--ink)] border-[var(--brass)] shadow-xs"
-                : "bg-[var(--ink)]/40 border-[var(--line)] hover:border-[var(--muted)]"
+                ? "bg-[var(--ink-3)] border-[var(--brass)] shadow-sm"
+                : "bg-[var(--ink)] border-[var(--line)] hover:border-[var(--brass-dim)] text-[var(--mist)]"
             }`}
           >
             <span className="font-serif font-bold text-xs text-[var(--paper)] block">
               {sc.name}
             </span>
-            <p className="text-[11px] text-[var(--muted)] line-clamp-2">
+            <p className="text-[11px] font-mono text-[var(--mist)] line-clamp-2">
               {sc.desc}
             </p>
           </button>
@@ -162,10 +162,10 @@ export default function PortfolioStressTestHub({
       </div>
 
       {/* Simülasyon Sonuç Paneli */}
-      <div className="p-4 bg-[var(--ink)]/50 border border-[var(--line)] rounded-xl space-y-4">
+      <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-4 shadow-inner">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--line)] pb-3">
           <div>
-            <span className="text-xs text-[var(--muted)]">Seçilen Senaryo:</span>
+            <span className="text-xs font-mono text-[var(--mist)]">Seçilen Senaryo:</span>
             <h4 className="font-serif font-bold text-sm text-[var(--paper)]">
               {selectedScenario.name}
             </h4>
@@ -173,13 +173,13 @@ export default function PortfolioStressTestHub({
 
           <div className="flex items-center gap-4 text-right">
             <div>
-              <span className="text-[11px] text-[var(--muted)] block">Tahmini Portföy Değeri</span>
+              <span className="text-[11px] font-mono text-[var(--mist)] block">Tahmini Portföy Değeri</span>
               <span className="font-mono text-base font-bold text-[var(--paper)]">
                 {simulationResult.simulatedTotal.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} ₺
               </span>
             </div>
             <div>
-              <span className="text-[11px] text-[var(--muted)] block">Tahmini Şok Etkisi</span>
+              <span className="text-[11px] font-mono text-[var(--mist)] block">Tahmini Şok Etkisi</span>
               <span
                 className={`font-mono text-base font-bold ${
                   simulationResult.totalDiff >= 0 ? "text-emerald-400" : "text-rose-400"
@@ -198,7 +198,7 @@ export default function PortfolioStressTestHub({
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-left">
             <thead>
-              <tr className="text-[var(--muted)] border-b border-[var(--line)]/60 font-mono">
+              <tr className="text-[var(--mist)] border-b border-[var(--line)] font-mono">
                 <th className="pb-2">Varlık</th>
                 <th className="pb-2">Kategori</th>
                 <th className="pb-2 text-right">Mevcut Değer</th>
@@ -207,13 +207,13 @@ export default function PortfolioStressTestHub({
                 <th className="pb-2 text-right">Fark</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[var(--line)]/30">
+            <tbody className="divide-y divide-[var(--line)]">
               {simulationResult.items.map((item) => (
-                <tr key={item.symbol} className="hover:bg-[var(--ink)]/30 transition-colors">
+                <tr key={item.symbol} className="hover:bg-[var(--ink-2)] transition-colors">
                   <td className="py-2 font-bold font-mono text-[var(--paper)]">
                     {item.symbol}
                   </td>
-                  <td className="py-2 text-[var(--muted)] uppercase text-[10px]">
+                  <td className="py-2 text-[var(--mist)] uppercase text-[10px] font-mono">
                     {item.category}
                   </td>
                   <td className="py-2 text-right font-mono text-[var(--paper)]">

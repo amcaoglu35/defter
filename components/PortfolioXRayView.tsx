@@ -56,18 +56,18 @@ export default function PortfolioXRayView({ xray }: PortfolioXRayViewProps) {
       {/* Üst Özet & Çeşitlendirme Skoru */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Çeşitlendirme Skoru */}
-        <div className="p-4 bg-[var(--card)] border border-[var(--line)] rounded-xl flex items-center justify-between">
+        <div className="p-4 bg-[var(--ink-2)] border border-[var(--line)] rounded-xl flex items-center justify-between shadow-sm">
           <div className="space-y-1">
-            <div className="flex items-center gap-1.5 text-xs text-[var(--muted)]">
+            <div className="flex items-center gap-1.5 text-xs font-mono text-[var(--mist)]">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
               <span>Çeşitlendirme Düzeyi</span>
             </div>
             <p className="font-serif font-bold text-xl text-[var(--paper)]">
               {xray.diversificationLevel}
             </p>
-            <p className="text-[11px] text-[var(--muted)]">
+            <p className="text-[11px] font-mono text-[var(--mist)]">
               HHI Yoğunlaşma Endeksi:{" "}
-              <span className="font-mono font-bold text-[var(--paper)]">
+              <span className="font-bold text-[var(--paper)]">
                 {xray.hhiScore}
               </span>
             </p>
@@ -90,22 +90,22 @@ export default function PortfolioXRayView({ xray }: PortfolioXRayViewProps) {
         </div>
 
         {/* Toplam Varlık Sayısı */}
-        <div className="p-4 bg-[var(--card)] border border-[var(--line)] rounded-xl space-y-1">
-          <div className="flex items-center gap-1.5 text-xs text-[var(--muted)]">
+        <div className="p-4 bg-[var(--ink-2)] border border-[var(--line)] rounded-xl space-y-1 shadow-sm">
+          <div className="flex items-center gap-1.5 text-xs font-mono text-[var(--mist)]">
             <Layers className="w-4 h-4 text-blue-400" />
             <span>Farklı Varlık Adedi</span>
           </div>
           <p className="font-serif font-bold text-xl text-[var(--paper)]">
             {xray.assetCount} Enstrüman
           </p>
-          <p className="text-[11px] text-[var(--muted)]">
+          <p className="text-[11px] font-mono text-[var(--mist)]">
             Hisse, Fon, Kıymetli Maden ve Döviz
           </p>
         </div>
 
         {/* En Büyük Pozisyon Riski */}
-        <div className="p-4 bg-[var(--card)] border border-[var(--line)] rounded-xl space-y-1">
-          <div className="flex items-center gap-1.5 text-xs text-[var(--muted)]">
+        <div className="p-4 bg-[var(--ink-2)] border border-[var(--line)] rounded-xl space-y-1 shadow-sm">
+          <div className="flex items-center gap-1.5 text-xs font-mono text-[var(--mist)]">
             <AlertTriangle className="w-4 h-4 text-amber-400" />
             <span>En Büyük Varlık Ağırlığı</span>
           </div>
@@ -114,9 +114,9 @@ export default function PortfolioXRayView({ xray }: PortfolioXRayViewProps) {
               ? `${xray.holdings[0].symbol} (%${xray.holdings[0].weightPct.toFixed(1)})`
               : "—"}
           </p>
-          <p className="text-[11px] text-[var(--muted)]">
+          <p className="text-[11px] font-mono text-[var(--mist)]">
             {xray.holdings[0] && xray.holdings[0].weightPct > 25
-              ? "⚠️ Tek varlıkta yüksek yoğunlaşma riski"
+              ? "⚠️ Tek varlıkta yüksek yoğunlaşma"
               : "✅ Sağlıklı dağılım oranı"}
           </p>
         </div>
@@ -125,7 +125,7 @@ export default function PortfolioXRayView({ xray }: PortfolioXRayViewProps) {
       {/* Dağılım Grafikleri Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         {/* 1. Kategori & Varlık Sınıfı Röntgeni */}
-        <div className="bg-[var(--card)] border border-[var(--line)] rounded-xl p-5 shadow-xs space-y-4">
+        <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-5 shadow-sm space-y-4">
           <div className="flex items-center gap-2 border-b border-[var(--line)] pb-3">
             <PieIcon className="w-4 h-4 text-[var(--brass)]" />
             <h4 className="font-serif font-bold text-sm text-[var(--paper)]">
@@ -150,6 +150,14 @@ export default function PortfolioXRayView({ xray }: PortfolioXRayViewProps) {
                     ))}
                   </Pie>
                   <Tooltip
+                    contentStyle={{
+                      backgroundColor: "var(--ink-3)",
+                      borderColor: "var(--brass-dim)",
+                      borderRadius: "8px",
+                      fontSize: "12px",
+                      color: "var(--paper)",
+                      fontFamily: "monospace",
+                    }}
                     formatter={(val: any) => [
                       `${Number(val).toLocaleString("tr-TR")} ₺`,
                       "",
@@ -163,14 +171,14 @@ export default function PortfolioXRayView({ xray }: PortfolioXRayViewProps) {
               {xray.byCategory.map((item) => (
                 <div key={item.name} className="space-y-1">
                   <div className="flex justify-between text-xs">
-                    <span className="flex items-center gap-1.5 text-[var(--paper)] font-medium">
+                    <span className="flex items-center gap-1.5 text-[var(--paper)] font-mono font-medium">
                       <span
                         className="w-2.5 h-2.5 rounded-full"
                         style={{ backgroundColor: item.color }}
                       />
                       {item.name}
                     </span>
-                    <span className="font-mono text-[var(--muted)]">
+                    <span className="font-mono text-[var(--mist)]">
                       %{item.percentage.toFixed(1)} (
                       {item.value.toLocaleString("tr-TR", {
                         maximumFractionDigits: 0,
@@ -178,7 +186,7 @@ export default function PortfolioXRayView({ xray }: PortfolioXRayViewProps) {
                       ₺)
                     </span>
                   </div>
-                  <div className="w-full h-1.5 bg-[var(--line)] rounded-full overflow-hidden">
+                  <div className="w-full h-1.5 bg-[var(--ink-3)] rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full"
                       style={{
@@ -194,7 +202,7 @@ export default function PortfolioXRayView({ xray }: PortfolioXRayViewProps) {
         </div>
 
         {/* 2. Sektörel Dağılım Röntgeni */}
-        <div className="bg-[var(--card)] border border-[var(--line)] rounded-xl p-5 shadow-xs space-y-4">
+        <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-5 shadow-sm space-y-4">
           <div className="flex items-center gap-2 border-b border-[var(--line)] pb-3">
             <Building2 className="w-4 h-4 text-blue-400" />
             <h4 className="font-serif font-bold text-sm text-[var(--paper)]">
@@ -208,10 +216,10 @@ export default function PortfolioXRayView({ xray }: PortfolioXRayViewProps) {
               return (
                 <div key={item.name} className="space-y-1">
                   <div className="flex justify-between text-xs">
-                    <span className="text-[var(--paper)] font-medium truncate max-w-[200px]">
+                    <span className="text-[var(--paper)] font-mono font-medium truncate max-w-[200px]">
                       {item.name}
                     </span>
-                    <span className="font-mono text-[var(--muted)] shrink-0">
+                    <span className="font-mono text-[var(--mist)] shrink-0">
                       %{item.percentage.toFixed(1)} (
                       {item.value.toLocaleString("tr-TR", {
                         maximumFractionDigits: 0,
@@ -219,7 +227,7 @@ export default function PortfolioXRayView({ xray }: PortfolioXRayViewProps) {
                       ₺)
                     </span>
                   </div>
-                  <div className="w-full h-1.5 bg-[var(--line)] rounded-full overflow-hidden">
+                  <div className="w-full h-1.5 bg-[var(--ink-3)] rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full"
                       style={{ width: `${item.percentage}%`, backgroundColor: color }}
@@ -233,14 +241,14 @@ export default function PortfolioXRayView({ xray }: PortfolioXRayViewProps) {
       </div>
 
       {/* 3. Varlık Ağırlıkları Tablosu */}
-      <div className="bg-[var(--card)] border border-[var(--line)] rounded-xl p-5 shadow-xs space-y-3">
+      <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-5 shadow-sm space-y-3">
         <h4 className="font-serif font-bold text-sm text-[var(--paper)] border-b border-[var(--line)] pb-2">
           Tüm Varlıkların Ağırlık ve Getiri Karnesi
         </h4>
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-left">
             <thead>
-              <tr className="text-[var(--muted)] border-b border-[var(--line)]/60 font-mono">
+              <tr className="text-[var(--mist)] border-b border-[var(--line)] font-mono">
                 <th className="pb-2">Varlık</th>
                 <th className="pb-2">Kategori / Sektör</th>
                 <th className="pb-2 text-right">Adet</th>
@@ -249,20 +257,20 @@ export default function PortfolioXRayView({ xray }: PortfolioXRayViewProps) {
                 <th className="pb-2 text-right">Kâr / Zarar</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[var(--line)]/30">
+            <tbody className="divide-y divide-[var(--line)]">
               {xray.holdings.map((h) => (
-                <tr key={h.symbol} className="hover:bg-[var(--ink)]/30 transition-colors">
+                <tr key={h.symbol} className="hover:bg-[var(--ink-3)] transition-colors">
                   <td className="py-2.5 font-bold font-mono text-[var(--paper)]">
                     {h.symbol}
-                    <span className="block text-[10px] font-normal text-[var(--muted)] truncate max-w-[150px]">
+                    <span className="block text-[10px] font-normal text-[var(--mist)] truncate max-w-[150px]">
                       {h.name}
                     </span>
                   </td>
-                  <td className="py-2.5 text-[var(--muted)]">
-                    <span className="px-1.5 py-0.5 rounded-xs bg-[var(--line)]/60 text-[10px] font-medium mr-1 uppercase">
+                  <td className="py-2.5 text-[var(--mist)]">
+                    <span className="px-1.5 py-0.5 rounded-xs bg-[var(--ink-3)] border border-[var(--line)] text-[10px] font-mono font-medium mr-1 uppercase text-[var(--paper)]">
                       {h.category}
                     </span>
-                    <span className="text-[10px]">{h.sector}</span>
+                    <span className="text-[10px] font-mono">{h.sector}</span>
                   </td>
                   <td className="py-2.5 text-right font-mono text-[var(--paper)]">
                     {h.totalQuantity.toLocaleString("tr-TR")}
@@ -288,7 +296,7 @@ export default function PortfolioXRayView({ xray }: PortfolioXRayViewProps) {
                     {h.currency}
                     <span className="block text-[10px]">
                       ({h.unrealizedProfitLossPct >= 0 ? "+" : ""}
-                      {h.unrealizedProfitLossPct.toFixed(1)}%)
+                      {h.unrealizedProfitLossPct.toFixed(2)}%)
                     </span>
                   </td>
                 </tr>

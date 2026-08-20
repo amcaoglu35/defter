@@ -40,12 +40,12 @@ export default function AnalizPage() {
   }, [baskets, companies]);
 
   return (
-    <div className="min-h-screen bg-[var(--paper)] text-[var(--ink)] py-8 px-4 sm:px-8">
+    <div className="min-h-screen bg-[var(--ink)] text-[var(--paper)] py-8 px-4 sm:px-8">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Üst Navigasyon & Başlık */}
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--line)] pb-5">
           <div className="space-y-1">
-            <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
+            <div className="flex items-center gap-2 text-xs text-[var(--mist)] font-mono">
               <Link
                 href="/"
                 className="hover:text-[var(--paper)] flex items-center gap-1 transition-colors"
@@ -54,15 +54,15 @@ export default function AnalizPage() {
                 Ana Sayfa
               </Link>
               <span>/</span>
-              <span className="text-[var(--brass)] font-medium">Analiz & Röntgen Merkezi</span>
+              <span className="text-[var(--brass)] font-medium">Analiz &amp; Röntgen Merkezi</span>
             </div>
             <h1 className="font-serif font-bold text-2xl sm:text-3xl text-[var(--paper)] flex items-center gap-2.5">
-              <span>Portföy Zekası & Röntgen</span>
-              <span className="text-xs font-mono font-normal uppercase px-2 py-0.5 rounded-full bg-[var(--brass-glow)] border border-[var(--brass-dim)] text-[var(--brass)]">
+              <span>Portföy Zekası &amp; Röntgen</span>
+              <span className="text-xs font-mono font-normal uppercase px-2.5 py-0.5 rounded-full bg-[var(--brass-glow)] border border-[var(--brass-dim)] text-[var(--brass)]">
                 PRO ANALİTİK
               </span>
             </h1>
-            <p className="text-xs sm:text-sm text-[var(--muted)]">
+            <p className="text-xs sm:text-sm text-[var(--mist)] font-mono">
               Piyasa kıyaslaması, canlı ısı haritası, sektörel röntgen, temettü projeksiyonu ve stres testleri.
             </p>
           </div>
@@ -71,14 +71,14 @@ export default function AnalizPage() {
           <div className="flex items-center gap-2.5">
             <button
               onClick={() => setIsCsvModalOpen(true)}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[var(--card)] border border-[var(--line)] hover:border-[var(--brass)] text-xs font-medium text-[var(--paper)] transition-all shadow-xs cursor-pointer"
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[var(--ink-2)] border border-[var(--line)] hover:border-[var(--brass)] text-xs font-mono text-[var(--paper)] transition-all shadow-sm cursor-pointer"
             >
               <FileSpreadsheet className="w-4 h-4 text-[var(--brass)]" />
-              CSV İçe / Dışa Aktar
+              <span>CSV İçe / Dışa Aktar</span>
             </button>
             <Link
               href="/sepetlerim"
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[var(--brass)] text-[var(--ink)] text-xs font-bold hover:brightness-110 transition-all shadow-xs"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] text-xs font-bold font-mono transition-all shadow-sm active:scale-95"
             >
               Sepetlerime Git
             </Link>
@@ -87,7 +87,7 @@ export default function AnalizPage() {
 
         {/* Boş Portföy Kontrolü */}
         {xray.holdings.length === 0 ? (
-          <div className="bg-[var(--card)] border border-[var(--line)] rounded-2xl p-8 sm:p-12 text-center space-y-5 shadow-lg">
+          <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-2xl p-8 sm:p-12 text-center space-y-5 shadow-xl">
             <div className="w-16 h-16 rounded-2xl bg-[var(--brass-glow)] border border-[var(--brass-dim)] flex items-center justify-center text-[var(--brass)] mx-auto shadow-md">
               <PieChart className="w-8 h-8" />
             </div>
@@ -95,20 +95,20 @@ export default function AnalizPage() {
               <h3 className="font-serif font-bold text-xl text-[var(--paper)]">
                 Portföy Zekası İçin Varlık Bulunamadı
               </h3>
-              <p className="text-xs sm:text-sm text-[var(--muted)] leading-relaxed">
+              <p className="text-xs sm:text-sm text-[var(--mist)] font-mono leading-relaxed">
                 Piyasa kıyaslaması, sektör röntgeni, canlı ısı haritası ve stres testlerinin çalışabilmesi için en az bir sepet veya pozisyon oluşturmalısınız.
               </p>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
               <Link
                 href="/sepetlerim"
-                className="px-5 py-2.5 rounded-xl bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] text-xs font-bold transition-all shadow-md active:scale-95"
+                className="px-5 py-2.5 rounded-xl bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] text-xs font-bold font-mono transition-all shadow-md active:scale-95"
               >
                 🧺 Hemen Sepet Oluştur
               </Link>
               <Link
                 href="/sirketler"
-                className="px-5 py-2.5 rounded-xl bg-[var(--ink-2)] hover:bg-[var(--ink-3)] border border-[var(--line)] text-[var(--paper)] text-xs font-mono transition-all active:scale-95"
+                className="px-5 py-2.5 rounded-xl bg-[var(--ink-3)] hover:bg-[var(--ink-2)] border border-[var(--line)] text-[var(--paper)] text-xs font-mono transition-all active:scale-95"
               >
                 🏢 Şirketler Kütüğünü İncele
               </Link>
@@ -117,19 +117,19 @@ export default function AnalizPage() {
         ) : (
           <>
             {/* Konsolide Portföy Özet Şeridi */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="p-4 bg-[var(--card)] border border-[var(--line)] rounded-xl space-y-1">
-                <span className="text-xs text-[var(--muted)]">Toplam Portföy Değeri</span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+              <div className="p-4 bg-[var(--ink-2)] border border-[var(--line)] rounded-xl space-y-1 shadow-sm">
+                <span className="text-xs font-mono text-[var(--mist)]">Toplam Portföy Değeri</span>
                 <p className="font-serif font-bold text-xl text-[var(--paper)]">
                   {xray.totalValue.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} ₺
                 </p>
-                <span className="text-[10px] text-[var(--muted)]">
-                  Toplam Maliyet: {xray.totalCost.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} ₺
+                <span className="text-[11px] font-mono text-[var(--mist)] block">
+                  Maliyet: {xray.totalCost.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} ₺
                 </span>
               </div>
 
-              <div className="p-4 bg-[var(--card)] border border-[var(--line)] rounded-xl space-y-1">
-                <span className="text-xs text-[var(--muted)]">Kümülatif Net Kâr / Zarar</span>
+              <div className="p-4 bg-[var(--ink-2)] border border-[var(--line)] rounded-xl space-y-1 shadow-sm">
+                <span className="text-xs font-mono text-[var(--mist)]">Net Kâr / Zarar</span>
                 <p
                   className={`font-serif font-bold text-xl ${
                     xray.totalProfitLoss >= 0 ? "text-emerald-400" : "text-rose-400"
@@ -139,7 +139,7 @@ export default function AnalizPage() {
                   {xray.totalProfitLoss.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} ₺
                 </p>
                 <span
-                  className={`text-[10px] font-mono font-bold ${
+                  className={`text-[11px] font-mono font-bold block ${
                     xray.totalProfitLossPct >= 0 ? "text-emerald-400" : "text-rose-400"
                   }`}
                 >
@@ -148,100 +148,100 @@ export default function AnalizPage() {
                 </span>
               </div>
 
-              <div className="p-4 bg-[var(--card)] border border-[var(--line)] rounded-xl space-y-1">
-                <span className="text-xs text-[var(--muted)]">Çeşitlendirme Düzeyi</span>
+              <div className="p-4 bg-[var(--ink-2)] border border-[var(--line)] rounded-xl space-y-1 shadow-sm">
+                <span className="text-xs font-mono text-[var(--mist)]">Çeşitlendirme</span>
                 <p className="font-serif font-bold text-xl text-[var(--paper)] flex items-center gap-1.5">
                   <ShieldCheck className="w-5 h-5 text-emerald-400" />
-                  {xray.diversificationLevel}
+                  <span>{xray.diversificationLevel}</span>
                 </p>
-                <span className="text-[10px] text-[var(--muted)]">
-                  HHI: {xray.hhiScore} | {xray.assetCount} Farklı Varlık
+                <span className="text-[11px] font-mono text-[var(--mist)] block">
+                  HHI: {xray.hhiScore} • {xray.assetCount} Varlık
                 </span>
               </div>
 
-              <div className="p-4 bg-[var(--card)] border border-[var(--line)] rounded-xl space-y-1">
-                <span className="text-xs text-[var(--muted)]">En Büyük Pozisyon</span>
+              <div className="p-4 bg-[var(--ink-2)] border border-[var(--line)] rounded-xl space-y-1 shadow-sm">
+                <span className="text-xs font-mono text-[var(--mist)]">En Büyük Pozisyon</span>
                 <p className="font-serif font-bold text-xl text-[var(--paper)]">
                   {xray.holdings[0]?.symbol || "—"}
                 </p>
-                <span className="text-[10px] text-[var(--brass)] font-mono">
+                <span className="text-[11px] font-mono text-[var(--brass)] block font-bold">
                   {xray.holdings[0] ? `Ağırlık: %${xray.holdings[0].weightPct.toFixed(1)}` : "Varlık Yok"}
                 </span>
               </div>
             </div>
 
             {/* Ana Sekme Butonları */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-[var(--line)] scrollbar-none">
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-[var(--line)] scrollbar-none">
               <button
                 onClick={() => setActiveTab("benchmark")}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-mono transition-all whitespace-nowrap cursor-pointer ${
                   activeTab === "benchmark"
-                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-xs"
-                    : "text-[var(--muted)] hover:text-[var(--paper)] hover:bg-[var(--line)]/40"
+                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-md"
+                    : "bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)]"
                 }`}
               >
                 <TrendingUp className="w-4 h-4" />
-                Piyasa Kıyaslama (Benchmark)
+                <span>Piyasa Kıyaslama (Benchmark)</span>
               </button>
 
               <button
                 onClick={() => setActiveTab("treemap")}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-mono transition-all whitespace-nowrap cursor-pointer ${
                   activeTab === "treemap"
-                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-xs"
-                    : "text-[var(--muted)] hover:text-[var(--paper)] hover:bg-[var(--line)]/40"
+                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-md"
+                    : "bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)]"
                 }`}
               >
                 <LayoutGrid className="w-4 h-4" />
-                Isı Haritası (Treemap)
+                <span>Isı Haritası (Treemap)</span>
               </button>
 
               <button
                 onClick={() => setActiveTab("xray")}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-mono transition-all whitespace-nowrap cursor-pointer ${
                   activeTab === "xray"
-                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-xs"
-                    : "text-[var(--muted)] hover:text-[var(--paper)] hover:bg-[var(--line)]/40"
+                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-md"
+                    : "bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)]"
                 }`}
               >
                 <PieChart className="w-4 h-4" />
-                Sektörel Röntgen (X-Ray)
+                <span>Sektörel Röntgen (X-Ray)</span>
               </button>
 
               <button
                 onClick={() => setActiveTab("dividends")}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-mono transition-all whitespace-nowrap cursor-pointer ${
                   activeTab === "dividends"
-                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-xs"
-                    : "text-[var(--muted)] hover:text-[var(--paper)] hover:bg-[var(--line)]/40"
+                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-md"
+                    : "bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)]"
                 }`}
               >
                 <Flame className="w-4 h-4" />
-                Temettü, DRIP & FIRE
+                <span>Temettü &amp; FIRE</span>
               </button>
 
               <button
                 onClick={() => setActiveTab("rebalance")}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-mono transition-all whitespace-nowrap cursor-pointer ${
                   activeTab === "rebalance"
-                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-xs"
-                    : "text-[var(--muted)] hover:text-[var(--paper)] hover:bg-[var(--line)]/40"
+                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-md"
+                    : "bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)]"
                 }`}
               >
                 <Scale className="w-4 h-4" />
-                Yeniden Dengeleme (Rebalance)
+                <span>Yeniden Dengeleme</span>
               </button>
 
               <button
                 onClick={() => setActiveTab("stress")}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-mono transition-all whitespace-nowrap cursor-pointer ${
                   activeTab === "stress"
-                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-xs"
-                    : "text-[var(--muted)] hover:text-[var(--paper)] hover:bg-[var(--line)]/40"
+                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-md"
+                    : "bg-[var(--ink-2)] text-[var(--mist)] hover:text-[var(--paper)] border border-[var(--line)]"
                 }`}
               >
                 <AlertOctagon className="w-4 h-4" />
-                Stres Testi (What-If)
+                <span>Stres Testi (What-If)</span>
               </button>
             </div>
 

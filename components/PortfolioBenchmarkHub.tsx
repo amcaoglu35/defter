@@ -167,25 +167,25 @@ export default function PortfolioBenchmarkHub({
   const alpha = totalProfitLossPct - bistReturn;
 
   return (
-    <div className="bg-[var(--card)] border border-[var(--line)] rounded-xl p-5 shadow-xs space-y-5">
+    <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-5 shadow-sm space-y-5">
       {/* Başlık & Kontroller */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--line)] pb-4">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-[var(--brass-glow)] border border-[var(--brass-dim)] flex items-center justify-center text-[var(--brass)]">
+          <div className="w-8 h-8 rounded-lg bg-[var(--brass-glow)] border border-[var(--brass-dim)] flex items-center justify-center text-[var(--brass)] shadow-xs">
             <Trophy className="w-4 h-4" />
           </div>
           <div>
             <h3 className="font-serif font-bold text-base text-[var(--paper)]">
               Piyasa Kıyaslama Motoru (Benchmark Hub)
             </h3>
-            <p className="text-xs text-[var(--muted)]">
-              Portföyünüzün getirisini BIST 100, S&P 500, Altın ve Enflasyon ile yarıştırın.
+            <p className="text-xs font-mono text-[var(--mist)]">
+              Portföyünüzün getirisini BIST 100, S&amp;P 500, Altın ve Dolar ile yarıştırın.
             </p>
           </div>
         </div>
 
         {/* Periyot Seçici */}
-        <div className="flex items-center gap-1 bg-[var(--ink)]/60 p-1 rounded-lg border border-[var(--line)]">
+        <div className="flex items-center gap-1 bg-[var(--ink-3)] p-1 rounded-lg border border-[var(--line)]">
           {(["1A", "3A", "6A", "1Y"] as PeriodType[]).map((p) => (
             <button
               key={p}
@@ -193,7 +193,7 @@ export default function PortfolioBenchmarkHub({
               className={`text-xs px-2.5 py-1 rounded-md transition-all font-mono font-medium cursor-pointer ${
                 selectedPeriod === p
                   ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-xs"
-                  : "text-[var(--muted)] hover:text-[var(--paper)]"
+                  : "text-[var(--mist)] hover:text-[var(--paper)]"
               }`}
             >
               {p}
@@ -204,7 +204,7 @@ export default function PortfolioBenchmarkHub({
 
       {/* Benchmark Aç/Kapa Butonları */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs text-[var(--muted)] mr-1">Karşılaştır:</span>
+        <span className="text-xs font-mono text-[var(--mist)] mr-1">Karşılaştır:</span>
         {(Object.keys(BENCHMARK_CONFIG) as BenchmarkType[]).map((key) => {
           const cfg = BENCHMARK_CONFIG[key];
           const active = activeBenchmarks[key];
@@ -215,25 +215,25 @@ export default function PortfolioBenchmarkHub({
               onClick={() =>
                 setActiveBenchmarks((prev) => ({ ...prev, [key]: !prev[key] }))
               }
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs transition-all border cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono transition-all border cursor-pointer ${
                 active
-                  ? "bg-[var(--ink)] border-[var(--brass)] text-[var(--paper)] shadow-xs"
-                  : "bg-transparent border-[var(--line)] text-[var(--muted)] opacity-60 hover:opacity-100"
+                  ? "bg-[var(--ink-3)] border-[var(--brass)] text-[var(--paper)] font-bold shadow-xs"
+                  : "bg-[var(--ink)] border-[var(--line)] text-[var(--mist)] hover:text-[var(--paper)]"
               }`}
             >
               <span
                 className="w-2.5 h-2.5 rounded-full"
                 style={{ backgroundColor: cfg.color }}
               />
-              <span className="font-medium">{cfg.label}</span>
+              <span>{cfg.label}</span>
               {ret !== null && (
                 <span
-                  className={`font-mono text-[10px] font-bold ${
+                  className={`text-[10px] font-bold ${
                     ret >= 0 ? "text-emerald-400" : "text-rose-400"
                   }`}
                 >
-                  {ret >= 0 ? "+" : ""}
-                  {ret}%
+                  ({ret >= 0 ? "+" : ""}
+                  {ret}%)
                 </span>
               )}
             </button>
@@ -242,38 +242,42 @@ export default function PortfolioBenchmarkHub({
       </div>
 
       {/* Çizgi Grafik */}
-      <div className="w-full h-72 sm:h-80 bg-[var(--ink)]/40 rounded-lg p-2 border border-[var(--line)]/60 relative">
+      <div className="w-full h-72 sm:h-80 bg-[var(--ink-3)] rounded-xl p-3 border border-[var(--line)] relative shadow-inner">
         {loading && (
-          <div className="absolute inset-0 bg-[var(--ink)]/60 backdrop-blur-xs flex items-center justify-center z-10">
+          <div className="absolute inset-0 bg-[var(--ink)]/70 backdrop-blur-xs flex items-center justify-center z-10 rounded-xl">
             <Loader2 className="w-6 h-6 animate-spin text-[var(--brass)]" />
           </div>
         )}
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 10, right: 15, left: -20, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" opacity={0.4} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" opacity={0.5} />
             <XAxis
               dataKey="date"
-              stroke="var(--muted)"
+              stroke="var(--mist)"
               fontSize={10}
+              fontFamily="monospace"
               tickFormatter={(d) => d.slice(5)}
             />
             <YAxis
-              stroke="var(--muted)"
+              stroke="var(--mist)"
               fontSize={10}
+              fontFamily="monospace"
               tickFormatter={(v) => `%${v}`}
               domain={["dataMin - 2", "dataMax + 2"]}
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: "var(--card)",
-                borderColor: "var(--line)",
+                backgroundColor: "var(--ink-2)",
+                borderColor: "var(--brass-dim)",
                 borderRadius: "8px",
                 fontSize: "12px",
+                color: "var(--paper)",
+                fontFamily: "monospace",
               }}
               formatter={(val: any) => [`%${val}`, ""]}
             />
             <Legend
-              wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }}
+              wrapperStyle={{ fontSize: "11px", paddingTop: "8px", fontFamily: "monospace" }}
               iconType="circle"
             />
             <Line
