@@ -644,6 +644,34 @@ interface WeeklyLetterResult {
         const data = await res.json();
         setResult(data.data);
         showToast("Orakul Reçetesi Hazır", `${goal} için özel varlık dağılımı hesaplandı.`, "success");
+
+        // Başarı Karnesi & Karar Takip Listesine Otomatik Kaydet
+        if (data.data) {
+          const budgetNum = parseFloat(budget.replace(/\./g, "")) || 100000;
+          const holdingsSummary = (data.data.allocation || [])
+            .map((a: { symbol: string; weight: number }) => `${a.symbol} (%${a.weight})`)
+            .join(", ");
+
+          addAiHistory({
+            id: `recipe-${Date.now()}`,
+            date: "Bugün " + new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
+            symbol: data.data.allocation?.[0]?.symbol || "SEPET",
+            type: "Sepet Önerisi",
+            title: `AI Sepeti: ${goal} (${strategyArchetype.toUpperCase()})`,
+            description: `${data.data.summary || "Özel optimizasyonlu portföy reçetesi"} Dağılım: ${holdingsSummary}`,
+            verdict: "AL",
+            verdictTag: "GÜÇLÜ AL",
+            verdictDate: new Date().toISOString().split("T")[0],
+            budgetAtCreation: budgetNum,
+            priceAtVerdict: budgetNum,
+            bist100AtVerdict: indices["BIST 100"]?.price || indices["XU100"]?.price || 9840.5,
+            confidence: "%92",
+            outcomeCorrect: null,
+            targetPeriodDays: horizon === "30_gun" ? 30 : horizon === "6_ay" ? 180 : 365,
+            provider: aiStatus?.isRealAiActive ? (aiProvider === "openai" ? "OpenAI" : "Gemini") : "Şablon",
+            model: aiStatus?.isRealAiActive ? (aiProvider === "openai" ? "gpt-4o-mini" : geminiModel) : "Algoritmik",
+          });
+        }
       } else {
         showToast("Reçete Oluşturulamadı", "Yapay zeka motoru yanıt verirken bir sorun oluştu.", "error");
       }
@@ -676,6 +704,29 @@ interface WeeklyLetterResult {
         const data = await res.json();
         setEarningsResult(data.data);
         showToast("Bilanço Karnesi Hazır", `${earningsSymbol} için 30 saniyelik bilanço özeti çıkarıldı.`, "success");
+
+        // Başarı Karnesi ve Takip Listesine Kaydet
+        if (data.data) {
+          const v = data.data.verdict === "ÇOK GÜÇLÜ" || data.data.verdict === "GÜÇLÜ" ? "AL" : data.data.verdict === "ZAYIF" || data.data.verdict === "RİSKLİ" ? "SAT" : "TUT";
+          addAiHistory({
+            id: `earnings-${Date.now()}`,
+            date: "Bugün " + new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
+            symbol: co.symbol,
+            type: "Bilanço Notu",
+            title: `${co.symbol} Bilanço Karnesi (${data.data.grade || "A"})`,
+            description: `${data.data.summary} Bilanço Sağlık Puanı: ${data.data.healthScore}/10.`,
+            verdict: v,
+            verdictTag: data.data.verdict || "DENGELİ",
+            verdictDate: new Date().toISOString().split("T")[0],
+            priceAtVerdict: co.price || 0,
+            bist100AtVerdict: indices["BIST 100"]?.price || indices["XU100"]?.price || 9840.5,
+            confidence: `${(data.data.healthScore || 8) * 10}%`,
+            outcomeCorrect: null,
+            targetPeriodDays: 60,
+            provider: aiStatus?.isRealAiActive ? (aiProvider === "openai" ? "OpenAI" : "Gemini") : "Şablon",
+            model: aiStatus?.isRealAiActive ? (aiProvider === "openai" ? "gpt-4o-mini" : geminiModel) : "Algoritmik",
+          });
+        }
       } else {
         const errJson = await res.json().catch(() => null);
         const msg = errJson?.error || errJson?.message || "Bilanço analizi üretilirken bir sorun oluştu.";
@@ -707,6 +758,29 @@ interface WeeklyLetterResult {
         const data = await res.json();
         setTrapResult(data.data);
         showToast("Tuzak Analizi Tamamlandı", `${trapSymbol} değer tuzağı risk puanı hesaplandı.`, "success");
+
+        // Başarı Karnesi ve Takip Listesine Kaydet
+        if (data.data) {
+          const isTrap = data.data.trapRiskLevel === "YÜKSEK" || data.data.trapRiskLevel === "KRİTİK";
+          addAiHistory({
+            id: `trap-${Date.now()}`,
+            date: "Bugün " + new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
+            symbol: co.symbol,
+            type: "Tuzak Taraması",
+            title: `${co.symbol} Değer Tuzağı Radarı`,
+            description: `${data.data.verdictTitle}. Altman Z: ${data.data.altmanZScore} (${data.data.altmanZone}), Piotroski F: ${data.data.piotroskiFScore}/9.`,
+            verdict: isTrap ? "SAT" : data.data.isGenuineBargain ? "AL" : "TUT",
+            verdictTag: isTrap ? "YÜKSEK RİSK" : data.data.isGenuineBargain ? "FIRSAT" : "NÖTR",
+            verdictDate: new Date().toISOString().split("T")[0],
+            priceAtVerdict: co.price || 0,
+            bist100AtVerdict: indices["BIST 100"]?.price || indices["XU100"]?.price || 9840.5,
+            confidence: "%95",
+            outcomeCorrect: null,
+            targetPeriodDays: 30,
+            provider: aiStatus?.isRealAiActive ? (aiProvider === "openai" ? "OpenAI" : "Gemini") : "Şablon",
+            model: aiStatus?.isRealAiActive ? (aiProvider === "openai" ? "gpt-4o-mini" : geminiModel) : "Algoritmik",
+          });
+        }
       } else {
         const errJson = await res.json().catch(() => null);
         const msg = errJson?.error || errJson?.message || "Tuzak analizi çalıştırılırken bir sorun oluştu.";

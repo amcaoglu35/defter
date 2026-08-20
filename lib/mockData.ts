@@ -144,12 +144,12 @@ export interface NotificationItem {
 export interface AiHistoryItem {
   id: string;
   date: string;
-  type: "Sepet Önerisi" | "Anomali Tespiti" | "Şirket Değerleme" | "Haber Duygu Analizi" | "Reçete" | "Sohbet Analizi" | "Otonom Tarama";
+  type: "Sepet Önerisi" | "Anomali Tespiti" | "Şirket Değerleme" | "Haber Duygu Analizi" | "Reçete" | "Sohbet Analizi" | "Otonom Tarama" | "Bilanço Notu" | "Tuzak Taraması";
   title: string;
   description: string;
   verdictTag: string;
   symbol?: string;
-  verdict?: "AL" | "SAT" | "TUT" | "GÜÇLÜ AL" | "GÜÇLÜ SAT" | "NÖTR" | "DENGELİ";
+  verdict?: "AL" | "SAT" | "TUT" | "GÜÇLÜ AL" | "GÜÇLÜ SAT" | "NÖTR" | "DENGELİ" | "YÜKSEK RİSK" | "FIRSAT";
   verdictDate?: string;
   priceAtVerdict?: number;
   budgetAtCreation?: number;
