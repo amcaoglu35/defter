@@ -62,6 +62,7 @@ import { AiBullBearDebateCard } from "@/components/AiBullBearDebateCard";
 import { AiAgentCommitteeCard } from "@/components/AiAgentCommitteeCard";
 import { AiAnalystTargetGauge } from "@/components/AiAnalystTargetGauge";
 import { AiReportPdfExporter } from "@/components/AiReportPdfExporter";
+import OrakulLiveAnalysisRadar from "@/components/OrakulLiveAnalysisRadar";
 
 export type OrakulCategory = "strategy" | "company" | "market";
 
@@ -1128,23 +1129,22 @@ interface WeeklyLetterResult {
     setAnalysisPhase("1. Bilanço, Gelir Tablosu ve Çarpanlar Çekiliyor...");
 
     try {
-      setTimeout(() => setAnalysisPhase("2. DCF İndirgenmiş Nakit Akımı & İskonto Hesaplanıyor..."), 500);
-      setTimeout(() => setAnalysisPhase("3. Piotroski F-Score, Altman Z & DuPont Modelleri Simüle Ediliyor..."), 1000);
-      setTimeout(() => setAnalysisPhase("4. Kurumsal Orakul Raporu Mühürleniyor..."), 1500);
-
-      const res = await fetch("/api/orakul", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "company_analysis",
-          payload: co,
-          history: aiHistory,
-          provider: aiProvider,
-          model: geminiModel,
-          persona: userSettings?.orakulPersona || "deger",
-          apiKey: aiApiKey,
+      const [res] = await Promise.all([
+        fetch("/api/orakul", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: "company_analysis",
+            payload: co,
+            history: aiHistory,
+            provider: aiProvider,
+            model: geminiModel,
+            persona: userSettings?.orakulPersona || "deger",
+            apiKey: aiApiKey,
+          }),
         }),
-      });
+        new Promise((resolve) => setTimeout(resolve, 2800)),
+      ]);
 
       if (res.ok) {
         const data = await res.json();
@@ -2258,20 +2258,12 @@ interface WeeklyLetterResult {
             </div>
           </div>
 
-          {/* Live Scanning Phase Banner */}
-          {companyLoading && analysisPhase && (
-            <div className="p-4 bg-[var(--ink-3)] border border-[var(--brass)] rounded-xl space-y-2 animate-pulse">
-              <div className="flex items-center justify-between font-mono text-xs">
-                <span className="text-[var(--brass)] font-bold flex items-center gap-2">
-                  <RefreshCw className="w-4 h-4 animate-spin text-[var(--brass)]" />
-                  <span>{analysisPhase}</span>
-                </span>
-                <span className="text-[var(--mist)]">Orakul Quant Motoru v2.4</span>
-              </div>
-              <div className="w-full bg-[var(--ink-2)] h-1.5 rounded-full overflow-hidden">
-                <div className="bg-[var(--brass)] h-full w-3/4 animate-pulse rounded-full" />
-              </div>
-            </div>
+          {/* Live Scanning Radar Terminal */}
+          {companyLoading && (
+            <OrakulLiveAnalysisRadar
+              symbol={selectedCoSymbol}
+              minDurationMs={2800}
+            />
           )}
 
           {/* Single Mode Result */}
