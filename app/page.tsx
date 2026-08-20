@@ -22,11 +22,13 @@ import {
   Target,
   Award,
   Gem,
+  ChevronDown,
+  Newspaper,
+  Calculator,
 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import StampBadge from "@/components/StampBadge";
 import DataStatusBadge from "@/components/DataStatusBadge";
-import LiveKapFeed from "@/components/LiveKapFeed";
 import MonthlyDividendTimeline from "@/components/MonthlyDividendTimeline";
 import CompoundGrowthWidget from "@/components/CompoundGrowthWidget";
 import { PersonalizedKapFeed } from "@/components/PersonalizedKapFeed";
@@ -43,6 +45,11 @@ export default function HomePage() {
 
   // 0. Dashboard Multi-Currency State (TRY / USD / EUR)
   const [dashboardCurrency, setDashboardCurrency] = useState<"TRY" | "USD" | "EUR">("TRY");
+
+  // Katlanabilir Bölüm State'leri (Varsayılan olarak kapalı)
+  const [isDividendTimelineOpen, setIsDividendTimelineOpen] = useState(false);
+  const [isKapFeedOpen, setIsKapFeedOpen] = useState(false);
+  const [isCompoundGrowthOpen, setIsCompoundGrowthOpen] = useState(false);
 
   const usdRate = indices?.["USD/TRY"]?.price || 47.88;
   const eurRate = indices?.["EUR/TRY"]?.price || 55.38;
@@ -1017,15 +1024,6 @@ export default function HomePage() {
         )}
       </section>
 
-      {/* 3.8 Live KAP Disclosures Feed */}
-      <LiveKapFeed
-        symbols={
-          watchlistCompanies.length > 0
-            ? watchlistCompanies.map((c) => c.symbol)
-            : ["THYAO", "EREGL", "TUPRS", "ASELS", "KCHOL"]
-        }
-      />
-
       {/* 4. Company Ledger Section (Featured & Mobile Responsive) */}
       <section className="space-y-4">
         <div className="flex items-end justify-between border-b border-[var(--line)] pb-4">
@@ -1079,8 +1077,13 @@ export default function HomePage() {
                       </Link>
                       <DataStatusBadge symbol={c.symbol} isLive={isLiveSymbol(c.symbol)} />
                     </div>
-                    <div className="text-xs text-[var(--mist)] font-mono">
-                      {c.symbol} • {c.sector}
+                    <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                      <span className="text-xs text-[var(--mist)] font-mono">
+                        {c.symbol} • {c.sector}
+                      </span>
+                      <div className="md:hidden">
+                        <StampBadge verdict={c.recommendation} />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1135,8 +1138,47 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 4.8 Monthly Dividend Timeline */}
-      <MonthlyDividendTimeline />
+      {/* 4.8 Monthly Dividend Timeline (Katlanabilir) */}
+      <section className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl overflow-hidden shadow-sm transition-all">
+        <button
+          type="button"
+          onClick={() => setIsDividendTimelineOpen(!isDividendTimelineOpen)}
+          className="w-full p-4 sm:p-5 flex items-center justify-between gap-4 text-left hover:bg-[var(--ink-3)] transition-colors cursor-pointer"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[var(--brass-glow)] border border-[var(--brass-dim)] flex items-center justify-center text-[var(--brass)] shrink-0">
+              <Coins className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-serif text-base sm:text-lg font-bold text-[var(--paper)]">
+                  12 Aylık Temettü Nakit Akışı Takvimi
+                </h3>
+                <span className="font-mono text-[10px] text-[var(--brass)] bg-[var(--brass-glow)] px-2 py-0.5 rounded border border-[var(--brass-dim)]">
+                  {dividends.length} Şirket Takipte
+                </span>
+              </div>
+              <p className="text-xs font-mono text-[var(--mist)] mt-0.5">
+                Portföyünüzün aylık temettü dağıtım projeksiyonu ve nakit akış takvimi.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 font-mono text-xs text-[var(--brass)] shrink-0">
+            <span>{isDividendTimelineOpen ? "Daralt" : "Genişlet"}</span>
+            <ChevronDown
+              className={`w-4 h-4 transition-transform duration-200 ${
+                isDividendTimelineOpen ? "rotate-180" : ""
+              }`}
+            />
+          </div>
+        </button>
+
+        {isDividendTimelineOpen && (
+          <div className="p-4 sm:p-6 border-t border-[var(--line)] animate-in fade-in duration-200">
+            <MonthlyDividendTimeline />
+          </div>
+        )}
+      </section>
 
       {/* 5. Baskets & IPOs Dual Grid */}
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -1325,11 +1367,89 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 5.5 Personalized KAP Disclosures Feed */}
-      <PersonalizedKapFeed />
+      {/* 5.5 Personalized KAP Disclosures Feed (Katlanabilir) */}
+      <section className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl overflow-hidden shadow-sm transition-all">
+        <button
+          type="button"
+          onClick={() => setIsKapFeedOpen(!isKapFeedOpen)}
+          className="w-full p-4 sm:p-5 flex items-center justify-between gap-4 text-left hover:bg-[var(--ink-3)] transition-colors cursor-pointer"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-sky-400 shrink-0">
+              <Newspaper className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-serif text-base sm:text-lg font-bold text-[var(--paper)]">
+                  Portföye Özel Canlı KAP Akışı
+                </h3>
+                <span className="font-mono text-[10px] text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/30">
+                  Canlı KAP RSS
+                </span>
+              </div>
+              <p className="text-xs font-mono text-[var(--mist)] mt-0.5">
+                Sepetlerinizdeki şirketlerin son 24 saatlik resmi KAP bildirimleri ve özel durum açıklamaları.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 font-mono text-xs text-[var(--brass)] shrink-0">
+            <span>{isKapFeedOpen ? "Daralt" : "Genişlet"}</span>
+            <ChevronDown
+              className={`w-4 h-4 transition-transform duration-200 ${
+                isKapFeedOpen ? "rotate-180" : ""
+              }`}
+            />
+          </div>
+        </button>
 
-      {/* 6. Interactive Compound Growth & FIRE Simulator */}
-      <CompoundGrowthWidget />
+        {isKapFeedOpen && (
+          <div className="p-4 sm:p-6 border-t border-[var(--line)] animate-in fade-in duration-200">
+            <PersonalizedKapFeed />
+          </div>
+        )}
+      </section>
+
+      {/* 6. Interactive Compound Growth & FIRE Simulator (Katlanabilir) */}
+      <section className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl overflow-hidden shadow-sm transition-all">
+        <button
+          type="button"
+          onClick={() => setIsCompoundGrowthOpen(!isCompoundGrowthOpen)}
+          className="w-full p-4 sm:p-5 flex items-center justify-between gap-4 text-left hover:bg-[var(--ink-3)] transition-colors cursor-pointer"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+              <Calculator className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-serif text-base sm:text-lg font-bold text-[var(--paper)]">
+                  İnteraktif Bileşik Büyüme &amp; Gelecek Simülatörü
+                </h3>
+                <span className="font-mono text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
+                  FIRE &amp; Projeksiyon
+                </span>
+              </div>
+              <p className="text-xs font-mono text-[var(--mist)] mt-0.5">
+                Aylık eklemeler ve bileşik getiri gücüyle 5-30 yıllık servet birikim projeksiyonu.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5 font-mono text-xs text-[var(--brass)] shrink-0">
+            <span>{isCompoundGrowthOpen ? "Daralt" : "Genişlet"}</span>
+            <ChevronDown
+              className={`w-4 h-4 transition-transform duration-200 ${
+                isCompoundGrowthOpen ? "rotate-180" : ""
+              }`}
+            />
+          </div>
+        </button>
+
+        {isCompoundGrowthOpen && (
+          <div className="p-4 sm:p-6 border-t border-[var(--line)] animate-in fade-in duration-200">
+            <CompoundGrowthWidget />
+          </div>
+        )}
+      </section>
     </div>
   );
 }

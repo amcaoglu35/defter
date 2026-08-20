@@ -103,11 +103,42 @@ export async function GET(request: Request) {
       return dateB - dateA;
     });
 
-    for (const entry of sortedItems.slice(0, 5)) {
+    // Şirket unvanını MOCK_COMPANIES veya bilinen kütükten bul
+    let companyNamePart = "";
+    try {
+      const { MOCK_COMPANIES } = await import("@/lib/mockData");
+      const co = MOCK_COMPANIES.find((c) => c.symbol.toUpperCase() === cleanSymbol);
+      if (co && co.name) {
+        // Şirket adının ilk kelimesi veya temel kökü (Örn: "Türk Hava Yolları" -> "Türk Hava", "Mavi Giyim" -> "Mavi")
+        companyNamePart = co.name.split(" ")[0].toUpperCase().trim();
+      }
+    } catch {}
+
+    for (const entry of sortedItems) {
+      if (items.length >= 5) break;
+
       const rawTitle = (entry.title || "").trim();
+      const contentSnippet = ((entry as { contentSnippet?: string }).contentSnippet || "").trim();
       const pubDate = entry.pubDate || new Date().toISOString();
 
       if (!rawTitle) continue;
+
+      const combinedUpper = `${rawTitle} ${contentSnippet}`.toUpperCase();
+
+      // Sembol doğrulaması (cleanSymbol kelime olarak veya parantez içinde geçiyor mu?)
+      const hasSymbol =
+        combinedUpper.includes(cleanSymbol) ||
+        combinedUpper.includes(`[${cleanSymbol}]`) ||
+        combinedUpper.includes(`(${cleanSymbol})`);
+
+      // Şirket adı doğrulaması (unvanın ilk kelimesi 3 harften uzunsa)
+      const hasCompanyName =
+        companyNamePart.length >= 3 && combinedUpper.includes(companyNamePart);
+
+      // Eğer ne sembol ne de şirket adı geçmiyorsa bu alakasız bir Google News sonucudur, atla!
+      if (!hasSymbol && !hasCompanyName) {
+        continue;
+      }
 
       items.push({
         id: `kap-${cleanSymbol}-${items.length}-${Date.now()}`,

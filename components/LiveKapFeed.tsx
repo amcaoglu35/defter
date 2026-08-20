@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * ℹ️ NOT: Ana sayfada `PersonalizedKapFeed` tekil feed olarak birleştirildiği için bu bileşen
+ * şu an ana sayfadan kaldırılmıştır. İleride şirket detay sayfalarında (`sirketler/[...symbol]`)
+ * bağımsız sembol akışı olarak kullanılmak üzere korunmaktadır.
+ */
+
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { Newspaper, ExternalLink, RefreshCw, AlertCircle } from "lucide-react";

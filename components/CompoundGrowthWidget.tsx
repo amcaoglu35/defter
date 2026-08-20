@@ -8,7 +8,7 @@ export default function CompoundGrowthWidget() {
   const [initialCapital, setInitialCapital] = useState<number>(100000);
   const [monthlyAddition, setMonthlyAddition] = useState<number>(10000);
   const [years, setYears] = useState<number>(5);
-  const [annualReturnRate, setAnnualReturnRate] = useState<number>(35);
+  const [annualReturnRate, setAnnualReturnRate] = useState<number>(18);
 
   // Future value calculation using standard monthly compound formula
   const projection = useMemo(() => {
