@@ -23,6 +23,7 @@ import {
   AlertTriangle,
   FileSpreadsheet,
   Loader2,
+  Scissors,
 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import { BasketHolding } from "@/lib/mockData";
@@ -40,6 +41,7 @@ import { BasketTreemap } from "@/components/BasketTreemap";
 import { RealReturnBadge } from "@/components/RealReturnBadge";
 import MonteCarloSimulatorModal from "@/components/MonteCarloSimulatorModal";
 import RebalanceModal from "@/components/RebalanceModal";
+import { StockSplitModal } from "@/components/StockSplitModal";
 import { BasketDeviationAlertBar } from "@/components/BasketDeviationAlertBar";
 import { BasketBenchmarkComparison } from "@/components/BasketBenchmarkComparison";
 import { MarketShockSimulatorCard } from "@/components/MarketShockSimulatorCard";
@@ -69,6 +71,8 @@ export default function SepetDetayPage() {
   const [printModalOpen, setPrintModalOpen] = useState(false);
   const [monteCarloModalOpen, setMonteCarloModalOpen] = useState(false);
   const [rebalanceModalOpen, setRebalanceModalOpen] = useState(false);
+  const [splitModalOpen, setSplitModalOpen] = useState(false);
+  const [selectedSplitHolding, setSelectedSplitHolding] = useState<BasketHolding | null>(null);
   const [holdingToDelete, setHoldingToDelete] = useState<BasketHolding | null>(null);
 
   const basket = baskets.find((b) => b.id === basketId);
@@ -177,6 +181,18 @@ export default function SepetDetayPage() {
           >
             <Scale className="w-3.5 h-3.5" />
             <span>Yeniden Dengele</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setSelectedSplitHolding(null);
+              setSplitModalOpen(true);
+            }}
+            className="border border-emerald-500/30 hover:border-emerald-400 text-emerald-300 bg-emerald-500/10 px-3.5 py-1.5 rounded text-xs font-mono flex items-center gap-1.5 transition-all shadow cursor-pointer"
+            title="Bedelsiz sermaye artırımı veya hisse bölünmesi maliyet düzeltici"
+          >
+            <Scissors className="w-3.5 h-3.5" />
+            <span>Bölünme Düzelt</span>
           </button>
 
           <Link
@@ -612,6 +628,14 @@ export default function SepetDetayPage() {
         onClose={() => setRebalanceModalOpen(false)}
         basket={basket}
         companies={companies}
+      />
+
+      {/* Bedelsiz & Hisse Bölünmesi Düzeltme Modalı */}
+      <StockSplitModal
+        isOpen={splitModalOpen}
+        onClose={() => setSplitModalOpen(false)}
+        basket={basket}
+        initialHolding={selectedSplitHolding}
       />
     </div>
   );

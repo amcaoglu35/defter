@@ -34,6 +34,7 @@ export default function PortfolioAiCheckupModal({
     risks: string[];
     recommendations: string[];
     starAssets: string[];
+    isSimulated?: boolean;
   } | null>(null);
 
   const { addAiHistory } = useDefterStore();
@@ -127,6 +128,7 @@ Lütfen bu kesin matematiksel metriklere dayanarak şu JSON formatında yanıt v
             .filter((h: any) => h.unrealizedProfitLossPct > 0)
             .slice(0, 2)
             .map((h: any) => h.symbol),
+          isSimulated: true,
         };
       }
 
@@ -158,23 +160,23 @@ Lütfen bu kesin matematiksel metriklere dayanarak şu JSON formatında yanıt v
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in">
       <div className="bg-[var(--ink-2)] border border-[var(--brass-dim)] rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl space-y-0">
         {/* Modal Başlık */}
-        <div className="p-5 border-b border-[var(--line)] flex items-center justify-between bg-[var(--ink-3)]">
+        <div className="flex items-center justify-between p-5 border-b border-[var(--line)] bg-[var(--ink-3)]">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[var(--brass-glow)] border border-[var(--brass-dim)] flex items-center justify-center text-[var(--brass)] shadow-xs">
-              <Sparkles className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-lg bg-[var(--brass-glow)] border border-[var(--brass-dim)] flex items-center justify-center text-[var(--brass)]">
+              <Sparkles className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-serif font-bold text-lg text-[var(--paper)]">
-                Orakul AI Portföy Check-Up &amp; Akıllı Teşhis
+              <h3 className="font-serif font-bold text-base text-[var(--paper)]">
+                Orakul AI Portföy Check-Up &amp; Röntgen
               </h3>
-              <p className="text-xs font-mono text-[var(--mist)]">
-                Konsolide portföyünüzün derin risk ve fırsat röntgeni.
+              <p className="text-[11px] font-mono text-[var(--mist)]">
+                18 Ekonometri Modeli Eşliğinde Derin Teşhis
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-[var(--mist)] hover:text-[var(--paper)] hover:bg-[var(--line)]/40 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-[var(--mist)] hover:text-[var(--paper)] hover:bg-[var(--ink-2)] transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -216,6 +218,16 @@ Lütfen bu kesin matematiksel metriklere dayanarak şu JSON formatında yanıt v
 
           {report && !loading && (
             <div className="space-y-5 animate-in fade-in duration-300">
+              {/* Simülasyon Modu Uyarısı */}
+              {report.isSimulated && (
+                <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg border border-[var(--brass-dim)] bg-[rgba(201,162,75,0.1)] text-[11px] font-mono text-[var(--brass)]">
+                  <span className="text-sm">⚠️</span>
+                  <span>
+                    <strong>Simülasyon Modu:</strong> Bu teşhis raporu gerçek bir LLM bulut modeli yerine kural-tabanlı ekonometrik hesaplama motoru tarafından üretildi. Canlı yapay zeka analizi için Ayarlar&apos;dan bir API anahtarı ekleyin.
+                  </span>
+                </div>
+              )}
+
               {/* Sağlık Skoru Kartı */}
               <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl flex items-center justify-between">
                 <div className="space-y-1">

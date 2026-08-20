@@ -139,6 +139,16 @@ export function AiAgentCommitteeCard({
 
       {report && (
         <div className="space-y-6 animate-in fade-in duration-300">
+          {/* Simülasyon Modu Uyarısı */}
+          {report.isFallbackMode && (
+            <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg border border-[var(--brass-dim)] bg-[rgba(201,162,75,0.1)] text-[11px] font-mono text-[var(--brass)]">
+              <span className="text-sm">⚠️</span>
+              <span>
+                <strong>Simülasyon Modu:</strong> Bu rapor gerçek bir AI modeli tarafından değil, kurallara dayalı bir yaklaşımla üretildi. Gerçek 10 ajanlı AI tartışması için Ayarlar&apos;dan bir API anahtarı ekleyin.
+              </span>
+            </div>
+          )}
+
           {/* Top KPI Consensus Strip */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="p-3 bg-[var(--ink-3)] rounded-lg border border-[var(--line)]">

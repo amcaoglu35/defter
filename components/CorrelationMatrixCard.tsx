@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useMemo } from "react";
-import { Grid, Info } from "lucide-react";
+import React, { useMemo, useState, useEffect } from "react";
+import { Grid, Info, Loader2 } from "lucide-react";
 import { Basket } from "@/lib/mockData";
 import {
   selfCorrelationResult,
   getCorrelationColorClass,
+  computeCorrelationFromPriceSeries,
   type CorrelationResult,
 } from "@/lib/correlationService";
 
@@ -13,26 +14,92 @@ interface CorrelationMatrixCardProps {
   basket: Basket;
   /**
    * Opsiyonel: Dışarıdan hesaplanmış korelasyon matrisi.
-   * Geçilmezse tüm çiftler "Veri Yok" olarak gösterilir.
-   * Phase 4'te buradaki prop üst component'tan sağlanacak.
+   * Geçilmezse bileşen otomatik olarak /api/prices/history'den çeker.
    */
   correlationResults?: CorrelationResult[];
 }
 
-export function CorrelationMatrixCard({ basket, correlationResults }: CorrelationMatrixCardProps) {
+export function CorrelationMatrixCard({ basket, correlationResults: externalResults }: CorrelationMatrixCardProps) {
+  const [internalResults, setInternalResults] = useState<CorrelationResult[] | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
   const symbols = useMemo(() => {
     return basket.holdings.map((h) => h.companySymbol.toUpperCase()).slice(0, 6);
   }, [basket]);
 
+  // Otomatik Gerçek Tarihsel Fiyat Serisi Çekme & Pearson Hesaplama
+  useEffect(() => {
+    if (externalResults && externalResults.length > 0) {
+      setInternalResults(externalResults);
+      return;
+    }
+
+    if (symbols.length < 2) return;
+
+    let isMounted = true;
+    const fetchHistoryAndCompute = async () => {
+      setIsLoading(true);
+      try {
+        const seriesMap = new Map<string, Array<{ date: string; close: number }>>();
+
+        await Promise.all(
+          symbols.map(async (sym) => {
+            try {
+              const res = await fetch(`/api/prices/history?symbol=${encodeURIComponent(sym)}&range=1y`);
+              if (res.ok) {
+                const data = await res.json();
+                if (Array.isArray(data.history) && data.history.length > 0) {
+                  seriesMap.set(sym, data.history);
+                }
+              }
+            } catch (err) {
+              console.warn(`[Correlation] ${sym} history fetch error:`, err);
+            }
+          })
+        );
+
+        if (!isMounted) return;
+
+        const results: CorrelationResult[] = [];
+        for (let i = 0; i < symbols.length; i++) {
+          for (let j = i + 1; j < symbols.length; j++) {
+            const symA = symbols[i];
+            const symB = symbols[j];
+            const pA = seriesMap.get(symA) || [];
+            const pB = seriesMap.get(symB) || [];
+
+            if (pA.length >= 5 && pB.length >= 5) {
+              const calc = computeCorrelationFromPriceSeries(symA, symB, pA, pB);
+              results.push(calc);
+            }
+          }
+        }
+
+        setInternalResults(results);
+      } catch (err) {
+        console.warn("[Correlation calculation error]:", err);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    fetchHistoryAndCompute();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [symbols, externalResults]);
+
   /**
    * n×n matris oluştur.
    * - Köşegen (i === j): 1.00 (self-correlation)
-   * - Üst/Alt üçgen: props'tan gelen gerçek sonuç; yoksa "unavailable"
+   * - Üst/Alt üçgen: props'tan veya API'den gelen gerçek sonuç; yoksa "unavailable"
    */
   const matrix = useMemo(() => {
+    const activeResults = externalResults || internalResults;
     const resultsMap = new Map<string, CorrelationResult>();
-    if (correlationResults) {
-      for (const r of correlationResults) {
+    if (activeResults) {
+      for (const r of activeResults) {
         resultsMap.set(`${r.symbolA}:${r.symbolB}`, r);
         resultsMap.set(`${r.symbolB}:${r.symbolA}`, r);
       }
@@ -53,7 +120,7 @@ export function CorrelationMatrixCard({ basket, correlationResults }: Correlatio
         } satisfies CorrelationResult;
       })
     );
-  }, [symbols, correlationResults]);
+  }, [symbols, externalResults, internalResults]);
 
   if (symbols.length < 2) return null;
 
@@ -75,6 +142,11 @@ export function CorrelationMatrixCard({ basket, correlationResults }: Correlatio
         </div>
 
         <div className="flex items-center gap-2 font-mono text-[10px]">
+          {isLoading && (
+            <span className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-[var(--brass-glow)] border border-[var(--brass-dim)] text-[var(--brass)] animate-pulse">
+              <Loader2 className="w-3 h-3 animate-spin" /> Fiyat Serisi Hesaplanıyor...
+            </span>
+          )}
           <span className="flex items-center gap-1">
             <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500/40 inline-block" /> Düşük (Çeşitlenmiş)
           </span>
@@ -124,11 +196,10 @@ export function CorrelationMatrixCard({ basket, correlationResults }: Correlatio
       </div>
 
       {/* Data availability note */}
-      <div className="flex items-start gap-2 text-[9px] text-[var(--mist)] bg-[var(--ink-3)] border border-[var(--line)] rounded p-2">
-        <Info className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+      <div className="flex items-start gap-2 text-[10px] text-[var(--mist)] bg-[var(--ink-3)] border border-[var(--line)] rounded p-2.5 font-mono">
+        <Info className="w-4 h-4 mt-0.5 text-[var(--brass)] shrink-0" />
         <span>
-          Korelasyonlar gerçek tarihsel günlük return serilerinden Pearson yöntemiyle hesaplanır.
-          Veri yoksa <strong>—</strong> gösterilir; sektör tahmini kullanılmaz. (Faz 4&apos;te etkin)
+          Korelasyonlar <strong>/api/prices/history</strong> üzerinden çekilen 1 yıllık gerçek günlük getiri serileri ile <strong>Pearson Formülü</strong> kullanılarak canlı hesaplanır.
         </span>
       </div>
     </div>
