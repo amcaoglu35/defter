@@ -24,13 +24,11 @@ import {
   Gem,
   ChevronDown,
   Newspaper,
-  Calculator,
 } from "lucide-react";
 import { useDefterStore } from "@/lib/store";
 import StampBadge from "@/components/StampBadge";
 import DataStatusBadge from "@/components/DataStatusBadge";
 import MonthlyDividendTimeline from "@/components/MonthlyDividendTimeline";
-import CompoundGrowthWidget from "@/components/CompoundGrowthWidget";
 import { PersonalizedKapFeed } from "@/components/PersonalizedKapFeed";
 import PortfolioEquityCurve from "@/components/PortfolioEquityCurve";
 import AssetAllocationDonut from "@/components/AssetAllocationDonut";
@@ -49,7 +47,6 @@ export default function HomePage() {
   // Katlanabilir Bölüm State'leri (Varsayılan olarak kapalı)
   const [isDividendTimelineOpen, setIsDividendTimelineOpen] = useState(false);
   const [isKapFeedOpen, setIsKapFeedOpen] = useState(false);
-  const [isCompoundGrowthOpen, setIsCompoundGrowthOpen] = useState(false);
 
   const usdRate = indices?.["USD/TRY"]?.price || 47.88;
   const eurRate = indices?.["EUR/TRY"]?.price || 55.38;
@@ -1405,48 +1402,6 @@ export default function HomePage() {
         {isKapFeedOpen && (
           <div className="p-4 sm:p-6 border-t border-[var(--line)] animate-in fade-in duration-200">
             <PersonalizedKapFeed />
-          </div>
-        )}
-      </section>
-
-      {/* 6. Interactive Compound Growth & FIRE Simulator (Katlanabilir) */}
-      <section className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl overflow-hidden shadow-sm transition-all">
-        <button
-          type="button"
-          onClick={() => setIsCompoundGrowthOpen(!isCompoundGrowthOpen)}
-          className="w-full p-4 sm:p-5 flex items-center justify-between gap-4 text-left hover:bg-[var(--ink-3)] transition-colors cursor-pointer"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
-              <Calculator className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-serif text-base sm:text-lg font-bold text-[var(--paper)]">
-                  İnteraktif Bileşik Büyüme &amp; Gelecek Simülatörü
-                </h3>
-                <span className="font-mono text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
-                  FIRE &amp; Projeksiyon
-                </span>
-              </div>
-              <p className="text-xs font-mono text-[var(--mist)] mt-0.5">
-                Aylık eklemeler ve bileşik getiri gücüyle 5-30 yıllık servet birikim projeksiyonu.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5 font-mono text-xs text-[var(--brass)] shrink-0">
-            <span>{isCompoundGrowthOpen ? "Daralt" : "Genişlet"}</span>
-            <ChevronDown
-              className={`w-4 h-4 transition-transform duration-200 ${
-                isCompoundGrowthOpen ? "rotate-180" : ""
-              }`}
-            />
-          </div>
-        </button>
-
-        {isCompoundGrowthOpen && (
-          <div className="p-4 sm:p-6 border-t border-[var(--line)] animate-in fade-in duration-200">
-            <CompoundGrowthWidget />
           </div>
         )}
       </section>
