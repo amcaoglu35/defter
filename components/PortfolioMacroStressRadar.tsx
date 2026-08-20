@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useMemo } from "react";
-import { Gauge, Sparkles, DollarSign, Percent, TrendingUp, Layers, Compass } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { Gauge, Sparkles, DollarSign, Percent, TrendingUp, Layers, Compass, HelpCircle } from "lucide-react";
 import { PortfolioAssetHolding } from "@/lib/portfolioIntelligence";
 import { calculateMacroSensitivities } from "@/lib/quantEngine";
+import FormulaInfoModal from "@/components/FormulaInfoModal";
 
 interface PortfolioMacroStressRadarProps {
   holdings: PortfolioAssetHolding[];
@@ -14,6 +15,8 @@ export default function PortfolioMacroStressRadar({
   holdings,
   portfolioBeta,
 }: PortfolioMacroStressRadarProps) {
+  const [activeFormulaKey, setActiveFormulaKey] = useState<string | null>(null);
+
   const quantAssets = useMemo(() => {
     return holdings.map((h) => ({
       symbol: h.symbol,
@@ -57,10 +60,16 @@ export default function PortfolioMacroStressRadar({
       {/* 1. MAKRO ELASTİKİYET KARTLARI */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Dolar Elastikiyeti */}
-        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-1.5">
+        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-1.5 relative">
           <div className="flex items-center justify-between text-xs font-mono">
             <span className="text-[var(--mist)]">Dolar/TL Elastikiyeti</span>
-            <span className="text-[10px] text-emerald-400">Kur Şoku</span>
+            <button
+              onClick={() => setActiveFormulaKey("macroElasticity")}
+              className="text-[var(--mist)] hover:text-emerald-400 cursor-pointer"
+              title="Formül Açıklaması & Rehber"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+            </button>
           </div>
           <p className="font-mono text-2xl font-bold text-emerald-400">
             +{macro.usdElasticityPct}%
@@ -71,10 +80,16 @@ export default function PortfolioMacroStressRadar({
         </div>
 
         {/* Faiz Duyarlılığı */}
-        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-1.5">
+        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-1.5 relative">
           <div className="flex items-center justify-between text-xs font-mono">
             <span className="text-[var(--mist)]">Faiz İndirim Duyarlılığı</span>
-            <span className="text-[10px] text-cyan-400">TCMB Döngüsü</span>
+            <button
+              onClick={() => setActiveFormulaKey("macroElasticity")}
+              className="text-[var(--mist)] hover:text-cyan-400 cursor-pointer"
+              title="Formül Açıklaması & Rehber"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+            </button>
           </div>
           <p className="font-mono text-2xl font-bold text-cyan-400">
             +{macro.interestRateSensitivityPct}%
@@ -85,10 +100,10 @@ export default function PortfolioMacroStressRadar({
         </div>
 
         {/* Enflasyon Beta */}
-        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-1.5">
+        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-1.5 relative">
           <div className="flex items-center justify-between text-xs font-mono">
-            <span className="text-[var(--mist)]">Enflasyon Koruma Gücü (Beta)</span>
-            <span className="text-[10px] text-[var(--brass)]">Reel Getiri</span>
+            <span className="text-[var(--mist)]">Enflasyon Koruma Gücü</span>
+            <span className="text-[10px] text-[var(--brass)]">Reel Beta</span>
           </div>
           <p className="font-mono text-2xl font-bold text-[var(--brass)]">
             {macro.inflationBeta}x
@@ -100,12 +115,21 @@ export default function PortfolioMacroStressRadar({
       </div>
 
       {/* 2. NOBEL ÖDÜLLÜ FAMA-FRENCH 5 FAKTÖR AYRIŞTIRMASI */}
-      <div className="p-4 bg-[var(--ink-3)] border border-[var(--brass-dim)] rounded-xl space-y-3">
+      <div className="p-4 bg-[var(--ink-3)] border border-[var(--brass-dim)] rounded-xl space-y-3 relative">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] pb-2">
-          <h4 className="font-serif font-bold text-sm text-[var(--paper)] flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5">
             <Sparkles className="w-4 h-4 text-[var(--brass)]" />
-            <span>Fama-French 5 Faktör Modeli &amp; Arı Yetenek Alfası (α)</span>
-          </h4>
+            <h4 className="font-serif font-bold text-sm text-[var(--paper)]">
+              Fama-French 5 Faktör Modeli &amp; Arı Yetenek Alfası (α)
+            </h4>
+            <button
+              onClick={() => setActiveFormulaKey("famaFrench")}
+              className="text-[var(--mist)] hover:text-[var(--brass)] cursor-pointer"
+              title="Formül Açıklaması & Rehber"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
+          </div>
           <span className="text-xs font-mono font-bold text-emerald-400">
             Arı Alfa: +%{macro.famaFrench.pureAlphaPct}
           </span>
@@ -168,6 +192,12 @@ export default function PortfolioMacroStressRadar({
           ))}
         </div>
       </div>
+
+      {/* FORMÜL BİLGİ MODALI */}
+      <FormulaInfoModal
+        formulaKey={activeFormulaKey}
+        onClose={() => setActiveFormulaKey(null)}
+      />
     </div>
   );
 }

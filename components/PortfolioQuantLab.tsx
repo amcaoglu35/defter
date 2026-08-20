@@ -11,6 +11,7 @@ import {
   Sliders,
   Network,
   HeartPulse,
+  HelpCircle,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -31,6 +32,7 @@ import {
 import PortfolioCorrelationMatrix from "@/components/PortfolioCorrelationMatrix";
 import PortfolioMonteCarloSimulator from "@/components/PortfolioMonteCarloSimulator";
 import PortfolioAdvancedQuantHub from "@/components/PortfolioAdvancedQuantHub";
+import FormulaInfoModal from "@/components/FormulaInfoModal";
 
 interface PortfolioQuantLabProps {
   holdings: PortfolioAssetHolding[];
@@ -44,6 +46,7 @@ export default function PortfolioQuantLab({
   totalProfitLossPct,
 }: PortfolioQuantLabProps) {
   const [riskFreeRate, setRiskFreeRate] = useState<number>(42.0); // TCMB Mevduat/Faiz Oranı (%)
+  const [activeFormulaKey, setActiveFormulaKey] = useState<string | null>(null);
 
   const quantAssets = useMemo(() => {
     return holdings.map((h) => ({
@@ -82,13 +85,19 @@ export default function PortfolioQuantLab({
       {/* 1. ÜST RİSK & METRİK ŞERİDİ */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         {/* Sharpe Oranı */}
-        <div className="p-4 bg-[var(--ink-2)] border border-[var(--line)] rounded-xl space-y-1 shadow-sm">
+        <div className="p-4 bg-[var(--ink-2)] border border-[var(--line)] rounded-xl space-y-1 shadow-sm relative group">
           <div className="flex items-center justify-between text-xs font-mono text-[var(--mist)]">
             <span className="flex items-center gap-1.5">
               <Award className="w-4 h-4 text-[var(--brass)]" />
               Sharpe Rasyosu
             </span>
-            <span className="text-[10px] text-[var(--mist)]">Rf: %{riskFreeRate}</span>
+            <button
+              onClick={() => setActiveFormulaKey("sharpe")}
+              className="text-[var(--mist)] hover:text-[var(--brass)] cursor-pointer p-0.5"
+              title="Formül Açıklaması & Rehber"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+            </button>
           </div>
           <p
             className={`font-serif font-bold text-2xl ${
@@ -111,10 +120,19 @@ export default function PortfolioQuantLab({
         </div>
 
         {/* Sortino Oranı */}
-        <div className="p-4 bg-[var(--ink-2)] border border-[var(--line)] rounded-xl space-y-1 shadow-sm">
-          <div className="flex items-center gap-1.5 text-xs font-mono text-[var(--mist)]">
-            <Zap className="w-4 h-4 text-cyan-400" />
-            <span>Sortino Rasyosu</span>
+        <div className="p-4 bg-[var(--ink-2)] border border-[var(--line)] rounded-xl space-y-1 shadow-sm relative group">
+          <div className="flex items-center justify-between text-xs font-mono text-[var(--mist)]">
+            <span className="flex items-center gap-1.5">
+              <Zap className="w-4 h-4 text-cyan-400" />
+              Sortino Rasyosu
+            </span>
+            <button
+              onClick={() => setActiveFormulaKey("sortino")}
+              className="text-[var(--mist)] hover:text-cyan-400 cursor-pointer p-0.5"
+              title="Formül Açıklaması & Rehber"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+            </button>
           </div>
           <p
             className={`font-serif font-bold text-2xl ${
@@ -134,9 +152,12 @@ export default function PortfolioQuantLab({
 
         {/* Portföy Betası */}
         <div className="p-4 bg-[var(--ink-2)] border border-[var(--line)] rounded-xl space-y-1 shadow-sm">
-          <div className="flex items-center gap-1.5 text-xs font-mono text-[var(--mist)]">
-            <Activity className="w-4 h-4 text-blue-400" />
-            <span>Portföy Betası (β)</span>
+          <div className="flex items-center justify-between text-xs font-mono text-[var(--mist)]">
+            <span className="flex items-center gap-1.5">
+              <Activity className="w-4 h-4 text-blue-400" />
+              Portföy Betası (β)
+            </span>
+            <span className="text-[10px] text-[var(--mist)]">Rf: %{riskFreeRate}</span>
           </div>
           <p className="font-serif font-bold text-2xl text-[var(--paper)]">
             {riskMetrics.portfolioBeta.toFixed(2)}
@@ -151,10 +172,19 @@ export default function PortfolioQuantLab({
         </div>
 
         {/* Ülser Stres Endeksi (Ulcer Index) */}
-        <div className="p-4 bg-[var(--ink-2)] border border-[var(--line)] rounded-xl space-y-1 shadow-sm">
-          <div className="flex items-center gap-1.5 text-xs font-mono text-[var(--mist)]">
-            <HeartPulse className="w-4 h-4 text-rose-400" />
-            <span>Ülser Stres Endeksi</span>
+        <div className="p-4 bg-[var(--ink-2)] border border-[var(--line)] rounded-xl space-y-1 shadow-sm relative group">
+          <div className="flex items-center justify-between text-xs font-mono text-[var(--mist)]">
+            <span className="flex items-center gap-1.5">
+              <HeartPulse className="w-4 h-4 text-rose-400" />
+              Ülser Stres Endeksi
+            </span>
+            <button
+              onClick={() => setActiveFormulaKey("ulcer")}
+              className="text-[var(--mist)] hover:text-rose-400 cursor-pointer p-0.5"
+              title="Formül Açıklaması & Rehber"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+            </button>
           </div>
           <p
             className={`font-serif font-bold text-2xl ${
@@ -176,10 +206,18 @@ export default function PortfolioQuantLab({
       {/* 2. KUYRUK RİSKİ & VaR (VALUE AT RISK) PANELİ */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* 30 Günlük VaR */}
-        <div className="p-5 bg-[var(--ink-2)] border border-rose-600/30 rounded-xl space-y-2 shadow-sm">
-          <div className="flex items-center gap-2 text-xs font-mono text-rose-400">
-            <ShieldAlert className="w-4 h-4" />
-            <span className="font-bold">30 Günlük %95 VaR</span>
+        <div className="p-5 bg-[var(--ink-2)] border border-rose-600/30 rounded-xl space-y-2 shadow-sm relative">
+          <div className="flex items-center justify-between text-xs font-mono text-rose-400">
+            <span className="flex items-center gap-1.5 font-bold">
+              <ShieldAlert className="w-4 h-4" />
+              30 Günlük %95 VaR
+            </span>
+            <button
+              onClick={() => setActiveFormulaKey("var95")}
+              className="text-rose-400 hover:text-rose-300 cursor-pointer"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
           </div>
           <p className="font-mono text-2xl font-bold text-rose-400">
             -{riskMetrics.var95MonthlyAmount.toLocaleString("tr-TR")} ₺
@@ -225,7 +263,7 @@ export default function PortfolioQuantLab({
         annualizedVolatility={riskMetrics.annualizedVolatility}
       />
 
-      {/* 4. HEDGE FON & İLERİ QUANT METRİKLERİ (Omega, Treynor, M², Shannon) */}
+      {/* 4. HEDGE FON & İLERİ QUANT METRİKLERİ */}
       <PortfolioAdvancedQuantHub metrics={riskMetrics} />
 
       {/* 5. MARKOWITZ ETKİN SINIR (EFFICIENT FRONTIER) GRAFİĞİ */}
@@ -315,6 +353,12 @@ export default function PortfolioQuantLab({
 
       {/* 6. KORELASYON ISI MATRİSİ */}
       <PortfolioCorrelationMatrix holdings={holdings} />
+
+      {/* FORMÜL BİLGİ & SÖZLÜK MODALI */}
+      <FormulaInfoModal
+        formulaKey={activeFormulaKey}
+        onClose={() => setActiveFormulaKey(null)}
+      />
     </div>
   );
 }

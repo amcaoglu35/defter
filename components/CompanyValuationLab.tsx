@@ -17,9 +17,11 @@ import {
   ShieldAlert,
   Activity,
   HeartPulse,
+  HelpCircle,
 } from "lucide-react";
 import { Company } from "@/lib/mockData";
 import { calculateValuationFormulas, ValuationMetrics } from "@/lib/quantEngine";
+import FormulaInfoModal from "@/components/FormulaInfoModal";
 
 interface CompanyValuationLabProps {
   companies: Company[];
@@ -32,6 +34,7 @@ export default function CompanyValuationLab({
     companies[0]?.symbol || "THYAO"
   );
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeFormulaKey, setActiveFormulaKey] = useState<string | null>(null);
 
   const selectedCompany = useMemo(() => {
     return (
@@ -123,10 +126,16 @@ export default function CompanyValuationLab({
       {/* 1. GRAHAM, DCF & PETER LYNCH DEĞERLEME KARTLARI */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Benjamin Graham Sayısı */}
-        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2">
+        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2 relative">
           <div className="flex items-center justify-between text-xs font-mono">
             <span className="text-[var(--mist)]">Graham Sayısı</span>
-            <span className="text-[10px] text-[var(--brass)]">√(22.5×EPS×BVPS)</span>
+            <button
+              onClick={() => setActiveFormulaKey("graham")}
+              className="text-[var(--mist)] hover:text-[var(--brass)] cursor-pointer"
+              title="Formül Açıklaması & Rehber"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+            </button>
           </div>
           <p className="font-mono text-xl font-bold text-[var(--paper)]">
             {valuation.grahamNumber ? `${valuation.grahamNumber} ₺` : "—"}
@@ -147,10 +156,16 @@ export default function CompanyValuationLab({
         </div>
 
         {/* DCF Adil Değeri */}
-        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2">
+        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2 relative">
           <div className="flex items-center justify-between text-xs font-mono">
             <span className="text-[var(--mist)]">DCF Adil Değeri</span>
-            <span className="text-[10px] text-emerald-400">FCF / WACC</span>
+            <button
+              onClick={() => setActiveFormulaKey("dcf")}
+              className="text-[var(--mist)] hover:text-emerald-400 cursor-pointer"
+              title="Formül Açıklaması & Rehber"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+            </button>
           </div>
           <p className="font-mono text-xl font-bold text-emerald-400">
             {valuation.dcfFairValue ? `${valuation.dcfFairValue} ₺` : "—"}
@@ -171,7 +186,7 @@ export default function CompanyValuationLab({
         </div>
 
         {/* Peter Lynch PEG */}
-        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2">
+        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2 relative">
           <div className="flex items-center justify-between text-xs font-mono">
             <span className="text-[var(--mist)]">Peter Lynch PEG</span>
             <span className="text-[10px] text-cyan-400">F/K ÷ Büyüme</span>
@@ -197,7 +212,7 @@ export default function CompanyValuationLab({
         </div>
 
         {/* Gordon Temettü Büyüme Modeli (DDM) */}
-        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2">
+        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2 relative">
           <div className="flex items-center justify-between text-xs font-mono">
             <span className="text-[var(--mist)]">Gordon DDM Değeri</span>
             <span className="text-[10px] text-amber-400">D1 / (r - g)</span>
@@ -212,13 +227,20 @@ export default function CompanyValuationLab({
       </div>
 
       {/* 2. PIOTROSKI F-SCORE 9 KRİTERLİ BİLANÇO MATRİSİ */}
-      <div className="p-5 bg-[var(--ink-3)] border border-[var(--brass-dim)] rounded-xl space-y-4">
+      <div className="p-5 bg-[var(--ink-3)] border border-[var(--brass-dim)] rounded-xl space-y-4 relative">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] pb-3">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-5 h-5 text-[var(--brass)]" />
             <h4 className="font-serif font-bold text-sm text-[var(--paper)]">
               Piotroski F-Score (Stanford 9 Kriterli Bilanço Matrisi)
             </h4>
+            <button
+              onClick={() => setActiveFormulaKey("piotroski")}
+              className="text-[var(--mist)] hover:text-[var(--brass)] cursor-pointer"
+              title="Formül Açıklaması & Rehber"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs font-mono text-[var(--mist)]">Toplam Skor:</span>
@@ -257,10 +279,16 @@ export default function CompanyValuationLab({
       {/* 3. MERTON İFLAS OLASILIĞI, HURST EXPONENT & MAGIC FORMULA */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Merton İflas Modeli */}
-        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2">
+        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2 relative">
           <div className="flex items-center justify-between text-xs font-mono">
             <span className="text-[var(--mist)]">Merton İflas Olasılığı</span>
-            <span className="text-[10px] text-rose-400">1 Yıllık Risk</span>
+            <button
+              onClick={() => setActiveFormulaKey("merton")}
+              className="text-[var(--mist)] hover:text-rose-400 cursor-pointer"
+              title="Formül Açıklaması & Rehber"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+            </button>
           </div>
           <p className="font-mono text-2xl font-bold text-[var(--paper)]">
             %{valuation.mertonDefaultProbabilityPct}
@@ -273,10 +301,16 @@ export default function CompanyValuationLab({
         </div>
 
         {/* Hurst Exponent Trend */}
-        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2">
+        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2 relative">
           <div className="flex items-center justify-between text-xs font-mono">
             <span className="text-[var(--mist)]">Hurst Üssü (Fraktal Trend)</span>
-            <span className="text-[10px] text-cyan-400">H: {valuation.hurstExponent}</span>
+            <button
+              onClick={() => setActiveFormulaKey("hurst")}
+              className="text-[var(--mist)] hover:text-cyan-400 cursor-pointer"
+              title="Formül Açıklaması & Rehber"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+            </button>
           </div>
           <p className="font-mono text-lg font-bold text-cyan-400">
             {valuation.hurstTrendType}
@@ -287,10 +321,16 @@ export default function CompanyValuationLab({
         </div>
 
         {/* Magic Formula */}
-        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2">
+        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2 relative">
           <div className="flex items-center justify-between text-xs font-mono">
             <span className="text-[var(--mist)]">Magic Formula Skoru</span>
-            <span className="text-[10px] text-[var(--brass)]">{valuation.magicFormulaRank}</span>
+            <button
+              onClick={() => setActiveFormulaKey("magicFormula")}
+              className="text-[var(--mist)] hover:text-[var(--brass)] cursor-pointer"
+              title="Formül Açıklaması & Rehber"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+            </button>
           </div>
           <p className="font-mono text-2xl font-bold text-[var(--brass)]">
             {valuation.magicFormulaScore} Puan
@@ -302,12 +342,21 @@ export default function CompanyValuationLab({
       </div>
 
       {/* 4. DUPONT 3 KADEMELİ ROE AYRIŞTIRMASI */}
-      <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-3">
+      <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-3 relative">
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] pb-2">
-          <h4 className="font-serif font-bold text-sm text-[var(--paper)] flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5">
             <Sparkles className="w-4 h-4 text-[var(--brass)]" />
-            <span>DuPont 3 Kademeli Özkaynak Kârlılığı (ROE) Ayrıştırma Ağacı</span>
-          </h4>
+            <h4 className="font-serif font-bold text-sm text-[var(--paper)]">
+              DuPont 3 Kademeli Özkaynak Kârlılığı (ROE) Ayrıştırma Ağacı
+            </h4>
+            <button
+              onClick={() => setActiveFormulaKey("dupont")}
+              className="text-[var(--mist)] hover:text-[var(--brass)] cursor-pointer"
+              title="Formül Açıklaması & Rehber"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+            </button>
+          </div>
           <span className="font-mono text-xs font-bold text-[var(--brass)]">
             Toplam ROE: %{valuation.dupontRoePct}
           </span>
@@ -336,6 +385,12 @@ export default function CompanyValuationLab({
           </div>
         </div>
       </div>
+
+      {/* FORMÜL BİLGİ MODALI */}
+      <FormulaInfoModal
+        formulaKey={activeFormulaKey}
+        onClose={() => setActiveFormulaKey(null)}
+      />
     </div>
   );
 }

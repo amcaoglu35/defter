@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import {
   Zap,
   TrendingUp,
@@ -12,8 +12,10 @@ import {
   Waves,
   PieChart,
   Target,
+  HelpCircle,
 } from "lucide-react";
 import { RiskMetrics } from "@/lib/quantEngine";
+import FormulaInfoModal from "@/components/FormulaInfoModal";
 
 interface PortfolioAdvancedQuantHubProps {
   metrics: RiskMetrics;
@@ -22,6 +24,8 @@ interface PortfolioAdvancedQuantHubProps {
 export default function PortfolioAdvancedQuantHub({
   metrics,
 }: PortfolioAdvancedQuantHubProps) {
+  const [activeFormulaKey, setActiveFormulaKey] = useState<string | null>(null);
+
   return (
     <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-5 shadow-sm space-y-6">
       {/* Başlık */}
@@ -47,10 +51,16 @@ export default function PortfolioAdvancedQuantHub({
       {/* 1. ÜST GRİD: OMEGA, TREYNOR, INFORMATION RATIO, GAIN-TO-PAIN */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         {/* Omega Rasyosu */}
-        <div className="p-3.5 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-1">
+        <div className="p-3.5 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-1 relative">
           <div className="flex items-center justify-between text-xs font-mono text-[var(--mist)]">
             <span>Omega Rasyosu (Ω)</span>
-            <span className="text-[10px] text-cyan-400">Asimetrik Olasılık</span>
+            <button
+              onClick={() => setActiveFormulaKey("omega")}
+              className="text-[var(--mist)] hover:text-cyan-400 cursor-pointer"
+              title="Formül Açıklaması & Rehber"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+            </button>
           </div>
           <p
             className={`font-serif font-bold text-xl ${
@@ -64,15 +74,21 @@ export default function PortfolioAdvancedQuantHub({
             {metrics.omegaRatio.toFixed(2)}
           </p>
           <span className="text-[10px] font-mono text-[var(--mist)] block">
-            {metrics.omegaRatio >= 1.5 ? "💎 Yukarı Yönlü Asimetrik Getiri" : "⚖️ Normal Kazanç Dağılımı"}
+            {metrics.omegaRatio >= 1.5 ? "💎 Asimetrik Kazanç Üstünlüğü" : "⚖️ Normal Kazanç Dağılımı"}
           </span>
         </div>
 
         {/* Treynor Oranı */}
-        <div className="p-3.5 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-1">
+        <div className="p-3.5 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-1 relative">
           <div className="flex items-center justify-between text-xs font-mono text-[var(--mist)]">
             <span>Treynor Oranı</span>
-            <span className="text-[10px] text-[var(--brass)]">(Rp - Rf) / β</span>
+            <button
+              onClick={() => setActiveFormulaKey("treynor")}
+              className="text-[var(--mist)] hover:text-[var(--brass)] cursor-pointer"
+              title="Formül Açıklaması & Rehber"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+            </button>
           </div>
           <p className="font-serif font-bold text-xl text-[var(--paper)]">
             {metrics.treynorRatio.toFixed(2)}
@@ -83,10 +99,16 @@ export default function PortfolioAdvancedQuantHub({
         </div>
 
         {/* Information Ratio (IR) */}
-        <div className="p-3.5 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-1">
+        <div className="p-3.5 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-1 relative">
           <div className="flex items-center justify-between text-xs font-mono text-[var(--mist)]">
             <span>Bilgi Oranı (IR)</span>
-            <span className="text-[10px] text-emerald-400">Alfa / Hata</span>
+            <button
+              onClick={() => setActiveFormulaKey("treynor")}
+              className="text-[var(--mist)] hover:text-emerald-400 cursor-pointer"
+              title="Formül Açıklaması & Rehber"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+            </button>
           </div>
           <p
             className={`font-serif font-bold text-xl ${
@@ -101,16 +123,22 @@ export default function PortfolioAdvancedQuantHub({
         </div>
 
         {/* Gain-to-Pain Ratio */}
-        <div className="p-3.5 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-1">
+        <div className="p-3.5 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-1 relative">
           <div className="flex items-center justify-between text-xs font-mono text-[var(--mist)]">
             <span>Gain-to-Pain Oranı</span>
-            <span className="text-[10px] text-amber-400">J. Schwager</span>
+            <button
+              onClick={() => setActiveFormulaKey("omega")}
+              className="text-[var(--mist)] hover:text-amber-400 cursor-pointer"
+              title="Formül Açıklaması & Rehber"
+            >
+              <HelpCircle className="w-3.5 h-3.5" />
+            </button>
           </div>
           <p className="font-serif font-bold text-xl text-emerald-400">
             {metrics.gainToPainRatio.toFixed(2)}
           </p>
           <span className="text-[10px] font-mono text-[var(--mist)] block">
-            Her 1 ₺ Acıya (Kayba) Karşı Üretilen Net Kâr
+            Her 1 ₺ Acıya Karşı Net Kâr
           </span>
         </div>
       </div>
@@ -118,22 +146,37 @@ export default function PortfolioAdvancedQuantHub({
       {/* 2. ORTA GRİD: MODIGLIANI M², K-RATIO, UP/DOWN CAPTURE, SHANNON ENTROPİ */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Modigliani-Modigliani (M²) */}
-        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2">
+        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2 relative">
           <div className="flex items-center justify-between text-xs font-mono">
             <span className="text-[var(--mist)]">Modigliani M² Getirisi</span>
-            <span className="text-[10px] text-[var(--brass)]">BIST Riskine Eşitlenmiş</span>
+            <button
+              onClick={() => setActiveFormulaKey("mSquared")}
+              className="text-[var(--mist)] hover:text-[var(--brass)] cursor-pointer"
+              title="Formül Açıklaması & Rehber"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
           </div>
           <p className="font-mono text-2xl font-bold text-emerald-400">
             %{metrics.mSquaredPct}
           </p>
           <p className="text-[11px] font-mono text-[var(--mist)] leading-relaxed">
-            Portföyünüz BIST 100 ile birebir aynı dalgalanmaya sahip olsaydı üreteceği saf kümülatif getiri.
+            Portföyünüz BIST 100 ile aynı riskte olsaydı üreteceği saf kümülatif getiri.
           </p>
         </div>
 
         {/* Up / Down Market Capture Oranları */}
-        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2">
-          <span className="text-xs font-mono text-[var(--mist)]">Boğa &amp; Ayı Yakalama Oranları</span>
+        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2 relative">
+          <div className="flex items-center justify-between text-xs font-mono">
+            <span className="text-[var(--mist)]">Boğa &amp; Ayı Yakalama</span>
+            <button
+              onClick={() => setActiveFormulaKey("upDownCapture")}
+              className="text-[var(--mist)] hover:text-[var(--brass)] cursor-pointer"
+              title="Formül Açıklaması & Rehber"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
+          </div>
           <div className="flex items-center justify-between text-xs font-mono pt-1">
             <div className="space-y-0.5">
               <span className="text-[10px] text-emerald-400 block">Up-Capture (Boğa)</span>
@@ -144,22 +187,25 @@ export default function PortfolioAdvancedQuantHub({
               <span className="text-lg font-bold text-rose-400">%{metrics.downMarketCapturePct}</span>
             </div>
           </div>
-          <p className="text-[10px] font-mono text-[var(--mist)]">
-            Boğada %{metrics.upMarketCapturePct} koşarken, düşüşte kaybın sadece %{metrics.downMarketCapturePct}&apos;sini hissediyorsunuz.
-          </p>
         </div>
 
         {/* Shannon Entropisi Çeşitlendirme */}
-        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2">
+        <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2 relative">
           <div className="flex items-center justify-between text-xs font-mono">
             <span className="text-[var(--mist)]">Shannon Entropisi</span>
-            <span className="text-[10px] text-cyan-400">Bilgi Teorisi</span>
+            <button
+              onClick={() => setActiveFormulaKey("shannon")}
+              className="text-[var(--mist)] hover:text-cyan-400 cursor-pointer"
+              title="Formül Açıklaması & Rehber"
+            >
+              <HelpCircle className="w-4 h-4" />
+            </button>
           </div>
           <p className="font-mono text-2xl font-bold text-cyan-400">
             %{metrics.shannonEntropyPct}
           </p>
           <p className="text-[11px] font-mono text-[var(--mist)] leading-relaxed">
-            Claude Shannon bilgi teorisine göre portföyünüzün bağımsızlık ve homojen dağılım mükemmelliği.
+            Claude Shannon bilgi teorisine göre portföyün homojen dağılım mükemmelliği.
           </p>
         </div>
       </div>
@@ -199,6 +245,12 @@ export default function PortfolioAdvancedQuantHub({
           </div>
         </div>
       </div>
+
+      {/* FORMÜL BİLGİ MODALI */}
+      <FormulaInfoModal
+        formulaKey={activeFormulaKey}
+        onClose={() => setActiveFormulaKey(null)}
+      />
     </div>
   );
 }

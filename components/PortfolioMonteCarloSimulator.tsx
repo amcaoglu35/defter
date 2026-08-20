@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { Dices, TrendingUp, ShieldAlert, Sparkles, Sliders, DollarSign, Calendar } from "lucide-react";
+import { Dices, TrendingUp, ShieldAlert, Sparkles, Sliders, DollarSign, Calendar, HelpCircle } from "lucide-react";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -13,6 +13,7 @@ import {
   Legend,
 } from "recharts";
 import { runMonteCarloSimulation, MonteCarloSimulationPoint } from "@/lib/quantEngine";
+import FormulaInfoModal from "@/components/FormulaInfoModal";
 
 interface PortfolioMonteCarloSimulatorProps {
   totalValue: number;
@@ -25,7 +26,8 @@ export default function PortfolioMonteCarloSimulator({
   totalProfitLossPct,
   annualizedVolatility,
 }: PortfolioMonteCarloSimulatorProps) {
-  const [horizonMonths, setHorizonMonths] = useState<number>(36); // 12, 36, 60 ay
+  const [horizonMonths, setHorizonMonths] = useState<number>(36);
+  const [isInfoOpen, setIsInfoOpen] = useState(false);
 
   const simulationData: MonteCarloSimulationPoint[] = useMemo(() => {
     return runMonteCarloSimulation(
@@ -43,7 +45,7 @@ export default function PortfolioMonteCarloSimulator({
   };
 
   return (
-    <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-5 shadow-sm space-y-5">
+    <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-5 shadow-sm space-y-5 relative">
       {/* Başlık ve Süre Seçici */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--line)] pb-4">
         <div className="flex items-center gap-2.5">
@@ -53,12 +55,16 @@ export default function PortfolioMonteCarloSimulator({
           <div>
             <h3 className="font-serif font-bold text-base text-[var(--paper)] flex items-center gap-2">
               <span>Monte Carlo Portföy Gelecek Simülatörü</span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[var(--brass-glow)] border border-[var(--brass-dim)] text-[var(--brass)]">
-                1.000 PATİKA (GBM)
-              </span>
+              <button
+                onClick={() => setIsInfoOpen(true)}
+                className="text-[var(--mist)] hover:text-[var(--brass)] cursor-pointer"
+                title="Formül Açıklaması & Rehber"
+              >
+                <HelpCircle className="w-4 h-4" />
+              </button>
             </h3>
             <p className="text-xs font-mono text-[var(--mist)]">
-              Geometrik Brown Hareketi ve volatilite matrisi ile portföyünüzün gelecekteki muhtemel değer aralıkları.
+              Geometrik Brown Hareketi ve volatilite matrisi ile portföyünüzün muhtemel gelecek patikaları.
             </p>
           </div>
         </div>
@@ -100,7 +106,6 @@ export default function PortfolioMonteCarloSimulator({
 
       {/* 3 Büyük Sonuç Kartı */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-        {/* Kriz Tabanı */}
         <div className="p-3.5 bg-[var(--ink-3)] border border-rose-600/30 rounded-xl space-y-1">
           <span className="text-[11px] font-mono text-rose-400 block">
             %5 Kriz Tabanı (En Kötü Senaryo)
@@ -113,7 +118,6 @@ export default function PortfolioMonteCarloSimulator({
           </span>
         </div>
 
-        {/* Medyan Beklenti */}
         <div className="p-3.5 bg-[var(--ink-3)] border border-[var(--brass-dim)] rounded-xl space-y-1">
           <span className="text-[11px] font-mono text-[var(--brass)] block">
             %50 Medyan (En Olası Gelecek)
@@ -126,7 +130,6 @@ export default function PortfolioMonteCarloSimulator({
           </span>
         </div>
 
-        {/* Boğa Tavanı */}
         <div className="p-3.5 bg-[var(--ink-3)] border border-emerald-600/30 rounded-xl space-y-1">
           <span className="text-[11px] font-mono text-emerald-400 block">
             %95 Boğa Tavanı (En İyimser Senaryo)
@@ -208,6 +211,12 @@ export default function PortfolioMonteCarloSimulator({
           </AreaChart>
         </ResponsiveContainer>
       </div>
+
+      {/* FORMÜL BİLGİ MODALI */}
+      <FormulaInfoModal
+        formulaKey={isInfoOpen ? "monteCarlo" : null}
+        onClose={() => setIsInfoOpen(false)}
+      />
     </div>
   );
 }
