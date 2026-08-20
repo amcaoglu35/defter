@@ -65,6 +65,9 @@ export async function GET(request: Request) {
   const seenTitles = new Set<string>();
 
   try {
+    // Şirket adının ilk kelimesi (Örn: "Türk Hava Yolları" -> "TÜRK HAVA", "Mavi Giyim" -> "MAVI")
+    const companyNamePart = cleanName ? cleanName.split(" ")[0].toUpperCase().trim() : "";
+
     // 1. Primary: Yahoo Finance Search News API
     try {
       const ticker = cleanSymbol.includes(".") ? cleanSymbol : `${cleanSymbol}.IS`;
@@ -73,6 +76,16 @@ export async function GET(request: Request) {
         for (const n of yfRes.news) {
           if (n.title && n.link) {
             const cleanTitle = n.title.trim();
+            const upperTitle = cleanTitle.toUpperCase();
+
+            // Sembol veya şirket adı doğrulaması
+            const matchesSymbol = upperTitle.includes(cleanSymbol);
+            const matchesName = companyNamePart.length >= 3 && upperTitle.includes(companyNamePart);
+
+            if (!matchesSymbol && !matchesName) {
+              continue; // Alakasız yabancı şirket haberlerini atla
+            }
+
             const normalizedTitle = cleanTitle.toLowerCase().slice(0, 30);
             if (!seenTitles.has(normalizedTitle)) {
               seenTitles.add(normalizedTitle);
@@ -97,7 +110,7 @@ export async function GET(request: Request) {
 
     // 2. Secondary: Google News RSS for Turkish financial market coverage
     try {
-      const query = encodeURIComponent(`${cleanSymbol} ${cleanName} BIST hisse`);
+      const query = encodeURIComponent(`"${cleanSymbol}" OR "${cleanName}" hisse site:kap.org.tr OR site:bloomberght.com OR site:foreks.com OR site:ekonomim.com OR site:paraanaliz.com`);
       const googleNewsUrl = `https://news.google.com/rss/search?q=${query}&hl=tr-TR&gl=TR&ceid=TR:tr`;
 
       const response = await fetch(googleNewsUrl, {
@@ -135,6 +148,14 @@ export async function GET(request: Request) {
               publisher = parts.pop() || publisher;
               rawTitle = parts.join(" - ");
             }
+          }
+
+          const upperTitle = rawTitle.toUpperCase();
+          const matchesSymbol = upperTitle.includes(cleanSymbol);
+          const matchesName = companyNamePart.length >= 3 && upperTitle.includes(companyNamePart);
+
+          if (!matchesSymbol && !matchesName) {
+            continue; // Alakasız haberleri atla
           }
 
           const normalizedTitle = rawTitle.toLowerCase().slice(0, 30);

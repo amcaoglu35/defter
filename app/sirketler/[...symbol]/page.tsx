@@ -153,7 +153,7 @@ export default function SirketDetayPage() {
   } | null>(null);
   const [tefasLoading, setTefasLoading] = useState(false);
 
-  // Compute Simply Wall St 5-Dimension Snowflake Health Radar Metrics
+  // Compute Defter 5-Dimension Health Radar Metrics
   const healthRadarMetrics = useMemo(() => {
     if (!company) return [];
     const health = calculateCompanyHealth(company);
@@ -1107,22 +1107,27 @@ export default function SirketDetayPage() {
                     Ek Finansal Rasyolar &amp; Sektör Kıyaslamaları
                   </span>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                    {company.metrics.map((m, idx) => (
-                      <div
-                        key={idx}
-                        className="bg-[var(--ink-3)] border border-[var(--line)] p-2.5 rounded-lg flex items-center justify-between font-mono text-xs"
-                      >
-                        <span className="text-[var(--mist)]">{m.label}:</span>
-                        <div className="text-right">
-                          <span className="font-bold text-[var(--paper)]">{m.value}</span>
-                          {m.peerAvg && (
-                            <span className="text-[10px] text-[var(--mist)] block">
-                              Sektör: {m.peerAvg}
-                            </span>
-                          )}
+                    {company.metrics.map((m, idx) => {
+                      const isDuplicateSectorRatio =
+                        m.label.toLowerCase().includes("f/k") ||
+                        m.label.toLowerCase().includes("pd/dd");
+                      return (
+                        <div
+                          key={idx}
+                          className="bg-[var(--ink-3)] border border-[var(--line)] p-2.5 rounded-lg flex items-center justify-between font-mono text-xs"
+                        >
+                          <span className="text-[var(--mist)]">{m.label}:</span>
+                          <div className="text-right">
+                            <span className="font-bold text-[var(--paper)]">{m.value}</span>
+                            {m.peerAvg && !isDuplicateSectorRatio && (
+                              <span className="text-[10px] text-[var(--mist)] block">
+                                Sektör: {m.peerAvg}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -1131,15 +1136,15 @@ export default function SirketDetayPage() {
 
           {/* Advanced Financial Analysis & Open-Source Valuation Suite */}
           <div className="space-y-6">
-            {/* 1. Seeking Alpha Factor Grades Scorecard */}
+            {/* 1. Factor Grades Scorecard */}
             <FactorGradesScorecard company={company} />
 
             {/* 2. Interactive DCF Valuation Simulator */}
             <DcfValuationSimulator company={company} />
 
-            {/* 3. Simply Wall St Snowflake Radar & Peer Overlay Radar Dual Grid */}
+            {/* 3. Snowflake Radar & Peer Overlay Radar Dual Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Simply Wall St Snowflake Radar Chart */}
+              {/* Snowflake Radar Chart */}
               <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-5 space-y-3">
                 <div className="flex items-center justify-between border-b border-[var(--line)] pb-3">
                   <div className="flex items-center gap-2">
@@ -1149,7 +1154,7 @@ export default function SirketDetayPage() {
                     </h3>
                   </div>
                   <span className="font-mono text-[10px] text-[var(--brass)] bg-[var(--brass-glow)] px-2 py-0.5 rounded font-bold">
-                    Simply Wall St Model
+                    Defter Sağlık Modeli
                   </span>
                 </div>
                 <HealthRadarChart data={healthRadarMetrics} color="var(--verdigris)" />

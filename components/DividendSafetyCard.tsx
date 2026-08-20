@@ -75,7 +75,7 @@ export function DividendSafetyCard({ company }: DividendSafetyCardProps) {
               🛡️ Temettü Güvenliği &amp; Kâr Dağıtım Oranı (Payout Ratio)
             </h3>
             <p className="text-[10px] text-[var(--mist)]">
-              Seeking Alpha Dividend Safety &amp; Coverage Meter
+              Defter Temettü Güvenliği &amp; Karşılama Ölçeri
             </p>
           </div>
         </div>

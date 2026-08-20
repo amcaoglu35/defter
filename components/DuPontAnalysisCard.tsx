@@ -32,7 +32,7 @@ export function DuPontAnalysisCard({ company }: DuPontAnalysisCardProps) {
             <Layers className="w-4 h-4" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <h3 className="font-serif font-bold text-base text-[var(--paper)]">
                 DuPont Kârlılık &amp; ROE Dekompozisyonu
               </h3>
@@ -49,6 +49,11 @@ export function DuPontAnalysisCard({ company }: DuPontAnalysisCardProps) {
               >
                 {healthVerdict}
               </span>
+              {result.isEstimated && (
+                <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded border bg-amber-500/10 text-amber-300 border-amber-500/30">
+                  📌 Sektör Tahmini (Proxy)
+                </span>
+              )}
             </div>
             <p className="text-[10px] font-mono text-[var(--mist)]">
               Özkaynak kârlılığının kaynağı: Marj × Devir Hızı × Finansal Kaldıraç

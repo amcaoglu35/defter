@@ -47,15 +47,16 @@ export function FactorGradesScorecard({ company }: FactorGradesScorecardProps) {
     const profColor = profScore >= 80 ? "var(--verdigris)" : profScore >= 60 ? "var(--brass)" : "var(--loss)";
 
     // 3. Momentum & Growth Grade
-    let growthScore = 65;
-    let growthGrade: GradeItem["grade"] = "B";
-    const momentum = oneYearReturn !== undefined ? oneYearReturn : dailyChange * 10;
-    if (momentum > 40) { growthScore = 95; growthGrade = "A+"; }
-    else if (momentum > 20) { growthScore = 86; growthGrade = "A"; }
-    else if (momentum > 5) { growthScore = 76; growthGrade = "B+"; }
-    else if (momentum >= -10) { growthScore = 65; growthGrade = "B"; }
-    else { growthScore = 40; growthGrade = "D"; }
-    const growthColor = growthScore >= 80 ? "var(--verdigris)" : growthScore >= 60 ? "var(--brass)" : "var(--loss)";
+    let growthScore = 0;
+    let growthGrade: GradeItem["grade"] = "N/A";
+    if (typeof oneYearReturn === "number") {
+      if (oneYearReturn > 40) { growthScore = 95; growthGrade = "A+"; }
+      else if (oneYearReturn > 20) { growthScore = 86; growthGrade = "A"; }
+      else if (oneYearReturn > 5) { growthScore = 76; growthGrade = "B+"; }
+      else if (oneYearReturn >= -10) { growthScore = 65; growthGrade = "B"; }
+      else { growthScore = 40; growthGrade = "D"; }
+    }
+    const growthColor = growthGrade === "N/A" ? "var(--mist)" : growthScore >= 80 ? "var(--verdigris)" : growthScore >= 60 ? "var(--brass)" : "var(--loss)";
 
     // 4. Financial Health & Stability Grade
     let healthScore = 80;
@@ -104,8 +105,8 @@ export function FactorGradesScorecard({ company }: FactorGradesScorecardProps) {
         score: growthScore,
         color: growthColor,
         description: "Yıllık Fiyat & Kazanç Performansı",
-        metricLabel: "Performans",
-        metricValue: oneYearReturn !== undefined ? `%${oneYearReturn}` : `%${dailyChange}`,
+        metricLabel: "1 Yıllık Getiri",
+        metricValue: typeof oneYearReturn === "number" ? `%${oneYearReturn}` : "Veri Yok",
       },
       {
         category: "Finansal Sağlık (Health)",
@@ -138,7 +139,7 @@ export function FactorGradesScorecard({ company }: FactorGradesScorecardProps) {
           </div>
           <div>
             <h3 className="font-serif text-base font-bold text-[var(--paper)]">
-              🏅 Seeking Alpha Faktör Karnesi (Factor Grades)
+              🏅 Defter Faktör Karnesi (Factor Grades)
             </h3>
             <p className="text-[10px] text-[var(--mist)]">
               Sektör Medyanı &amp; Finansal Çarpan Notlandırma

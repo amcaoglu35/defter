@@ -20,13 +20,19 @@ interface PeerOverlayRadarCardProps {
 }
 
 export function PeerOverlayRadarCard({ company, allCompanies }: PeerOverlayRadarCardProps) {
-  // Find potential sector peers
+  // Find potential sector peers (prioritize same sector first)
   const peers = useMemo(() => {
+    const sameSector = allCompanies.filter(
+      (c) =>
+        c.symbol.toUpperCase() !== company.symbol.toUpperCase() &&
+        c.sector === company.sector
+    );
+    if (sameSector.length >= 2) return sameSector.slice(0, 8);
     return allCompanies
       .filter(
         (c) =>
           c.symbol.toUpperCase() !== company.symbol.toUpperCase() &&
-          (c.sector === company.sector || c.exchange === company.exchange)
+          c.exchange === company.exchange
       )
       .slice(0, 8);
   }, [company, allCompanies]);
