@@ -15,6 +15,7 @@ import {
   Sparkles,
   RefreshCw,
   Loader2,
+  ArrowUpRight,
 } from "lucide-react";
 import { useDefterStore, inferAssetClass } from "@/lib/store";
 import { Company } from "@/lib/mockData";
@@ -555,9 +556,9 @@ export default function SirketlerPage() {
       </div>
 
       {/* 5. Company Table */}
-      <div className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl overflow-hidden shadow-lg">
-        {/* Dynamic Desktop Header */}
-        <div className="hidden md:grid grid-cols-[36px_1.5fr_100px_90px_100px_110px_100px_90px_70px] gap-3 px-6 py-3 border-b border-[var(--line)] bg-[var(--ink-3)] font-mono text-[11px] uppercase tracking-wider text-[var(--mist)] items-center">
+      <div className="@container bg-[var(--ink-2)] border border-[var(--line)] rounded-xl overflow-hidden shadow-lg">
+        {/* Dynamic Desktop Header (Container Query: visible when container >= 800px) */}
+        <div className="hidden @[800px]:grid grid-cols-[36px_1.5fr_100px_90px_100px_110px_100px_90px_70px] gap-3 px-6 py-3 border-b border-[var(--line)] bg-[var(--ink-3)] font-mono text-[11px] uppercase tracking-wider text-[var(--mist)] items-center">
           <span>Seç</span>
           <span>Şirket / Varlık</span>
           <span className="text-right">Fiyat</span>
@@ -612,194 +613,125 @@ export default function SirketlerPage() {
               return (
                 <div
                   key={c.id}
-                  className={`grid grid-cols-2 md:grid-cols-[36px_1.5fr_100px_90px_100px_110px_100px_90px_70px] gap-3 p-4 md:px-6 md:py-3.5 items-center hover:bg-[rgba(201,162,75,0.03)] transition-colors ${
+                  className={`p-4 @[800px]:px-6 @[800px]:py-3.5 hover:bg-[rgba(201,162,75,0.03)] transition-colors ${
                     isSelected ? "bg-[rgba(201,162,75,0.06)]" : ""
                   }`}
                 >
-                  {/* Select Checkbox (Desktop) */}
-                  <div className="hidden md:flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => toggleSelect(c.symbol)}
-                      className="accent-[var(--brass)] cursor-pointer w-4 h-4"
-                    />
-                  </div>
-
-                  {/* Company Name & Symbol */}
-                  <div className="flex items-center gap-3 col-span-2 md:col-span-1">
-                    <div className="w-8 h-8 rounded border border-[var(--line)] bg-[var(--ink-3)] flex items-center justify-center font-mono text-xs font-bold text-[var(--brass)] shrink-0">
-                      {c.symbol.slice(0, 3)}
+                  {/* Desktop Multi-column Grid View (Container >= 800px) */}
+                  <div className="hidden @[800px]:grid grid-cols-[36px_1.5fr_100px_90px_100px_110px_100px_90px_70px] gap-3 items-center">
+                    {/* Select Checkbox */}
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelect(c.symbol)}
+                        className="accent-[var(--brass)] cursor-pointer w-4 h-4"
+                      />
                     </div>
-                    <div>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <Link
-                          href={`/sirketler/${encodeURIComponent(c.symbol)}`}
-                          className="font-bold text-sm text-[var(--paper)] hover:text-[var(--brass)] transition-colors font-mono"
-                        >
-                          {c.name}
-                        </Link>
-                        <DataStatusBadge symbol={c.symbol} isLive={isLiveSymbol(c.symbol)} />
-                        {c.volumeRatio && c.volumeRatio >= 1.4 && (
-                          <span className="font-mono text-[9px] bg-[rgba(201,162,75,0.2)] text-[var(--brass)] border border-[var(--brass)] px-1.5 py-0.2 rounded font-bold">
-                            ⚡ Hacim +%{Math.round((c.volumeRatio - 1) * 100)}
-                          </span>
-                        )}
-                        {c.athDiscountPct !== undefined && c.athDiscountPct <= 5 && (
-                          <span className="font-mono text-[9px] bg-[rgba(91,140,123,0.2)] text-[var(--verdigris)] border border-[var(--verdigris)] px-1.5 py-0.2 rounded font-bold">
-                            🎯 Zirvede
-                          </span>
-                        )}
+
+                    {/* Company Name & Symbol */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded border border-[var(--line)] bg-[var(--ink-3)] flex items-center justify-center font-mono text-xs font-bold text-[var(--brass)] shrink-0">
+                        {c.symbol.slice(0, 3)}
                       </div>
-                      <div className="text-[11px] text-[var(--mist)] font-mono flex items-center gap-1.5 flex-wrap">
-                        <span>{c.symbol} • {c.sector}</span>
-                        {c.high52 && (
-                          <span className="text-[10px] text-[var(--mist)] opacity-80">
-                            (52H Zirve: {c.high52} ₺)
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Price */}
-                  <div className="text-left md:text-right font-mono text-sm font-semibold text-[var(--paper)]">
-                    {c.price.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} {c.currency}
-                  </div>
-
-                  {/* Daily % */}
-                  <div
-                    className={`text-right font-mono text-sm font-semibold ${
-                      isDailyPos ? "text-[var(--verdigris)]" : "text-[var(--loss)]"
-                    }`}
-                  >
-                    {isDailyPos ? "+" : ""}
-                    {c.dailyChange}%
-                  </div>
-
-                  {/* 7-Day Trend Sparkline & 52-Week Range Position (Desktop) */}
-                  <div className="hidden md:flex flex-col items-center justify-center gap-1 w-[90px]">
-                    <Sparkline
-                      data={c.priceHistory ? c.priceHistory.map((p) => p.close) : undefined}
-                      width={70}
-                      height={20}
-                    />
-                    {c.high52 && c.low52 && c.high52 > c.low52 ? (
-                      <div className="w-full space-y-0.5">
-                        <div className="w-full h-1 bg-[var(--ink-3)] rounded-full overflow-hidden border border-[var(--line)] flex">
-                          <div
-                            className={`h-full ${isDailyPos ? "bg-[var(--verdigris)]" : "bg-[var(--loss)]"}`}
-                            style={{
-                              width: `${Math.max(5, Math.min(100, ((c.price - c.low52) / (c.high52 - c.low52)) * 100))}%`,
-                            }}
-                          />
+                      <div>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <Link
+                            href={`/sirketler/${encodeURIComponent(c.symbol)}`}
+                            className="font-bold text-sm text-[var(--paper)] hover:text-[var(--brass)] transition-colors font-mono"
+                          >
+                            {c.name}
+                          </Link>
+                          <DataStatusBadge symbol={c.symbol} isLive={isLiveSymbol(c.symbol)} />
+                          {c.volumeRatio && c.volumeRatio >= 1.4 && (
+                            <span className="font-mono text-[9px] bg-[rgba(201,162,75,0.2)] text-[var(--brass)] border border-[var(--brass)] px-1.5 py-0.2 rounded font-bold">
+                              ⚡ Hacim +%{Math.round((c.volumeRatio - 1) * 100)}
+                            </span>
+                          )}
+                          {c.athDiscountPct !== undefined && c.athDiscountPct <= 5 && (
+                            <span className="font-mono text-[9px] bg-[rgba(91,140,123,0.2)] text-[var(--verdigris)] border border-[var(--verdigris)] px-1.5 py-0.2 rounded font-bold">
+                              🎯 Zirvede
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-[var(--mist)] font-mono flex items-center gap-1.5 flex-wrap">
+                          <span>{c.symbol} • {c.sector}</span>
+                          {c.high52 && (
+                            <span className="text-[10px] text-[var(--mist)] opacity-80">
+                              (52H Zirve: {c.high52} ₺)
+                            </span>
+                          )}
                         </div>
                       </div>
-                    ) : null}
-                  </div>
+                    </div>
 
-                  {/* Dynamic Col 5 (Desktop) */}
-                  <div className="hidden md:block text-right font-mono text-xs text-[var(--mist)]">
-                    {assetTab === "hisse"
-                      ? (c.peRatio !== undefined && c.peRatio !== null ? `${c.peRatio}x` : "-")
-                      : assetTab === "maden"
-                      ? (c.madenKategori === "altin" ? "Altın Grubu" : c.madenKategori === "gumus_platin" ? "Kıymetli Metal" : "Enerji / Emtia")
-                      : assetTab === "fon"
-                      ? (c.oneYearReturn !== undefined ? `%${c.oneYearReturn}` : "-")
-                      : (c.symbol.split("/")[0] || c.currency)}
-                  </div>
+                    {/* Price */}
+                    <div className="text-right font-mono text-sm font-semibold text-[var(--paper)]">
+                      {c.price.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} {c.currency}
+                    </div>
 
-                  {/* Dynamic Col 6 (Desktop) */}
-                  <div className="hidden md:block text-right font-mono text-xs text-[var(--paper-dim)]">
-                    {assetTab === "hisse"
-                      ? (c.dividendYield !== undefined && c.dividendYield !== null ? `%${c.dividendYield}` : "-")
-                      : assetTab === "maden"
-                      ? (c.symbol.includes("/GR") ? "Gram" : c.symbol.includes("ONS") ? "Ons" : c.symbol.includes("OIL") || c.symbol.includes("BRENT") ? "Varil" : "Spot")
-                      : assetTab === "fon"
-                      ? (c.expenseRatio !== undefined ? `%${c.expenseRatio}` : "-")
-                      : (c.symbol.includes("/TRY") ? "TL Kuru" : "Çapraz Kur")}
-                  </div>
-
-                  {/* Stamp Verdict (Desktop) */}
-                  <div className="hidden md:flex justify-center">
-                    <StampBadge verdict={c.recommendation} />
-                  </div>
-
-                  {/* Desktop Action buttons */}
-                  <div className="hidden md:flex items-center justify-end gap-2">
-                    <button
-                      onClick={() => toggleWatchlist(c.symbol)}
-                      className={`p-1.5 rounded transition-colors cursor-pointer ${
-                        c.inWatchlist
-                          ? "text-[var(--brass)] bg-[var(--brass-glow)]"
-                          : "text-[var(--mist)] hover:text-[var(--paper)]"
+                    {/* Daily % */}
+                    <div
+                      className={`text-right font-mono text-sm font-semibold ${
+                        isDailyPos ? "text-[var(--verdigris)]" : "text-[var(--loss)]"
                       }`}
-                      title={c.inWatchlist ? "İzleme Listesinde" : "İzlemeye Al"}
                     >
-                      {c.inWatchlist ? (
-                        <BookmarkCheck className="w-3.5 h-3.5" />
+                      {isDailyPos ? "+" : ""}
+                      {c.dailyChange}%
+                    </div>
+
+                    {/* 7-Day Trend Sparkline & 52-Week Range Position */}
+                    <div className="flex flex-col items-center justify-center gap-1 w-[90px]">
+                      <Sparkline
+                        data={c.priceHistory ? c.priceHistory.map((p) => p.close) : undefined}
+                        width={70}
+                        height={20}
+                      />
+                      {c.high52 && c.low52 && c.high52 > c.low52 ? (
+                        <div className="w-full space-y-0.5">
+                          <div className="w-full h-1 bg-[var(--ink-3)] rounded-full overflow-hidden border border-[var(--line)] flex">
+                            <div
+                              className={`h-full ${isDailyPos ? "bg-[var(--verdigris)]" : "bg-[var(--loss)]"}`}
+                              style={{
+                                width: `${Math.max(5, Math.min(100, ((c.price - c.low52) / (c.high52 - c.low52)) * 100))}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
                       ) : (
-                        <Bookmark className="w-3.5 h-3.5" />
-                      )}
-                    </button>
-
-                    <button
-                      onClick={(e) => handleRequestDelete(c.symbol, e)}
-                      className="p-1.5 text-[var(--mist)] hover:text-[var(--loss)] transition-colors cursor-pointer"
-                      title="Varlığı Kütükten Sil"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  {/* Mobile Enriched Sub-Card Row */}
-                  <div className="col-span-2 md:hidden flex items-center justify-between gap-2 pt-2.5 mt-1 border-t border-dashed border-[var(--line)] font-mono text-[11px]">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <StampBadge verdict={c.recommendation} />
-                      {assetTab === "hisse" && (
-                        <>
-                          {c.peRatio ? (
-                            <span className="text-[var(--mist)]">
-                              F/K: <strong className="text-[var(--paper)]">{c.peRatio}x</strong>
-                            </span>
-                          ) : null}
-                          {c.dividendYield ? (
-                            <span className="text-[var(--mist)]">
-                              Tem: <strong className="text-[var(--verdigris)]">%{c.dividendYield}</strong>
-                            </span>
-                          ) : null}
-                        </>
-                      )}
-                      {assetTab === "maden" && (
-                        <span className="text-[var(--mist)]">
-                          {c.madenKategori === "altin" ? "Altın" : c.madenKategori === "gumus_platin" ? "Metal" : "Emtia"}
-                        </span>
-                      )}
-                      {assetTab === "fon" && (
-                        <>
-                          <span className="text-[var(--mist)]">
-                            {c.exchange === "BIST" ? "TEFAS" : "ETF"}
-                          </span>
-                          {c.oneYearReturn !== undefined && (
-                            <span className="text-[var(--mist)]">
-                              1Y: <strong className="text-[var(--verdigris)]">%{c.oneYearReturn}</strong>
-                            </span>
-                          )}
-                          {c.expenseRatio !== undefined && (
-                            <span className="text-[var(--mist)]">
-                              Gider: <strong className="text-[var(--paper)]">%{c.expenseRatio}</strong>
-                            </span>
-                          )}
-                        </>
-                      )}
-                      {assetTab === "doviz" && (
-                        <span className="text-[var(--mist)]">
-                          {c.symbol.includes("/TRY") ? "TL Kuru" : "Çapraz"}
-                        </span>
+                        <span className="text-[10px] font-mono text-[var(--mist)] opacity-50">—</span>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-1 shrink-0">
+                    {/* Dynamic Col 5: F/K (Fix: > 0 check to prevent 0x) */}
+                    <div className="text-right font-mono text-xs text-[var(--mist)]">
+                      {assetTab === "hisse"
+                        ? (c.peRatio !== undefined && c.peRatio !== null && c.peRatio > 0 ? `${c.peRatio}x` : "—")
+                        : assetTab === "maden"
+                        ? (c.madenKategori === "altin" ? "Altın Grubu" : c.madenKategori === "gumus_platin" ? "Kıymetli Metal" : "Enerji / Emtia")
+                        : assetTab === "fon"
+                        ? (c.oneYearReturn !== undefined ? `%${c.oneYearReturn}` : "—")
+                        : (c.symbol.split("/")[0] || c.currency)}
+                    </div>
+
+                    {/* Dynamic Col 6: Temettü */}
+                    <div className="text-right font-mono text-xs text-[var(--paper-dim)]">
+                      {assetTab === "hisse"
+                        ? (c.dividendYield !== undefined && c.dividendYield !== null && c.dividendYield > 0 ? `%${c.dividendYield}` : "—")
+                        : assetTab === "maden"
+                        ? (c.symbol.includes("/GR") ? "Gram" : c.symbol.includes("ONS") ? "Ons" : c.symbol.includes("OIL") || c.symbol.includes("BRENT") ? "Varil" : "Spot")
+                        : assetTab === "fon"
+                        ? (c.expenseRatio !== undefined ? `%${c.expenseRatio}` : "—")
+                        : (c.symbol.includes("/TRY") ? "TL Kuru" : "Çapraz Kur")}
+                    </div>
+
+                    {/* Stamp Verdict */}
+                    <div className="flex justify-center">
+                      <StampBadge verdict={c.recommendation} />
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => toggleWatchlist(c.symbol)}
                         className={`p-1.5 rounded transition-colors cursor-pointer ${
@@ -823,6 +755,125 @@ export default function SirketlerPage() {
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
+                    </div>
+                  </div>
+
+                  {/* Mobile Enriched Responsive Card View (Container < 800px) */}
+                  <div className="@[800px]:hidden space-y-3">
+                    {/* Top Row: Symbol & Name & Price */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelect(c.symbol)}
+                          className="accent-[var(--brass)] cursor-pointer w-4 h-4 shrink-0"
+                        />
+                        <div className="w-7 h-7 rounded border border-[var(--line)] bg-[var(--ink-3)] flex items-center justify-center font-mono text-xs font-bold text-[var(--brass)] shrink-0">
+                          {c.symbol.slice(0, 3)}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Link
+                              href={`/sirketler/${encodeURIComponent(c.symbol)}`}
+                              className="font-bold text-sm text-[var(--paper)] hover:text-[var(--brass)] transition-colors font-mono"
+                            >
+                              {c.name}
+                            </Link>
+                            <DataStatusBadge symbol={c.symbol} isLive={isLiveSymbol(c.symbol)} />
+                          </div>
+                          <div className="text-[10px] text-[var(--mist)] font-mono">
+                            {c.symbol} • {c.sector}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-right font-mono shrink-0">
+                        <div className="text-sm font-semibold text-[var(--paper)]">
+                          {c.price.toLocaleString("tr-TR", { minimumFractionDigits: 2 })} {c.currency}
+                        </div>
+                        <div
+                          className={`text-xs font-bold ${
+                            isDailyPos ? "text-[var(--verdigris)]" : "text-[var(--loss)]"
+                          }`}
+                        >
+                          {isDailyPos ? "+" : ""}
+                          {c.dailyChange}%
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bottom Row: Verdict, Key Metric & Quick Actions */}
+                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-dashed border-[var(--line)] font-mono text-[11px]">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <StampBadge verdict={c.recommendation} />
+
+                        {assetTab === "hisse" && (
+                          <>
+                            {c.peRatio && c.peRatio > 0 ? (
+                              <span className="text-[var(--mist)]">
+                                F/K: <strong className="text-[var(--paper)]">{c.peRatio}x</strong>
+                              </span>
+                            ) : null}
+                            {c.dividendYield && c.dividendYield > 0 ? (
+                              <span className="text-[var(--mist)]">
+                                Tem: <strong className="text-[var(--verdigris)]">%{c.dividendYield}</strong>
+                              </span>
+                            ) : null}
+                          </>
+                        )}
+                        {assetTab === "maden" && (
+                          <span className="text-[var(--mist)]">
+                            {c.madenKategori === "altin" ? "Altın" : c.madenKategori === "gumus_platin" ? "Metal" : "Emtia"}
+                          </span>
+                        )}
+                        {assetTab === "fon" && (
+                          <>
+                            <span className="text-[var(--mist)]">
+                              {c.exchange === "BIST" ? "TEFAS" : "ETF"}
+                            </span>
+                            {c.oneYearReturn !== undefined && (
+                              <span className="text-[var(--mist)]">
+                                1Y: <strong className="text-[var(--verdigris)]">%{c.oneYearReturn}</strong>
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          onClick={() => toggleWatchlist(c.symbol)}
+                          className={`p-1.5 rounded transition-colors cursor-pointer ${
+                            c.inWatchlist
+                              ? "text-[var(--brass)] bg-[var(--brass-glow)]"
+                              : "text-[var(--mist)] hover:text-[var(--paper)]"
+                          }`}
+                          title={c.inWatchlist ? "İzleme Listesinde" : "İzlemeye Al"}
+                        >
+                          {c.inWatchlist ? (
+                            <BookmarkCheck className="w-3.5 h-3.5" />
+                          ) : (
+                            <Bookmark className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+
+                        <button
+                          onClick={(e) => handleRequestDelete(c.symbol, e)}
+                          className="p-1.5 text-[var(--mist)] hover:text-[var(--loss)] transition-colors cursor-pointer"
+                          title="Varlığı Kütükten Sil"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+
+                        <Link
+                          href={`/sirketler/${encodeURIComponent(c.symbol)}`}
+                          className="text-[var(--brass)] hover:underline flex items-center gap-0.5 text-xs font-mono ml-1"
+                        >
+                          <span>İncele</span>
+                          <ArrowUpRight className="w-3 h-3" />
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 </div>

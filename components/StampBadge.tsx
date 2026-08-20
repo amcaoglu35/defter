@@ -18,9 +18,18 @@ export default function StampBadge({ verdict = "NÖTR", className = "", animate 
     styleClass = "stamp-tut";
   }
 
+  const iconPrefix =
+    verdict === "AL" || verdict === "GÜÇLÜ AL"
+      ? "▲ "
+      : verdict === "SAT" || verdict === "GÜÇLÜ SAT" || verdict === "YÜKSEK RİSK"
+      ? "▼ "
+      : verdict === "TUT" || verdict === "DENGELİ"
+      ? "◆ "
+      : "";
+
   return (
     <span className={`stamp ${styleClass} ${animate ? "animate-stamp-in" : ""} ${className}`}>
-      {label}
+      {iconPrefix}{label}
     </span>
   );
 }
