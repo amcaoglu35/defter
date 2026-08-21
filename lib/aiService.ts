@@ -67,7 +67,32 @@ export interface AiRecipeRequest {
   minDividendYield?: number;
   maxPeRatio?: number;
   excludeOverbought?: boolean;
+  existingPortfolioExposure?: Array<{ symbol: string; totalWeightPctOfNetWorth: number }>;
   rebalanceContext?: RebalanceContext;
+}
+
+export function getLotRoundingRule(
+  assetClass?: string,
+  exchange?: string,
+  symbol?: string
+): "integer" | "decimal" {
+  const sym = (symbol || "").toUpperCase();
+  if (
+    assetClass === "maden" ||
+    assetClass === "fon" ||
+    assetClass === "doviz" ||
+    exchange === "Emtia" ||
+    exchange === "Döviz" ||
+    sym.includes("ALTIN") ||
+    sym.includes("GÜMÜŞ") ||
+    sym.includes("PLATIN") ||
+    sym.includes("USD") ||
+    sym.includes("EUR") ||
+    sym.includes("GRAM")
+  ) {
+    return "decimal";
+  }
+  return "integer";
 }
 
 export interface CompanyAnalysisRequest {
@@ -88,6 +113,7 @@ export interface CompanyAnalysisRequest {
   athDiscountPct?: number;
   volumeRatio?: number;
   assetClass?: "hisse" | "maden" | "fon" | "doviz" | string;
+  rsi?: number;
   metrics?: Array<{ label: string; value: string; peerAvg?: string }>;
 }
 
@@ -571,8 +597,18 @@ export function validateAndFixAllocation(
     }
 
     const targetAssetBudget = budget * (it.weight / 100);
-    const shares = price > 0 ? Math.floor(targetAssetBudget / price) : 0;
-    const totalCost = shares * price;
+    const roundingRule = getLotRoundingRule(company?.assetClass, company?.exchange, sym);
+    
+    let shares = 0;
+    if (price > 0) {
+      if (roundingRule === "integer") {
+        shares = Math.floor(targetAssetBudget / price);
+      } else {
+        shares = parseFloat((targetAssetBudget / price).toFixed(2));
+      }
+    }
+
+    const totalCost = parseFloat((shares * price).toFixed(2));
     allocatedCost += totalCost;
 
     return {
@@ -920,6 +956,11 @@ export async function generateOrakulRecipe(
           (c) => !c.peRatio || c.peRatio <= (req.maxPeRatio || 0) || c.exchange === "Emtia"
         );
       }
+      if (req.excludeOverbought) {
+        filteredCandidates = filteredCandidates.filter(
+          (c) => (c.dailyChange === undefined || c.dailyChange <= 5.0) && (!c.rsi || c.rsi <= 70)
+        );
+      }
 
       const scoredCandidates = (filteredCandidates.length >= targetAssetCount ? filteredCandidates : pool)
         .map((c) => {
@@ -952,6 +993,15 @@ export async function generateOrakulRecipe(
             if (pe > 0 && pe < 15) relevance += 20;
             if (sec.includes("holding") || sec.includes("perakende") || c.exchange === "Emtia") relevance += 25;
           }
+
+          // Concentration penalty in candidate scoring
+          if (req.existingPortfolioExposure && req.existingPortfolioExposure.length > 0) {
+            const existing = req.existingPortfolioExposure.find((e) => e.symbol.toUpperCase() === c.symbol.toUpperCase());
+            if (existing && existing.totalWeightPctOfNetWorth > 25) {
+              relevance -= 30;
+            }
+          }
+
           return { company: c, relevance };
         })
         .sort((a, b) => b.relevance - a.relevance);
@@ -962,12 +1012,17 @@ export async function generateOrakulRecipe(
         .map((s) => `${s.company.symbol}|${s.company.sector || "Genel"}|${s.company.price}₺|FK:${s.company.peRatio ?? "-"}|PD:${s.company.pbRatio ?? "-"}|TEM:%${s.company.dividendYield ?? 0}`)
         .join("\n");
 
+      const existingExposurePrompt = req.existingPortfolioExposure && req.existingPortfolioExposure.length > 0
+        ? `\nMevcut Portföy Yoğunlaşması: ${req.existingPortfolioExposure.filter(e => e.totalWeightPctOfNetWorth > 10).map(e => `${e.symbol}: %${e.totalWeightPctOfNetWorth}`).join(", ") || "Dengeli"}. Bu varlıklara aşırı ek ağırlık vermekten kaçın.`
+        : "";
+
       const prompt = `Sen 'Orakul' portföy mimarısın. Aşağıdaki doğrulanmış varlıklardan tam ${targetAssetCount} adet varlık seç ve toplamı %100 eden dağılımı oluştur.
 Format (JSON):
 {"recipeTitle": "Strateji Adı", "summary": "2 cümlelik özet", "expectedYield": "%45 Yıllık Getiri", "riskRating": "Orta", "committeeDebate": {"bullSummary": "Boğa tezi", "bearSummary": "Ayı riski", "verdict": "Komite kararı"}, "allocation": [{"symbol": "THYAO", "name": "THY", "weight": 30, "price": 310, "note": "Gerekçe", "bullThesis": "Boğa tezi", "bearRisk": "Ayı riski"}]}
 
 Kullanıcı Parametreleri:
-Hedef: ${req.goal}, Risk: ${req.risk}, Bütçe: ${req.budget} TL, Varlık Sayısı: ${targetAssetCount}
+Hedef: ${req.goal}, Risk: ${req.risk}, Bütçe: ${req.budget} TL, Varlık Sayısı: ${targetAssetCount}${existingExposurePrompt}
+Talimat: BIST hisseleri için suggestedShares tam sayı (Math.floor), kıymetli maden/döviz/fon için ondalıklı olabilir.
 Adaylar (SEMBOL|SEKTÖR|FİYAT|FK|PD|TEM):
 ${candidatesSample}`;
 
@@ -1058,6 +1113,13 @@ ${candidatesSample}`;
               cashReserve: cashReserve || data.cashReserve || 0,
               rebalanceActions,
               usedFallbackSeeds,
+              _debugPromptSummary: {
+                engine: "llm" as const,
+                strategyArchetype: req.strategyArchetype || req.goal,
+                persona,
+                candidateCount: maxCandidates,
+                timestamp: new Date().toISOString(),
+              },
               // Overwrite all quantitative metrics with deterministic outputs
               ...realMetrics,
               isTemplate: false,
@@ -1109,13 +1171,14 @@ ${candidatesSample}`;
   // Merge available pool with default seeds to ensure rich diversity
   const candidatePool = pool.length >= targetCount ? pool : Array.from(new Map([...pool, ...defaultSeeds].map((c) => [c.symbol, c])).values());
 
-  // Dynamic ranking function based on strategy goal
+  // Dynamic ranking function based on strategy goal + Persona Bonus + Existing Concentration Penalty
   const rankedCandidates = [...candidatePool].map((c) => {
     let score = 50;
     const sectorLower = (c.sector || "").toLowerCase();
     const div = c.dividendYield || 0;
     const pe = c.peRatio || 12;
 
+    // Strategy / Goal Primary Scoring
     if (goalLower.includes("temettü")) {
       if (div > 5) score += 40;
       else if (div > 2) score += 25;
@@ -1139,6 +1202,36 @@ ${candidatesSample}`;
       if (div > 0) score += 15;
       if (pe > 0 && pe < 15) score += 15;
       if (sectorLower.includes("holding") || sectorLower.includes("perakende") || c.exchange === "Emtia") score += 20;
+    }
+
+    // Persona Bonus Adjustment (+10 to +25 score)
+    const p = (persona || "deger").toLowerCase();
+    if (p.includes("deger") || p.includes("value")) {
+      if (pe > 0 && pe < 8) score += 20;
+      if (c.pbRatio && c.pbRatio < 1.6) score += 15;
+    } else if (p.includes("buyume") || p.includes("growth")) {
+      if (sectorLower.includes("teknoloji") || sectorLower.includes("savunma") || sectorLower.includes("yazılım")) score += 20;
+      if (c.dailyChange > 0) score += 10;
+    } else if (p.includes("temettu") || p.includes("dividend")) {
+      if (div >= 5) score += 25;
+      else if (div >= 2) score += 10;
+    } else if (p.includes("savunmaci") || p.includes("defensive")) {
+      if (c.exchange === "Emtia" || c.symbol.includes("ALTIN") || sectorLower.includes("perakende") || sectorLower.includes("holding")) score += 20;
+    } else if (p.includes("makro") || p.includes("hedge")) {
+      if (c.exchange === "Döviz" || c.exchange === "Emtia" || sectorLower.includes("havacılık")) score += 20;
+    }
+
+    // Existing Concentration Penalty (Diversification Protection)
+    if (req.existingPortfolioExposure && req.existingPortfolioExposure.length > 0) {
+      const existing = req.existingPortfolioExposure.find((e) => e.symbol.toUpperCase() === c.symbol.toUpperCase());
+      if (existing && existing.totalWeightPctOfNetWorth > 20) {
+        score -= Math.min(50, Math.round(existing.totalWeightPctOfNetWorth * 1.2));
+      }
+    }
+
+    // Exclude Overbought Penalty
+    if (req.excludeOverbought && c.dailyChange && c.dailyChange > 5.0) {
+      score -= 40;
     }
 
     return { ...c, calculatedScore: score };
@@ -1271,6 +1364,13 @@ ${candidatesSample}`;
     cashReserve,
     rebalanceActions,
     usedFallbackSeeds,
+    _debugPromptSummary: {
+      engine: "algorithmic" as const,
+      strategyArchetype: req.strategyArchetype || req.goal,
+      persona,
+      candidateCount: candidatePool.length,
+      timestamp: new Date().toISOString(),
+    },
     committeeDebate: {
       bullSummary: "Boğa Perspektifi: Seçilen varlıklar yüksek nakit akış kapasitesi ve güçlü sermaye kârlılığı barındırıyor.",
       bearSummary: "Ayı Perspektifi: Makroekonomik faiz seyri ve sektör bazlı maliyet baskıları yakından takip edilmeli.",

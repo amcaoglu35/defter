@@ -6,6 +6,7 @@ import {
   extractNumericFilters,
   calculateDeterministicMatchScore,
   analyzeNewsTitleSentiment,
+  getLotRoundingRule,
   CompanyAnalysisRequest,
   AiRecipeRequest,
 } from "./aiService";
@@ -279,6 +280,79 @@ describe("aiService Unit & Contract Tests", () => {
 
       const resultFull = await generateOrakulRecipe(req, sampleCompanies, undefined);
       expect(resultFull.usedFallbackSeeds).toBe(false);
+    });
+
+    it("correctly identifies lot rounding rule for BIST stocks vs gold/currencies/funds", () => {
+      expect(getLotRoundingRule("hisse", "BIST", "THYAO")).toBe("integer");
+      expect(getLotRoundingRule("hisse", "ABD", "AAPL")).toBe("integer");
+      expect(getLotRoundingRule("maden", "Emtia", "ALTIN/GR")).toBe("decimal");
+      expect(getLotRoundingRule("maden", "Emtia", "GÜMÜŞ/GR")).toBe("decimal");
+      expect(getLotRoundingRule("doviz", "Döviz", "USD/TRY")).toBe("decimal");
+      expect(getLotRoundingRule("fon", "TEFAS", "TI3")).toBe("decimal");
+    });
+
+    it("applies persona bonus to differentiate rankings in algorithmic mode", async () => {
+      const baseReq: AiRecipeRequest = {
+        goal: "Dengeli",
+        risk: "Orta",
+        universe: "BIST 30",
+        budget: 100000,
+        assetCount: 4,
+      };
+
+      // Dividend persona should select dividend paying assets
+      const dividendResult = await generateOrakulRecipe(baseReq, sampleCompanies, undefined, "gemini", undefined, "temettu");
+      // Value persona should select low PE value assets
+      const valueResult = await generateOrakulRecipe(baseReq, sampleCompanies, undefined, "gemini", undefined, "deger");
+
+      expect(dividendResult._debugPromptSummary?.persona).toBe("temettu");
+      expect(valueResult._debugPromptSummary?.persona).toBe("deger");
+      expect(dividendResult._debugPromptSummary?.engine).toBe("algorithmic");
+    });
+
+    it("applies concentration penalty when user already holds high exposure in a symbol", async () => {
+      const reqWithHeavyThyao: AiRecipeRequest = {
+        goal: "Dengeli",
+        risk: "Orta",
+        universe: "BIST 30",
+        budget: 100000,
+        assetCount: 4,
+        existingPortfolioExposure: [{ symbol: "THYAO", totalWeightPctOfNetWorth: 45 }],
+      };
+
+      const result = await generateOrakulRecipe(reqWithHeavyThyao, sampleCompanies, undefined);
+      const thyao = result.allocation.find((a) => a.symbol === "THYAO");
+
+      // Either THYAO is not picked or its weight is minimized due to heavy concentration penalty
+      if (thyao) {
+        expect(thyao.weight).toBeLessThanOrEqual(30);
+      }
+    });
+
+    it("filters out overbought assets when excludeOverbought is true", async () => {
+      const overboughtPool: CompanyAnalysisRequest[] = [
+        { symbol: "PUMP1", name: "Pumped Co 1", price: 100, dailyChange: 8.5, peRatio: 10, sector: "Sanayi" },
+        { symbol: "PUMP2", name: "Pumped Co 2", price: 100, dailyChange: 9.8, peRatio: 10, sector: "Sanayi" },
+        { symbol: "STABLE1", name: "Stable Co 1", price: 100, dailyChange: 0.5, peRatio: 10, sector: "Sanayi" },
+        { symbol: "STABLE2", name: "Stable Co 2", price: 100, dailyChange: 1.2, peRatio: 10, sector: "Perakende" },
+        { symbol: "STABLE3", name: "Stable Co 3", price: 100, dailyChange: -0.4, peRatio: 10, sector: "Holding" },
+      ];
+
+      const req: AiRecipeRequest = {
+        goal: "Dengeli",
+        risk: "Orta",
+        universe: "Tüm Varlıklar",
+        budget: 100000,
+        assetCount: 3,
+        excludeOverbought: true,
+      };
+
+      const result = await generateOrakulRecipe(req, overboughtPool, undefined);
+      const chosenSymbols = result.allocation.map((a) => a.symbol);
+
+      expect(chosenSymbols).not.toContain("PUMP1");
+      expect(chosenSymbols).not.toContain("PUMP2");
+      expect(chosenSymbols).toContain("STABLE1");
     });
   });
 

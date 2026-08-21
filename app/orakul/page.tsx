@@ -233,6 +233,7 @@ function OrakulContent() {
   const [horizon, setHorizon] = useState<string>("Orta Vade (6-18 Ay)");
   const [maxAssetWeight, setMaxAssetWeight] = useState<number>(35);
   const [includeGoldBuffer, setIncludeGoldBuffer] = useState<boolean>(false);
+  const [excludeOverbought, setExcludeOverbought] = useState<boolean>(false);
   const [minDividendYield, setMinDividendYield] = useState<number>(0);
   const [maxPeRatio, setMaxPeRatio] = useState<number>(0);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState<boolean>(false);
@@ -652,6 +653,26 @@ interface WeeklyLetterResult {
     };
   }, [baskets, companies]);
 
+  // Portföy Geneli Varlık Yoğunlaşması (GÖREV 5)
+  const existingPortfolioExposure = useMemo(() => {
+    const totalNetWorth = baskets.reduce((sum, b) => sum + (b.totalValue || 0), 0);
+    if (totalNetWorth <= 0) return [];
+    
+    const symbolValues: Record<string, number> = {};
+    baskets.forEach((b) => {
+      (b.holdings || []).forEach((h) => {
+        const sym = h.companySymbol.toUpperCase();
+        const value = (h.quantity || 0) * (h.currentPrice || h.avgCost || 0);
+        symbolValues[sym] = (symbolValues[sym] || 0) + value;
+      });
+    });
+
+    return Object.entries(symbolValues).map(([symbol, value]) => ({
+      symbol,
+      totalWeightPctOfNetWorth: parseFloat(((value / totalNetWorth) * 100).toFixed(1)),
+    }));
+  }, [baskets]);
+
   // History Filter state
   const [historyFilter, setHistoryFilter] = useState<"all" | "correct" | "incorrect" | "pending">("all");
   const [evaluating, setEvaluating] = useState(false);
@@ -690,10 +711,12 @@ interface WeeklyLetterResult {
             horizon,
             maxAssetWeight,
             includeGoldBuffer,
+            excludeOverbought,
             minDividendYield: minDividendYield > 0 ? minDividendYield : undefined,
             maxPeRatio: maxPeRatio > 0 ? maxPeRatio : undefined,
             assetCount,
             allCompanies: companies,
+            existingPortfolioExposure,
             rebalanceContext: rebalanceBasket ? {
               basketId: rebalanceBasket.id,
               basketName: rebalanceBasket.name,
@@ -1309,9 +1332,19 @@ interface WeeklyLetterResult {
       aiNote: "Orakul AI yapay zeka reçetesi tarafından otomatik oluşturulmuştur.",
       holdings: (result.allocation || []).map((item) => {
         const co = companies.find((c) => c.symbol.toUpperCase() === item.symbol.toUpperCase());
-        const price = co ? co.price : 0;
+        // Fiyat önceliği: Reçetedeki doğrulanmış fiyat (item.price), yoksa kütük fiyatı
+        const price = item.price && item.price > 0 ? item.price : (co ? co.price : 0);
         const allocatedMoney = (budgetNum * item.weight) / 100;
-        const qty = price > 0 ? parseFloat((allocatedMoney / price).toFixed(1)) : 0;
+        
+        let qty: number;
+        if (typeof item.suggestedShares === "number" && item.suggestedShares >= 0) {
+          // Reçete kartında gösterilen TAM SAYI veya doğrulanmış lot doğrudan kullanılır
+          qty = item.suggestedShares;
+        } else {
+          // Fallback: varlık tipine göre yuvarlama kuralı
+          const isDecimal = co?.exchange === "Emtia" || co?.exchange === "Döviz" || co?.assetClass === "fon" || item.symbol.includes("ALTIN") || item.symbol.includes("GÜMÜŞ") || item.symbol.includes("USD") || item.symbol.includes("EUR");
+          qty = price > 0 ? (isDecimal ? parseFloat((allocatedMoney / price).toFixed(2)) : Math.floor(allocatedMoney / price)) : 0;
+        }
 
         return {
           companySymbol: item.symbol,
@@ -1330,15 +1363,15 @@ interface WeeklyLetterResult {
       date: "Bugün " + new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
       type: "Sepet Önerisi",
       title: `${goal} — Özel Reçete`,
-      description: `${result.allocation?.length || 0} varlık sepeti. Bütçe: ${budget} ₺. Skor: ${result.healthScore}/100.`,
+      description: `${result.allocation?.length || 0} varlık sepeti. Bütçe: ${budget} ₺. Skor: ${result.healthScore}/100. Archetype: ${result.strategyArchetype || strategyArchetype}. Persona: ${userSettings?.orakulPersona || "deger"}.`,
       verdictTag: "DENGELİ",
       verdict: "DENGELİ",
       verdictDate: new Date().toISOString().split("T")[0],
       budgetAtCreation: budgetNum,
       outcomeCorrect: null,
       targetPeriodDays: 30,
-      provider: aiStatus?.isRealAiActive ? (aiProvider === "openai" ? "OpenAI" : "Gemini") : "Şablon",
-      model: aiStatus?.isRealAiActive ? (aiProvider === "openai" ? "gpt-4o-mini" : geminiModel) : "Algoritmik",
+      provider: aiStatus?.isRealAiActive ? (aiProvider === "openai" ? "OpenAI" : "Gemini") : "Algoritmik",
+      model: aiStatus?.isRealAiActive ? (aiProvider === "openai" ? "gpt-4o-mini" : geminiModel) : "Algoritmik Kural Motoru",
     };
     addAiHistory(newHist);
     showToast("Sepet Oluşturuldu", `${newBasket.name} sepetlerinize kaydedildi.`, "success");
@@ -2003,6 +2036,26 @@ interface WeeklyLetterResult {
                       className="w-full accent-[var(--brass)] cursor-pointer"
                     />
                   </div>
+
+                  <div
+                    onClick={() => setExcludeOverbought(!excludeOverbought)}
+                    className={`sm:col-span-2 p-3 rounded-lg border flex items-center justify-between cursor-pointer transition-all ${
+                      excludeOverbought
+                        ? "bg-emerald-500/10 border-emerald-500/40 text-[var(--paper)] font-bold shadow-xs"
+                        : "bg-[var(--ink-2)] border-[var(--line)] text-[var(--mist)]"
+                    }`}
+                  >
+                    <div>
+                      <span className="text-[11px] font-bold block text-[var(--paper)]">Aşırı Alınmış Hisseleri Hariç Tut (RSI / Momentum Süzgeci)</span>
+                      <span className="text-[10px] opacity-80 block">Son dönemde aşırı primlenmiş veya RSI &gt; 70 olan riskli varlıkları havuzdan eler</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={excludeOverbought}
+                      onChange={(e) => setExcludeOverbought(e.target.checked)}
+                      className="w-4 h-4 accent-emerald-500 rounded cursor-pointer"
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -2429,17 +2482,36 @@ interface WeeklyLetterResult {
                     >
                       <div className="flex items-start justify-between gap-2 border-b border-[var(--line)]/50 pb-2.5">
                         <div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <span className="font-mono font-bold text-sm text-[var(--paper)]">
                               {item.symbol}
                             </span>
                             <span className="text-xs text-[var(--mist)] font-sans">
                               {item.companyName || item.name}
                             </span>
+                            {(() => {
+                              const exp = existingPortfolioExposure.find(
+                                (e) => e.symbol.toUpperCase() === item.symbol.toUpperCase()
+                              );
+                              if (exp && exp.totalWeightPctOfNetWorth > 20) {
+                                return (
+                                  <span className="text-[9px] font-mono text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/30">
+                                    ⚠️ Portföyde %{exp.totalWeightPctOfNetWorth}
+                                  </span>
+                                );
+                              }
+                              return null;
+                            })()}
                           </div>
                           {item.suggestedShares && item.suggestedShares > 0 ? (
                             <span className="text-xs font-mono font-bold text-emerald-400 block mt-0.5">
-                              {item.suggestedShares} Lot (~{(item.totalCost || 0).toLocaleString("tr-TR")} ₺)
+                              {item.suggestedShares}{" "}
+                              {item.symbol.includes("ALTIN") || item.symbol.includes("GÜMÜŞ")
+                                ? "Gr"
+                                : item.symbol.includes("USD") || item.symbol.includes("EUR")
+                                ? "Birim"
+                                : "Lot"}{" "}
+                              (~{(item.totalCost || 0).toLocaleString("tr-TR")} ₺)
                             </span>
                           ) : item.price ? (
                             <span className="text-xs font-mono text-[var(--mist)] block mt-0.5">

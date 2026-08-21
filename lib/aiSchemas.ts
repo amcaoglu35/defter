@@ -221,10 +221,12 @@ export const OrakulRecipePayloadSchema = z.object({
   horizon: z.string().max(50).optional(),
   maxAssetWeight: z.number().min(5).max(100).optional(),
   includeGoldBuffer: z.boolean().optional(),
+  excludeOverbought: z.boolean().optional(),
   minDividendYield: z.number().min(0).max(100).optional(),
   maxPeRatio: z.number().min(0).max(500).optional(),
   assetCount: z.number().int().min(1).max(20).optional(),
   allCompanies: z.array(z.any()).max(500).optional(),
+  existingPortfolioExposure: z.array(z.object({ symbol: z.string(), totalWeightPctOfNetWorth: z.number() })).optional(),
   rebalanceContext: z.any().optional(),
 }).passthrough();
 
