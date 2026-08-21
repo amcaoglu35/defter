@@ -178,6 +178,7 @@ function OrakulContent() {
     createBasket,
     addTransaction,
     indices,
+    refreshPrices,
   } = useDefterStore();
   const { showToast } = useToast();
 
@@ -325,6 +326,7 @@ interface OrakulRecipeResult {
     sharpeRatio: number;
   };
   cashReserve?: number;
+  usedFallbackSeeds?: boolean;
   rebalanceActions?: Array<{
     symbol: string;
     name?: string;
@@ -660,6 +662,11 @@ interface WeeklyLetterResult {
     setRecipeBacktest(null);
     setSavedSuccess(false);
     setRecipePhase("1. Kütük Taranıyor...");
+
+    // Kütük boşsa veya yeni açıldıysa güncel fiyatları çek
+    if (companies.length === 0) {
+      await refreshPrices().catch(() => {});
+    }
 
     try {
       setTimeout(() => setRecipePhase("2. Kovaryans Matrisi & Korelasyon Hesaplanıyor..."), 500);
@@ -2098,6 +2105,21 @@ interface WeeklyLetterResult {
                   <StampBadge verdict="GÜÇLÜ AL" />
                 </div>
               </div>
+
+              {/* Yedek Kütük Fiyat Uyarısı (Fallback Seeds Warning) */}
+              {result.usedFallbackSeeds && (
+                <div className="p-4 bg-amber-500/10 border border-amber-500/40 rounded-xl text-xs text-amber-300 flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <div className="font-bold text-amber-200 text-sm">
+                      ⚠️ Yedek Kütük Fiyat Uyarısı
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-amber-200/90 font-sans">
+                      Kütüğünüzde seçilen evren için yeterli varlık verisi bulunamadığı için dağılım örnek/yedek kütük fiyatlarıyla hesaplandı. Gerçek lot ve maliyet hesaplamaları için kütüğünüzdeki varlıkların güncel piyasa fiyatlarını yenilemeniz önerilir.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Sahte Çeşitlendirme Uyarısı (Pseudo-Diversification Warning) */}
               {result.isPseudoDiversified && (

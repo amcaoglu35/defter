@@ -214,6 +214,72 @@ describe("aiService Unit & Contract Tests", () => {
       expect(result.engine).toBe("algorithmic");
       expect(result.allocation.length).toBe(4);
     });
+
+    it("corrects LLM price hallucinations that deviate > 5% from authentic catalog prices", async () => {
+      // FROTO actual catalog price is 1000 TL in sampleCompanies. LLM returns hallucinated 600 TL (>5% deviation).
+      const mockLlmHallucinatedPrice = {
+        title: "Test Portföy",
+        summary: "Özet",
+        expectedYield: "%30 Getiri",
+        allocation: [
+          { symbol: "THYAO", name: "THY", weight: 35, price: 9999, suggestedShares: 1, totalCost: 9999 }, // Huge deviation
+          { symbol: "FROTO", name: "Ford", weight: 35, price: 600, suggestedShares: 83, totalCost: 49800 }, // 40% deviation
+          { symbol: "ASELS", name: "Aselsan", weight: 30, price: 60, suggestedShares: 500, totalCost: 30000 },
+        ],
+      };
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          candidates: [
+            {
+              content: {
+                parts: [{ text: JSON.stringify(mockLlmHallucinatedPrice) }],
+              },
+            },
+          ],
+        }),
+      });
+
+      const req: AiRecipeRequest = {
+        goal: "Fiyat Doğrulama Testi",
+        risk: "Orta",
+        universe: "BIST 30",
+        budget: 100000,
+        assetCount: 3,
+      };
+
+      const result = await generateOrakulRecipe(req, sampleCompanies, "fake-api-key-12345");
+
+      const thyao = result.allocation.find((a) => a.symbol === "THYAO");
+      const froto = result.allocation.find((a) => a.symbol === "FROTO");
+
+      // Prices must be corrected back to catalog prices
+      const catalogThyao = sampleCompanies.find((c) => c.symbol === "THYAO");
+      const catalogFroto = sampleCompanies.find((c) => c.symbol === "FROTO");
+
+      expect(thyao?.price).toBe(catalogThyao?.price);
+      expect(froto?.price).toBe(catalogFroto?.price);
+      // Lots must be correctly recalculated based on real catalog prices (35% of 100k = 35000)
+      expect(thyao?.suggestedShares).toBe(Math.floor(35000 / (catalogThyao?.price || 1)));
+      expect(froto?.suggestedShares).toBe(Math.floor(35000 / (catalogFroto?.price || 1)));
+    });
+
+    it("sets usedFallbackSeeds to true when catalog is empty and false when sufficient", async () => {
+      const req: AiRecipeRequest = {
+        goal: "Dengeli",
+        risk: "Orta",
+        universe: "BIST 30",
+        budget: 100000,
+        assetCount: 4,
+      };
+
+      const resultEmpty = await generateOrakulRecipe(req, [], undefined);
+      expect(resultEmpty.usedFallbackSeeds).toBe(true);
+
+      const resultFull = await generateOrakulRecipe(req, sampleCompanies, undefined);
+      expect(resultFull.usedFallbackSeeds).toBe(false);
+    });
   });
 
   // -------------------------------------------------------------

@@ -552,12 +552,24 @@ export function validateAndFixAllocation(
     }
   }
 
-  // 3. Lot & Cost Consistency Calculation
+  // 3. Lot & Cost Consistency Calculation + %5 Price Deviation Guard
   let allocatedCost = 0;
   const fixedItems = validItems.map((it) => {
     const sym = it.symbol.toUpperCase();
     const company = knownSymbolsMap.get(sym);
-    const price = it.price && it.price > 0 ? it.price : company?.price || 100;
+    const catalogPrice = company?.price && company.price > 0 ? company.price : undefined;
+
+    let price = catalogPrice || 100;
+    if (it.price && it.price > 0) {
+      if (catalogPrice) {
+        const deviationPct = Math.abs((it.price - catalogPrice) / catalogPrice) * 100;
+        // If deviation from verified catalog price is <= 5%, accept it; otherwise enforce authentic catalog price
+        price = deviationPct <= 5 ? it.price : catalogPrice;
+      } else {
+        price = it.price;
+      }
+    }
+
     const targetAssetBudget = budget * (it.weight / 100);
     const shares = price > 0 ? Math.floor(targetAssetBudget / price) : 0;
     const totalCost = shares * price;
@@ -882,13 +894,13 @@ export async function generateOrakulRecipe(
           c.symbol.includes("EUR") ||
           c.symbol === "BRENT"
       );
-    } else if (req.universe.includes("Küresel")) {
-      pool = pool.filter((c) => c.exchange === "ABD" || c.exchange === "Avrupa" || c.exchange === "BIST");
     }
   }
 
   const rebalanceCtx = req.rebalanceContext as RebalanceContext | undefined;
   const isRebalanceMode = Boolean(rebalanceCtx && rebalanceCtx.currentHoldings?.length > 0);
+  const targetAssetCount = Math.min(Math.max(req.assetCount || 4, 3), 10);
+  const usedFallbackSeeds = pool.length < targetAssetCount;
 
   // ---------------------------------------------------------------------------
   // LLM YOLU (Gemini / OpenAI)
@@ -896,7 +908,6 @@ export async function generateOrakulRecipe(
   if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
     try {
       const goalLower = req.goal.toLowerCase();
-      const targetAssetCount = req.assetCount || 4;
 
       let filteredCandidates = [...pool];
       if (req.minDividendYield && req.minDividendYield > 0) {
@@ -948,54 +959,20 @@ export async function generateOrakulRecipe(
       const maxCandidates = Math.min(Math.max(targetAssetCount * 4, 12), 22);
       const candidatesSample = (scoredCandidates.length > 0 ? scoredCandidates : pool.map((c) => ({ company: c, relevance: 0 })))
         .slice(0, maxCandidates)
-        .map(({ company: c }) => `${c.symbol}|${c.sector}|${c.price}₺|FK:${c.peRatio ?? "-"}|PD:${c.pbRatio ?? "-"}|TEM:${c.dividendYield ?? 0}%`)
-        .join("; ");
+        .map((s) => `${s.company.symbol}|${s.company.sector || "Genel"}|${s.company.price}₺|FK:${s.company.peRatio ?? "-"}|PD:${s.company.pbRatio ?? "-"}|TEM:%${s.company.dividendYield ?? 0}`)
+        .join("\n");
 
-      const rebalancePromptSection = isRebalanceMode
-        ? `\nREBALANCE MODU ETKİN:
-Mevcut Sepet: ${rebalanceCtx?.basketName}
-Mevcut Pozisyonlar:
-${(rebalanceCtx?.currentHoldings || [])
-  .map(
-    (h) =>
-      `- ${h.symbol}: Ağırlık: %${h.currentWeight}, Adet: ${h.quantity}, Fiyat: ${h.currentPrice} ₺`
-  )
-  .join("\n")}`
-        : "";
+      const prompt = `Sen 'Orakul' portföy mimarısın. Aşağıdaki doğrulanmış varlıklardan tam ${targetAssetCount} adet varlık seç ve toplamı %100 eden dağılımı oluştur.
+Format (JSON):
+{"recipeTitle": "Strateji Adı", "summary": "2 cümlelik özet", "expectedYield": "%45 Yıllık Getiri", "riskRating": "Orta", "committeeDebate": {"bullSummary": "Boğa tezi", "bearSummary": "Ayı riski", "verdict": "Komite kararı"}, "allocation": [{"symbol": "THYAO", "name": "THY", "weight": 30, "price": 310, "note": "Gerekçe", "bullThesis": "Boğa tezi", "bearRisk": "Ayı riski"}]}
 
-      const prompt = `Sen 'Orakul' Türk finans & MPT portföy uzmanısın.
-${personaInstruction}
-
-Kullanıcı Profili:
-- Strateji: ${req.strategyArchetype || req.goal} | Risk: ${req.risk} | Bütçe: ${req.budget} TL | Evren: ${req.universe} | Vade: ${req.horizon || "Orta Vade"}
-- Varlık Sayısı: Tam ${targetAssetCount} adet
-${req.maxAssetWeight ? `- Maksimum Ağırlık: %${req.maxAssetWeight}` : ""}
-${req.includeGoldBuffer ? "- En az %15 Kıymetli Maden (Altın/Gümüş) tamponu" : ""}
-${req.minDividendYield ? `- Min Temettü: %${req.minDividendYield}` : ""}
-${rebalancePromptSection}
-
-Aday Varlıklar (SEMBOL|SEKTÖR|FİYAT|FK|PD|TEM):
-${candidatesSample || "BIST 100 ve Emtia kütüğü"}
-
-GÖREV (3-Ajanlı Yatırım Komitesi):
-1. Düşük kovaryanslı tam ${targetAssetCount} varlık seç.
-2. Boğa tezi, ayı riski ve ağırlık belirle. Bütçeyi lotlara dağıt.
-3. YALNIZCA geçerli JSON dön:
-{
-  "title": "Strateji Başlığı",
-  "summary": "2 cümlelik özet",
-  "strategyArchetype": "${req.strategyArchetype || "custom"}",
-  "healthScore": 92,
-  "expectedYield": "%35 Yıllık Hedef",
-  "recommendedDuration": "${req.horizon || "6-12 Ay"}",
-  "riskRating": "${req.risk}",
-  "committeeDebate": {"bullSummary": "Boğa gerekçesi", "bearSummary": "Ayı riski", "verdict": "Komite onayı"},
-  "allocation": [{"symbol": "SEMBOL", "name": "Şirket Adı", "weight": 25, "price": 100, "suggestedShares": 10, "totalCost": 1000, "note": "Gerekçe", "bullThesis": "Boğa tezi", "bearRisk": "Risk"}],
-  "cashReserve": 0
-}`;
+Kullanıcı Parametreleri:
+Hedef: ${req.goal}, Risk: ${req.risk}, Bütçe: ${req.budget} TL, Varlık Sayısı: ${targetAssetCount}
+Adaylar (SEMBOL|SEKTÖR|FİYAT|FK|PD|TEM):
+${candidatesSample}`;
 
       const effectiveModel = getOptimalModelForTask("recipe", customModel, provider);
-      const recipeStartTime = Date.now();
+      const startTime = Date.now();
       let rawText: string | undefined;
 
       if (provider === "gemini") {
@@ -1040,21 +1017,21 @@ GÖREV (3-Ajanlı Yatırım Komitesi):
       logOrakulTelemetry({
         type: "recipe",
         promptChars: prompt.length,
-        responseMs: Date.now() - recipeStartTime,
+        responseMs: Date.now() - startTime,
         candidateCount: maxCandidates,
         model: effectiveModel,
       });
 
       if (rawText) {
+        const stripped = stripJsonFences(rawText);
         try {
-          const parsed = JSON.parse(stripJsonFences(rawText));
+          const parsed = JSON.parse(stripped);
           const validated = AiRecipeResponseSchema.safeParse(parsed);
-
           if (validated.success) {
             const data = validated.data;
             const budgetNum = Number(req.budget) || 100000;
 
-            // 1. Fix and validate allocation items against authentic candidate pool
+            // 1. Symbol filtering and deterministic allocation fix
             const { fixedAllocation, cashReserve } = validateAndFixAllocation(
               data.allocation,
               pool,
@@ -1067,7 +1044,7 @@ GÖREV (3-Ajanlı Yatırım Komitesi):
               ? calculateRebalanceActions(rebalanceCtx.currentHoldings, fixedAllocation, budgetNum, pool)
               : undefined;
 
-            // 3. Quantitative Metric Enrichment (Sıfır Uydurma / Gerçek Matematik)
+            // 3. Quantitative Metric Enrichment
             const realMetrics = enrichRecipeWithRealMetrics(
               fixedAllocation,
               req,
@@ -1080,6 +1057,7 @@ GÖREV (3-Ajanlı Yatırım Komitesi):
               allocation: fixedAllocation,
               cashReserve: cashReserve || data.cashReserve || 0,
               rebalanceActions,
+              usedFallbackSeeds,
               // Overwrite all quantitative metrics with deterministic outputs
               ...realMetrics,
               isTemplate: false,
@@ -1104,10 +1082,15 @@ GÖREV (3-Ajanlı Yatırım Komitesi):
   const goalLower = req.goal.toLowerCase();
   const isConservative = req.risk.includes("Düşük");
   const isAggressive = req.risk.includes("Yüksek");
-  const targetCount = Math.min(Math.max(req.assetCount || 4, 3), 10);
+  const targetCount = targetAssetCount;
   const budgetNum = Number(req.budget) || 100000;
 
-  // Default universe seeds if pool is minimal
+  // =========================================================================
+  // ACİL DURUM YEDEĞİ (defaultSeeds) — SON GÜNCELLEME: 2026-08
+  // Bu liste yalnızca kullanıcının kütüğünde seçilen evren için yeterli varlık
+  // bulunamadığında (pool.length < targetCount) algoritmanın çökmesini önlemek
+  // amacıyla devreye giren acil durum güvenlik tamponudur.
+  // =========================================================================
   const defaultSeeds: CompanyAnalysisRequest[] = [
     { symbol: "THYAO", name: "Türk Hava Yolları", price: 310.0, sector: "Havacılık & Ulaştırma", exchange: "BIST", peRatio: 4.8, dividendYield: 0, dailyChange: 1.2 },
     { symbol: "FROTO", name: "Ford Otomotiv", price: 1050.0, sector: "Otomotiv Sanayi", exchange: "BIST", peRatio: 9.2, dividendYield: 6.8, dailyChange: 0.5 },
@@ -1287,6 +1270,7 @@ GÖREV (3-Ajanlı Yatırım Komitesi):
     allocation: fixedAllocation,
     cashReserve,
     rebalanceActions,
+    usedFallbackSeeds,
     committeeDebate: {
       bullSummary: "Boğa Perspektifi: Seçilen varlıklar yüksek nakit akış kapasitesi ve güçlü sermaye kârlılığı barındırıyor.",
       bearSummary: "Ayı Perspektifi: Makroekonomik faiz seyri ve sektör bazlı maliyet baskıları yakından takip edilmeli.",

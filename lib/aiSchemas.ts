@@ -44,6 +44,8 @@ export const AiRecipeResponseSchema = z.object({
   healthScore: z.number().optional(),
   allocation: z.array(AiRecipeAllocationItemSchema),
   cashReserve: z.number().optional(),
+  usedFallbackSeeds: z.boolean().optional(),
+  metricsSource: z.string().optional(),
   committeeDebate: z
     .object({
       bullSummary: z.string().optional(),
