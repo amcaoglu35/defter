@@ -143,6 +143,25 @@ Oluşturulan tablolar:
 
 ---
 
+## 🧪 Birim Testleri & CI (Sürekli Entegrasyon)
+
+Projede finansal matematik motoru ([`lib/quantEngine.ts`](./lib/quantEngine.ts)) ve yapay zeka/algoritmik karar katmanı ([`lib/aiService.ts`](./lib/aiService.ts)) için kapsamlı Vitest testleri bulunmaktadır.
+
+```bash
+# Tüm birim ve kontrat testlerini çalıştır
+npm run test
+
+# İzleme (Watch) modunda testleri başlat
+npm run test:watch
+```
+
+### 🛡️ GitHub Branch Protection Notu
+Bu repository'de `main` dalı için GitHub Branch Protection kurallarının aktif edilmesi önerilir:
+- **Require status checks to pass before merging:** `test` iş akışının (Test & Build) yeşil geçmesi zorunlu tutulmalıdır.
+- **Require branches to be up to date before merging.**
+
+---
+
 ## 📄 Lisans
 
 Bu proje [MIT Lisansı](./LICENSE) kapsamında açık kaynak olarak sunulmuştur.

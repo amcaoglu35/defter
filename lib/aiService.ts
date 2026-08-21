@@ -825,7 +825,7 @@ export async function generateOrakulRecipe(
   customModel?: string,
   persona: string = "deger"
 ) {
-  const resolvedApiKey = getResolvedApiKey(provider);
+  const resolvedApiKey = _apiKey || getResolvedApiKey(provider);
   const personaInstruction = getPersonaInstruction(persona);
 
   // Filter candidate pool from allCompanies based on selected Universe
@@ -1279,6 +1279,7 @@ GÖREV (3-Ajanlı Yatırım Komitesi):
   return {
     title: `Orakul Kural Motoru: ${req.goal.split(" ")[0]} & ${req.universe.split(" ")[0]} Stratejisi`,
     summary: `${budgetNum.toLocaleString("tr-TR")} ₺ bütçe için ${req.risk.toLowerCase()} profilinde, kütüğünüzdeki ${candidatePool.length} varlık taranarak kural tabanlı optimizasyon ile oluşturulmuştur.`,
+    strategyArchetype: req.strategyArchetype || "custom",
     healthScore: health,
     expectedYield: yieldStr,
     recommendedDuration: duration,
