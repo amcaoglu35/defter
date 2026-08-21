@@ -20,6 +20,7 @@ import {
   runMonteCarloSimulation,
   calculateCorrelationMatrix,
   calculateHHI,
+  calculateHistoricalVolatility,
   PortfolioAssetInput,
 } from "./quantEngine";
 import { getOptimalModelForTask, logOrakulTelemetry } from "./orakulCache";
@@ -61,11 +62,13 @@ export interface AiRecipeRequest {
   budget: number;
   horizon?: string;
   maxAssetWeight?: number;
+  maxSectorWeight?: number;
   includeGoldBuffer?: boolean;
   assetCount?: number;
   strategyArchetype?: "defensive_castle" | "garp" | "dividend_aristocrats" | "deep_value" | "global_hedge" | "momentum_leaders" | "custom";
   minDividendYield?: number;
   maxPeRatio?: number;
+  minVolumeRatio?: number;
   excludeOverbought?: boolean;
   estimatedFeeRatePct?: number;
   existingPortfolioExposure?: Array<{ symbol: string; totalWeightPctOfNetWorth: number }>;
@@ -121,6 +124,7 @@ export interface CompanyAnalysisRequest {
   peRatio?: number;
   pbRatio?: number;
   dailyChange: number;
+  volumeRatio?: number;
   sector: string;
   exchange?: string;
   indexTag?: string;
@@ -128,7 +132,6 @@ export interface CompanyAnalysisRequest {
   marketCap?: string;
   returnOnEquity?: number;
   athDiscountPct?: number;
-  volumeRatio?: number;
   assetClass?: "hisse" | "maden" | "fon" | "doviz" | string;
   rsi?: number;
   metrics?: Array<{ label: string; value: string; peerAvg?: string }>;
@@ -534,11 +537,16 @@ export function validateAndFixAllocation(
     note?: string;
     bullThesis?: string;
     bearRisk?: string;
+    dataQualityWarning?: string[];
+    volumeRatio?: number;
+    isLowVolume?: boolean;
+    measuredVolatility?: number | null;
   }>,
   pool: CompanyAnalysisRequest[],
   budget: number,
   targetCount: number = 4,
-  usdTryRate: number = 47.88
+  usdTryRate: number = 47.88,
+  maxSectorWeight: number = 45
 ) {
   const knownSymbolsMap = new Map<string, CompanyAnalysisRequest>();
   pool.forEach((c) => knownSymbolsMap.set(c.symbol.toUpperCase(), c));
@@ -584,20 +592,76 @@ export function validateAndFixAllocation(
     }
   }
 
-  // 2. Normalize weights to exactly 100 (if sum is outside 98..102 tolerance)
-  const sumWeights = validItems.reduce((acc, it) => acc + (Number(it.weight) || 0), 0);
-  if (sumWeights > 0 && Math.abs(sumWeights - 100) > 1.5) {
-    validItems = validItems.map((it) => ({
-      ...it,
-      weight: Math.max(5, Math.round(((Number(it.weight) || 0) / sumWeights) * 100)),
-    }));
-    const newSum = validItems.reduce((acc, it) => acc + it.weight, 0);
-    if (validItems.length > 0 && newSum !== 100) {
-      validItems[0].weight += 100 - newSum;
+  // 2. Sektör Tavanı (Sector Cap) ve Ağırlık Dengeleme
+  if (validItems.length > 1 && maxSectorWeight > 0 && maxSectorWeight < 100) {
+    const sectorTotals = new Map<string, number>();
+    validItems.forEach((it) => {
+      const co = knownSymbolsMap.get(it.symbol.toUpperCase());
+      const sec = co?.sector || "Genel";
+      sectorTotals.set(sec, (sectorTotals.get(sec) || 0) + Number(it.weight || 0));
+    });
+
+    let hasBreach = false;
+    sectorTotals.forEach((total) => {
+      if (total > maxSectorWeight) hasBreach = true;
+    });
+
+    if (hasBreach) {
+      let breachedSum = 0;
+      let nonBreachedSum = 0;
+
+      // First pass: cap breached sectors
+      validItems = validItems.map((it) => {
+        const co = knownSymbolsMap.get(it.symbol.toUpperCase());
+        const sec = co?.sector || "Genel";
+        const secTotal = sectorTotals.get(sec) || 0;
+        if (secTotal > maxSectorWeight) {
+          const ratio = maxSectorWeight / secTotal;
+          const cappedWeight = Math.max(5, Math.floor(Number(it.weight || 0) * ratio));
+          breachedSum += cappedWeight;
+          return { ...it, weight: cappedWeight };
+        } else {
+          nonBreachedSum += Number(it.weight || 0);
+          return it;
+        }
+      });
+
+      // Second pass: distribute remaining weight (100 - breachedSum) among non-breached items
+      const targetNonBreached = 100 - breachedSum;
+      if (nonBreachedSum > 0 && targetNonBreached > 0) {
+        validItems = validItems.map((it) => {
+          const co = knownSymbolsMap.get(it.symbol.toUpperCase());
+          const sec = co?.sector || "Genel";
+          const secTotal = sectorTotals.get(sec) || 0;
+          if (secTotal <= maxSectorWeight) {
+            const scaled = Math.max(5, Math.round((Number(it.weight || 0) / nonBreachedSum) * targetNonBreached));
+            return { ...it, weight: scaled };
+          }
+          return it;
+        });
+      }
     }
   }
 
-  // 3. Lot & Cost Consistency Calculation + %5 Price Deviation Guard
+  // 3. Normalize weights to exactly 100
+  const sumWeights = validItems.reduce((acc, it) => acc + (Number(it.weight) || 0), 0);
+  if (sumWeights > 0 && sumWeights !== 100) {
+    const diff = 100 - sumWeights;
+    // Add difference to an item that doesn't breach sector cap
+    const candidateIdx = validItems.findIndex((it) => {
+      const co = knownSymbolsMap.get(it.symbol.toUpperCase());
+      const sec = co?.sector || "Genel";
+      const secItems = validItems.filter((i) => (knownSymbolsMap.get(i.symbol.toUpperCase())?.sector || "Genel") === sec);
+      const secTotal = secItems.reduce((s, i) => s + i.weight, 0);
+      return secTotal + diff <= maxSectorWeight;
+    });
+    const targetIdx = candidateIdx >= 0 ? candidateIdx : 0;
+    if (validItems[targetIdx]) {
+      validItems[targetIdx].weight += diff;
+    }
+  }
+
+  // 4. Lot & Cost Consistency Calculation + %5 Price Deviation Guard + Veri Kalitesi / Likidite
   let allocatedCost = 0;
   const fixedItems = validItems.map((it) => {
     const sym = it.symbol.toUpperCase();
@@ -633,6 +697,27 @@ export function validateAndFixAllocation(
     const totalCost = parseFloat((shares * priceInTRY).toFixed(2));
     allocatedCost += totalCost;
 
+    // Eksik Veri Tespiti (Data Quality Warnings)
+    const dataQualityWarning: string[] = [];
+    const isCommodityOrFx =
+      company?.exchange === "Emtia" ||
+      company?.exchange === "Döviz" ||
+      sym.includes("ALTIN") ||
+      sym.includes("GÜMÜŞ") ||
+      sym.includes("USD") ||
+      sym.includes("EUR");
+    if (!isCommodityOrFx) {
+      if (company && (company.peRatio == null || isNaN(company.peRatio))) {
+        dataQualityWarning.push("F/K verisi bulunmuyor");
+      }
+      if (company && (company.pbRatio == null || isNaN(company.pbRatio))) {
+        dataQualityWarning.push("PD/DD verisi bulunmuyor");
+      }
+    }
+
+    const volRatio = company?.volumeRatio;
+    const isLowVolume = typeof volRatio === "number" && volRatio < 0.5;
+
     return {
       ...it,
       symbol: sym,
@@ -644,6 +729,9 @@ export function validateAndFixAllocation(
       priceInTRY,
       suggestedShares: shares,
       totalCost,
+      dataQualityWarning: dataQualityWarning.length > 0 ? dataQualityWarning : undefined,
+      volumeRatio: volRatio,
+      isLowVolume: isLowVolume || undefined,
     };
   });
 
@@ -908,6 +996,8 @@ export async function generateOrakulRecipe(
       pool = pool.filter(
         (c) =>
           c.indexTag === "BIST 30" ||
+          c.indexTag === "BIST30" ||
+          c.exchange === "BIST" ||
           c.exchange === "Emtia" ||
           c.symbol.includes("ALTIN") ||
           c.symbol.includes("GÜMÜŞ")
@@ -978,6 +1068,7 @@ export async function generateOrakulRecipe(
   if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
     try {
       const goalLower = req.goal.toLowerCase();
+      const maxSectorW = req.maxSectorWeight || 45;
 
       let filteredCandidates = [...pool];
       if (req.minDividendYield && req.minDividendYield > 0) {
@@ -990,6 +1081,11 @@ export async function generateOrakulRecipe(
           (c) => !c.peRatio || c.peRatio <= (req.maxPeRatio || 0) || c.exchange === "Emtia"
         );
       }
+      if (req.minVolumeRatio && req.minVolumeRatio > 0) {
+        filteredCandidates = filteredCandidates.filter(
+          (c) => c.volumeRatio === undefined || c.volumeRatio >= (req.minVolumeRatio || 0)
+        );
+      }
       if (req.excludeOverbought) {
         filteredCandidates = filteredCandidates.filter(
           (c) => (c.dailyChange === undefined || c.dailyChange <= 5.0) && (!c.rsi || c.rsi <= 70)
@@ -999,24 +1095,26 @@ export async function generateOrakulRecipe(
       const scoredCandidates = (filteredCandidates.length >= targetAssetCount ? filteredCandidates : pool)
         .map((c) => {
           let relevance = 0;
-          const div = c.dividendYield || 0;
-          const pe = c.peRatio || 15;
+          const div = typeof c.dividendYield === "number" ? c.dividendYield : 0;
+          const pe = typeof c.peRatio === "number" && c.peRatio > 0 ? c.peRatio : null;
+          const pb = typeof c.pbRatio === "number" && c.pbRatio > 0 ? c.pbRatio : null;
+          const vol = typeof c.volumeRatio === "number" ? c.volumeRatio : null;
           const sec = (c.sector || "").toLowerCase();
 
           if (req.strategyArchetype === "defensive_castle" || goalLower.includes("kale") || goalLower.includes("enflasyon")) {
             if (c.exchange === "Emtia" || c.symbol.includes("ALTIN")) relevance += 60;
             if (sec.includes("holding") || sec.includes("havacılık") || sec.includes("gıda") || sec.includes("perakende")) relevance += 40;
-            if (pe > 0 && pe < 12) relevance += 20;
+            if (pe !== null && pe < 12) relevance += 20;
           } else if (req.strategyArchetype === "dividend_aristocrats" || goalLower.includes("temettü")) {
             if (div >= 6) relevance += 70;
             else if (div >= 3) relevance += 40;
-            if (pe > 0 && pe < 10) relevance += 25;
+            if (pe !== null && pe < 10) relevance += 25;
           } else if (req.strategyArchetype === "garp" || goalLower.includes("garp")) {
-            if (pe > 0 && pe < 14) relevance += 40;
+            if (pe !== null && pe < 14) relevance += 40;
             if (sec.includes("sanayi") || sec.includes("otomotiv") || sec.includes("havacılık") || sec.includes("savunma")) relevance += 35;
           } else if (req.strategyArchetype === "deep_value" || goalLower.includes("değer")) {
-            if (pe > 0 && pe < 8) relevance += 60;
-            if (c.pbRatio && c.pbRatio < 1.8) relevance += 35;
+            if (pe !== null && pe < 8) relevance += 60;
+            if (pb !== null && pb < 1.8) relevance += 35;
           } else if (req.strategyArchetype === "global_hedge" || goalLower.includes("küresel") || goalLower.includes("döviz")) {
             if (c.exchange === "ABD" || c.exchange === "Emtia" || sec.includes("havacılık") || sec.includes("otomotiv")) relevance += 55;
           } else if (req.strategyArchetype === "momentum_leaders" || goalLower.includes("momentum") || goalLower.includes("büyüme")) {
@@ -1024,8 +1122,15 @@ export async function generateOrakulRecipe(
             if (sec.includes("teknoloji") || sec.includes("savunma") || sec.includes("yazılım")) relevance += 45;
           } else {
             if (div > 0) relevance += 15;
-            if (pe > 0 && pe < 15) relevance += 20;
+            if (pe !== null && pe < 15) relevance += 20;
             if (sec.includes("holding") || sec.includes("perakende") || c.exchange === "Emtia") relevance += 25;
+          }
+
+          // Liquidity / Volume awareness penalty
+          if (vol !== null) {
+            if (vol < 0.2) relevance -= 50;
+            else if (vol < 0.5) relevance -= 20;
+            else if (vol >= 1.2) relevance += 10;
           }
 
           // Concentration penalty in candidate scoring
@@ -1043,7 +1148,7 @@ export async function generateOrakulRecipe(
       const maxCandidates = Math.min(Math.max(targetAssetCount * 4, 12), 22);
       const candidatesSample = (scoredCandidates.length > 0 ? scoredCandidates : pool.map((c) => ({ company: c, relevance: 0 })))
         .slice(0, maxCandidates)
-        .map((s) => `${s.company.symbol}|${s.company.sector || "Genel"}|${s.company.price}${s.company.currency === "USD" || s.company.exchange === "ABD" ? "$" : "₺"}|FK:${s.company.peRatio ?? "-"}|PD:${s.company.pbRatio ?? "-"}|TEM:%${s.company.dividendYield ?? 0}`)
+        .map((s) => `${s.company.symbol}|${s.company.sector || "Genel"}|${s.company.price}${s.company.currency === "USD" || s.company.exchange === "ABD" ? "$" : "₺"}|FK:${s.company.peRatio ?? "-"}|PD:${s.company.pbRatio ?? "-"}|TEM:%${s.company.dividendYield ?? 0}|HACIM:${s.company.volumeRatio ? s.company.volumeRatio.toFixed(1) + "x" : "-"}`)
         .join("\n");
 
       const existingExposurePrompt = req.existingPortfolioExposure && req.existingPortfolioExposure.length > 0
@@ -1055,11 +1160,13 @@ Format (JSON):
 {"recipeTitle": "Strateji Adı", "summary": "2 cümlelik özet", "expectedYield": "%45 Yıllık Getiri", "riskRating": "Orta", "committeeDebate": {"bullSummary": "Boğa tezi", "bearSummary": "Ayı riski", "verdict": "Komite kararı"}, "allocation": [{"symbol": "THYAO", "name": "THY", "weight": 30, "price": 310, "note": "Gerekçe", "bullThesis": "Boğa tezi", "bearRisk": "Ayı riski"}]}
 
 Kullanıcı Parametreleri:
-Hedef: ${req.goal}, Risk: ${req.risk}, Bütçe: ${budgetNum} TL (Net Yatırılabilir: ${investableBudget} TL, Tahmini Komisyon: ${estimatedFeeAmount} TL), Varlık Sayısı: ${targetAssetCount}${existingExposurePrompt}
-Talimatlar:
-1. BIST hisseleri için suggestedShares tam sayı (Math.floor), kıymetli maden/döviz/fon için ondalıklı olabilir.
-2. ABD borsası (exchange: 'ABD') varlıkları USD fiyatlıdır (1 USD = ${usdTryRate.toFixed(2)} TL). Lot hesabı TL bütçeye göre kur çevrimi yapılarak hesaplanır.
-Adaylar (SEMBOL|SEKTÖR|FİYAT|FK|PD|TEM):
+Hedef: ${req.goal}, Risk: ${req.risk}, Bütçe: ${budgetNum} TL (Net Yatırılabilir: ${investableBudget} TL, Tahmini Komisyon: ${estimatedFeeAmount} TL), Varlık Sayısı: ${targetAssetCount}, Maksimum Sektör Ağırlığı: %${maxSectorW}${existingExposurePrompt}
+Kritik Kısıtlar ve Talimatlar:
+1. Hiçbir sektörün toplam ağırlığı %${maxSectorW}'i geçmemelidir (sadece tek varlık ağırlığı değil, sektör toplamı da bu sınıra tabidir).
+2. Bir varlığın F/K veya PD/DD verisi eksikse bunu varsaymak yerine notlarında açıkça 'veri sınırlı' şeklinde belirt.
+3. BIST hisseleri için suggestedShares tam sayı (Math.floor), kıymetli maden/döviz/fon için ondalıklı olabilir.
+4. ABD borsası (exchange: 'ABD') varlıkları USD fiyatlıdır (1 USD = ${usdTryRate.toFixed(2)} TL). Lot hesabı TL bütçeye göre kur çevrimi yapılarak hesaplanır.
+Adaylar (SEMBOL|SEKTÖR|FİYAT|FK|PD|TEM|HACIM):
 ${candidatesSample}`;
 
       const effectiveModel = getOptimalModelForTask("recipe", customModel, provider);
@@ -1121,13 +1228,14 @@ ${candidatesSample}`;
           if (validated.success) {
             const data = validated.data;
 
-            // 1. Symbol filtering and deterministic allocation fix (Net investable budget & USD/TRY conversion)
+            // 1. Symbol filtering and deterministic allocation fix (Net investable budget & USD/TRY conversion + Sector Cap)
             const { fixedAllocation, cashReserve } = validateAndFixAllocation(
               data.allocation,
               pool,
               investableBudget,
               targetAssetCount,
-              usdTryRate
+              usdTryRate,
+              maxSectorW
             );
 
             // 2. Rebalance actions calculation
@@ -1143,9 +1251,54 @@ ${candidatesSample}`;
               data.expectedYield
             );
 
+            // 4. Measure Historical Daily Volatility (Son 6 ay gerçek kapanışlar)
+            let enrichedAllocationWithVol = fixedAllocation;
+            let measuredPortfolioVol: number | undefined = undefined;
+            try {
+              const now = new Date();
+              const sixMonthsAgo = new Date();
+              sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+              const historyPromises = fixedAllocation.map(async (item) => {
+                try {
+                  const ticker = getSymbolTicker(item.symbol);
+                  const quotes = await fetchHistoricalDailyCloses(ticker, sixMonthsAgo, now);
+                  const closes = quotes.map((q) => q.close);
+                  const histVol = calculateHistoricalVolatility(closes);
+                  return { symbol: item.symbol, histVol };
+                } catch {
+                  return { symbol: item.symbol, histVol: null };
+                }
+              });
+
+              const historyResults = await Promise.all(historyPromises);
+              const volMap = new Map<string, number | null>();
+              historyResults.forEach((h) => volMap.set(h.symbol, h.histVol));
+
+              enrichedAllocationWithVol = fixedAllocation.map((item) => ({
+                ...item,
+                measuredVolatility: volMap.get(item.symbol) ?? null,
+              }));
+
+              let weightedVolSum = 0;
+              let totalVolWeight = 0;
+              enrichedAllocationWithVol.forEach((item) => {
+                if (typeof item.measuredVolatility === "number" && item.measuredVolatility > 0) {
+                  weightedVolSum += item.measuredVolatility * (item.weight / 100);
+                  totalVolWeight += item.weight;
+                }
+              });
+
+              if (totalVolWeight >= 40) {
+                measuredPortfolioVol = parseFloat(weightedVolSum.toFixed(1));
+              }
+            } catch (volErr) {
+              console.warn("[generateOrakulRecipe] Measured volatility error:", volErr);
+            }
+
             return {
               ...data,
-              allocation: fixedAllocation,
+              allocation: enrichedAllocationWithVol,
               cashReserve: cashReserve || data.cashReserve || 0,
               estimatedFeeAmount,
               investableBudget,
@@ -1162,6 +1315,7 @@ ${candidatesSample}`;
               },
               // Overwrite all quantitative metrics with deterministic outputs
               ...realMetrics,
+              estimatedVolatility: measuredPortfolioVol ?? realMetrics.estimatedVolatility,
               isTemplate: false,
               engine: "llm" as const,
             };
@@ -1185,6 +1339,7 @@ ${candidatesSample}`;
   const isConservative = req.risk.includes("Düşük");
   const isAggressive = req.risk.includes("Yüksek");
   const targetCount = targetAssetCount;
+  const maxSectorWeight = req.maxSectorWeight || 45;
 
   // =========================================================================
   // ACİL DURUM YEDEĞİ (defaultSeeds) — SON GÜNCELLEME: 2026-08
@@ -1207,26 +1362,28 @@ ${candidatesSample}`;
   // Merge available pool with default seeds to ensure rich diversity
   const candidatePool = pool.length >= targetCount ? pool : Array.from(new Map([...pool, ...defaultSeeds].map((c) => [c.symbol, c])).values());
 
-  // Dynamic ranking function based on strategy goal + Persona Bonus + Existing Concentration Penalty
+  // Dynamic ranking function based on strategy goal + Persona Bonus + Existing Concentration Penalty + Liquidity
   const rankedCandidates = [...candidatePool].map((c) => {
     let score = 50;
     const sectorLower = (c.sector || "").toLowerCase();
-    const div = c.dividendYield || 0;
-    const pe = c.peRatio || 12;
+    const div = typeof c.dividendYield === "number" ? c.dividendYield : 0;
+    const pe = typeof c.peRatio === "number" && c.peRatio > 0 ? c.peRatio : null;
+    const pb = typeof c.pbRatio === "number" && c.pbRatio > 0 ? c.pbRatio : null;
+    const vol = typeof c.volumeRatio === "number" ? c.volumeRatio : null;
 
     // Strategy / Goal Primary Scoring
     if (goalLower.includes("temettü")) {
       if (div > 5) score += 40;
       else if (div > 2) score += 25;
       else if (div > 0) score += 10;
-      if (pe > 0 && pe < 10) score += 20;
+      if (pe !== null && pe < 10) score += 20;
       if (sectorLower.includes("otomotiv") || sectorLower.includes("petrol") || sectorLower.includes("enerji") || sectorLower.includes("perakende")) score += 15;
     } else if (goalLower.includes("ihracat") || goalLower.includes("döviz")) {
       if (sectorLower.includes("havacılık") || sectorLower.includes("otomotiv") || sectorLower.includes("savunma") || sectorLower.includes("sanayi")) score += 45;
       if (c.dailyChange > 0) score += 15;
     } else if (goalLower.includes("değer") || goalLower.includes("düşük f/k")) {
-      if (pe > 0 && pe < 8) score += 50;
-      if (c.pbRatio && c.pbRatio < 2) score += 25;
+      if (pe !== null && pe < 8) score += 50;
+      if (pb !== null && pb < 2) score += 25;
     } else if (goalLower.includes("büyüme") || isAggressive) {
       if (sectorLower.includes("savunma") || sectorLower.includes("teknoloji") || sectorLower.includes("yazılım") || sectorLower.includes("havacılık") || c.exchange === "ABD") score += 35;
       if (c.dailyChange > 0) score += 15;
@@ -1236,15 +1393,15 @@ ${candidatesSample}`;
     } else {
       // Balanced
       if (div > 0) score += 15;
-      if (pe > 0 && pe < 15) score += 15;
+      if (pe !== null && pe < 15) score += 15;
       if (sectorLower.includes("holding") || sectorLower.includes("perakende") || c.exchange === "Emtia") score += 20;
     }
 
     // Persona Bonus Adjustment (+10 to +25 score)
     const p = (persona || "deger").toLowerCase();
     if (p.includes("deger") || p.includes("value")) {
-      if (pe > 0 && pe < 8) score += 20;
-      if (c.pbRatio && c.pbRatio < 1.6) score += 15;
+      if (pe !== null && pe < 8) score += 20;
+      if (pb !== null && pb < 1.6) score += 15;
     } else if (p.includes("buyume") || p.includes("growth")) {
       if (sectorLower.includes("teknoloji") || sectorLower.includes("savunma") || sectorLower.includes("yazılım")) score += 20;
       if (c.dailyChange > 0) score += 10;
@@ -1255,6 +1412,13 @@ ${candidatesSample}`;
       if (c.exchange === "Emtia" || c.symbol.includes("ALTIN") || sectorLower.includes("perakende") || sectorLower.includes("holding")) score += 20;
     } else if (p.includes("makro") || p.includes("hedge")) {
       if (c.exchange === "Döviz" || c.exchange === "Emtia" || sectorLower.includes("havacılık")) score += 20;
+    }
+
+    // Liquidity / Volume awareness penalty
+    if (vol !== null) {
+      if (vol < 0.2) score -= 50;
+      else if (vol < 0.5) score -= 20;
+      else if (vol >= 1.2) score += 10;
     }
 
     // Existing Concentration Penalty (Diversification Protection)
@@ -1273,26 +1437,29 @@ ${candidatesSample}`;
     return { ...c, calculatedScore: score };
   }).sort((a, b) => b.calculatedScore - a.calculatedScore);
 
-  // Pick targetCount diverse items from different sectors where possible
+  // Pick targetCount diverse items respecting sector weight ceiling (maxSectorWeight)
   const selectedItems: CompanyAnalysisRequest[] = [];
-  const usedSectors = new Set<string>();
+  const sectorWeights = new Map<string, number>();
+  const approxWeightPerItem = Math.round(100 / targetCount);
 
   // If gold buffer is requested, ensure gold is prioritized
   if (req.includeGoldBuffer) {
     const goldItem = candidatePool.find((c) => c.symbol === "ALTIN/GR" || c.symbol.includes("ALTIN") || c.exchange === "Emtia");
     if (goldItem) {
       selectedItems.push(goldItem);
-      usedSectors.add(goldItem.sector || "Kıymetli Maden");
+      const sec = goldItem.sector || "Kıymetli Maden";
+      sectorWeights.set(sec, (sectorWeights.get(sec) || 0) + approxWeightPerItem);
     }
   }
 
   for (const candidate of rankedCandidates) {
     if (selectedItems.length >= targetCount) break;
     const sec = candidate.sector || "Genel";
-    if (!usedSectors.has(sec) || selectedItems.length >= targetCount - 1) {
+    const currentSecWeight = sectorWeights.get(sec) || 0;
+    if (currentSecWeight + approxWeightPerItem <= maxSectorWeight || selectedItems.length >= targetCount - 1) {
       if (!selectedItems.some((s) => s.symbol === candidate.symbol)) {
         selectedItems.push(candidate);
-        usedSectors.add(sec);
+        sectorWeights.set(sec, currentSecWeight + approxWeightPerItem);
       }
     }
   }
@@ -1359,7 +1526,8 @@ ${candidatesSample}`;
     candidatePool,
     investableBudget,
     targetCount,
-    usdTryRate
+    usdTryRate,
+    maxSectorWeight
   );
 
   const weightedDividend = fixedAllocation.reduce((sum, a) => {
@@ -1389,6 +1557,51 @@ ${candidatesSample}`;
     yieldStr
   );
 
+  // Measure Historical Daily Volatility (Son 6 ay gerçek kapanışlar)
+  let enrichedAllocationWithVol = fixedAllocation;
+  let measuredPortfolioVol: number | undefined = undefined;
+  try {
+    const now = new Date();
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+    const historyPromises = fixedAllocation.map(async (item) => {
+      try {
+        const ticker = getSymbolTicker(item.symbol);
+        const quotes = await fetchHistoricalDailyCloses(ticker, sixMonthsAgo, now);
+        const closes = quotes.map((q) => q.close);
+        const histVol = calculateHistoricalVolatility(closes);
+        return { symbol: item.symbol, histVol };
+      } catch {
+        return { symbol: item.symbol, histVol: null };
+      }
+    });
+
+    const historyResults = await Promise.all(historyPromises);
+    const volMap = new Map<string, number | null>();
+    historyResults.forEach((h) => volMap.set(h.symbol, h.histVol));
+
+    enrichedAllocationWithVol = fixedAllocation.map((item) => ({
+      ...item,
+      measuredVolatility: volMap.get(item.symbol) ?? null,
+    }));
+
+    let weightedVolSum = 0;
+    let totalVolWeight = 0;
+    enrichedAllocationWithVol.forEach((item) => {
+      if (typeof item.measuredVolatility === "number" && item.measuredVolatility > 0) {
+        weightedVolSum += item.measuredVolatility * (item.weight / 100);
+        totalVolWeight += item.weight;
+      }
+    });
+
+    if (totalVolWeight >= 40) {
+      measuredPortfolioVol = parseFloat(weightedVolSum.toFixed(1));
+    }
+  } catch (volErr) {
+    console.warn("[generateOrakulRecipe] Algorithmic measured volatility error:", volErr);
+  }
+
   return {
     title: `Orakul Kural Motoru: ${req.goal.split(" ")[0]} & ${req.universe.split(" ")[0]} Stratejisi`,
     summary: `${budgetNum.toLocaleString("tr-TR")} ₺ bütçe için ${req.risk.toLowerCase()} profilinde, kütüğünüzdeki ${candidatePool.length} varlık taranarak kural tabanlı optimizasyon ile oluşturulmuştur.`,
@@ -1397,7 +1610,7 @@ ${candidatesSample}`;
     expectedYield: yieldStr,
     recommendedDuration: duration,
     riskRating: req.risk,
-    allocation: fixedAllocation,
+    allocation: enrichedAllocationWithVol,
     cashReserve,
     estimatedFeeAmount,
     investableBudget,
@@ -1418,6 +1631,7 @@ ${candidatesSample}`;
       verdict: "Kural Motoru Kararı: Sektörel çeşitlendirme ve kovaryans matrisi sınırları dahilinde optimize edildi.",
     },
     ...realMetrics,
+    estimatedVolatility: measuredPortfolioVol ?? realMetrics.estimatedVolatility,
     isTemplate: true,
     engine: "algorithmic" as const,
   };
@@ -1596,6 +1810,26 @@ Format (JSON):
   }
   const totalCost = parseFloat((shares * priceInTRY).toFixed(2));
 
+  const dataQualityWarning: string[] = [];
+  const isCommodityOrFx =
+    newItemCandidate.exchange === "Emtia" ||
+    newItemCandidate.exchange === "Döviz" ||
+    sym.includes("ALTIN") ||
+    sym.includes("GÜMÜŞ") ||
+    sym.includes("USD") ||
+    sym.includes("EUR");
+  if (!isCommodityOrFx) {
+    if (newItemCandidate.peRatio == null || isNaN(newItemCandidate.peRatio)) {
+      dataQualityWarning.push("F/K verisi bulunmuyor");
+    }
+    if (newItemCandidate.pbRatio == null || isNaN(newItemCandidate.pbRatio)) {
+      dataQualityWarning.push("PD/DD verisi bulunmuyor");
+    }
+  }
+
+  const volRatio = newItemCandidate.volumeRatio;
+  const isLowVolume = typeof volRatio === "number" && volRatio < 0.5;
+
   const newItem: AiRecipeAllocationItem = {
     symbol: sym,
     name: newItemCandidate.name || sym,
@@ -1607,6 +1841,9 @@ Format (JSON):
     priceInTRY,
     suggestedShares: shares,
     totalCost,
+    dataQualityWarning: dataQualityWarning.length > 0 ? dataQualityWarning : undefined,
+    volumeRatio: volRatio,
+    isLowVolume: isLowVolume || undefined,
     note:
       (newItemCandidate as { note?: string }).note ||
       `${newItemCandidate.sector || "Genel"} sektöründe güçlü alternatif.`,

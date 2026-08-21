@@ -712,3 +712,27 @@ export function calculateValuationFormulas(company: {
     kellySuggestedPct,
   };
 }
+
+/**
+ * Gerçek geçmiş günlük kapanış fiyat serisinden yıllıklandırılmış volatiliteyi (standart sapma) hesaplar.
+ * Formül: Günlük yüzdesel getirilerin standart sapması * sqrt(252) * 100
+ * Sıfır sahte veri kuralı: 5 günden az veri varsa veya hesaplanamazsa null döner.
+ */
+export function calculateHistoricalVolatility(closes: number[]): number | null {
+  if (!closes || !Array.isArray(closes) || closes.length < 5) return null;
+  const returns: number[] = [];
+  for (let i = 1; i < closes.length; i++) {
+    const prev = closes[i - 1];
+    const curr = closes[i];
+    if (prev > 0 && curr > 0) {
+      returns.push((curr - prev) / prev);
+    }
+  }
+  if (returns.length < 4) return null;
+  const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
+  const variance = returns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / (returns.length - 1);
+  if (variance <= 0) return 0;
+  const dailyStdDev = Math.sqrt(variance);
+  const annualized = dailyStdDev * Math.sqrt(252) * 100;
+  return parseFloat(annualized.toFixed(2));
+}

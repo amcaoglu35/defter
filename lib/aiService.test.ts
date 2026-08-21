@@ -57,7 +57,12 @@ describe("aiService Unit & Contract Tests", () => {
 
       const result = await generateOrakulRecipe(req, sampleCompanies, undefined);
 
-      expect(fetchMock).not.toHaveBeenCalled();
+      // Ensure zero AI LLM API calls are made
+      const aiCalls = fetchMock.mock.calls.filter((call: unknown[]) => {
+        const url = String(call[0] || "");
+        return url.includes("generativelanguage.googleapis.com") || url.includes("api.openai.com");
+      });
+      expect(aiCalls.length).toBe(0);
       expect(result).toBeDefined();
       expect(result.allocation.length).toBe(4);
       expect(result.engine).toBe("algorithmic");
@@ -563,6 +568,97 @@ describe("aiService Unit & Contract Tests", () => {
       await expect(
         regenerateSingleAsset(initialAllocation, "NON_EXISTENT_TICKER", req, sampleCompanies, undefined)
       ).rejects.toThrow("bulunamadı");
+    });
+  });
+
+  // -------------------------------------------------------------
+  // 7. Risk & Data Quality Hardening Tests
+  // -------------------------------------------------------------
+  describe("Risk & Data Quality Hardening", () => {
+    it("strictly enforces sector weight ceiling (maxSectorWeight <= 45%) across portfolio", async () => {
+      const aviationCompanies: CompanyAnalysisRequest[] = [
+        { symbol: "THYAO", name: "THY", price: 310, sector: "Havacılık", exchange: "BIST", dailyChange: 1.0, peRatio: 5 },
+        { symbol: "PGSUS", name: "Pegasus", price: 240, sector: "Havacılık", exchange: "BIST", dailyChange: 1.2, peRatio: 6 },
+        { symbol: "TAVHL", name: "TAV", price: 180, sector: "Havacılık", exchange: "BIST", dailyChange: 0.8, peRatio: 7 },
+        { symbol: "ASELS", name: "Aselsan", price: 64.5, sector: "Savunma", exchange: "BIST", dailyChange: 0.5, peRatio: 12 },
+        { symbol: "BIMAS", name: "BİM", price: 490, sector: "Perakende", exchange: "BIST", dailyChange: 0.2, peRatio: 14 },
+      ];
+
+      const req: AiRecipeRequest = {
+        goal: "Havacılık Odaklı",
+        risk: "Yüksek",
+        universe: "BIST 30",
+        budget: 100000,
+        assetCount: 4,
+        maxSectorWeight: 45,
+      };
+
+      const result = await generateOrakulRecipe(req, aviationCompanies, undefined);
+
+      // Check sum of weights for Havacılık sector
+      const aviationWeight = result.allocation
+        .filter((item) => {
+          const co = aviationCompanies.find((c) => c.symbol === item.symbol);
+          return co?.sector === "Havacılık";
+        })
+        .reduce((sum, item) => sum + item.weight, 0);
+
+      expect(aviationWeight).toBeLessThanOrEqual(46); // 45% + minor rounding tolerance
+    });
+
+    it("attaches dataQualityWarning when equity metrics (PE/PB) are missing, without assuming PE=15", async () => {
+      const incompleteCompanies: CompanyAnalysisRequest[] = [
+        { symbol: "NEWIPO", name: "Yeni Halka Arz", price: 50, sector: "Teknoloji", exchange: "BIST", dailyChange: 0.5 }, // No peRatio or pbRatio
+        { symbol: "ASELS", name: "Aselsan", price: 64.5, sector: "Savunma", exchange: "BIST", dailyChange: 0.5, peRatio: 12, pbRatio: 3.5 },
+        { symbol: "BIMAS", name: "BİM", price: 490, sector: "Perakende", exchange: "BIST", dailyChange: 0.2, peRatio: 14, pbRatio: 4.2 },
+        { symbol: "THYAO", name: "THY", price: 310, sector: "Ulaştırma", exchange: "BIST", dailyChange: 1.0, peRatio: 5, pbRatio: 1.2 },
+      ];
+
+      const req: AiRecipeRequest = {
+        goal: "Büyüme",
+        risk: "Orta",
+        universe: "BIST 30",
+        budget: 100000,
+        assetCount: 4,
+      };
+
+      const result = await generateOrakulRecipe(req, incompleteCompanies, undefined);
+
+      const newIpoItem = result.allocation.find((a) => a.symbol === "NEWIPO");
+      expect(newIpoItem).toBeDefined();
+      expect(newIpoItem?.dataQualityWarning).toBeDefined();
+      expect(newIpoItem?.dataQualityWarning).toContain("F/K verisi bulunmuyor");
+      expect(newIpoItem?.dataQualityWarning).toContain("PD/DD verisi bulunmuyor");
+
+      const aselsItem = result.allocation.find((a) => a.symbol === "ASELS");
+      expect(aselsItem?.dataQualityWarning).toBeUndefined();
+    });
+
+    it("applies liquidity warning (isLowVolume: true) for assets with low volumeRatio (< 0.5)", async () => {
+      const liquidityCompanies: CompanyAnalysisRequest[] = [
+        { symbol: "LOWVOL", name: "Sığ Hisse", price: 20, sector: "Sanayi", exchange: "BIST", dailyChange: 0.2, volumeRatio: 0.3, peRatio: 10 },
+        { symbol: "HIGHVOL", name: "Likit Hisse", price: 80, sector: "Holding", exchange: "BIST", dailyChange: 0.4, volumeRatio: 1.8, peRatio: 8 },
+        { symbol: "ASELS", name: "Aselsan", price: 64.5, sector: "Savunma", exchange: "BIST", dailyChange: 0.5, volumeRatio: 1.2, peRatio: 12 },
+        { symbol: "THYAO", name: "THY", price: 310, sector: "Ulaştırma", exchange: "BIST", dailyChange: 1.0, volumeRatio: 1.5, peRatio: 5 },
+      ];
+
+      const req: AiRecipeRequest = {
+        goal: "Dengeli",
+        risk: "Orta",
+        universe: "BIST 30",
+        budget: 100000,
+        assetCount: 4,
+      };
+
+      const result = await generateOrakulRecipe(req, liquidityCompanies, undefined);
+
+      const lowVolItem = result.allocation.find((a) => a.symbol === "LOWVOL");
+      expect(lowVolItem).toBeDefined();
+      expect(lowVolItem?.isLowVolume).toBe(true);
+      expect(lowVolItem?.volumeRatio).toBe(0.3);
+
+      const highVolItem = result.allocation.find((a) => a.symbol === "HIGHVOL");
+      expect(highVolItem?.isLowVolume).toBeUndefined();
     });
   });
 });

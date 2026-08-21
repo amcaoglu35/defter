@@ -232,6 +232,8 @@ function OrakulContent() {
   const [budget, setBudget] = useState("100.000");
   const [horizon, setHorizon] = useState<string>("Orta Vade (6-18 Ay)");
   const [maxAssetWeight, setMaxAssetWeight] = useState<number>(35);
+  const [maxSectorWeight, setMaxSectorWeight] = useState<number>(45);
+  const [minVolumeRatio, setMinVolumeRatio] = useState<number>(0);
   const [includeGoldBuffer, setIncludeGoldBuffer] = useState<boolean>(false);
   const [excludeOverbought, setExcludeOverbought] = useState<boolean>(false);
   const [includeTransactionFees, setIncludeTransactionFees] = useState<boolean>(true);
@@ -368,6 +370,10 @@ interface OrakulRecipeResult {
     bullThesis?: string;
     bearRisk?: string;
     rationale?: string;
+    dataQualityWarning?: string[];
+    volumeRatio?: number;
+    isLowVolume?: boolean;
+    measuredVolatility?: number | null;
   }>;
 }
 
@@ -702,6 +708,7 @@ interface WeeklyLetterResult {
       setTimeout(() => setRecipePhase("2. Kovaryans Matrisi & Korelasyon Hesaplanıyor..."), 500);
       setTimeout(() => setRecipePhase("3. Risk Metrikleri (Sharpe/Sortino/Beta) Hesaplanıyor..."), 1100);
       setTimeout(() => setRecipePhase("4. Komite Değerlendirmesi & Lot Dağılımı..."), 1700);
+      setTimeout(() => setRecipePhase("5. Geçmiş Fiyat Verisiyle Volatilite Doğrulanıyor..."), 2300);
 
       const rebalanceBasket = rebalanceBasketId ? baskets.find((b) => b.id === rebalanceBasketId) : null;
       const budgetNum = parseFloat(budget.replace(/\./g, "")) || 100000;
@@ -720,6 +727,8 @@ interface WeeklyLetterResult {
             estimatedFeeRatePct: includeTransactionFees ? 0.2 : 0,
             horizon,
             maxAssetWeight,
+            maxSectorWeight,
+            minVolumeRatio: minVolumeRatio > 0 ? minVolumeRatio : undefined,
             includeGoldBuffer,
             excludeOverbought,
             minDividendYield: minDividendYield > 0 ? minDividendYield : undefined,
@@ -843,6 +852,8 @@ interface WeeklyLetterResult {
               estimatedFeeRatePct: includeTransactionFees ? 0.2 : 0,
               horizon,
               maxAssetWeight,
+              maxSectorWeight,
+              minVolumeRatio: minVolumeRatio > 0 ? minVolumeRatio : undefined,
               includeGoldBuffer,
               excludeOverbought,
               assetCount,
@@ -2136,6 +2147,42 @@ interface WeeklyLetterResult {
                     />
                   </div>
 
+                  <div className="p-3 bg-[var(--ink-2)] rounded-lg border border-[var(--line)] space-y-1.5">
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-[var(--mist)]">Maksimum Sektör Ağırlığı Tavanı:</span>
+                      <span className="font-bold text-[var(--paper)] font-mono">
+                        %{maxSectorWeight}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={20}
+                      max={80}
+                      step={5}
+                      value={maxSectorWeight}
+                      onChange={(e) => setMaxSectorWeight(Number(e.target.value))}
+                      className="w-full accent-[var(--brass)] cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="p-3 bg-[var(--ink-2)] rounded-lg border border-[var(--line)] space-y-1.5">
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-[var(--mist)]">Min. Günlük Hacim Oranı:</span>
+                      <span className="font-bold text-[var(--paper)] font-mono">
+                        {minVolumeRatio > 0 ? `≥ ${minVolumeRatio.toFixed(1)}x` : "Kısıt Yok"}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={2.0}
+                      step={0.2}
+                      value={minVolumeRatio}
+                      onChange={(e) => setMinVolumeRatio(Number(e.target.value))}
+                      className="w-full accent-[var(--brass)] cursor-pointer"
+                    />
+                  </div>
+
                   <div
                     onClick={() => setExcludeOverbought(!excludeOverbought)}
                     className={`sm:col-span-2 p-3 rounded-lg border flex items-center justify-between cursor-pointer transition-all ${
@@ -2641,6 +2688,22 @@ interface WeeklyLetterResult {
                             <span className="text-xs text-[var(--mist)] font-sans">
                               {item.companyName || item.name}
                             </span>
+                            {item.dataQualityWarning && item.dataQualityWarning.length > 0 && (
+                              <span
+                                className="text-[9px] font-mono text-amber-300 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.5 rounded cursor-help"
+                                title={`Eksik veri: ${item.dataQualityWarning.join(", ")}`}
+                              >
+                                ℹ️ Eksik Veri ({item.dataQualityWarning.join(", ")})
+                              </span>
+                            )}
+                            {item.isLowVolume && (
+                              <span
+                                className="text-[9px] font-mono text-rose-300 bg-rose-500/15 border border-rose-500/30 px-1.5 py-0.5 rounded cursor-help"
+                                title="Düşük işlem hacmi — önerilen lot miktarını almak piyasa fiyatını etkileyebilir (slippage)"
+                              >
+                                ⚠️ Düşük Hacim
+                              </span>
+                            )}
                             {(() => {
                               const exp = existingPortfolioExposure.find(
                                 (e) => e.symbol.toUpperCase() === item.symbol.toUpperCase()
@@ -2714,11 +2777,18 @@ interface WeeklyLetterResult {
                         )}
                       </div>
 
-                      {/* Tek Varlığı Değiştir Butonu */}
+                      {/* Tek Varlığı Değiştir Butonu & Volatilite */}
                       <div className="pt-2 border-t border-[var(--line)]/50 flex items-center justify-between">
-                        <span className="text-[10px] text-[var(--mist)] font-mono">
-                          Maliyet: {(item.totalCost || 0).toLocaleString("tr-TR")} ₺
-                        </span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-[10px] text-[var(--mist)] font-mono">
+                            Maliyet: {(item.totalCost || 0).toLocaleString("tr-TR")} ₺
+                          </span>
+                          {typeof item.measuredVolatility === "number" && item.measuredVolatility > 0 && (
+                            <span className="text-[9px] font-mono text-sky-400 bg-sky-500/10 border border-sky-500/20 px-1.5 py-0.5 rounded">
+                              Volatilite: %{item.measuredVolatility.toFixed(1)}
+                            </span>
+                          )}
+                        </div>
                         <button
                           type="button"
                           disabled={regeneratingSymbol === item.symbol || loading}

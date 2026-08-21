@@ -22,6 +22,10 @@ export const AiRecipeAllocationItemSchema = z.object({
   bullThesis: z.string().optional(),
   bearRisk: z.string().optional(),
   note: z.string().optional(),
+  dataQualityWarning: z.array(z.string()).optional(),
+  volumeRatio: z.number().optional(),
+  isLowVolume: z.boolean().optional(),
+  measuredVolatility: z.number().nullable().optional(),
 });
 
 export const AiRecipeResponseSchema = z.object({
@@ -227,11 +231,13 @@ export const OrakulRecipePayloadSchema = z.object({
   budget: z.number().positive().max(100_000_000_000).optional(),
   horizon: z.string().max(50).optional(),
   maxAssetWeight: z.number().min(5).max(100).optional(),
+  maxSectorWeight: z.number().min(10).max(100).optional(),
   includeGoldBuffer: z.boolean().optional(),
   excludeOverbought: z.boolean().optional(),
   estimatedFeeRatePct: z.number().min(0).max(5).optional(),
   minDividendYield: z.number().min(0).max(100).optional(),
   maxPeRatio: z.number().min(0).max(500).optional(),
+  minVolumeRatio: z.number().min(0).max(10).optional(),
   assetCount: z.number().int().min(1).max(20).optional(),
   allCompanies: z.array(z.any()).max(500).optional(),
   existingPortfolioExposure: z.array(z.object({ symbol: z.string(), totalWeightPctOfNetWorth: z.number() })).optional(),
@@ -254,6 +260,7 @@ export const OrakulCompanyPayloadSchema = z.object({
   dividendYield: z.number().min(0).max(100).optional(),
   sector: z.string().max(100).optional(),
   dailyChange: z.number().optional(),
+  volumeRatio: z.number().optional(),
   currency: z.string().max(10).optional(),
 }).passthrough();
 

@@ -7,6 +7,7 @@ import {
   generateEfficientFrontier,
   calculateHHI,
   calculateValuationFormulas,
+  calculateHistoricalVolatility,
   PortfolioAssetInput,
 } from "./quantEngine";
 
@@ -301,6 +302,28 @@ describe("quantEngine Unit Tests", () => {
       expect(val.dupontRoePct).toBeDefined();
       expect(val.piotroskiFScore).toBeGreaterThanOrEqual(0);
       expect(val.mertonDefaultProbabilityPct).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  // -------------------------------------------------------------
+  // 8. calculateHistoricalVolatility
+  // -------------------------------------------------------------
+  describe("calculateHistoricalVolatility", () => {
+    it("returns null for empty array or insufficient data points (< 5)", () => {
+      expect(calculateHistoricalVolatility([])).toBeNull();
+      expect(calculateHistoricalVolatility([100, 102, 101])).toBeNull();
+    });
+
+    it("returns 0 for identical flat prices", () => {
+      expect(calculateHistoricalVolatility([100, 100, 100, 100, 100, 100])).toBe(0);
+    });
+
+    it("accurately computes annualized standard deviation for a realistic series", () => {
+      const prices = [100, 102, 101, 103, 102, 105, 104, 106, 105, 107];
+      const vol = calculateHistoricalVolatility(prices);
+      expect(vol).toBeDefined();
+      expect(vol).toBeGreaterThan(10);
+      expect(vol).toBeLessThan(50);
     });
   });
 });
