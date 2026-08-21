@@ -234,6 +234,8 @@ function OrakulContent() {
   const [maxAssetWeight, setMaxAssetWeight] = useState<number>(35);
   const [includeGoldBuffer, setIncludeGoldBuffer] = useState<boolean>(false);
   const [excludeOverbought, setExcludeOverbought] = useState<boolean>(false);
+  const [includeTransactionFees, setIncludeTransactionFees] = useState<boolean>(true);
+  const [regeneratingSymbol, setRegeneratingSymbol] = useState<string | null>(null);
   const [minDividendYield, setMinDividendYield] = useState<number>(0);
   const [maxPeRatio, setMaxPeRatio] = useState<number>(0);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState<boolean>(false);
@@ -327,6 +329,10 @@ interface OrakulRecipeResult {
     sharpeRatio: number;
   };
   cashReserve?: number;
+  estimatedFeeAmount?: number;
+  investableBudget?: number;
+  feeRatePct?: number;
+  usdTryRate?: number;
   usedFallbackSeeds?: boolean;
   rebalanceActions?: Array<{
     symbol: string;
@@ -353,6 +359,9 @@ interface OrakulRecipeResult {
     name?: string;
     weight: number;
     price?: number;
+    currency?: string;
+    originalPrice?: number;
+    priceInTRY?: number;
     suggestedShares?: number;
     totalCost?: number;
     note?: string;
@@ -708,6 +717,7 @@ interface WeeklyLetterResult {
             risk,
             universe,
             budget: budgetNum,
+            estimatedFeeRatePct: includeTransactionFees ? 0.2 : 0,
             horizon,
             maxAssetWeight,
             includeGoldBuffer,
@@ -807,6 +817,95 @@ interface WeeklyLetterResult {
     } finally {
       setLoading(false);
       setRecipePhase(null);
+    }
+  };
+
+  const handleRegenerateSingleAsset = async (symbolToExclude: string) => {
+    if (!result?.allocation) return;
+    setRegeneratingSymbol(symbolToExclude);
+    const budgetNum = parseFloat(budget.replace(/\./g, "")) || 100000;
+
+    try {
+      const res = await fetch("/api/orakul", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "regenerate_asset",
+          payload: {
+            currentAllocation: result.allocation,
+            excludeSymbol: symbolToExclude,
+            recipeRequest: {
+              strategyArchetype,
+              goal,
+              risk,
+              universe,
+              budget: budgetNum,
+              estimatedFeeRatePct: includeTransactionFees ? 0.2 : 0,
+              horizon,
+              maxAssetWeight,
+              includeGoldBuffer,
+              excludeOverbought,
+              assetCount,
+              existingPortfolioExposure,
+            },
+            allCompanies: companies,
+          },
+          provider: aiProvider,
+          model: geminiModel,
+          persona: userSettings?.orakulPersona || "deger",
+          apiKey: aiApiKey,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.data) {
+          setResult((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  allocation: data.data.updatedAllocation,
+                  cashReserve: data.data.cashReserve,
+                  estimatedFeeAmount: data.data.estimatedFeeAmount ?? prev.estimatedFeeAmount,
+                  investableBudget: data.data.investableBudget ?? prev.investableBudget,
+                  feeRatePct: data.data.feeRatePct ?? prev.feeRatePct,
+                  usdTryRate: data.data.usdTryRate ?? prev.usdTryRate,
+                  sharpeRatio: data.data.sharpeRatio ?? prev.sharpeRatio,
+                  sortinoRatio: data.data.sortinoRatio ?? prev.sortinoRatio,
+                  portfolioBeta: data.data.portfolioBeta ?? prev.portfolioBeta,
+                  jensenAlpha: data.data.jensenAlpha ?? prev.jensenAlpha,
+                  treynorRatio: data.data.treynorRatio ?? prev.treynorRatio,
+                  omegaRatio: data.data.omegaRatio ?? prev.omegaRatio,
+                  estimatedVolatility: data.data.estimatedVolatility ?? prev.estimatedVolatility,
+                  hhiScore: data.data.hhiScore ?? prev.hhiScore,
+                  maxDrawdownPct: data.data.maxDrawdownPct ?? prev.maxDrawdownPct,
+                  var95MonthlyAmount: data.data.var95MonthlyAmount ?? prev.var95MonthlyAmount,
+                  var95MonthlyPct: data.data.var95MonthlyPct ?? prev.var95MonthlyPct,
+                  cvar95MonthlyAmount: data.data.cvar95MonthlyAmount ?? prev.cvar95MonthlyAmount,
+                  diversificationBenefitPct: data.data.diversificationBenefitPct ?? prev.diversificationBenefitPct,
+                  correlationMatrix: data.data.correlationMatrix ?? prev.correlationMatrix,
+                  famaFrench: data.data.famaFrench ?? prev.famaFrench,
+                  blackLittermanSuggestedWeights:
+                    data.data.blackLittermanSuggestedWeights ?? prev.blackLittermanSuggestedWeights,
+                }
+              : null
+          );
+
+          showToast(
+            "Varlık Yenilendi",
+            `${symbolToExclude} çıkarılarak yerine ${data.data.newItem?.symbol || "yeni varlık"} eklendi ve metrikler güncellendi.`,
+            "success"
+          );
+        }
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast("Hata", err.error || "Varlık değiştirilemedi.", "error");
+      }
+    } catch (e) {
+      console.warn("Single asset regen error:", e);
+      showToast("Bağlantı Hatası", "Varlık yenileme isteği iletilemedi.", "error");
+    } finally {
+      setRegeneratingSymbol(null);
     }
   };
 
@@ -2086,6 +2185,34 @@ interface WeeklyLetterResult {
                 className="w-full bg-[var(--ink-3)] border border-[var(--line)] text-sm text-[var(--paper)] rounded-lg p-3 font-mono outline-none focus:border-[var(--brass)] shadow-inner"
                 placeholder="100.000"
               />
+
+              {/* İşlem Maliyetleri Toggle */}
+              <div
+                onClick={() => setIncludeTransactionFees(!includeTransactionFees)}
+                className={`mt-2.5 p-2.5 rounded-lg border flex items-center justify-between cursor-pointer transition-all ${
+                  includeTransactionFees
+                    ? "bg-amber-500/10 border-amber-500/30 text-[var(--paper)] font-medium"
+                    : "bg-[var(--ink-2)] border-[var(--line)] text-[var(--mist)]"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Calculator className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <div>
+                    <span className="text-xs font-bold block text-[var(--paper)]">
+                      Tahmini İşlem Masraflarını (~%0.20 Komisyon + BSMV) Hesaba Kat
+                    </span>
+                    <span className="text-[10px] text-[var(--mist)] block">
+                      Yatırılabilir bütçe masraflar düşülerek net lotlara paylaştırılır
+                    </span>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={includeTransactionFees}
+                  onChange={(e) => setIncludeTransactionFees(e.target.checked)}
+                  className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
+                />
+              </div>
             </div>
 
             <button
@@ -2158,6 +2285,31 @@ interface WeeklyLetterResult {
                   <StampBadge verdict="GÜÇLÜ AL" />
                 </div>
               </div>
+
+              {/* Sermaye & Komisyon Dökümü */}
+              {result.estimatedFeeAmount !== undefined && result.estimatedFeeAmount > 0 && (
+                <div className="p-3 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <div className="flex flex-wrap items-center gap-2 font-mono">
+                    <span className="text-[var(--mist)] font-sans">Sermaye Dökümü:</span>
+                    <span className="font-bold text-[var(--paper)]">
+                      Bütçe: {parseFloat(budget.replace(/\./g, "") || "100000").toLocaleString("tr-TR")} ₺
+                    </span>
+                    <span className="text-[var(--mist)]">→</span>
+                    <span className="text-amber-400">
+                      Tahmini Masraf (%{result.feeRatePct ?? 0.2}): ~{(result.estimatedFeeAmount || 0).toLocaleString("tr-TR")} ₺
+                    </span>
+                    <span className="text-[var(--mist)]">→</span>
+                    <span className="font-bold text-emerald-400">
+                      Net Yatırılabilir: {(result.investableBudget || 0).toLocaleString("tr-TR")} ₺
+                    </span>
+                  </div>
+                  {result.usdTryRate && (
+                    <span className="text-[10px] font-mono text-[var(--mist)] bg-[var(--ink-2)] px-2 py-0.5 rounded border border-[var(--line)]">
+                      💵 Kur: 1 USD = {result.usdTryRate.toFixed(2)} ₺
+                    </span>
+                  )}
+                </div>
+              )}
 
               {/* Yedek Kütük Fiyat Uyarısı (Fallback Seeds Warning) */}
               {result.usedFallbackSeeds && (
@@ -2513,6 +2665,14 @@ interface WeeklyLetterResult {
                                 : "Lot"}{" "}
                               (~{(item.totalCost || 0).toLocaleString("tr-TR")} ₺)
                             </span>
+                          ) : null}
+                          {item.currency === "USD" || (item.originalPrice && item.priceInTRY && item.originalPrice !== item.priceInTRY) ? (
+                            <span className="text-[11px] font-mono text-[var(--mist)] block mt-0.5">
+                              Fiyat: ${(item.originalPrice || item.price || 0).toFixed(2)}{" "}
+                              <span className="text-[10px] text-amber-400/90">
+                                (≈ {(item.priceInTRY || 0).toLocaleString("tr-TR", { minimumFractionDigits: 2 })} ₺)
+                              </span>
+                            </span>
                           ) : item.price ? (
                             <span className="text-xs font-mono text-[var(--mist)] block mt-0.5">
                               Fiyat: {(item.price || 0).toLocaleString("tr-TR")} ₺
@@ -2552,6 +2712,25 @@ interface WeeklyLetterResult {
                             {item.note}
                           </p>
                         )}
+                      </div>
+
+                      {/* Tek Varlığı Değiştir Butonu */}
+                      <div className="pt-2 border-t border-[var(--line)]/50 flex items-center justify-between">
+                        <span className="text-[10px] text-[var(--mist)] font-mono">
+                          Maliyet: {(item.totalCost || 0).toLocaleString("tr-TR")} ₺
+                        </span>
+                        <button
+                          type="button"
+                          disabled={regeneratingSymbol === item.symbol || loading}
+                          onClick={() => handleRegenerateSingleAsset(item.symbol)}
+                          className="text-[10px] font-mono px-2 py-1 rounded bg-[var(--ink-2)] hover:bg-[var(--ink)] border border-[var(--line)] hover:border-[var(--brass)] text-[var(--mist)] hover:text-[var(--brass)] flex items-center gap-1 transition-all cursor-pointer disabled:opacity-50"
+                          title="Bu varlığı çıkarıp aynı ağırlıkta alternatif öner"
+                        >
+                          <RefreshCw
+                            className={`w-3 h-3 ${regeneratingSymbol === item.symbol ? "animate-spin text-[var(--brass)]" : ""}`}
+                          />
+                          <span>{regeneratingSymbol === item.symbol ? "Yenileniyor..." : "🔄 Bu Varlığı Değiştir"}</span>
+                        </button>
                       </div>
                     </div>
                   ))}

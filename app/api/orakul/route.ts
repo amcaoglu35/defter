@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   generateOrakulRecipe,
+  regenerateSingleAsset,
   generateCompanyAnalysis,
   askOrakulChat,
   generateEarningsFlash,
@@ -15,6 +16,7 @@ import {
 import {
   OrakulApiRequestSchema,
   OrakulRecipePayloadSchema,
+  OrakulRegenerateAssetPayloadSchema,
   OrakulCompanyPayloadSchema,
   OrakulScreenerPayloadSchema,
 } from "@/lib/aiSchemas";
@@ -276,6 +278,28 @@ export async function POST(req: Request) {
         selectedPersona
       );
       return returnJsonWithCache(recipe);
+    }
+
+    if (type === "regenerate_asset") {
+      const validatedPayload = OrakulRegenerateAssetPayloadSchema.safeParse(payload || {});
+      const p = validatedPayload.success ? validatedPayload.data : (payload || {});
+      const companiesPool = Array.isArray(p.allCompanies)
+        ? p.allCompanies.slice(0, 500)
+        : Array.isArray(rawBody.companies)
+        ? rawBody.companies.slice(0, 500)
+        : [];
+
+      const result = await regenerateSingleAsset(
+        p.currentAllocation || [],
+        p.excludeSymbol || "",
+        p.recipeRequest || {},
+        companiesPool,
+        effectiveKey,
+        selectedProvider,
+        reqModel,
+        selectedPersona
+      );
+      return NextResponse.json({ success: true, data: result });
     }
 
     if (type === "company_analysis") {

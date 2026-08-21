@@ -67,8 +67,25 @@ export interface AiRecipeRequest {
   minDividendYield?: number;
   maxPeRatio?: number;
   excludeOverbought?: boolean;
+  estimatedFeeRatePct?: number;
   existingPortfolioExposure?: Array<{ symbol: string; totalWeightPctOfNetWorth: number }>;
   rebalanceContext?: RebalanceContext;
+}
+
+/**
+ * Döviz Çevirici: ABD borsası veya USD cinsinden varlıkları TL bütçeye çevirir.
+ * Varsayılan: Eğer currency belirtilmemişse veya "TRY" ise fiyat aynen döner.
+ */
+export function convertToTRY(
+  price: number,
+  currency: string | undefined,
+  exchange: string | undefined,
+  usdTryRate: number = 47.88
+): number {
+  if (currency === "USD" || exchange === "ABD") {
+    return parseFloat((price * (usdTryRate > 0 ? usdTryRate : 47.88)).toFixed(2));
+  }
+  return price;
 }
 
 export function getLotRoundingRule(
@@ -498,6 +515,7 @@ Boğa vs Ayı analizi (bullCase, bearCase), Makro Senaryo Stres Testi (stressTes
   };
 }
 
+export type AiRecipeAllocationItem = z.infer<typeof AiRecipeAllocationItemSchema>;
 export type AiRecipeResponse = z.infer<typeof AiRecipeResponseSchema>;
 
 // -----------------------------------------------------------------------------
@@ -519,7 +537,8 @@ export function validateAndFixAllocation(
   }>,
   pool: CompanyAnalysisRequest[],
   budget: number,
-  targetCount: number = 4
+  targetCount: number = 4,
+  usdTryRate: number = 47.88
 ) {
   const knownSymbolsMap = new Map<string, CompanyAnalysisRequest>();
   pool.forEach((c) => knownSymbolsMap.set(c.symbol.toUpperCase(), c));
@@ -596,19 +615,22 @@ export function validateAndFixAllocation(
       }
     }
 
+    const isUsd = company?.currency === "USD" || company?.exchange === "ABD";
+    const priceInTRY = convertToTRY(price, company?.currency, company?.exchange, usdTryRate);
+
     const targetAssetBudget = budget * (it.weight / 100);
     const roundingRule = getLotRoundingRule(company?.assetClass, company?.exchange, sym);
     
     let shares = 0;
-    if (price > 0) {
+    if (priceInTRY > 0) {
       if (roundingRule === "integer") {
-        shares = Math.floor(targetAssetBudget / price);
+        shares = Math.floor(targetAssetBudget / priceInTRY);
       } else {
-        shares = parseFloat((targetAssetBudget / price).toFixed(2));
+        shares = parseFloat((targetAssetBudget / priceInTRY).toFixed(2));
       }
     }
 
-    const totalCost = parseFloat((shares * price).toFixed(2));
+    const totalCost = parseFloat((shares * priceInTRY).toFixed(2));
     allocatedCost += totalCost;
 
     return {
@@ -617,12 +639,15 @@ export function validateAndFixAllocation(
       name: it.name || it.companyName || company?.name || sym,
       companyName: it.name || it.companyName || company?.name || sym,
       price,
+      currency: isUsd ? "USD" : "TRY",
+      originalPrice: price,
+      priceInTRY,
       suggestedShares: shares,
       totalCost,
     };
   });
 
-  const cashReserve = Math.max(0, budget - allocatedCost);
+  const cashReserve = Math.max(0, parseFloat((budget - allocatedCost).toFixed(2)));
 
   return { fixedAllocation: fixedItems, cashReserve };
 }
@@ -938,6 +963,15 @@ export async function generateOrakulRecipe(
   const targetAssetCount = Math.min(Math.max(req.assetCount || 4, 3), 10);
   const usedFallbackSeeds = pool.length < targetAssetCount;
 
+  // 0. Extract Live/Catalog USD/TRY Exchange Rate & Fee Calculation
+  const usdCo = pool.find((c) => c.symbol === "USD/TRY" || c.symbol === "USDTRY" || c.symbol === "USD");
+  const usdTryRate = usdCo?.price && usdCo.price > 10 ? usdCo.price : 47.88;
+
+  const budgetNum = Number(req.budget) || 100000;
+  const feeRatePct = typeof req.estimatedFeeRatePct === "number" ? req.estimatedFeeRatePct : 0.2;
+  const estimatedFeeAmount = parseFloat(((budgetNum * feeRatePct) / 100).toFixed(2));
+  const investableBudget = Math.max(1000, parseFloat((budgetNum - estimatedFeeAmount).toFixed(2)));
+
   // ---------------------------------------------------------------------------
   // LLM YOLU (Gemini / OpenAI)
   // ---------------------------------------------------------------------------
@@ -1009,7 +1043,7 @@ export async function generateOrakulRecipe(
       const maxCandidates = Math.min(Math.max(targetAssetCount * 4, 12), 22);
       const candidatesSample = (scoredCandidates.length > 0 ? scoredCandidates : pool.map((c) => ({ company: c, relevance: 0 })))
         .slice(0, maxCandidates)
-        .map((s) => `${s.company.symbol}|${s.company.sector || "Genel"}|${s.company.price}₺|FK:${s.company.peRatio ?? "-"}|PD:${s.company.pbRatio ?? "-"}|TEM:%${s.company.dividendYield ?? 0}`)
+        .map((s) => `${s.company.symbol}|${s.company.sector || "Genel"}|${s.company.price}${s.company.currency === "USD" || s.company.exchange === "ABD" ? "$" : "₺"}|FK:${s.company.peRatio ?? "-"}|PD:${s.company.pbRatio ?? "-"}|TEM:%${s.company.dividendYield ?? 0}`)
         .join("\n");
 
       const existingExposurePrompt = req.existingPortfolioExposure && req.existingPortfolioExposure.length > 0
@@ -1021,8 +1055,10 @@ Format (JSON):
 {"recipeTitle": "Strateji Adı", "summary": "2 cümlelik özet", "expectedYield": "%45 Yıllık Getiri", "riskRating": "Orta", "committeeDebate": {"bullSummary": "Boğa tezi", "bearSummary": "Ayı riski", "verdict": "Komite kararı"}, "allocation": [{"symbol": "THYAO", "name": "THY", "weight": 30, "price": 310, "note": "Gerekçe", "bullThesis": "Boğa tezi", "bearRisk": "Ayı riski"}]}
 
 Kullanıcı Parametreleri:
-Hedef: ${req.goal}, Risk: ${req.risk}, Bütçe: ${req.budget} TL, Varlık Sayısı: ${targetAssetCount}${existingExposurePrompt}
-Talimat: BIST hisseleri için suggestedShares tam sayı (Math.floor), kıymetli maden/döviz/fon için ondalıklı olabilir.
+Hedef: ${req.goal}, Risk: ${req.risk}, Bütçe: ${budgetNum} TL (Net Yatırılabilir: ${investableBudget} TL, Tahmini Komisyon: ${estimatedFeeAmount} TL), Varlık Sayısı: ${targetAssetCount}${existingExposurePrompt}
+Talimatlar:
+1. BIST hisseleri için suggestedShares tam sayı (Math.floor), kıymetli maden/döviz/fon için ondalıklı olabilir.
+2. ABD borsası (exchange: 'ABD') varlıkları USD fiyatlıdır (1 USD = ${usdTryRate.toFixed(2)} TL). Lot hesabı TL bütçeye göre kur çevrimi yapılarak hesaplanır.
 Adaylar (SEMBOL|SEKTÖR|FİYAT|FK|PD|TEM):
 ${candidatesSample}`;
 
@@ -1084,19 +1120,19 @@ ${candidatesSample}`;
           const validated = AiRecipeResponseSchema.safeParse(parsed);
           if (validated.success) {
             const data = validated.data;
-            const budgetNum = Number(req.budget) || 100000;
 
-            // 1. Symbol filtering and deterministic allocation fix
+            // 1. Symbol filtering and deterministic allocation fix (Net investable budget & USD/TRY conversion)
             const { fixedAllocation, cashReserve } = validateAndFixAllocation(
               data.allocation,
               pool,
-              budgetNum,
-              targetAssetCount
+              investableBudget,
+              targetAssetCount,
+              usdTryRate
             );
 
             // 2. Rebalance actions calculation
             const rebalanceActions = isRebalanceMode && rebalanceCtx
-              ? calculateRebalanceActions(rebalanceCtx.currentHoldings, fixedAllocation, budgetNum, pool)
+              ? calculateRebalanceActions(rebalanceCtx.currentHoldings, fixedAllocation, investableBudget, pool)
               : undefined;
 
             // 3. Quantitative Metric Enrichment
@@ -1111,6 +1147,10 @@ ${candidatesSample}`;
               ...data,
               allocation: fixedAllocation,
               cashReserve: cashReserve || data.cashReserve || 0,
+              estimatedFeeAmount,
+              investableBudget,
+              feeRatePct,
+              usdTryRate,
               rebalanceActions,
               usedFallbackSeeds,
               _debugPromptSummary: {
@@ -1145,13 +1185,9 @@ ${candidatesSample}`;
   const isConservative = req.risk.includes("Düşük");
   const isAggressive = req.risk.includes("Yüksek");
   const targetCount = targetAssetCount;
-  const budgetNum = Number(req.budget) || 100000;
 
   // =========================================================================
   // ACİL DURUM YEDEĞİ (defaultSeeds) — SON GÜNCELLEME: 2026-08
-  // Bu liste yalnızca kullanıcının kütüğünde seçilen evren için yeterli varlık
-  // bulunamadığında (pool.length < targetCount) algoritmanın çökmesini önlemek
-  // amacıyla devreye giren acil durum güvenlik tamponudur.
   // =========================================================================
   const defaultSeeds: CompanyAnalysisRequest[] = [
     { symbol: "THYAO", name: "Türk Hava Yolları", price: 310.0, sector: "Havacılık & Ulaştırma", exchange: "BIST", peRatio: 4.8, dividendYield: 0, dailyChange: 1.2 },
@@ -1164,8 +1200,8 @@ ${candidatesSample}`;
     { symbol: "ALTIN/GR", name: "Gram Altın", price: 3150.0, sector: "Kıymetli Maden", exchange: "Emtia", dailyChange: 0.4 },
     { symbol: "GÜMÜŞ/GR", name: "Gram Gümüş", price: 38.5, sector: "Kıymetli Maden", exchange: "Emtia", dailyChange: 0.9 },
     { symbol: "USD/TRY", name: "Amerikan Doları", price: 47.88, sector: "Döviz", exchange: "Döviz", dailyChange: 0.1 },
-    { symbol: "NVDA", name: "NVIDIA Corp", price: 135.0, sector: "Yapay Zeka & Yarıiletken", exchange: "ABD", peRatio: 38.0, dividendYield: 0.1, dailyChange: 1.8 },
-    { symbol: "AAPL", name: "Apple Inc.", price: 228.0, sector: "Tüketici Teknolojisi", exchange: "ABD", peRatio: 32.0, dividendYield: 0.5, dailyChange: 0.4 },
+    { symbol: "NVDA", name: "NVIDIA Corp", price: 135.0, sector: "Yapay Zeka & Yarıiletken", exchange: "ABD", currency: "USD", peRatio: 38.0, dividendYield: 0.1, dailyChange: 1.8 },
+    { symbol: "AAPL", name: "Apple Inc.", price: 228.0, sector: "Tüketici Teknolojisi", exchange: "ABD", currency: "USD", peRatio: 32.0, dividendYield: 0.5, dailyChange: 0.4 },
   ];
 
   // Merge available pool with default seeds to ensure rich diversity
@@ -1321,8 +1357,9 @@ ${candidatesSample}`;
   const { fixedAllocation, cashReserve } = validateAndFixAllocation(
     rawAllocation,
     candidatePool,
-    budgetNum,
-    targetCount
+    investableBudget,
+    targetCount,
+    usdTryRate
   );
 
   const weightedDividend = fixedAllocation.reduce((sum, a) => {
@@ -1341,7 +1378,7 @@ ${candidatesSample}`;
 
   // Rebalance actions for algorithmic optimizer
   const rebalanceActions = isRebalanceMode && rebalanceCtx
-    ? calculateRebalanceActions(rebalanceCtx.currentHoldings, fixedAllocation, budgetNum, candidatePool)
+    ? calculateRebalanceActions(rebalanceCtx.currentHoldings, fixedAllocation, investableBudget, candidatePool)
     : undefined;
 
   // Real quantitative metrics enrichment
@@ -1362,6 +1399,10 @@ ${candidatesSample}`;
     riskRating: req.risk,
     allocation: fixedAllocation,
     cashReserve,
+    estimatedFeeAmount,
+    investableBudget,
+    feeRatePct,
+    usdTryRate,
     rebalanceActions,
     usedFallbackSeeds,
     _debugPromptSummary: {
@@ -1379,6 +1420,229 @@ ${candidatesSample}`;
     ...realMetrics,
     isTemplate: true,
     engine: "algorithmic" as const,
+  };
+}
+
+// -----------------------------------------------------------------------------
+// TEK VARLIĞI KISMİ YENİDEN ÜRETME (Regenerate Single Asset)
+// -----------------------------------------------------------------------------
+export async function regenerateSingleAsset(
+  currentAllocation: Array<{
+    symbol: string;
+    weight: number;
+    price?: number;
+    name?: string;
+    companyName?: string;
+    note?: string;
+    bullThesis?: string;
+    bearRisk?: string;
+    currency?: string;
+    originalPrice?: number;
+    priceInTRY?: number;
+    suggestedShares?: number;
+    totalCost?: number;
+  }>,
+  excludeSymbol: string,
+  req: AiRecipeRequest,
+  allCompanies: CompanyAnalysisRequest[] = [],
+  apiKey?: string,
+  provider: string = "gemini",
+  customModel?: string,
+  persona: string = "deger"
+) {
+  const symToExclude = excludeSymbol.toUpperCase();
+  const itemToReplace = currentAllocation.find((a) => a.symbol.toUpperCase() === symToExclude);
+  if (!itemToReplace) {
+    throw new Error(`Değiştirilecek ${excludeSymbol} varlığı mevcut reçetede bulunamadı.`);
+  }
+
+  const existingSymbols = new Set(currentAllocation.map((a) => a.symbol.toUpperCase()));
+  const targetWeight = itemToReplace.weight;
+  const budgetNum = Number(req.budget) || 100000;
+  const feeRatePct = typeof req.estimatedFeeRatePct === "number" ? req.estimatedFeeRatePct : 0.2;
+  const estimatedFeeAmount = parseFloat(((budgetNum * feeRatePct) / 100).toFixed(2));
+  const investableBudget = Math.max(1000, parseFloat((budgetNum - estimatedFeeAmount).toFixed(2)));
+
+  // 1. Build candidate pool excluding current holdings
+  let pool = allCompanies.length > 0 ? [...allCompanies] : [...MOCK_COMPANIES];
+  const usdCo = pool.find((c) => c.symbol === "USD/TRY" || c.symbol === "USDTRY" || c.symbol === "USD");
+  const usdTryRate = usdCo?.price && usdCo.price > 10 ? usdCo.price : 47.88;
+
+  // Filter universe
+  if (req.universe) {
+    if (req.universe.includes("BIST 30")) {
+      pool = pool.filter(
+        (c) =>
+          c.indexTag === "BIST30" ||
+          c.exchange === "BIST" ||
+          c.symbol === "THYAO" ||
+          c.symbol === "FROTO" ||
+          c.symbol === "ASELS" ||
+          c.symbol === "TUPRS" ||
+          c.symbol === "BIMAS"
+      );
+    } else if (req.universe.includes("Kıymetli Maden")) {
+      pool = pool.filter(
+        (c) =>
+          c.exchange === "Emtia" ||
+          c.exchange === "Döviz" ||
+          c.symbol.includes("ALTIN") ||
+          c.symbol.includes("GÜMÜŞ") ||
+          c.symbol.includes("USD") ||
+          c.symbol.includes("EUR")
+      );
+    }
+  }
+
+  const eligibleCandidates = pool.filter((c) => !existingSymbols.has(c.symbol.toUpperCase()));
+  let newItemCandidate: CompanyAnalysisRequest | undefined;
+
+  // If API key is available, ask LLM for a smart replacement
+  const resolvedApiKey = apiKey || getResolvedApiKey(provider);
+  if (resolvedApiKey && resolvedApiKey.trim().length > 10 && eligibleCandidates.length > 0) {
+    try {
+      const candidatesSample = eligibleCandidates
+        .slice(0, 15)
+        .map(
+          (s) =>
+            `${s.symbol}|${s.sector || "Genel"}|${s.price}${s.currency === "USD" || s.exchange === "ABD" ? "$" : "₺"}|FK:${s.peRatio ?? "-"}|PD:${s.pbRatio ?? "-"}|TEM:%${s.dividendYield ?? 0}`
+        )
+        .join("\n");
+
+      const otherHoldingsStr = currentAllocation
+        .filter((a) => a.symbol.toUpperCase() !== symToExclude)
+        .map((a) => `${a.symbol} (%${a.weight})`)
+        .join(", ");
+
+      const prompt = `Sen 'Orakul' portföy mimarısın. Kullanıcı mevcut sepetindeki '${excludeSymbol}' varlığını beğenmedi ve değiştirmek istiyor.
+Mevcut Diğer Varlıklar: ${otherHoldingsStr}
+Hedef: ${req.goal}, Risk: ${req.risk}, Archetype: ${req.strategyArchetype || "dengeli"}, Hedef Ağırlık: %${targetWeight}.
+Döviz Kuru: 1 USD = ${usdTryRate.toFixed(2)} TL.
+
+Aşağıdaki adaylardan '${excludeSymbol}' yerine geçecek en uygun TEK BİR varlık seç.
+Adaylar:
+${candidatesSample}
+
+Format (JSON):
+{"symbol": "SEMBOL", "name": "Şirket Adı", "price": 100, "note": "Seçim gerekçesi", "bullThesis": "Boğa tezi", "bearRisk": "Ayı riski"}`;
+
+      const effectiveModel = getOptimalModelForTask("recipe", customModel, provider);
+      let rawText: string | undefined;
+
+      if (provider === "gemini") {
+        const res = await fetchGeminiWithFallback(
+          resolvedApiKey,
+          {
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: { responseMimeType: "application/json", temperature: 0.3 },
+          },
+          effectiveModel
+        );
+        if (res && res.ok) {
+          const data = await res.json();
+          rawText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        }
+      }
+
+      if (rawText) {
+        const parsed = JSON.parse(stripJsonFences(rawText));
+        const matched = eligibleCandidates.find((c) => c.symbol.toUpperCase() === (parsed.symbol || "").toUpperCase());
+        if (matched) {
+          newItemCandidate = {
+            ...matched,
+            bullThesis: parsed.bullThesis,
+            bearRisk: parsed.bearRisk,
+            note: parsed.note,
+          } as unknown as CompanyAnalysisRequest;
+        }
+      }
+    } catch (err) {
+      console.warn("[regenerateSingleAsset] LLM error, falling back to algorithmic pick:", err);
+    }
+  }
+
+  // Algorithmic fallback pick
+  if (!newItemCandidate) {
+    const scored = eligibleCandidates
+      .map((c) => {
+        let score = 50;
+        if (req.strategyArchetype === "deep_value" && c.peRatio && c.peRatio < 8) score += 40;
+        if (req.strategyArchetype === "dividend_aristocrats" && (c.dividendYield || 0) > 4) score += 40;
+        if (c.dailyChange > 0) score += 10;
+        return { ...c, score };
+      })
+      .sort((a, b) => b.score - a.score);
+
+    newItemCandidate = scored[0] || eligibleCandidates[0];
+  }
+
+  if (!newItemCandidate) {
+    throw new Error("Uygun alternatif varlık bulunamadı.");
+  }
+
+  const sym = newItemCandidate.symbol.toUpperCase();
+  const price = newItemCandidate.price || 100;
+  const isUsd = newItemCandidate.currency === "USD" || newItemCandidate.exchange === "ABD";
+  const priceInTRY = convertToTRY(price, newItemCandidate.currency, newItemCandidate.exchange, usdTryRate);
+  const targetAssetBudget = investableBudget * (targetWeight / 100);
+  const roundingRule = getLotRoundingRule(newItemCandidate.assetClass, newItemCandidate.exchange, sym);
+
+  let shares = 0;
+  if (priceInTRY > 0) {
+    shares =
+      roundingRule === "integer"
+        ? Math.floor(targetAssetBudget / priceInTRY)
+        : parseFloat((targetAssetBudget / priceInTRY).toFixed(2));
+  }
+  const totalCost = parseFloat((shares * priceInTRY).toFixed(2));
+
+  const newItem: AiRecipeAllocationItem = {
+    symbol: sym,
+    name: newItemCandidate.name || sym,
+    companyName: newItemCandidate.name || sym,
+    weight: targetWeight,
+    price,
+    currency: isUsd ? "USD" : "TRY",
+    originalPrice: price,
+    priceInTRY,
+    suggestedShares: shares,
+    totalCost,
+    note:
+      (newItemCandidate as { note?: string }).note ||
+      `${newItemCandidate.sector || "Genel"} sektöründe güçlü alternatif.`,
+    bullThesis:
+      (newItemCandidate as { bullThesis?: string }).bullThesis ||
+      `${newItemCandidate.name} dengeli bilanço yapısıyla portföyün hedefine katkı sunmaktadır.`,
+    bearRisk:
+      (newItemCandidate as { bearRisk?: string }).bearRisk ||
+      "Genel piyasa dalgalanmaları ve sektör dinamikleri yakından izlenmelidir.",
+  };
+
+  const updatedAllocation = currentAllocation.map((item) =>
+    item.symbol.toUpperCase() === symToExclude ? newItem : item
+  );
+
+  // Recalculate quantitative metrics for the new basket
+  const realMetrics = enrichRecipeWithRealMetrics(
+    updatedAllocation,
+    req,
+    pool,
+    `%${(updatedAllocation.reduce((acc, it) => acc + (it.weight || 0), 0) * 0.4).toFixed(1)} Getiri Hedefi`
+  );
+
+  const totalAllocated = updatedAllocation.reduce((sum, it) => sum + (it.totalCost || 0), 0);
+  const cashReserve = Math.max(0, parseFloat((investableBudget - totalAllocated).toFixed(2)));
+
+  return {
+    updatedAllocation,
+    replacedItem: itemToReplace,
+    newItem,
+    cashReserve,
+    estimatedFeeAmount,
+    investableBudget,
+    feeRatePct,
+    usdTryRate,
+    ...realMetrics,
   };
 }
 

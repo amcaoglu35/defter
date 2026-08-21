@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   generateOrakulRecipe,
+  regenerateSingleAsset,
+  convertToTRY,
   generateEarningsFlash,
   detectValueTraps,
   extractNumericFilters,
@@ -247,6 +249,7 @@ describe("aiService Unit & Contract Tests", () => {
         risk: "Orta",
         universe: "BIST 30",
         budget: 100000,
+        estimatedFeeRatePct: 0,
         assetCount: 3,
       };
 
@@ -443,6 +446,123 @@ describe("aiService Unit & Contract Tests", () => {
 
       const neutral = analyzeNewsTitleSentiment("Genel Kurul toplantısı olağan gündemle toplandı");
       expect(neutral.verdict).toBe("NÖTR");
+    });
+  });
+
+  // -------------------------------------------------------------
+  // 5. Currency Conversion & Transaction Fee Tests
+  // -------------------------------------------------------------
+  describe("Currency Conversion & Transaction Fee Calculations", () => {
+    it("converts USD assets to TRY with exchange rate correctly", () => {
+      const tryPrice = convertToTRY(100, "TRY", "BIST", 47.88);
+      expect(tryPrice).toBe(100);
+
+      const usdPrice = convertToTRY(200, "USD", "ABD", 47.88);
+      expect(usdPrice).toBe(9576);
+
+      const defaultRatePrice = convertToTRY(10, "USD", "ABD");
+      expect(defaultRatePrice).toBe(478.8);
+    });
+
+    it("deducts estimated transaction fee from budget and distributes investable budget", async () => {
+      const req: AiRecipeRequest = {
+        goal: "Dengeli Büyüme",
+        risk: "Orta",
+        universe: "BIST 30",
+        budget: 100000,
+        assetCount: 4,
+        estimatedFeeRatePct: 0.2,
+      };
+
+      const result = await generateOrakulRecipe(req, sampleCompanies, undefined);
+
+      expect(result.estimatedFeeAmount).toBe(200);
+      expect(result.investableBudget).toBe(99800);
+      expect(result.feeRatePct).toBe(0.2);
+
+      const totalCost = result.allocation.reduce((sum, item) => sum + (item.totalCost || 0), 0);
+      // Total cost must fit within the net investable budget
+      expect(totalCost).toBeLessThanOrEqual(result.investableBudget || 100000);
+    });
+  });
+
+  // -------------------------------------------------------------
+  // 6. Partial Single Asset Regeneration (regenerateSingleAsset)
+  // -------------------------------------------------------------
+  describe("regenerateSingleAsset — Partial Regeneration", () => {
+    it("replaces specified asset while strictly preserving other assets and weights", async () => {
+      const initialAllocation = [
+        { symbol: "THYAO", weight: 30, price: 310, suggestedShares: 96, totalCost: 29760 },
+        { symbol: "FROTO", weight: 25, price: 1050, suggestedShares: 23, totalCost: 24150 },
+        { symbol: "ASELS", weight: 25, price: 64.5, suggestedShares: 387, totalCost: 24961.5 },
+        { symbol: "TUPRS", weight: 20, price: 168, suggestedShares: 119, totalCost: 19992 },
+      ];
+
+      const req: AiRecipeRequest = {
+        goal: "Dengeli Büyüme",
+        risk: "Orta",
+        universe: "BIST 30",
+        budget: 100000,
+        assetCount: 4,
+      };
+
+      const result = await regenerateSingleAsset(
+        initialAllocation,
+        "FROTO",
+        req,
+        sampleCompanies,
+        undefined
+      );
+
+      expect(result).toBeDefined();
+      expect(result.updatedAllocation.length).toBe(4);
+
+      // Excluded symbol must no longer be in the basket
+      const hasExcluded = result.updatedAllocation.some((a) => a.symbol === "FROTO");
+      expect(hasExcluded).toBe(false);
+
+      // Other 3 symbols must be strictly preserved with their exact weights
+      const thyao = result.updatedAllocation.find((a) => a.symbol === "THYAO");
+      const asels = result.updatedAllocation.find((a) => a.symbol === "ASELS");
+      const tuprs = result.updatedAllocation.find((a) => a.symbol === "TUPRS");
+
+      expect(thyao).toBeDefined();
+      expect(thyao?.weight).toBe(30);
+      expect(asels).toBeDefined();
+      expect(asels?.weight).toBe(25);
+      expect(tuprs).toBeDefined();
+      expect(tuprs?.weight).toBe(20);
+
+      // The new replacement asset must receive FROTO's exact weight (25%)
+      expect(result.newItem.weight).toBe(25);
+      expect(result.newItem.symbol).not.toBe("FROTO");
+
+      // Total weights must still sum to 100
+      const totalWeight = result.updatedAllocation.reduce((sum, item) => sum + item.weight, 0);
+      expect(totalWeight).toBe(100);
+
+      // Quantitative metrics must be recalculated
+      expect(result.sharpeRatio).toBeDefined();
+      expect(result.portfolioBeta).toBeDefined();
+      expect(result.hhiScore).toBeDefined();
+    });
+
+    it("throws clear error when trying to replace an asset not in the current basket", async () => {
+      const initialAllocation = [
+        { symbol: "THYAO", weight: 50, price: 310 },
+        { symbol: "ASELS", weight: 50, price: 64.5 },
+      ];
+
+      const req: AiRecipeRequest = {
+        goal: "Dengeli Büyüme",
+        risk: "Orta",
+        universe: "BIST 30",
+        budget: 100000,
+      };
+
+      await expect(
+        regenerateSingleAsset(initialAllocation, "NON_EXISTENT_TICKER", req, sampleCompanies, undefined)
+      ).rejects.toThrow("bulunamadı");
     });
   });
 });

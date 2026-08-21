@@ -16,6 +16,9 @@ export const AiRecipeAllocationItemSchema = z.object({
   suggestedShares: z.number().optional(),
   totalCost: z.number().optional(),
   price: z.number().optional(),
+  currency: z.string().optional(),
+  originalPrice: z.number().optional(),
+  priceInTRY: z.number().optional(),
   bullThesis: z.string().optional(),
   bearRisk: z.string().optional(),
   note: z.string().optional(),
@@ -44,6 +47,10 @@ export const AiRecipeResponseSchema = z.object({
   healthScore: z.number().optional(),
   allocation: z.array(AiRecipeAllocationItemSchema),
   cashReserve: z.number().optional(),
+  estimatedFeeAmount: z.number().optional(),
+  investableBudget: z.number().optional(),
+  feeRatePct: z.number().optional(),
+  usdTryRate: z.number().optional(),
   usedFallbackSeeds: z.boolean().optional(),
   metricsSource: z.string().optional(),
   committeeDebate: z
@@ -222,12 +229,20 @@ export const OrakulRecipePayloadSchema = z.object({
   maxAssetWeight: z.number().min(5).max(100).optional(),
   includeGoldBuffer: z.boolean().optional(),
   excludeOverbought: z.boolean().optional(),
+  estimatedFeeRatePct: z.number().min(0).max(5).optional(),
   minDividendYield: z.number().min(0).max(100).optional(),
   maxPeRatio: z.number().min(0).max(500).optional(),
   assetCount: z.number().int().min(1).max(20).optional(),
   allCompanies: z.array(z.any()).max(500).optional(),
   existingPortfolioExposure: z.array(z.object({ symbol: z.string(), totalWeightPctOfNetWorth: z.number() })).optional(),
   rebalanceContext: z.any().optional(),
+}).passthrough();
+
+export const OrakulRegenerateAssetPayloadSchema = z.object({
+  currentAllocation: z.array(AiRecipeAllocationItemSchema).min(1),
+  excludeSymbol: z.string().min(1),
+  recipeRequest: OrakulRecipePayloadSchema,
+  allCompanies: z.array(z.any()).optional(),
 }).passthrough();
 
 export const OrakulCompanyPayloadSchema = z.object({
@@ -251,6 +266,7 @@ export const OrakulApiRequestSchema = z.object({
   type: z.enum([
     "test_connection",
     "recipe",
+    "regenerate_asset",
     "company_analysis",
     "earnings_flash",
     "value_trap",
