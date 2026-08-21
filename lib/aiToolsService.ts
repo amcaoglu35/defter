@@ -1,6 +1,8 @@
 import { supabaseAdmin, isSupabaseAdminConfigured } from "@/lib/supabaseAdmin";
 import { GoogleGenAI } from "@google/genai";
 import { MOCK_COMPANIES, AiModelBasket, AutonomousScan, Company } from "@/lib/mockData";
+import { calculateValuationFormulas } from "@/lib/quantEngine";
+import { AutonomousScanItemAiSchema } from "@/lib/aiSchemas";
 
 export interface GenerateBasketsOptions {
   customApiKey?: string;
@@ -135,14 +137,13 @@ export async function runAutonomousScan(options?: AutonomousScanOptions): Promis
     }
   }
 
-  // Akıllı Aday Havuzu Önceliklendirmesi:
-  // Hacmi artan, F/K'sı kelepir, temettü veren veya teknik hareketlilik gösteren hisseleri öne çıkar
+  // Akıllı Aday Havuzu Önceliklendirmesi
   const scoredPool = [...companyPool].map((c) => {
-    let priority = Math.random() * 20; // çeşitlilik için ufak rastlantısallık
-    if ((c.peRatio || 0) > 0 && (c.peRatio || 0) < 8) priority += 35; // Kelepir F/K
-    if ((c.dividendYield || 0) > 4) priority += 25; // Temettü
-    if ((c.volumeRatio || 1) > 1.4) priority += 30; // Hacim patlaması
-    if (Math.abs(c.dailyChange || 0) > 2) priority += 15; // Günlük volatilite
+    let priority = Math.random() * 20;
+    if ((c.peRatio || 0) > 0 && (c.peRatio || 0) < 8) priority += 35;
+    if ((c.dividendYield || 0) > 4) priority += 25;
+    if ((c.volumeRatio || 1) > 1.4) priority += 30;
+    if (Math.abs(c.dailyChange || 0) > 2) priority += 15;
     if (c.exchange === "BIST" || c.indexTag === "BIST 30" || c.indexTag === "BIST 100") priority += 20;
     return { company: c, priority };
   }).sort((a, b) => b.priority - a.priority);
@@ -163,12 +164,24 @@ export async function runAutonomousScan(options?: AutonomousScanOptions): Promis
     const roe = co.returnOnEquity || 24.5;
     const athDiscount = co.athDiscountPct || 15;
 
-    let verdict: AutonomousScan["verdict"] = "TUT";
-    let valuationScore = 70;
-    let confidence = "%80";
-    let bullThesis = `${co.name}, ${co.sector} sektöründe güçlü özkaynak kârlılığı (%${roe}) ve istikrarlı nakit üretimiyle dikkat çekiyor.`;
-    let bearThesis = `Yüksek faiz ortamında finansman giderleri ve sektörel marj daralması kâr üzerinde baskı yaratabilir.`;
-    let targetPrice = parseFloat((price * 1.20).toFixed(2));
+    // 1. Deterministik Kantitatif Değerleme
+    const mathVal = calculateValuationFormulas({
+      symbol: co.symbol,
+      price,
+      peRatio: pe,
+      pbRatio: pb,
+      dividendYield: divYield,
+    });
+
+    const calculatedFairValue = mathVal.dcfFairValue || mathVal.grahamNumber || undefined;
+    const calculatedValuationScore = Math.min(99, Math.max(25, Math.round((mathVal.piotroskiFScore / 9) * 50 + (mathVal.magicFormulaScore / 100) * 50)));
+    let verdict: AutonomousScan["verdict"] =
+      mathVal.piotroskiFScore >= 8 && pe < 10 ? "GÜÇLÜ AL" :
+      mathVal.piotroskiFScore >= 6 && pe < 15 ? "AL" :
+      mathVal.piotroskiFScore <= 3 || pe > 25 ? "SAT" : "TUT";
+    let confidence = "%85";
+    let bullThesis = `${co.name}, ${co.sector} sektöründe güçlü özkaynak kârlılığı (%${roe}) ve Stanford Piotroski ${mathVal.piotroskiFScore}/9 bilanço sağlamlığıyla öne çıkıyor.`;
+    let bearThesis = `Yüksek faiz ortamında finansman giderleri ve sektörel marj daralması operasyonel kâr üzerinde baskı yaratabilir.`;
 
     if (ai) {
       try {
@@ -183,20 +196,17 @@ PD/DD Çarpanı: ${pb}
 Özkaynak Kârlılığı (ROE): %${roe}
 Temettü Verimi: %${divYield}
 Günlük Değişim: %${dailyChg}
-52 Haftalık Zirveye İskonto: %${athDiscount}
+Piotroski Skoru: ${mathVal.piotroskiFScore}/9
 
 GÖREVİN:
-1. Şirketin değerleme çarpanlarını, temettü gücünü ve risk/getiri dengesini değerlendir.
-2. 1 net ve somut Boğa Tezi (fırsat katalizörleri) ve 1 net Ayı Riski yaz.
-3. 12 aylık makul hedef fiyatı (targetPrice) ve 0-100 arası değerleme skorunu belirle.
-4. Yanıtını YALNIZCA geçerli bir JSON olarak ver:
+1. 1 net ve somut Boğa Tezi (fırsat katalizörleri) ve 1 net Ayı Riski yaz.
+2. Kararını ("GÜÇLÜ AL" | "AL" | "TUT" | "SAT" | "GÜÇLÜ SAT" | "NÖTR") belirle.
+3. Yanıtını YALNIZCA geçerli bir JSON olarak ver:
 {
   "verdict": "GÜÇLÜ AL" | "AL" | "TUT" | "SAT" | "GÜÇLÜ SAT" | "NÖTR",
-  "valuationScore": 85,
   "confidence": "%85",
   "bullThesis": "Somut operasyonel ve finansal boğa gerekçesi",
-  "bearThesis": "Somut makro ve bilanço risk uyarısı",
-  "targetPrice": ${parseFloat((price * 1.22).toFixed(2))}
+  "bearThesis": "Somut makro ve bilanço risk uyarısı"
 }`;
 
         const response = await ai.models.generateContent({
@@ -210,55 +220,15 @@ GÖREVİN:
 
         const rawText = response.text?.trim() || "";
         const parsed = JSON.parse(rawText);
+        const validated = AutonomousScanItemAiSchema.safeParse(parsed);
+        const aiData = validated.success ? validated.data : parsed;
 
-        verdict = parsed.verdict || "TUT";
-        valuationScore = typeof parsed.valuationScore === "number" ? parsed.valuationScore : 75;
-        confidence = parsed.confidence || "%82";
-        bullThesis = parsed.bullThesis || bullThesis;
-        bearThesis = parsed.bearThesis || bearThesis;
-        targetPrice = typeof parsed.targetPrice === "number" ? parsed.targetPrice : targetPrice;
+        verdict = aiData.verdict || verdict;
+        confidence = aiData.confidence || "%85";
+        bullThesis = aiData.bullThesis || bullThesis;
+        bearThesis = aiData.bearThesis || bearThesis;
       } catch (llmErr) {
         console.warn(`[Autonomous Scan LLM Error for ${co.symbol}]:`, llmErr);
-        // Gelişmiş Deterministik Değerleme Motoru
-        if (pe < 7 && pb < 2.5 && divYield > 3.5) {
-          verdict = "GÜÇLÜ AL";
-          valuationScore = 90;
-          confidence = "%88";
-          targetPrice = parseFloat((price * 1.30).toFixed(2));
-          bullThesis = `Düşük F/K (${pe}) ve güçlü temettü (%${divYield}) ile defter değerine göre yüksek iskonto barındırıyor.`;
-        } else if (pe < 12 && pb < 3.5) {
-          verdict = "AL";
-          valuationScore = 80;
-          confidence = "%80";
-          targetPrice = parseFloat((price * 1.18).toFixed(2));
-          bullThesis = `Sektör ortalamalarına göre makul çarpanlar ve istikrarlı özkaynak büyümesi (%${roe}) sunuyor.`;
-        } else if (pe > 25 || pb > 8) {
-          verdict = "SAT";
-          valuationScore = 38;
-          confidence = "%75";
-          targetPrice = parseFloat((price * 0.88).toFixed(2));
-          bearThesis = `Aşırı primli değerleme çarpanları (F/K: ${pe}) ve olası kâr realizasyonu riski yüksek.`;
-        }
-      }
-    } else {
-      if (pe < 7 && pb < 2.5 && divYield > 3.5) {
-        verdict = "GÜÇLÜ AL";
-        valuationScore = 90;
-        confidence = "%88";
-        targetPrice = parseFloat((price * 1.30).toFixed(2));
-        bullThesis = `Düşük F/K (${pe}) ve güçlü temettü (%${divYield}) ile defter değerine göre yüksek iskonto barındırıyor.`;
-      } else if (pe < 12 && pb < 3.5) {
-        verdict = "AL";
-        valuationScore = 80;
-        confidence = "%80";
-        targetPrice = parseFloat((price * 1.18).toFixed(2));
-        bullThesis = `Sektör ortalamalarına göre makul çarpanlar ve istikrarlı özkaynak büyümesi (%${roe}) sunuyor.`;
-      } else if (pe > 25 || pb > 8) {
-        verdict = "SAT";
-        valuationScore = 38;
-        confidence = "%75";
-        targetPrice = parseFloat((price * 0.88).toFixed(2));
-        bearThesis = `Aşırı primli değerleme çarpanları (F/K: ${pe}) ve olası kâr realizasyonu riski yüksek.`;
       }
     }
 
@@ -269,7 +239,7 @@ GÖREVİN:
       sector: co.sector,
       scannedAt: new Date().toISOString(),
       verdict,
-      valuationScore,
+      valuationScore: calculatedValuationScore,
       priceAtScan: price,
       currency: "₺",
       peRatio: pe,
@@ -277,10 +247,12 @@ GÖREVİN:
       confidence,
       bullThesis,
       bearThesis,
-      targetPrice,
+      targetPrice: calculatedFairValue,
+      fairValue: calculatedFairValue,
       targetPeriodDays: 30,
       provider: ai ? "Google Gemini" : "Kurumsal Değerleme Motoru",
       model: ai ? model : "Defter Quant Engine",
+      metricsSource: "calculated",
     };
 
     scans.push(scanItem);

@@ -486,8 +486,8 @@ export function AutonomousScanFeed({ onAddHoldingToBasket }: Props) {
                       <span className="text-[11px] font-bold text-[var(--paper)]">{curPrice.toFixed(1)} ₺</span>
                     </div>
                     <div>
-                      <span className="text-[8px] uppercase text-[var(--mist)] block">AI Hedef</span>
-                      <span className="text-[11px] font-bold text-[var(--brass)]">
+                      <span className="text-[8px] uppercase text-[var(--mist)] block">Model Hedef</span>
+                      <span className="text-[11px] font-bold text-[var(--brass)]" title="DCF ve Graham İndirgenmiş Nakit Akımı Formülleriyle Hesaplanmıştır">
                         {scan.targetPrice ? `${scan.targetPrice.toFixed(1)} ₺` : "—"}
                       </span>
                     </div>
