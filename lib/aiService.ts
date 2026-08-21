@@ -22,6 +22,7 @@ import {
   calculateHHI,
   PortfolioAssetInput,
 } from "./quantEngine";
+import { getOptimalModelForTask, logOrakulTelemetry } from "./orakulCache";
 
 export interface RebalanceHolding {
   symbol: string;
@@ -944,76 +945,57 @@ export async function generateOrakulRecipe(
         })
         .sort((a, b) => b.relevance - a.relevance);
 
+      const maxCandidates = Math.min(Math.max(targetAssetCount * 4, 12), 22);
       const candidatesSample = (scoredCandidates.length > 0 ? scoredCandidates : pool.map((c) => ({ company: c, relevance: 0 })))
-        .slice(0, 35)
-        .map(({ company: c }) => `${c.symbol} (${c.name}, Sektör: ${c.sector}, Fiyat: ${c.price} ₺, F/K: ${c.peRatio || "-"}, Temettü: %${c.dividendYield || 0})`)
+        .slice(0, maxCandidates)
+        .map(({ company: c }) => `${c.symbol}|${c.sector}|${c.price}₺|FK:${c.peRatio ?? "-"}|PD:${c.pbRatio ?? "-"}|TEM:${c.dividendYield ?? 0}%`)
         .join("; ");
 
       const rebalancePromptSection = isRebalanceMode
         ? `\nREBALANCE MODU ETKİN:
-Mevcut Sepet Adı: ${rebalanceCtx?.basketName}
+Mevcut Sepet: ${rebalanceCtx?.basketName}
 Mevcut Pozisyonlar:
 ${(rebalanceCtx?.currentHoldings || [])
   .map(
     (h) =>
-      `- ${h.symbol}: Mevcut Ağırlık: %${h.currentWeight}, Hedef Ağırlık: %${h.targetWeight}, Adet: ${h.quantity}, Fiyat: ${h.currentPrice} ₺`
+      `- ${h.symbol}: Ağırlık: %${h.currentWeight}, Adet: ${h.quantity}, Fiyat: ${h.currentPrice} ₺`
   )
-  .join("\n")}
-Lütfen mevcut varlıkların ağırlıklarını dengeleyecek ve hedef profile uyarlayacak bir dağılım öner.`
+  .join("\n")}`
         : "";
 
-      const prompt = `Sen 'Orakul' adında elit bir Türk finans, Hedge-Fund portföy yöneticisi ve Modern Portföy Teorisi (MPT) uzmanısın.
+      const prompt = `Sen 'Orakul' Türk finans & MPT portföy uzmanısın.
 ${personaInstruction}
 
-Kullanıcı Yatırım Profili ve Kısıtları:
-- Yatırım Hedefi & Strateji: ${req.strategyArchetype || req.goal}
-- Risk Profili: ${req.risk}
-- Toplam Bütçe: ${req.budget} TL
-- Seçili Yatırım Evreni: ${req.universe}
-- Yatırım Ufku: ${req.horizon || "Orta Vade (6-18 Ay)"}
-- İstenen Varlık Sayısı: Tam olarak ${targetAssetCount} adet varlık
-${req.maxAssetWeight ? `- Kısıt: Tek bir varlığın maksimum ağırlığı %${req.maxAssetWeight} olmalıdır.` : ""}
-${req.includeGoldBuffer ? "- Kısıt: En az %15 oranında Kıymetli Maden (Gram Altın/Gümüş) tamponu içermelidir." : ""}
-${req.minDividendYield ? `- Kısıt: Minimum temettü verimi %${req.minDividendYield} hedeflenmelidir.` : ""}
+Kullanıcı Profili:
+- Strateji: ${req.strategyArchetype || req.goal} | Risk: ${req.risk} | Bütçe: ${req.budget} TL | Evren: ${req.universe} | Vade: ${req.horizon || "Orta Vade"}
+- Varlık Sayısı: Tam ${targetAssetCount} adet
+${req.maxAssetWeight ? `- Maksimum Ağırlık: %${req.maxAssetWeight}` : ""}
+${req.includeGoldBuffer ? "- En az %15 Kıymetli Maden (Altın/Gümüş) tamponu" : ""}
+${req.minDividendYield ? `- Min Temettü: %${req.minDividendYield}` : ""}
 ${rebalancePromptSection}
 
-Aday Varlık Havuzu:
+Aday Varlıklar (SEMBOL|SEKTÖR|FİYAT|FK|PD|TEM):
 ${candidatesSample || "BIST 100 ve Emtia kütüğü"}
 
-GÖREVİN (3-Ajanlı Yatırım Komitesi Yaklaşımı):
-1. Adaylar arasından kovaryansı düşük, sektörel çeşitlendirmesi mükemmel tam ${targetAssetCount} adet varlık seç.
-2. Her hisse için Boğa Tezi (fırsatlar), Ayı Riski (dikkat edilmesi gerekenler) ve Portföy Yöneticisi Kararını oluştur.
-3. ${req.budget} TL bütçeye göre kuruşu kuruşuna tam lot adedi dağıtımı ve kalan nakit rezervini hesapla.
-4. Yanıtını YALNIZCA geçerli bir JSON olarak ver:
+GÖREV (3-Ajanlı Yatırım Komitesi):
+1. Düşük kovaryanslı tam ${targetAssetCount} varlık seç.
+2. Boğa tezi, ayı riski ve ağırlık belirle. Bütçeyi lotlara dağıt.
+3. YALNIZCA geçerli JSON dön:
 {
-  "title": "BIST Temettü Kalesi & Enflasyon Kalkanı",
-  "summary": "Stratejinin matematiksel ve makroekonomik 2 cümlelik yönetici özeti",
+  "title": "Strateji Başlığı",
+  "summary": "2 cümlelik özet",
   "strategyArchetype": "${req.strategyArchetype || "custom"}",
-  "healthScore": 94,
-  "expectedYield": "%38.5 Yıllık Getiri Hedefi",
+  "healthScore": 92,
+  "expectedYield": "%35 Yıllık Hedef",
   "recommendedDuration": "${req.horizon || "6-12 Ay"}",
   "riskRating": "${req.risk}",
-  "committeeDebate": {
-    "bullSummary": "Boğa Ajanı: Şirketlerin güçlü nakit akışı ve ihracat marjları büyümeyi destekliyor.",
-    "bearSummary": "Ayı Ajanı: Faiz oranları ve küresel talep daralması yakından izlenmeli.",
-    "verdict": "Komite Kararı: Düşük kovaryans ve dengeli ağırlıklandırma ile risk minimize edilerek onaylandı."
-  },
-  "allocation": [
-    {
-      "symbol": "THYAO",
-      "name": "Türk Hava Yolları",
-      "weight": 30,
-      "price": 310.0,
-      "suggestedShares": 72,
-      "totalCost": 22320,
-      "note": "Genişleyen filo ve döviz bazlı nakit akışı",
-      "bullThesis": "Küresel yolcu talebi ve kargo gelirlerindeki rekor artış.",
-      "bearRisk": "Jet yakıtı maliyetlerindeki olası dalgalanmalar."
-    }
-  ],
-  "cashReserve": 450
+  "committeeDebate": {"bullSummary": "Boğa gerekçesi", "bearSummary": "Ayı riski", "verdict": "Komite onayı"},
+  "allocation": [{"symbol": "SEMBOL", "name": "Şirket Adı", "weight": 25, "price": 100, "suggestedShares": 10, "totalCost": 1000, "note": "Gerekçe", "bullThesis": "Boğa tezi", "bearRisk": "Risk"}],
+  "cashReserve": 0
 }`;
 
+      const effectiveModel = getOptimalModelForTask("recipe", customModel, provider);
+      const recipeStartTime = Date.now();
       let rawText: string | undefined;
 
       if (provider === "gemini") {
@@ -1023,7 +1005,7 @@ GÖREVİN (3-Ajanlı Yatırım Komitesi Yaklaşımı):
             contents: [{ role: "user", parts: [{ text: prompt }] }],
             generationConfig: { responseMimeType: "application/json", temperature: 0.25 },
           },
-          customModel
+          effectiveModel
         );
         if (res && res.ok) {
           const data = await res.json();
@@ -1054,6 +1036,14 @@ GÖREVİN (3-Ajanlı Yatırım Komitesi Yaklaşımı):
           rawText = data.choices?.[0]?.message?.content;
         }
       }
+
+      logOrakulTelemetry({
+        type: "recipe",
+        promptChars: prompt.length,
+        responseMs: Date.now() - recipeStartTime,
+        candidateCount: maxCandidates,
+        model: effectiveModel,
+      });
 
       if (rawText) {
         try {
@@ -2267,36 +2257,44 @@ export async function screenStocksWithAI(
     matchScore: calculateDeterministicMatchScore(c, filters),
   })).sort((a, b) => b.matchScore - a.matchScore);
 
-  const candidatePool = scoredPool.slice(0, 35).map((s) => s.company);
+  const candidatePool = scoredPool.slice(0, 20).map((s) => s.company);
 
   if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
     try {
-      const compactCandidateList = candidatePool.map((c) => ({
-        symbol: c.symbol,
-        name: c.name,
-        sector: c.sector,
-        price: c.price,
-        pe: c.peRatio,
-        pb: c.pbRatio,
-        div: c.dividendYield,
-      }));
+      const compactCandidateTable = candidatePool
+        .map(
+          (c) =>
+            `${c.symbol}|${c.name}|${c.sector}|${c.price}₺|FK:${c.peRatio ?? "-"}|PD:${c.pbRatio ?? "-"}|TEM:%${c.dividendYield ?? 0}`
+        )
+        .join("\n");
+
+      const prompt = `Sen 'Orakul' hisse filtreleme yapay zekasısın. Kullanıcının aramasını incele ve aşağıdaki doğrulanmış adaylardan en uygun 3-4 şirketi seçip gerekçesini (aiRationale) yaz.
+Format (JSON): {"interpretation": "Kriterlerin teknik özeti", "picks": [{"symbol": "THYAO", "aiRationale": "Kriteri neden karşıladığı"}]}
+
+Arama: "${userQuery}"
+Adaylar (SEMBOL|İSİM|SEKTÖR|FİYAT|FK|PD|TEM):
+${compactCandidateTable}`;
+
+      const effectiveModel = getOptimalModelForTask("screener", customModel, provider);
+      const screenerStartTime = Date.now();
 
       if (provider === "gemini") {
-        const prompt = `Sen 'Orakul' adında elit bir hisse filtreleme yapay zekasısın. Kullanıcının doğal dildeki aramasını analiz et ve mevcut doğrulanmış aday şirketler arasından en uygun 3-4 şirketi seçip profesyonel gerekçelerini (aiRationale) yaz.
-Format: { "interpretation": "Kullanıcı kriterlerinin teknik özeti", "picks": [{ "symbol": string, "aiRationale": "Bu kriteri neden karşıladığı" }] }
-
-Kullanıcı Araması: "${userQuery}"
-Doğrulanmış Şirketler Evreni:
-${JSON.stringify(compactCandidateList)}`;
-
         const res = await fetchGeminiWithFallback(
           resolvedApiKey,
           {
             contents: [{ role: "user", parts: [{ text: prompt }] }],
             generationConfig: { responseMimeType: "application/json", temperature: 0.2 },
           },
-          customModel
+          effectiveModel
         );
+
+        logOrakulTelemetry({
+          type: "screener",
+          promptChars: prompt.length,
+          responseMs: Date.now() - screenerStartTime,
+          candidateCount: candidatePool.length,
+          model: effectiveModel,
+        });
 
         if (res && res.ok) {
           const data = await res.json();

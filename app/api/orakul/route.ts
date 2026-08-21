@@ -28,6 +28,13 @@ import {
   isAllowedOrigin,
   sanitizeLogMessage,
 } from "@/lib/rateLimit";
+import {
+  generateOrakulCacheKey,
+  getOrakulCachedResponse,
+  setOrakulCachedResponse,
+  getOptimalModelForTask,
+  logOrakulTelemetry,
+} from "@/lib/orakulCache";
 
 type AnyRecord = Record<string, unknown>;
 
@@ -79,7 +86,7 @@ export async function POST(req: Request) {
 
     const selectedProvider = provider || "gemini";
     const selectedPersona = persona || "deger";
-    const reqModel = (model && typeof model === "string" && model.trim().length > 0) ? model.trim() : GEMINI_MODEL;
+    const reqModel = getOptimalModelForTask(type, model, selectedProvider);
 
     const cookieHeader = req.headers.get("cookie") || "";
     const cookieMatch = cookieHeader.match(/(?:^|; )\s*defter_ai_key\s*=\s*([^;]+)/);
@@ -135,12 +142,12 @@ export async function POST(req: Request) {
 
           const defaultCandidates = [
             reqModel,
+            "gemini-2.0-flash",
+            "gemini-2.5-flash",
             "gemini-1.5-flash-latest",
             "gemini-1.5-flash",
             "gemini-1.5-pro-latest",
             "gemini-1.5-pro",
-            "gemini-2.0-flash-exp",
-            "gemini-1.0-pro",
           ];
 
           const modelsToTry = Array.from(new Set([...(discoveredModels.length > 0 ? discoveredModels : []), ...defaultCandidates]));
@@ -217,7 +224,40 @@ export async function POST(req: Request) {
       }
     }
 
-    // 6. Payload Sub-Validation and Cap Enforcements
+    // 6. Fast 5-Minute In-Memory Response Caching Check
+    const isCacheable = type !== "chat" && type !== "test_connection";
+    const cacheKey = isCacheable
+      ? generateOrakulCacheKey(type, payload, selectedProvider, reqModel, selectedPersona)
+      : null;
+
+    if (cacheKey) {
+      const cachedData = getOrakulCachedResponse<unknown>(cacheKey);
+      if (cachedData) {
+        logOrakulTelemetry({
+          type,
+          promptChars: 0,
+          responseMs: 0,
+          cached: true,
+          model: reqModel,
+        });
+        return NextResponse.json(
+          { success: true, data: cachedData, cached: true },
+          { headers: { "X-Cache": "HIT", "Cache-Control": "private, max-age=300" } }
+        );
+      }
+    }
+
+    const returnJsonWithCache = (data: unknown, customKey?: string) => {
+      if (cacheKey) {
+        setOrakulCachedResponse(cacheKey, data, 300_000);
+      }
+      return NextResponse.json(
+        customKey ? { success: true, [customKey]: data } : { success: true, data },
+        { headers: { "X-Cache": "MISS" } }
+      );
+    };
+
+    // 7. Payload Sub-Validation and Execution
     if (type === "recipe") {
       const validatedPayload = OrakulRecipePayloadSchema.safeParse(payload || {});
       const p = validatedPayload.success ? validatedPayload.data : (payload || {});
@@ -235,7 +275,7 @@ export async function POST(req: Request) {
         reqModel,
         selectedPersona
       );
-      return NextResponse.json({ success: true, data: recipe });
+      return returnJsonWithCache(recipe);
     }
 
     if (type === "company_analysis") {
@@ -250,10 +290,7 @@ export async function POST(req: Request) {
         reqModel,
         selectedPersona
       );
-      return NextResponse.json({
-        success: true,
-        data: analysis,
-      });
+      return returnJsonWithCache(analysis);
     }
 
     if (type === "earnings_flash") {
@@ -266,7 +303,7 @@ export async function POST(req: Request) {
         selectedProvider,
         reqModel
       );
-      return NextResponse.json({ success: true, data: flash });
+      return returnJsonWithCache(flash);
     }
 
     if (type === "value_trap") {
@@ -279,7 +316,7 @@ export async function POST(req: Request) {
         selectedProvider,
         reqModel
       );
-      return NextResponse.json({ success: true, data: trap });
+      return returnJsonWithCache(trap);
     }
 
     if (type === "backtest") {
@@ -289,7 +326,7 @@ export async function POST(req: Request) {
         selectedProvider,
         reqModel
       );
-      return NextResponse.json({ success: true, data: simulation });
+      return returnJsonWithCache(simulation);
     }
 
     if (type === "screener") {
@@ -304,7 +341,7 @@ export async function POST(req: Request) {
         selectedProvider,
         reqModel
       );
-      return NextResponse.json({ success: true, data: screenerResult });
+      return returnJsonWithCache(screenerResult);
     }
 
     if (type === "daily_brief") {
@@ -314,7 +351,7 @@ export async function POST(req: Request) {
         selectedProvider,
         reqModel
       );
-      return NextResponse.json({ success: true, data: briefing });
+      return returnJsonWithCache(briefing);
     }
 
     if (type === "weekly_letter") {
@@ -331,7 +368,7 @@ export async function POST(req: Request) {
         reqModel,
         selectedPersona
       );
-      return NextResponse.json({ success: true, data: letter });
+      return returnJsonWithCache(letter);
     }
 
     if (type === "sentiment") {
@@ -368,7 +405,7 @@ export async function POST(req: Request) {
         selectedProvider,
         reqModel
       );
-      return NextResponse.json({ success: true, data: sentiment });
+      return returnJsonWithCache(sentiment);
     }
 
     if (type === "chat") {
