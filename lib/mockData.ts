@@ -181,6 +181,7 @@ export interface AutonomousScan {
   bullThesis: string; // 1 cümle
   bearThesis: string; // 1 cümle
   targetPrice?: number;
+  fairValue?: number;
   priceNow?: number; // filled when checking outcome
   returnPct?: number; // filled after period
   outcomeCorrect?: boolean | null;
@@ -188,6 +189,7 @@ export interface AutonomousScan {
   targetPeriodDays: number;
   provider: string;
   model: string;
+  metricsSource?: "calculated";
 }
 
 // Otonom AI Model Portföy (AI'ın kendi başına kurduğu deneysel sepet)

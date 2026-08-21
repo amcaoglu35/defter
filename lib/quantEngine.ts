@@ -177,6 +177,19 @@ export function calculateCorrelationMatrix(assets: PortfolioAssetInput[]): {
 }
 
 // -------------------------------------------------------------
+// 1.1 HERFINDAHL-HIRSCHMAN ENDEKSİ (HHI - Portföy Yoğunlaşması)
+// -------------------------------------------------------------
+
+export function calculateHHI(weights: number[]): number {
+  if (!weights || weights.length === 0) return 0;
+  const sumWeights = weights.reduce((a, b) => a + (Number(b) || 0), 0);
+  if (sumWeights <= 0) return 0;
+  const normalizedPercentages = weights.map((w) => ((Number(w) || 0) / sumWeights) * 100);
+  const hhi = normalizedPercentages.reduce((acc, w) => acc + Math.pow(w, 2), 0);
+  return Math.round(hhi);
+}
+
+// -------------------------------------------------------------
 // 2. RİSKE GÖRE DÜZELTİLMİŞ PERFORMANS (Sharpe, Sortino, Treynor, Omega, VaR, Shannon)
 // -------------------------------------------------------------
 

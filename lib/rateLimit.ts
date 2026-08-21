@@ -229,19 +229,33 @@ export function createRateLimitResponse(resetInSeconds: number): NextResponse {
 }
 
 /**
+ * Sanitizes URLs, error messages, and logs to prevent accidental exposure of API keys.
+ */
+export function sanitizeLogMessage(input: unknown): string {
+  if (!input) return "";
+  let str = typeof input === "string" ? input : (input as Error)?.stack || (input as Error)?.message || JSON.stringify(input);
+  // Redact ?key=... or &key=... from Google / OpenAI API endpoints
+  str = str.replace(/(?:key|apiKey|api_key|token)=([a-zA-Z0-9_\-\.]{8,})/gi, "key=***REDACTED***");
+  // Redact Authorization: Bearer ...
+  str = str.replace(/Bearer\s+([a-zA-Z0-9_\-\.]{8,})/gi, "Bearer ***REDACTED***");
+  return str;
+}
+
+/**
  * Standardized error formatting helper for API routes.
- * Logs full error details to server console, and returns sanitized error message in production.
+ * Logs full error details to server console with credentials redacted, and returns sanitized error message in production.
  */
 export function formatApiError(
   error: unknown,
   defaultMessage: string = "İşlem sırasında bir hata oluştu, lütfen tekrar deneyin.",
   status: number = 500
 ): NextResponse {
-  console.error("[API Error]", error);
+  const sanitized = sanitizeLogMessage(error);
+  console.error("[API Error]", sanitized);
 
   const isDev = process.env.NODE_ENV === "development";
   const errorMessage = isDev
-    ? (error as Error)?.message || String(error)
+    ? (error as Error)?.message ? sanitizeLogMessage((error as Error).message) : defaultMessage
     : defaultMessage;
 
   return NextResponse.json(
@@ -251,4 +265,52 @@ export function formatApiError(
     },
     { status }
   );
+}
+
+/**
+ * Granular rate limit tier determination by Orakul action type.
+ * Prevents cheap actions (ping/test) from depleting expensive LLM quotas.
+ */
+export function getOrakulRateLimitTier(type: string): { keyPrefix: string; maxRequests: number; windowMs: number } {
+  switch (type) {
+    case "test_connection":
+      return { keyPrefix: "orakul:ping", maxRequests: 30, windowMs: 60000 };
+    case "recipe":
+    case "company_analysis":
+    case "earnings_flash":
+    case "value_trap":
+    case "backtest":
+    case "chat":
+    case "weekly_letter":
+      return { keyPrefix: "orakul:heavy", maxRequests: 10, windowMs: 60000 };
+    case "screener":
+    case "daily_brief":
+    case "sentiment":
+    default:
+      return { keyPrefix: "orakul:standard", maxRequests: 20, windowMs: 60000 };
+  }
+}
+
+/**
+ * Verifies that the incoming request originates from the same site (CSRF & Proxy Embedding Protection)
+ */
+export function isAllowedOrigin(req: Request): boolean {
+  // Allow CLI or server-side calls without origin in development
+  const origin = req.headers.get("origin") || req.headers.get("referer");
+  const host = req.headers.get("host");
+
+  if (!origin || !host) {
+    // Non-browser or direct server-to-server request
+    return true;
+  }
+
+  try {
+    const originUrl = new URL(origin);
+    const hostName = host.split(":")[0];
+    const originHostName = originUrl.hostname;
+
+    return originHostName === hostName || originHostName === "localhost" || originHostName === "127.0.0.1";
+  } catch {
+    return false;
+  }
 }
