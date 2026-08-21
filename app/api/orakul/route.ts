@@ -12,25 +12,71 @@ import {
   generateWeeklyLetter,
   GEMINI_MODEL,
 } from "@/lib/aiService";
+import {
+  OrakulApiRequestSchema,
+  OrakulRecipePayloadSchema,
+  OrakulCompanyPayloadSchema,
+  OrakulScreenerPayloadSchema,
+} from "@/lib/aiSchemas";
 import { fetchCompanyNews } from "@/lib/newsService";
 import {
   getClientIp,
   checkRateLimit,
   createRateLimitResponse,
   formatApiError,
+  getOrakulRateLimitTier,
+  isAllowedOrigin,
+  sanitizeLogMessage,
 } from "@/lib/rateLimit";
 
+type AnyRecord = Record<string, unknown>;
+
 export async function POST(req: Request) {
-  // 1. Rate Limiting (10 requests per minute per IP)
-  const clientIp = getClientIp(req);
-  const rateLimit = await checkRateLimit(`orakul:${clientIp}`, 10, 60000);
-  if (!rateLimit.allowed) {
-    return createRateLimitResponse(rateLimit.resetInSeconds);
+  // 1. CORS / Origin / CSRF Verification
+  if (!isAllowedOrigin(req)) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Yetkisiz istek kaynağı (Forbidden Origin / CSRF Protection).",
+      },
+      { status: 403 }
+    );
   }
 
+  // 2. Client IP Resolution
+  const clientIp = getClientIp(req);
+
   try {
-    const body = await req.json();
-    const { type, payload, messages, context, history, provider, model, persona, apiKey } = body;
+    const rawBody = await req.json().catch(() => null);
+    if (!rawBody) {
+      return NextResponse.json(
+        { success: false, error: "Geçersiz JSON gövdesi (Invalid Request Body)." },
+        { status: 400 }
+      );
+    }
+
+    // 3. Strict Zod Input Validation
+    const parsedRequest = OrakulApiRequestSchema.safeParse(rawBody);
+    if (!parsedRequest.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Geçersiz istek parametreleri.",
+          details: parsedRequest.error.flatten(),
+        },
+        { status: 400 }
+      );
+    }
+
+    const { type, payload, messages, context, history, provider, model, persona, apiKey } = parsedRequest.data;
+
+    // 4. Granular Tiered Rate Limiting by Action Type
+    const tier = getOrakulRateLimitTier(type);
+    const rateLimit = await checkRateLimit(`${tier.keyPrefix}:${clientIp}`, tier.maxRequests, tier.windowMs);
+    if (!rateLimit.allowed) {
+      return createRateLimitResponse(rateLimit.resetInSeconds);
+    }
+
     const selectedProvider = provider || "gemini";
     const selectedPersona = persona || "deger";
     const reqModel = (model && typeof model === "string" && model.trim().length > 0) ? model.trim() : GEMINI_MODEL;
@@ -50,7 +96,7 @@ export async function POST(req: Request) {
         ? process.env.OPENAI_API_KEY?.trim()
         : process.env.GEMINI_API_KEY?.trim());
 
-    // 2. Connection Test endpoint with live API ping
+    // 5. Connection Test endpoint with live API ping
     if (type === "test_connection") {
       if (!effectiveKey || effectiveKey.length <= 10) {
         return NextResponse.json({
@@ -84,7 +130,7 @@ export async function POST(req: Request) {
               rawGoogleError = errData.error?.message || listRes.statusText || "";
             }
           } catch (listErr) {
-            console.warn("[Orakul Route] ListModels fetch warning:", listErr);
+            console.warn("[Orakul Route] ListModels fetch warning:", sanitizeLogMessage(listErr));
           }
 
           const defaultCandidates = [
@@ -166,16 +212,24 @@ export async function POST(req: Request) {
           success: true,
           provider: selectedProvider,
           isConfigured: false,
-          message: `Canlı test sırasında ağ hatası oluştu: ${err instanceof Error ? err.message : String(err)}`,
+          message: `Canlı test sırasında ağ hatası oluştu: ${sanitizeLogMessage(err)}`,
         });
       }
     }
 
-    // 3. AI Service calls (Secured with server-side environment variables)
+    // 6. Payload Sub-Validation and Cap Enforcements
     if (type === "recipe") {
+      const validatedPayload = OrakulRecipePayloadSchema.safeParse(payload || {});
+      const p = validatedPayload.success ? validatedPayload.data : (payload || {});
+      const companiesPool = Array.isArray(p.allCompanies)
+        ? p.allCompanies.slice(0, 500)
+        : Array.isArray(rawBody.companies)
+        ? rawBody.companies.slice(0, 500)
+        : [];
+
       const recipe = await generateOrakulRecipe(
-        payload,
-        payload?.allCompanies || body.companies || [],
+        p,
+        companiesPool,
         effectiveKey,
         selectedProvider,
         reqModel,
@@ -185,8 +239,11 @@ export async function POST(req: Request) {
     }
 
     if (type === "company_analysis") {
+      const validatedPayload = OrakulCompanyPayloadSchema.safeParse(payload || {});
+      const p = validatedPayload.success ? validatedPayload.data : (payload || {});
+
       const analysis = await generateCompanyAnalysis(
-        payload,
+        p,
         history || [],
         effectiveKey,
         selectedProvider,
@@ -200,8 +257,11 @@ export async function POST(req: Request) {
     }
 
     if (type === "earnings_flash") {
+      const validatedPayload = OrakulCompanyPayloadSchema.safeParse(payload || {});
+      const p = validatedPayload.success ? validatedPayload.data : (payload || {});
+
       const flash = await generateEarningsFlash(
-        payload,
+        p,
         effectiveKey,
         selectedProvider,
         reqModel
@@ -210,8 +270,11 @@ export async function POST(req: Request) {
     }
 
     if (type === "value_trap") {
+      const validatedPayload = OrakulCompanyPayloadSchema.safeParse(payload || {});
+      const p = validatedPayload.success ? validatedPayload.data : (payload || {});
+
       const trap = await detectValueTraps(
-        payload,
+        p,
         effectiveKey,
         selectedProvider,
         reqModel
@@ -221,7 +284,7 @@ export async function POST(req: Request) {
 
     if (type === "backtest") {
       const simulation = await runBacktestSimulation(
-        payload,
+        payload || {},
         effectiveKey,
         selectedProvider,
         reqModel
@@ -230,9 +293,13 @@ export async function POST(req: Request) {
     }
 
     if (type === "screener") {
+      const validatedPayload = OrakulScreenerPayloadSchema.safeParse(payload || {});
+      const query = validatedPayload.success ? validatedPayload.data.query : String(payload?.query || "");
+      const companies = (Array.isArray(payload?.companies) ? payload.companies : []).slice(0, 500);
+
       const screenerResult = await screenStocksWithAI(
-        payload.query,
-        payload.companies || [],
+        query,
+        companies,
         effectiveKey,
         selectedProvider,
         reqModel
@@ -252,7 +319,13 @@ export async function POST(req: Request) {
 
     if (type === "weekly_letter") {
       const letter = await generateWeeklyLetter(
-        payload || {},
+        payload || {
+          userName: "Defter Sahibi",
+          totalValue: 0,
+          totalProfit: 0,
+          basketsCount: 0,
+          companiesCount: 0,
+        },
         effectiveKey,
         selectedProvider,
         reqModel,
@@ -262,11 +335,9 @@ export async function POST(req: Request) {
     }
 
     if (type === "sentiment") {
-      const targetCompanies = payload?.companies || payload?.allCompanies || [];
-      const baskets = payload?.baskets || [];
+      const targetCompanies = (Array.isArray(payload?.companies) ? payload.companies : []).slice(0, 50);
+      const baskets = Array.isArray(payload?.baskets) ? payload.baskets : [];
 
-      // 1. Identify companies genuinely owned in user's baskets
-      type AnyRecord = Record<string, unknown>;
       const ownedSymbols = new Set(
         (baskets as AnyRecord[]).flatMap((b) =>
           ((b["holdings"] || []) as AnyRecord[]).map((h) => String(h["companySymbol"] ?? "").toUpperCase())
@@ -276,7 +347,7 @@ export async function POST(req: Request) {
         ownedSymbols.has(String(c["symbol"] ?? "").toUpperCase())
       );
 
-      // 2. Select target companies (owned first, then top active movers or first 6)
+      // Select target companies (owned first, then top active movers or first 6)
       const companiesToAnalyze: AnyRecord[] =
         ownedCompanies.length > 0
           ? ownedCompanies.slice(0, 6)
