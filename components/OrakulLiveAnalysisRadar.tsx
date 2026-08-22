@@ -21,28 +21,28 @@ interface OrakulLiveAnalysisRadarProps {
 const ANALYSIS_STEPS = [
   {
     icon: Search,
-    title: "Canlı Piyasa & Bilanço Kütüğü Taranıyor",
-    desc: "F/K, PD/DD, temettü akışı ve sektör ortalamaları çekiliyor...",
+    title: "Piyasa Çarpanları & Bilanço Göstergeleri Taranıyor",
+    desc: "F/K, PD/DD, temettü akışı ve sektör ortalamaları doğrulanıyor...",
   },
   {
     icon: Calculator,
-    title: "Benjamin Graham & DCF Nakit Akımları Hesaplanıyor",
+    title: "Graham, Sektörel DCF & Gordon Değerlemesi Hesaplanıyor",
     desc: "İçsel adil değer ve güvenlik marjı (Margin of Safety) indirgeniyor...",
   },
   {
     icon: ShieldCheck,
-    title: "Stanford Piotroski 9/9 & Merton İflas Modeli Test Ediliyor",
-    desc: "Bilanço sağlığı, nakit üretimi ve temerrüt olasılığı analiz ediliyor...",
+    title: "Piotroski Bilanço Testi & Kaldıraç Riski Değerlendiriliyor",
+    desc: "Bilanço sağlığı, nakit üretimi kalitesi ve borçluluk analiz ediliyor...",
   },
   {
     icon: Dices,
-    title: "Monte Carlo 1.000 Patika & Hurst Fraktal Trendi Koşuluyor",
+    title: "Monte Carlo Simülasyonu & Makro Hassasiyet Testi Koşuluyor",
     desc: "Kriz tabanı (%5), medyan beklenti (%50) ve boğa tavanı (%95) simüle ediliyor...",
   },
   {
     icon: Sparkles,
-    title: "Orakul AI (Gemini 2.5 Flash) Sentez & Nihai Karar Raporu Yazılıyor",
-    desc: "Boğa vs Ayı ikili tezi, makro stres testi ve kanıt zinciri derleniyor...",
+    title: "Orakul AI Sentez & Karar Raporu Derleniyor",
+    desc: "Boğa vs Ayı ikili tezi, stres testi ve kanıt zinciri oluşturuluyor...",
   },
 ];
 
@@ -82,13 +82,13 @@ export default function OrakulLiveAnalysisRadar({
           </div>
           <div>
             <h4 className="font-serif font-bold text-base text-[var(--paper)] flex items-center gap-2">
-              <span>Orakul Derin Kantitatif Analiz Motoru</span>
+              <span>Orakul Kantitatif Analiz & Değerleme Motoru</span>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
-                18 MODEL AKTİF
+                KANTİTATİF MOTOR AKTİF
               </span>
             </h4>
             <p className="text-xs font-mono text-[var(--mist)]">
-              {symbol.toUpperCase()} için tüm ekonometri algoritmaları ve yapay zeka aynı anda çalışıyor...
+              {symbol.toUpperCase()} için temel değerleme ve risk modelleri çalıştırılıyor...
             </p>
           </div>
         </div>

@@ -343,7 +343,9 @@ export async function generateCompanyAnalysis(
   const prosList = [
     `Stanford Piotroski Bilanço Sağlığı: ${mathVal.piotroskiSummary} (${mathVal.piotroskiRank}).`,
     `DuPont 3 Kademeli Özkaynak Kârlılığı: %${mathVal.dupontRoePct}`,
-    `İflas & Temerrüt Riski: %${mathVal.mertonDefaultProbabilityPct} (Düşük Risk)`,
+    mathVal.mertonDefaultProbabilityPct !== null
+      ? `Kaldıraç & Borç Riski: %${mathVal.mertonDefaultProbabilityPct} (Basitleştirilmiş Gösterge)`
+      : `Kaldıraç & Borç Yapısı: Dengeli Özkaynak`,
     mathVal.dcfFairValue ? `DCF İndirgenmiş Nakit Akımı Adil Değeri: ${mathVal.dcfFairValue} ₺` : `Mevcut piyasa fiyatı: ${price} ₺`,
   ];
   const risksList = [
@@ -406,8 +408,8 @@ F/K: ${pe !== undefined ? pe : "Kapsam Dışı / Tanımsız"} | PD/DD: ${pb !== 
 - Gordon DDM Temettü Değeri: ${mathVal.gordanDdmValue ? mathVal.gordanDdmValue + " ₺" : "Kapsam Dışı / Düzenli Temettü Yok"}
 - Peter Lynch PEG Oranı: ${mathVal.pegRatio ?? "—"} (${mathVal.pegStatus})
 - Piotroski F-Score (Stanford Bilanço Sağlığı): ${mathVal.piotroskiSummary} (${mathVal.piotroskiRank})
-- Merton İflas & Temerrüt Riski: %${mathVal.mertonDefaultProbabilityPct}
-- Hurst Fraktal Trend Analizi: ${mathVal.hurstTrendType} (H: ${mathVal.hurstExponent})
+- Kaldıraç & Borç Riski (Basitleştirilmiş Merton): ${mathVal.mertonDefaultProbabilityPct !== null ? "%" + mathVal.mertonDefaultProbabilityPct : "Kapsam Dışı / Borçluluk Verisi Yok"}
+- Hurst Fraktal Trend Analizi: ${mathVal.hurstExponent !== null ? mathVal.hurstTrendType + " (H: " + mathVal.hurstExponent + ")" : "Kapsam Dışı / Fiyat Geçmişi Yok"}
 - Magic Formula Puanı: ${mathVal.magicFormulaScore} (${mathVal.magicFormulaRank})
 - DuPont 3 Kademeli ROE: %${mathVal.dupontRoePct} (Net Marj %${mathVal.dupontNetMarginPct} x Devir ${mathVal.dupontAssetTurnover}x x Kaldıraç ${mathVal.dupontLeverageMultiplier}x)
 ${feedbackContext}
@@ -422,7 +424,7 @@ Boğa vs Ayı analizi (bullCase, bearCase), Makro Senaryo Stres Testi (stressTes
   "evidenceChain": [
     "① F/K (${pe ?? '—'}) sektör ortalaması kıyaslaması",
     "② Piotroski Skoru ${mathVal.piotroskiSummary} → Bilanço sağlık testi",
-    "③ Merton Temerrüt Olasılığı %${mathVal.mertonDefaultProbabilityPct} → İflas kalkanı",
+    "③ Kaldıraç & Borç Riski: ${mathVal.mertonDefaultProbabilityPct !== null ? '%' + mathVal.mertonDefaultProbabilityPct : 'Dengeli'} → Finansal kalkan",
     "④ DuPont ROE %${mathVal.dupontRoePct} → Kârlılık ayrıştırması",
     "⑤ Sonuç Kararı: GÜÇLÜ AL"
   ],

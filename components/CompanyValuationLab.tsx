@@ -308,10 +308,10 @@ export default function CompanyValuationLab({
 
       {/* 3. MERTON İFLAS OLASILIĞI, HURST EXPONENT & MAGIC FORMULA */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Merton İflas Modeli */}
+        {/* Kaldıraç & Borç Riski (Basitleştirilmiş Merton) */}
         <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2 relative">
           <div className="flex items-center justify-between text-xs font-mono">
-            <span className="text-[var(--mist)]">Merton İflas Olasılığı</span>
+            <span className="text-[var(--mist)]">Kaldıraç &amp; Borç Riski (Merton)</span>
             <button
               onClick={() => setActiveFormulaKey("merton")}
               className="text-[var(--mist)] hover:text-rose-400 cursor-pointer"
@@ -321,19 +321,23 @@ export default function CompanyValuationLab({
             </button>
           </div>
           <p className="font-mono text-2xl font-bold text-[var(--paper)]">
-            %{valuation.mertonDefaultProbabilityPct}
+            {valuation.mertonDefaultProbabilityPct !== null
+              ? `%${valuation.mertonDefaultProbabilityPct}`
+              : "—"}
           </p>
           <span className="text-[10px] font-mono text-emerald-400 block font-bold">
-            {valuation.mertonDefaultProbabilityPct < 5
-              ? "✅ Güvenli Bilanço (Temerrüt Riski Çok Düşük)"
-              : "⚠️ İzlenmeli (Borç Riski Mevcut)"}
+            {valuation.mertonDefaultProbabilityPct === null
+              ? "Kapsam Dışı / Borç Verisi Yok"
+              : valuation.mertonDefaultProbabilityPct < 5
+              ? "✅ Güvenli Kaldıraç (Borç Riski Düşük)"
+              : "⚠️ İzlenmeli (Borçluluk Yüksek)"}
           </span>
         </div>
 
         {/* Hurst Exponent Trend */}
         <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2 relative">
           <div className="flex items-center justify-between text-xs font-mono">
-            <span className="text-[var(--mist)]">Hurst Üssü (Fraktal Trend)</span>
+            <span className="text-[var(--mist)]">Hurst Üssü (R/S Trendi)</span>
             <button
               onClick={() => setActiveFormulaKey("hurst")}
               className="text-[var(--mist)] hover:text-cyan-400 cursor-pointer"
@@ -343,10 +347,14 @@ export default function CompanyValuationLab({
             </button>
           </div>
           <p className="font-mono text-lg font-bold text-cyan-400">
-            {valuation.hurstTrendType}
+            {valuation.hurstExponent !== null
+              ? `${valuation.hurstTrendType} (H: ${valuation.hurstExponent})`
+              : "Kapsam Dışı / Zaman Serisi Gerekli"}
           </p>
           <span className="text-[10px] font-mono text-[var(--mist)] block">
-            Fiyat hareketlerinin kalıcı momentum gücü
+            {valuation.hurstExponent !== null
+              ? "Gerçek R/S log getiri analizi"
+              : "20+ günlük kapanış fiyat serisi gerektirir"}
           </span>
         </div>
 

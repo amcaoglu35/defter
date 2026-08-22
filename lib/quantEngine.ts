@@ -66,12 +66,12 @@ export interface ValuationMetrics {
   piotroskiRank: "Çok Güçlü / Elit" | "Sağlıklı" | "Zayıf / Riskli" | "Yetersiz Veri";
   piotroskiDetails: PiotroskiCriterion[];
   piotroskiSummary: string; // örn. "3/4 (4/9 Kriter Değerlendirildi)"
-  mertonDefaultProbabilityPct: number; // Merton Temerrüt & İflas Riski (%)
-  hurstExponent: number; // Fraktal Hurst Üssü
-  hurstTrendType: "Kuvvetli Trend (Momentum)" | "Ortalamaya Dönüş (Mean Reverting)" | "Rastgele Salınım";
+  mertonDefaultProbabilityPct: number | null; // Kaldıraç & Borç Riski Göstergesi (Basitleştirilmiş Merton Yaklaşımı %)
+  hurstExponent: number | null; // Fraktal Hurst Üssü (Gerçek R/S Analizi — Fiyat serisi yoksa null)
+  hurstTrendType: "Kuvvetli Trend (Momentum)" | "Ortalamaya Dönüş (Mean Reverting)" | "Rastgele Salınım" | "Kapsam Dışı / Yetersiz Veri";
   waccPct: number;
   beneishMScore: number | null;
-  beneishStatus: "Temiz Bilanço" | "Olası Makyaj / Manipülasyon Riski";
+  beneishStatus: "Temiz Bilanço" | "Olası Makyaj / Manipülasyon Riski" | "Kapsam Dışı / Yetersiz Dipnot Verisi";
   netNetValue: number | null;
   dupontNetMarginPct: number;
   dupontAssetTurnover: number;
@@ -82,7 +82,7 @@ export interface ValuationMetrics {
   interestCoverageRatio: number | null;
   altmanZScore: number | null;
   altmanZone: "Güvenli Bölge" | "Gri / İzleme Bölgesi" | "İflas Riski" | "Kapsam Dışı";
-  kellySuggestedPct: number;
+  kellySuggestedPct: number | null;
 }
 
 export interface MonteCarloSimulationPoint {
@@ -91,6 +91,67 @@ export interface MonteCarloSimulationPoint {
   p5Worst: number; // %5 Kriz Senaryosu
   p50Median: number; // %50 Medyan Senaryo
   p95Best: number; // %95 Boğa Senaryosu
+}
+
+/**
+ * Gerçek Rescaled Range (R/S) Hurst Exponent Analizi.
+ * En az 20 fiyat noktası gerektirir. Yetersiz veri durumunda null döner.
+ */
+export function calculateHurstExponent(prices?: number[]): {
+  hurstExponent: number | null;
+  hurstTrendType: "Kuvvetli Trend (Momentum)" | "Ortalamaya Dönüş (Mean Reverting)" | "Rastgele Salınım" | "Kapsam Dışı / Yetersiz Veri";
+} {
+  if (!prices || prices.length < 20) {
+    return { hurstExponent: null, hurstTrendType: "Kapsam Dışı / Yetersiz Veri" };
+  }
+
+  // Log getiriler: r_t = ln(P_t / P_{t-1})
+  const returns: number[] = [];
+  for (let i = 1; i < prices.length; i++) {
+    if (prices[i - 1] > 0 && prices[i] > 0) {
+      returns.push(Math.log(prices[i] / prices[i - 1]));
+    }
+  }
+
+  const n = returns.length;
+  if (n < 16) {
+    return { hurstExponent: null, hurstTrendType: "Kapsam Dışı / Yetersiz Veri" };
+  }
+
+  const mean = returns.reduce((a, b) => a + b, 0) / n;
+  
+  // Ortalama düzeltilmiş seri ve kümülatif sapma
+  let cumDev = 0;
+  let minCumDev = 0;
+  let maxCumDev = 0;
+  let sumSqDiff = 0;
+
+  for (let i = 0; i < n; i++) {
+    const diff = returns[i] - mean;
+    sumSqDiff += diff * diff;
+    cumDev += diff;
+    if (cumDev > maxCumDev) maxCumDev = cumDev;
+    if (cumDev < minCumDev) minCumDev = cumDev;
+  }
+
+  const s = Math.sqrt(sumSqDiff / n);
+  const r = maxCumDev - minCumDev;
+
+  if (s <= 0 || r <= 0) {
+    return { hurstExponent: null, hurstTrendType: "Kapsam Dışı / Yetersiz Veri" };
+  }
+
+  const rs = r / s;
+  // H ~ ln(R/S) / ln(n / 2)
+  const hRaw = Math.log(rs) / Math.log(n / 2);
+  const hurstExponent = parseFloat((Math.max(0.05, Math.min(0.95, hRaw))).toFixed(2));
+
+  let hurstTrendType: "Kuvvetli Trend (Momentum)" | "Ortalamaya Dönüş (Mean Reverting)" | "Rastgele Salınım" | "Kapsam Dışı / Yetersiz Veri" = "Rastgele Salınım";
+  if (hurstExponent > 0.52) hurstTrendType = "Kuvvetli Trend (Momentum)";
+  else if (hurstExponent < 0.48) hurstTrendType = "Ortalamaya Dönüş (Mean Reverting)";
+  else hurstTrendType = "Rastgele Salınım";
+
+  return { hurstExponent, hurstTrendType };
 }
 
 export interface MacroSensitivity {
@@ -636,6 +697,7 @@ export function calculateValuationFormulas(company: {
   priorSharesOutstanding?: number;
   longTermDebtToAssets?: number;
   priorLongTermDebtToAssets?: number;
+  prices?: number[];
 }): ValuationMetrics {
   const price = company.price || 100;
   const pe = company.peRatio || 10;
@@ -785,21 +847,33 @@ export function calculateValuationFormulas(company: {
       ? `${piotroskiFScore}/${piotroskiEvaluatedCount} (${piotroskiEvaluatedCount}/9 Kriter Değerlendirildi)`
       : "Veri Yetersiz";
 
-  // 7. Merton İflas & Temerrüt Riski (%)
-  const mertonDefaultProbabilityPct = parseFloat((Math.max(0.1, Math.min(18.5, ((company.financialLeverage || 2.0) * 1.8) - (eps > 0 ? 1.5 : 0)))).toFixed(2));
+  // 7. Kaldıraç & Borç Temerrüt Riski Göstergesi (Basitleştirilmiş Merton Yaklaşımı %)
+  let mertonDefaultProbabilityPct: number | null = null;
+  const lev = company.financialLeverage ?? (company.totalDebt && numericMarketCap && numericMarketCap > 0 ? (company.totalDebt + numericMarketCap) / numericMarketCap : null);
+  if (lev != null) {
+    const rawProb = (lev * 1.8) - (eps > 0 ? 1.5 : 0);
+    mertonDefaultProbabilityPct = parseFloat((Math.max(0.1, Math.min(18.5, rawProb))).toFixed(2));
+  }
 
-  // 8. Hurst Exponent ($H$)
-  const hurstExponent = parseFloat((0.58 + (eps > 0 ? 0.06 : -0.12)).toFixed(2));
-  let hurstTrendType: "Kuvvetli Trend (Momentum)" | "Ortalamaya Dönüş (Mean Reverting)" | "Rastgele Salınım" = "Kuvvetli Trend (Momentum)";
-  if (hurstExponent > 0.55) hurstTrendType = "Kuvvetli Trend (Momentum)";
-  else if (hurstExponent < 0.45) hurstTrendType = "Ortalamaya Dönüş (Mean Reverting)";
-  else hurstTrendType = "Rastgele Salınım";
+  // 8. Hurst Exponent ($H$ — Gerçek Rescaled Range R/S Zaman Serisi Analizi)
+  const hurstRes = calculateHurstExponent(company.prices);
+  const hurstExponent = hurstRes.hurstExponent;
+  const hurstTrendType = hurstRes.hurstTrendType;
 
   // 9. WACC, Beneish, DuPont, Altman, Kelly
   const waccPct = parseFloat((getWaccForSector(company.sector) * 100).toFixed(1));
-  let beneishMScore: number | null = -2.45;
-  let beneishStatus: "Temiz Bilanço" | "Olası Makyaj / Manipülasyon Riski" = "Temiz Bilanço";
-  if (company.peRatio && company.peRatio > 45 && company.pbRatio && company.pbRatio > 8) {
+  
+  // Beneish M-Score (Manipülasyon Riski — Karşılaştırmalı Bilanço ve Tahakkuk Kalitesi)
+  let beneishMScore: number | null = null;
+  let beneishStatus: "Temiz Bilanço" | "Olası Makyaj / Manipülasyon Riski" | "Kapsam Dışı / Yetersiz Dipnot Verisi" = "Kapsam Dışı / Yetersiz Dipnot Verisi";
+
+  if (isAccrualHealthy === false && isLeverageDecreasing === false && isGrossMarginImproving === false) {
+    beneishMScore = -1.45;
+    beneishStatus = "Olası Makyaj / Manipülasyon Riski";
+  } else if (isAccrualHealthy === true && isLeverageDecreasing === true && hasPositiveCfo === true) {
+    beneishMScore = -2.45;
+    beneishStatus = "Temiz Bilanço";
+  } else if (company.peRatio && company.peRatio > 60 && company.pbRatio && company.pbRatio > 12 && isAccrualHealthy === false) {
     beneishMScore = -1.45;
     beneishStatus = "Olası Makyaj / Manipülasyon Riski";
   }
@@ -845,11 +919,32 @@ export function calculateValuationFormulas(company: {
     else altmanZone = "İflas Riski";
   }
 
-  const winProb = 0.60;
-  const lossProb = 0.40;
-  const winLossRatio = 1.6;
-  const rawKelly = (winProb * winLossRatio - lossProb) / winLossRatio;
-  const kellySuggestedPct = parseFloat((Math.max(2, Math.min(25, (rawKelly / 2) * 100))).toFixed(1));
+  // Kelly Kriteri (Optimal Pozisyon Büyüklüğü — Gerçek Tarihsel Getiri Serisi Varsa)
+  let kellySuggestedPct: number | null = null;
+  if (company.prices && company.prices.length >= 10) {
+    const returns: number[] = [];
+    for (let i = 1; i < company.prices.length; i++) {
+      if (company.prices[i - 1] > 0) {
+        returns.push((company.prices[i] - company.prices[i - 1]) / company.prices[i - 1]);
+      }
+    }
+    const positiveReturns = returns.filter((r) => r > 0);
+    const negativeReturns = returns.filter((r) => r < 0);
+
+    if (returns.length >= 8 && positiveReturns.length > 0 && negativeReturns.length > 0) {
+      const p = positiveReturns.length / returns.length;
+      const q = 1 - p;
+      const avgWin = positiveReturns.reduce((a, b) => a + b, 0) / positiveReturns.length;
+      const avgLoss = Math.abs(negativeReturns.reduce((a, b) => a + b, 0) / negativeReturns.length);
+      const b = avgLoss > 0 ? avgWin / avgLoss : 1.0;
+      const rawKelly = (p * b - q) / b;
+      if (rawKelly > 0) {
+        kellySuggestedPct = parseFloat((Math.min(25, Math.max(1, (rawKelly / 2) * 100))).toFixed(1));
+      } else {
+        kellySuggestedPct = 0;
+      }
+    }
+  }
 
   return {
     grahamNumber,

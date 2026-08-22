@@ -11,6 +11,7 @@ import {
   calculateHHI,
   calculateValuationFormulas,
   calculateHistoricalVolatility,
+  calculateHurstExponent,
   PortfolioAssetInput,
 } from "./quantEngine";
 
@@ -427,6 +428,46 @@ describe("quantEngine Unit Tests", () => {
       expect(dividendStock.gordanDdmValue).toBeGreaterThan(0);
     });
 
+    it("handles Hurst and Kelly gracefully with null when price history is missing", () => {
+      const val = calculateValuationFormulas({
+        symbol: "NOPRICES",
+        financialLeverage: 1.5,
+        eps: 5,
+      });
+
+      expect(val.mertonDefaultProbabilityPct).toBeDefined();
+      expect(val.mertonDefaultProbabilityPct).toBeGreaterThan(0);
+      expect(val.hurstExponent).toBeNull();
+      expect(val.hurstTrendType).toBe("Kapsam Dışı / Yetersiz Veri");
+      expect(val.beneishStatus).toBe("Kapsam Dışı / Yetersiz Dipnot Verisi");
+      expect(val.kellySuggestedPct).toBeNull();
+    });
+
+    it("calculates real Hurst exponent and Kelly fraction when 20+ historical prices are provided", () => {
+      // 25 daily prices with an upward trend
+      const trendingPrices = [
+        100, 101, 102, 101.5, 103, 104, 103.5, 105, 106, 107,
+        106.5, 108, 109, 110, 109.5, 111, 112, 113, 112.5, 114,
+        115, 116, 117, 118, 120,
+      ];
+
+      const val = calculateValuationFormulas({
+        symbol: "TRENDY",
+        prices: trendingPrices,
+        financialLeverage: 1.8,
+        eps: 10,
+      });
+
+      expect(val.hurstExponent).toBeDefined();
+      expect(val.hurstExponent).not.toBeNull();
+      expect(val.hurstExponent).toBeGreaterThan(0.45);
+      expect(val.hurstTrendType).toBeDefined();
+
+      expect(val.kellySuggestedPct).toBeDefined();
+      expect(val.kellySuggestedPct).not.toBeNull();
+      expect(val.kellySuggestedPct).toBeGreaterThan(0);
+    });
+
     it("gracefully handles zero/undefined values without throwing", () => {
       const val = calculateValuationFormulas({
         symbol: "TEST",
@@ -434,7 +475,24 @@ describe("quantEngine Unit Tests", () => {
 
       expect(val.dupontRoePct).toBeDefined();
       expect(val.piotroskiFScore).toBeGreaterThanOrEqual(0);
-      expect(val.mertonDefaultProbabilityPct).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  // -------------------------------------------------------------
+  // 7.1 calculateHurstExponent
+  // -------------------------------------------------------------
+  describe("calculateHurstExponent", () => {
+    it("returns null when prices array is undefined or has less than 20 points", () => {
+      expect(calculateHurstExponent(undefined).hurstExponent).toBeNull();
+      expect(calculateHurstExponent([100, 105, 102]).hurstExponent).toBeNull();
+    });
+
+    it("computes authentic Hurst exponent for a trending time series", () => {
+      const upwardSeries = Array.from({ length: 30 }, (_, i) => 100 + i * 2 + (i % 2 === 0 ? 0.5 : -0.5));
+      const res = calculateHurstExponent(upwardSeries);
+      expect(res.hurstExponent).toBeDefined();
+      expect(res.hurstExponent).not.toBeNull();
+      expect(res.hurstExponent!).toBeGreaterThan(0.5);
     });
   });
 
