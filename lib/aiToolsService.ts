@@ -118,10 +118,14 @@ Bu sepet için yatırımcılara 1-2 cümlelik profesyonel stratejik gerekçe (su
 export interface AutonomousScanOptions {
   count?: number;
   customApiKey?: string;
+  category?: "ALL" | "BIST30" | "XTEK" | "DIVIDEND" | "VALUE" | "MOMENTUM";
+  excludeSymbols?: string[];
 }
 
 export async function runAutonomousScan(options?: AutonomousScanOptions): Promise<AutonomousScan[]> {
-  const targetCount = Math.min(Math.max(options?.count || 10, 3), 20);
+  const targetCount = Math.min(Math.max(options?.count || 10, 3), 25);
+  const selectedCategory = options?.category || "ALL";
+  const excludedSet = new Set((options?.excludeSymbols || []).map((s) => s.toUpperCase()));
   const envKey = process.env.GEMINI_API_KEY?.trim();
   const effectiveApiKey = options?.customApiKey?.trim() || envKey;
 
@@ -137,14 +141,59 @@ export async function runAutonomousScan(options?: AutonomousScanOptions): Promis
     }
   }
 
-  // Akıllı Aday Havuzu Önceliklendirmesi
-  const scoredPool = [...companyPool].map((c) => {
-    let priority = Math.random() * 20;
-    if ((c.peRatio || 0) > 0 && (c.peRatio || 0) < 8) priority += 35;
-    if ((c.dividendYield || 0) > 4) priority += 25;
-    if ((c.volumeRatio || 1) > 1.4) priority += 30;
-    if (Math.abs(c.dailyChange || 0) > 2) priority += 15;
-    if (c.exchange === "BIST" || c.indexTag === "BIST 30" || c.indexTag === "BIST 100") priority += 20;
+  // 1. Radar Evreni Kategori Filtreleme
+  let categoryFiltered = [...companyPool];
+  if (selectedCategory === "BIST30") {
+    categoryFiltered = categoryFiltered.filter((c) =>
+      c.indexTag?.toUpperCase().includes("BIST 30") ||
+      ["THYAO", "ASELS", "TUPRS", "BIMAS", "AKBNK", "GARAN", "ISCTR", "YKBNK", "KCHOL", "SAHOL", "SISE", "EREGL", "FROTO", "TOASO", "TCELL", "TTKOM", "PETKM", "KOZAL", "EKGYO", "ENKAI", "GUBRF", "HEKTS", "KRDMD", "ODAS", "OYAKC", "PGSUS", "SASA", "SOKM", "TAVHL"].includes(c.symbol.toUpperCase())
+    );
+  } else if (selectedCategory === "XTEK") {
+    categoryFiltered = categoryFiltered.filter((c) =>
+      c.sector?.toLowerCase().includes("teknoloji") ||
+      c.sector?.toLowerCase().includes("bilişim") ||
+      c.sector?.toLowerCase().includes("savunma") ||
+      c.sector?.toLowerCase().includes("yazılım") ||
+      ["ASELS", "SDTTR", "KFEIN", "VBTYZ", "LOGO", "MIATK", "PAPIL", "REEDR", "KONTSE", "FONET", "NETAS", "INDES", "ARDYZ", "ALTEN", "BINHO"].includes(c.symbol.toUpperCase())
+    );
+  } else if (selectedCategory === "DIVIDEND") {
+    categoryFiltered = categoryFiltered.filter((c) => (c.dividendYield || 0) >= 3.0);
+  } else if (selectedCategory === "VALUE") {
+    categoryFiltered = categoryFiltered.filter((c) =>
+      (c.peRatio && c.peRatio > 0 && c.peRatio < 9.0) ||
+      (c.pbRatio && c.pbRatio > 0 && c.pbRatio < 2.2)
+    );
+  } else if (selectedCategory === "MOMENTUM") {
+    categoryFiltered = categoryFiltered.filter((c) =>
+      (c.volumeRatio && c.volumeRatio > 1.25) ||
+      Math.abs(c.dailyChange || 0) > 1.8 ||
+      (c.athDiscountPct && c.athDiscountPct < 12)
+    );
+  }
+
+  // Havuz boş kalırsa ana kütüğe güvenle geri düş
+  if (categoryFiltered.length === 0) {
+    categoryFiltered = [...companyPool];
+  }
+
+  // 2. Dairesel 500+ Evren Rotasyonu & Akıllı Önceliklendirme
+  // Henüz taranmamış şirketleri önceliklendir (tüm kütük bitince döngü başa sarar)
+  const freshCandidates = categoryFiltered.filter((c) => !excludedSet.has(c.symbol.toUpperCase()));
+  const workingPool = freshCandidates.length >= targetCount ? freshCandidates : categoryFiltered;
+
+  const scoredPool = workingPool.map((c) => {
+    let priority = Math.random() * 15;
+    const pe = c.peRatio;
+    const div = c.dividendYield || 0;
+    const vol = c.volumeRatio || 1.0;
+    const chg = Math.abs(c.dailyChange || 0);
+
+    if (pe && pe > 0 && pe < 8) priority += 35;
+    if (div >= 4.0) priority += 25;
+    if (vol > 1.35) priority += 25;
+    if (chg > 2.0) priority += 15;
+    if (c.exchange === "BIST" || c.indexTag?.includes("BIST")) priority += 15;
+
     return { company: c, priority };
   }).sort((a, b) => b.priority - a.priority);
 
@@ -156,47 +205,60 @@ export async function runAutonomousScan(options?: AutonomousScanOptions): Promis
   const scans: AutonomousScan[] = [];
 
   for (const co of selected) {
-    const price = co.price || 50;
-    const pe = co.peRatio || 8.5;
-    const pb = co.pbRatio || 1.8;
+    const price = co.price || 0;
+    const pe = co.peRatio;
+    const pb = co.pbRatio;
     const divYield = co.dividendYield || 0;
     const dailyChg = co.dailyChange || 0;
-    const roe = co.returnOnEquity || 24.5;
-    const athDiscount = co.athDiscountPct || 15;
+    const roe = co.returnOnEquity || 20.0;
 
-    // 1. Deterministik Kantitatif Değerleme
+    // 3. Deterministik Çok Boyutlu Bilanço & Değerleme Modelleri (Sıfır Uydurma)
     const mathVal = calculateValuationFormulas({
       symbol: co.symbol,
+      sector: co.sector,
       price,
       peRatio: pe,
       pbRatio: pb,
       dividendYield: divYield,
+      eps: co.eps,
+      revenueGrowth: co.revenueGrowth,
+      freeCashFlow: co.freeCashFlow,
+      marketCap: co.marketCap,
     });
 
-    const calculatedFairValue = mathVal.dcfFairValue || mathVal.grahamNumber || undefined;
-    const calculatedValuationScore = Math.min(99, Math.max(25, Math.round((mathVal.piotroskiFScore / 9) * 50 + (mathVal.magicFormulaScore / 100) * 50)));
+    const calculatedFairValue = mathVal.dcfFairValue || mathVal.grahamNumber || co.targetMeanPrice || undefined;
+    const calculatedValuationScore = Math.min(
+      99,
+      Math.max(25, Math.round((mathVal.piotroskiFScore / 9) * 50 + (mathVal.magicFormulaScore / 100) * 50))
+    );
+
     let verdict: AutonomousScan["verdict"] =
-      mathVal.piotroskiFScore >= 8 && pe < 10 ? "GÜÇLÜ AL" :
-      mathVal.piotroskiFScore >= 6 && pe < 15 ? "AL" :
-      mathVal.piotroskiFScore <= 3 || pe > 25 ? "SAT" : "TUT";
+      mathVal.piotroskiFScore >= 8 && pe && pe < 10 ? "GÜÇLÜ AL" :
+      mathVal.piotroskiFScore >= 6 && pe && pe < 15 ? "AL" :
+      mathVal.piotroskiFScore <= 3 || (pe && pe > 25) ? "SAT" : "TUT";
     let confidence = "%85";
-    let bullThesis = `${co.name}, ${co.sector} sektöründe güçlü özkaynak kârlılığı (%${roe}) ve Stanford Piotroski ${mathVal.piotroskiFScore}/9 bilanço sağlamlığıyla öne çıkıyor.`;
-    let bearThesis = `Yüksek faiz ortamında finansman giderleri ve sektörel marj daralması operasyonel kâr üzerinde baskı yaratabilir.`;
+
+    // Zengin Deterministik Tezler
+    const peText = pe ? `${pe.toFixed(1)}x F/K` : "makul çarpan";
+    const divText = divYield > 0 ? `, %${divYield.toFixed(1)} temettü verimi` : "";
+    let bullThesis = `${co.name}, ${co.sector} sektöründe Stanford Piotroski ${mathVal.piotroskiFScore}/9 bilanço puanı, %${roe.toFixed(1)} ROE ve ${peText}${divText} ile öne çıkıyor.`;
+    let bearThesis = `Yüksek faiz ve finansman maliyetleri ortamında operasyonel nakit akışı ve sektör marj baskısı yakından izlenmelidir.`;
 
     if (ai) {
       try {
-        const prompt = `Sen Borsa İstanbul (BIST) baş analisti ve CFA sertifikalı kıdemli fon yöneticisisin.
-Aşağıdaki gerçek şirket verilerini derinlemesine analiz et ve SADECE geçerli bir JSON yanıtı döndür.
+        const prompt = `Sen Borsa İstanbul (BIST) baş analisti ve CFA sertifikalı fon yöneticisisin.
+Aşağıdaki şirketin GERÇEK finansal göstergelerini incele ve SADECE geçerli bir JSON yanıtı döndür.
 
 Şirket: ${co.name} (${co.symbol})
 Sektör: ${co.sector}
-Güncel Fiyat: ${price} TL
-F/K Çarpanı: ${pe}
-PD/DD Çarpanı: ${pb}
+Güncel Fiyat: ${price > 0 ? `${price} TL` : "Veri Yok"}
+F/K Çarpanı: ${pe ? `${pe}x` : "Veri Yok"}
+PD/DD Çarpanı: ${pb ? `${pb}x` : "Veri Yok"}
 Özkaynak Kârlılığı (ROE): %${roe}
 Temettü Verimi: %${divYield}
 Günlük Değişim: %${dailyChg}
-Piotroski Skoru: ${mathVal.piotroskiFScore}/9
+Stanford Piotroski Bilanço Skoru: ${mathVal.piotroskiFScore}/9
+DCF / Graham Adil Değeri: ${calculatedFairValue ? `${calculatedFairValue.toFixed(2)} TL` : "Hesaplanamadı"}
 
 GÖREVİN:
 1. 1 net ve somut Boğa Tezi (fırsat katalizörleri) ve 1 net Ayı Riski yaz.
@@ -258,7 +320,7 @@ GÖREVİN:
     scans.push(scanItem);
   }
 
-  // Optionally persist to Supabase
+  // Persist to Supabase if configured
   if (isSupabaseAdminConfigured && supabaseAdmin) {
     try {
       const historyRows = scans.map((s) => ({

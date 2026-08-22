@@ -242,6 +242,8 @@ function OrakulContent() {
   const [maxPeRatio, setMaxPeRatio] = useState<number>(0);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState<boolean>(false);
   const [assetCount, setAssetCount] = useState<number>(4);
+  const [weightingModel, setWeightingModel] = useState<"balanced" | "min_volatility" | "max_sharpe">("balanced");
+  const [wizardViewMode, setWizardViewMode] = useState<"builder" | "history">("builder");
 
   // Sync preselected basket to wizard state during render
   if (preselectedBasketId && preselectedBasketId !== prevPreselectedBasketId && baskets.length > 0) {
@@ -755,6 +757,7 @@ interface WeeklyLetterResult {
             horizon,
             maxAssetWeight,
             maxSectorWeight,
+            weightingModel,
             minVolumeRatio: minVolumeRatio > 0 ? minVolumeRatio : undefined,
             includeGoldBuffer,
             excludeOverbought,
@@ -842,6 +845,17 @@ interface WeeklyLetterResult {
             targetPeriodDays: horizon === "30_gun" ? 30 : horizon === "6_ay" ? 180 : 365,
             provider: aiStatus?.isRealAiActive ? (aiProvider === "openai" ? "OpenAI" : "Gemini") : "Şablon",
             model: aiStatus?.isRealAiActive ? (aiProvider === "openai" ? "gpt-4o-mini" : geminiModel) : "Algoritmik",
+            strategyArchetype,
+            persona: userSettings?.orakulPersona || "deger",
+            allocation: (data.data.allocation || []).map((a: any) => ({
+              symbol: a.symbol,
+              weight: a.weight,
+              price: a.price,
+              suggestedShares: a.suggestedShares,
+              totalCost: a.totalCost,
+              priceInTRY: a.priceInTRY || a.price,
+              note: a.note,
+            })),
           });
         }
       } else {
@@ -2004,15 +2018,44 @@ async function fetchAndEnrichCompanyWithDeepData(co: Company): Promise<Record<st
       {/* 2. TAB 1: Sepet Sihirbazı */}
       {activeTab === "wizard" && (
         <section className="bg-[var(--ink-2)] border border-[var(--line)] rounded-xl p-6 sm:p-8 space-y-6 shadow-xl">
-          <div className="border-b border-[var(--line)] pb-4">
-            <h2 className="font-serif text-2xl text-[var(--paper)] font-medium">
-              {rebalanceBasketId ? "Sepet Yeniden Dengeleme & Rebalance" : "Özelleştirilmiş Portföy Reçetesi"}
-            </h2>
-            <p className="text-xs font-mono text-[var(--mist)] mt-1">
-              {rebalanceBasketId
-                ? "Mevcut varlık ağırlıkları ile hedef yüzdeler karşılaştırılarak optimum dengeleme reçetesi üretilir."
-                : "Yatırım hedeflerinizi seçin, Orakul matematiksel optimizasyonla sepet üretsin."}
-            </p>
+          <div className="border-b border-[var(--line)] pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="font-serif text-2xl text-[var(--paper)] font-medium">
+                {rebalanceBasketId ? "Sepet Yeniden Dengeleme & Rebalance" : "Özelleştirilmiş Portföy Reçetesi"}
+              </h2>
+              <p className="text-xs font-mono text-[var(--mist)] mt-1">
+                {rebalanceBasketId
+                  ? "Mevcut varlık ağırlıkları ile hedef yüzdeler karşılaştırılarak optimum dengeleme reçetesi üretilir."
+                  : "Yatırım hedeflerinizi seçin, Orakul matematiksel optimizasyonla kurumsal sepet üretsin."}
+              </p>
+            </div>
+
+            <div className="flex items-center bg-[var(--ink-3)] p-1 rounded-lg border border-[var(--line)] self-start sm:self-auto">
+              <button
+                type="button"
+                onClick={() => setWizardViewMode("builder")}
+                className={`px-3 py-1.5 rounded-md text-xs font-mono transition-all cursor-pointer flex items-center gap-1.5 ${
+                  wizardViewMode === "builder"
+                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-xs"
+                    : "text-[var(--mist)] hover:text-[var(--paper)]"
+                }`}
+              >
+                <Compass className="w-3.5 h-3.5" />
+                <span>Portföy Mimarı</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setWizardViewMode("history")}
+                className={`px-3 py-1.5 rounded-md text-xs font-mono transition-all cursor-pointer flex items-center gap-1.5 ${
+                  wizardViewMode === "history"
+                    ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-xs"
+                    : "text-[var(--mist)] hover:text-[var(--paper)]"
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                <span>Geçmiş AI Sepetleri ({aiHistory.filter((h) => h.type === "Sepet Önerisi" || h.type === "Reçete").length})</span>
+              </button>
+            </div>
           </div>
 
           {/* Active Rebalance Context Banner */}
@@ -2044,423 +2087,726 @@ async function fetchAndEnrichCompanyWithDeepData(co: Company): Promise<Record<st
             );
           })()}
 
-          <div className="space-y-6">
-            {/* 1. Kurumsal Strateji Şablonları */}
-            <div>
-              <div className="flex items-center justify-between mb-2.5">
-                <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)]">
-                  1. Yatırım Stratejisi &amp; Arketip Seçimi
-                </label>
-                <span className="text-[10px] font-mono text-[var(--brass)] bg-[var(--brass-glow)] px-2 py-0.5 rounded border border-[var(--brass-dim)]">
-                  KURUMSAL HEDGE-FUND MODELİ
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {[
-                  {
-                    id: "dividend_aristocrats",
-                    title: "Temettü Aristokratları & DRIP",
-                    badge: "Bileşik Büyüme",
-                    desc: "Yüksek ve sürdürülebilir nakit temettü verimiyle kartopu etkisi hedefleyen şirketler.",
-                    goalText: "Temettü Odaklı Nakit Akışı",
-                    riskText: "Dengeli (Orta Risk)",
-                    universeText: "Tüm BIST 100 & Temettü 25",
-                  },
-                  {
-                    id: "defensive_castle",
-                    title: "Enflasyon Kalkanı & Kale",
-                    badge: "Defansif",
-                    desc: "Güçlü nakit akışı ve fiyatlama gücü olan BIST 30 devleri + %25 Gram Altın tamponu.",
-                    goalText: "Enflasyon & Kur Koruması",
-                    riskText: "Düşük Risk (Defansif)",
-                    universeText: "BIST 30 & Kıymetli Maden",
-                  },
-                  {
-                    id: "garp",
-                    title: "GARP (Makul Fiyatlı Büyüme)",
-                    badge: "Büyüme",
-                    desc: "Düşük F/K ile sektör ortalamasının üzerinde ciro ve FAVÖK artışı yakalayan liderler.",
-                    goalText: "Döviz Kazançlı İhracat Şampiyonları",
-                    riskText: "Dengeli (Orta Risk)",
-                    universeText: "Tüm BIST 100 & Temettü 25",
-                  },
-                  {
-                    id: "deep_value",
-                    title: "Derin Değer (Graham Kelepiri)",
-                    badge: "İskontolu",
-                    desc: "Defter değerine ve özkaynaklarına göre aşırı ucuz kalmış sağlam sanayi hisseleri.",
-                    goalText: "Derin Değer & Düşük F/K Avı",
-                    riskText: "Dengeli (Orta Risk)",
-                    universeText: "Tüm Defter Kütüğü (Hisse + Fon + Döviz)",
-                  },
-                  {
-                    id: "global_hedge",
-                    title: "Küresel Denge & Dövizli Gelir",
-                    badge: "Döviz Korumalı",
-                    desc: "İhracatçı BIST şirketleri + TEFAS Küresel Teknoloji Fonları + Ons Emtia karması.",
-                    goalText: "Küresel Piyasalar & Dövizli Gelir",
-                    riskText: "Dengeli (Orta Risk)",
-                    universeText: "Küresel Piyasalar (ABD & BIST)",
-                  },
-                  {
-                    id: "momentum_leaders",
-                    title: "Momentum & Trend Liderleri",
-                    badge: "Dinamik",
-                    desc: "52 haftalık zirvesine koşan, hacim patlaması yaşayan ve teknik gücü yüksek hisseler.",
-                    goalText: "Büyüme & Teknoloji İnovasyonu",
-                    riskText: "Yüksek Risk (Agresif)",
-                    universeText: "BIST Teknoloji & Bilişim (XTEK)",
-                  },
-                ].map((arch) => (
-                  <button
-                    key={arch.id}
-                    type="button"
-                    onClick={() => {
-                      setStrategyArchetype(arch.id);
-                      setGoal(arch.goalText);
-                      setRisk(arch.riskText);
-                      setUniverse(arch.universeText);
-                    }}
-                    className={`p-3.5 rounded-xl text-left border transition-all cursor-pointer space-y-1.5 ${
-                      strategyArchetype === arch.id
-                        ? "bg-[var(--brass-glow)] border-[var(--brass)] shadow-md text-[var(--paper)]"
-                        : "bg-[var(--ink-3)] border-[var(--line)] text-[var(--mist)] hover:border-[var(--brass-dim)] hover:text-[var(--paper)]"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-serif font-bold text-xs text-[var(--paper)]">
-                        {arch.title}
-                      </span>
-                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[var(--ink)] border border-[var(--line)] text-[var(--brass)] font-bold">
-                        {arch.badge}
-                      </span>
-                    </div>
-                    <p className="text-[11px] leading-relaxed text-[var(--mist)] line-clamp-2">
-                      {arch.desc}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* 2. Risk & Evren Ayarları */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Risk Toleransı */}
-              <div>
-                <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)] mb-2">
-                  2. Risk Toleransı
-                </label>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {[
-                    "Düşük Risk (Defansif)",
-                    "Dengeli (Orta Risk)",
-                    "Yüksek Risk (Agresif)",
-                  ].map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => setRisk(r)}
-                      className={`p-2 rounded-lg text-xs font-mono border text-center transition-all cursor-pointer truncate ${
-                        risk === r
-                          ? "border-[var(--brass)] bg-[var(--brass-glow)] text-[var(--brass)] font-bold shadow-xs"
-                          : "border-[var(--line)] bg-[var(--ink-3)] text-[var(--mist)] hover:text-[var(--paper)]"
-                      }`}
-                    >
-                      {r.split(" ")[0]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Yatırım Evreni */}
-              <div>
-                <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)] mb-2">
-                  3. Yatırım Evreni
-                </label>
-                <select
-                  value={universe}
-                  onChange={(e) => setUniverse(e.target.value)}
-                  className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded-lg p-2.5 text-xs font-mono text-[var(--paper)] outline-none focus:border-[var(--brass)]"
-                >
-                  <option value="BIST 30 & Kıymetli Maden">BIST 30 & Kıymetli Maden</option>
-                  <option value="Tüm BIST 100 & Temettü 25">Tüm BIST 100 & Temettü 25</option>
-                  <option value="BIST Teknoloji & Bilişim (XTEK)">BIST Teknoloji (XTEK)</option>
-                  <option value="TEFAS Fonları & Emtia">TEFAS Fonları & Emtia</option>
-                  <option value="Küresel Piyasalar (ABD & BIST)">Küresel Piyasalar (ABD & BIST)</option>
-                  <option value="Tüm Defter Kütüğü (Hisse + Fon + Döviz)">Tüm Defter Kütüğü (420+ Varlık)</option>
-                </select>
-              </div>
-
-              {/* Yatırım Ufku */}
-              <div>
-                <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)] mb-2">
-                  4. Hedef Vade
-                </label>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {[
-                    "Kısa Vade (1-6 Ay)",
-                    "Orta Vade (6-18 Ay)",
-                    "Uzun Vade (3-5+ Yıl)",
-                  ].map((hOpt) => (
-                    <button
-                      key={hOpt}
-                      type="button"
-                      onClick={() => setHorizon(hOpt)}
-                      className={`p-2 rounded-lg text-xs font-mono border text-center transition-all cursor-pointer truncate ${
-                        horizon === hOpt
-                          ? "border-[var(--brass)] bg-[var(--brass-glow)] text-[var(--brass)] font-bold shadow-xs"
-                          : "border-[var(--line)] bg-[var(--ink-3)] text-[var(--mist)] hover:text-[var(--paper)]"
-                      }`}
-                    >
-                      {hOpt.split(" ")[0]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* 5. Gelişmiş Nicel Süzgeçler & Kural Kısıtları (Akordiyon) */}
-            <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-3 font-mono text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-[var(--brass)] font-bold uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-[var(--brass)]" />
-                  <span>5. Nicel Süzgeçler &amp; Portföy Güvenlik Kalkanı</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                  className="text-[10px] text-[var(--brass)] hover:underline cursor-pointer font-bold"
-                >
-                  {showAdvancedFilters ? "▲ Filtreleri Gizle" : "▼ Gelişmiş Kriterleri Düzenle"}
-                </button>
-              </div>
-
-              {/* Varlık Sayısı ve Altın Sigortası */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                <div className="p-3 bg-[var(--ink-2)] rounded-lg border border-[var(--line)] space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] text-[var(--mist)] font-medium">Hedef Varlık Adedi</span>
-                    <span className="font-mono text-xs text-[var(--brass)] font-bold">{assetCount} Varlık</span>
-                  </div>
-                  <div className="grid grid-cols-5 gap-1 font-mono text-xs">
-                    {[3, 4, 5, 6, 8].map((cnt) => (
+          {/* GÖRÜNÜM 1: GEÇMİŞ AI SEPETLERİ ARŞİVİ & ANLIK GETİRİ TAKİBİ */}
+          {wizardViewMode === "history" ? (
+            <div className="space-y-4">
+              {(() => {
+                const pastRecipes = aiHistory.filter((h) => h.type === "Sepet Önerisi" || h.type === "Reçete");
+                if (pastRecipes.length === 0) {
+                  return (
+                    <div className="text-center py-12 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-3">
+                      <Clock className="w-8 h-8 text-[var(--mist)] mx-auto opacity-50" />
+                      <h4 className="font-serif text-sm font-bold text-[var(--paper)]">Henüz Kaydedilmiş AI Sepeti Bulunmuyor</h4>
+                      <p className="text-xs text-[var(--mist)] max-w-md mx-auto">
+                        Portföy Mimarı sekmesinden yeni bir Orakul reçetesi ürettiğinizde sepetiniz ve anlık canlı fiyat takibi otomatik olarak burada saklanır.
+                      </p>
                       <button
-                        key={cnt}
                         type="button"
-                        onClick={() => setAssetCount(cnt)}
-                        className={`py-1.5 rounded text-center border transition-all cursor-pointer ${
-                          assetCount === cnt
-                            ? "bg-[var(--brass)] text-[var(--ink)] font-bold border-[var(--brass)] shadow-xs"
-                            : "bg-[var(--ink-3)] text-[var(--mist)] border-[var(--line)]"
+                        onClick={() => setWizardViewMode("builder")}
+                        className="px-4 py-2 bg-[var(--brass)] text-[var(--ink)] font-bold text-xs rounded-lg cursor-pointer"
+                      >
+                        İlk Sepetini Tasarla
+                      </button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="grid grid-cols-1 gap-4">
+                    {pastRecipes.map((recipe) => {
+                      // Calculate Live Performance from current stock prices
+                      const budgetInitial = recipe.budgetAtCreation || recipe.priceAtVerdict || 100000;
+                      let liveTotalValue = 0;
+                      let totalCostCalculated = 0;
+
+                      const enrichedHoldings = (recipe.allocation || []).map((h) => {
+                        const co = companies.find((c) => c.symbol.toUpperCase() === h.symbol.toUpperCase());
+                        const livePrice = co?.price || h.price || 100;
+                        const initialPrice = h.priceInTRY || h.price || 100;
+                        const shares = h.suggestedShares || Math.floor((budgetInitial * (h.weight / 100)) / (initialPrice || 1)) || 1;
+                        const cost = h.totalCost || parseFloat((shares * initialPrice).toFixed(2));
+                        const currentVal = parseFloat((shares * livePrice).toFixed(2));
+                        const returnPct = initialPrice > 0 ? parseFloat((((livePrice - initialPrice) / initialPrice) * 100).toFixed(2)) : 0;
+
+                        totalCostCalculated += cost;
+                        liveTotalValue += currentVal;
+
+                        return {
+                          symbol: h.symbol,
+                          weight: h.weight,
+                          shares,
+                          initialPrice,
+                          livePrice,
+                          cost,
+                          currentVal,
+                          returnPct,
+                          note: h.note,
+                        };
+                      });
+
+                      const netProfit = liveTotalValue - totalCostCalculated;
+                      const netProfitPct = totalCostCalculated > 0 ? parseFloat(((netProfit / totalCostCalculated) * 100).toFixed(2)) : 0;
+                      const isProfit = netProfit >= 0;
+
+                      return (
+                        <div
+                          key={recipe.id}
+                          className="bg-[var(--ink-3)] border border-[var(--line)] hover:border-[var(--brass-dim)] transition-all rounded-xl p-5 space-y-4"
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--line)] pb-3">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-mono uppercase bg-[var(--brass-glow)] text-[var(--brass)] px-2 py-0.5 rounded font-bold border border-[var(--brass-dim)]">
+                                  {recipe.strategyArchetype?.toUpperCase() || "AI SEPET"}
+                                </span>
+                                <span className="text-[10px] font-mono text-[var(--mist)] flex items-center gap-1">
+                                  <Clock className="w-3 h-3" />
+                                  <span>{recipe.date}</span>
+                                </span>
+                              </div>
+                              <h4 className="font-serif text-base font-bold text-[var(--paper)]">
+                                {recipe.title}
+                              </h4>
+                              <p className="text-xs text-[var(--mist)] line-clamp-2">
+                                {recipe.description}
+                              </p>
+                            </div>
+
+                            {/* Live Valuation Box */}
+                            <div className="flex items-center gap-4 bg-[var(--ink-2)] p-3 rounded-lg border border-[var(--line)] self-start sm:self-auto shrink-0">
+                              <div>
+                                <span className="text-[10px] font-mono text-[var(--mist)] block">Başlangıç Bütçesi</span>
+                                <span className="font-mono text-xs font-bold text-[var(--paper)]">
+                                  {budgetInitial.toLocaleString("tr-TR")} ₺
+                                </span>
+                              </div>
+                              <div className="w-px h-7 bg-[var(--line)]" />
+                              <div>
+                                <span className="text-[10px] font-mono text-[var(--mist)] block">Güncel Piyasa Değeri</span>
+                                <span className="font-mono text-sm font-bold text-[var(--paper)]">
+                                  {liveTotalValue.toLocaleString("tr-TR", { maximumFractionDigits: 0 })} ₺
+                                </span>
+                              </div>
+                              <div className="w-px h-7 bg-[var(--line)]" />
+                              <div className="text-right">
+                                <span className="text-[10px] font-mono text-[var(--mist)] block">Net Kâr / Zarar</span>
+                                <span className={`font-mono text-sm font-bold flex items-center justify-end gap-1 ${
+                                  isProfit ? "text-emerald-400" : "text-rose-400"
+                                }`}>
+                                  {isProfit ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                                  <span>%{netProfitPct > 0 ? `+${netProfitPct}` : netProfitPct}</span>
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Holdings Breakdown */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 pt-1 font-mono text-xs">
+                            {enrichedHoldings.map((h) => (
+                              <div
+                                key={h.symbol}
+                                className="p-2.5 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg space-y-1"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="font-bold text-[var(--paper)]">{h.symbol}</span>
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--ink-3)] text-[var(--brass)] font-bold">
+                                    %{h.weight}
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between text-[11px] text-[var(--mist)]">
+                                  <span>{h.shares} Lot</span>
+                                  <span className={h.returnPct >= 0 ? "text-emerald-400 font-bold" : "text-rose-400 font-bold"}>
+                                    {h.returnPct >= 0 ? `+${h.returnPct}%` : `${h.returnPct}%`}
+                                  </span>
+                                </div>
+                                <div className="text-[10px] text-[var(--mist)] flex justify-between">
+                                  <span>Giriş: {h.initialPrice.toFixed(2)}₺</span>
+                                  <span>Canlı: {h.livePrice.toFixed(2)}₺</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[var(--line)]/60 text-xs">
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  // Portföye gerçek sepet olarak ekle
+                                  const newBasketId = `ai-b-${Date.now()}`;
+                                  createBasket({
+                                    id: newBasketId,
+                                    name: recipe.title || "AI Model Sepeti",
+                                    subtitle: `${recipe.strategyArchetype?.toUpperCase() || "AI"} Stratejisi`,
+                                    riskLevel: "Orta",
+                                    riskColor: "mid",
+                                    totalValue: liveTotalValue || budgetInitial,
+                                    totalCost: totalCostCalculated || budgetInitial,
+                                    dailyChange: 0,
+                                    totalProfitPercent: netProfitPct,
+                                    description: recipe.description || "Orakul AI portföy reçetesi",
+                                    aiNote: "Orakul AI Reçete Motoru tarafından üretildi.",
+                                    isAiModel: true,
+                                    holdings: enrichedHoldings.map((h, i) => ({
+                                      id: `h-${h.symbol}-${Date.now()}-${i}`,
+                                      companySymbol: h.symbol,
+                                      quantity: h.shares,
+                                      avgCost: h.initialPrice,
+                                      currentPrice: h.livePrice,
+                                      weightPercent: h.weight,
+                                      targetWeightPercent: h.weight,
+                                    })),
+                                  });
+                                  showToast("Portföye Eklendi", "AI sepeti gerçek sepetleriniz arasına kaydedildi.", "success");
+                                }}
+                                className="px-3 py-1.5 bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-300 font-bold rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
+                              >
+                                <BookmarkPlus className="w-3.5 h-3.5" />
+                                <span>Portföyüme Sepet Olarak Aktar</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setWizardViewMode("builder");
+                                  setGoal(recipe.title);
+                                  setBudget(budgetInitial.toLocaleString("tr-TR"));
+                                  showToast("Parametreler Yüklendi", "Sepet parametreleri optimizasyon motoruna aktarıldı.", "info");
+                                }}
+                                className="px-3 py-1.5 bg-[var(--ink-2)] hover:bg-[var(--ink)] border border-[var(--line)] text-[var(--paper)] rounded-lg transition-all cursor-pointer flex items-center gap-1.5"
+                              >
+                                <RefreshCw className="w-3.5 h-3.5 text-[var(--brass)]" />
+                                <span>Bu Sepeti Tekrar Optimize Et</span>
+                              </button>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                deleteAiHistory(recipe.id);
+                                showToast("Silindi", "Sepet önerisi geçmişten kaldırıldı.", "info");
+                              }}
+                              className="text-[11px] text-rose-400 hover:text-rose-300 font-mono flex items-center gap-1 cursor-pointer"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              <span>Geçmişten Sil</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+          ) : (
+            /* GÖRÜNÜM 2: YENİ SEPET TASARLAMA FORMU */
+            <div className="space-y-6">
+              {/* 1. Kurumsal Strateji Şablonları (10 Arketip) */}
+              <div>
+                <div className="flex items-center justify-between mb-2.5">
+                  <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)]">
+                    1. Yatırım Stratejisi &amp; Arketip Seçimi
+                  </label>
+                  <span className="text-[10px] font-mono text-[var(--brass)] bg-[var(--brass-glow)] px-2 py-0.5 rounded border border-[var(--brass-dim)]">
+                    10 KURUMSAL ARKETİP MODELİ
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {[
+                    {
+                      id: "dividend_aristocrats",
+                      title: "Temettü Aristokratları & DRIP",
+                      badge: "Bileşik Büyüme",
+                      desc: "Yüksek ve sürdürülebilir nakit temettü verimiyle kartopu etkisi hedefleyen şirketler.",
+                      goalText: "Temettü Odaklı Nakit Akışı",
+                      riskText: "Dengeli (Orta Risk)",
+                      universeText: "Tüm BIST 100 & Temettü 25",
+                    },
+                    {
+                      id: "defensive_castle",
+                      title: "Enflasyon Kalkanı & Kale",
+                      badge: "Defansif",
+                      desc: "Güçlü nakit akışı ve fiyatlama gücü olan BIST 30 devleri + %20 Gram Altın tamponu.",
+                      goalText: "Enflasyon & Kur Koruması",
+                      riskText: "Düşük Risk (Defansif)",
+                      universeText: "BIST 30 & Kıymetli Maden",
+                    },
+                    {
+                      id: "garp",
+                      title: "GARP (Makul Fiyatlı Büyüme)",
+                      badge: "Büyüme",
+                      desc: "Düşük F/K ile sektör ortalamasının üzerinde ciro ve FAVÖK artışı yakalayan liderler.",
+                      goalText: "Döviz Kazançlı İhracat Şampiyonları",
+                      riskText: "Dengeli (Orta Risk)",
+                      universeText: "Tüm BIST 100 & Temettü 25",
+                    },
+                    {
+                      id: "deep_value",
+                      title: "Derin Değer (Graham Kelepiri)",
+                      badge: "İskontolu",
+                      desc: "Defter değerine ve özkaynaklarına göre aşırı ucuz kalmış sağlam sanayi hisseleri.",
+                      goalText: "Derin Değer & Düşük F/K Avı",
+                      riskText: "Dengeli (Orta Risk)",
+                      universeText: "Tüm Defter Kütüğü (Hisse + Fon + Döviz)",
+                    },
+                    {
+                      id: "growth_quality",
+                      title: "Kaliteli Büyüme & Yüksek ROE",
+                      badge: "Kalite",
+                      desc: "Yüksek sermaye kârlılığı (ROE/ROIC) ve düzenli satış hacmi genişlemesi yakalayan devler.",
+                      goalText: "Sermaye Kârlılığı & Kaliteli Büyüme",
+                      riskText: "Dengeli (Orta Risk)",
+                      universeText: "Tüm BIST 100 & Temettü 25",
+                    },
+                    {
+                      id: "global_hedge",
+                      title: "Küresel Denge & Dövizli Gelir",
+                      badge: "Döviz Korumalı",
+                      desc: "İhracatçı BIST şirketleri + TEFAS Küresel Teknoloji Fonları + Ons Emtia karması.",
+                      goalText: "Küresel Piyasalar & Dövizli Gelir",
+                      riskText: "Dengeli (Orta Risk)",
+                      universeText: "Küresel Piyasalar (ABD & BIST)",
+                    },
+                    {
+                      id: "momentum_leaders",
+                      title: "Momentum & Trend Liderleri",
+                      badge: "Dinamik",
+                      desc: "52 haftalık zirvesine koşan, hacim patlaması yaşayan ve teknik gücü yüksek hisseler.",
+                      goalText: "Büyüme & Teknoloji İnovasyonu",
+                      riskText: "Yüksek Risk (Agresif)",
+                      universeText: "BIST Teknoloji & Savunma (XTEK)",
+                    },
+                    {
+                      id: "bist_technology",
+                      title: "Teknoloji & Savunma Öncüleri",
+                      badge: "İnovasyon",
+                      desc: "Ar-Ge harcamaları yüksek, savunma ve yazılım ihracatı yapan yenilikçi şirketler.",
+                      goalText: "Teknoloji & Savunma Sanayii",
+                      riskText: "Yüksek Risk (Agresif)",
+                      universeText: "BIST Teknoloji & Savunma (XTEK)",
+                    },
+                    {
+                      id: "green_energy",
+                      title: "Yeşil Enerji & Sürdürülebilirlik",
+                      badge: "Temiz Enerji",
+                      desc: "Güneş, rüzgar ve elektrik şebeke altyapısında lider yenilenebilir enerji devleri.",
+                      goalText: "Yenilenebilir Enerji & Altyapı",
+                      riskText: "Dengeli (Orta Risk)",
+                      universeText: "Yeşil Enerji & Sürdürülebilirlik",
+                    },
+                    {
+                      id: "custom",
+                      title: "Özel Parametrik Strateji",
+                      badge: "Esnek",
+                      desc: "Kendi nicel kriterlerinize ve varlık dağıtım tercihlerinize göre özel sepet mimarisi.",
+                      goalText: "Dengeli Bileşik Büyüme",
+                      riskText: "Dengeli (Orta Risk)",
+                      universeText: "Tüm Defter Kütüğü (420+ Varlık)",
+                    },
+                  ].map((arch) => (
+                    <button
+                      key={arch.id}
+                      type="button"
+                      onClick={() => {
+                        setStrategyArchetype(arch.id);
+                        setGoal(arch.goalText);
+                        setRisk(arch.riskText);
+                        setUniverse(arch.universeText);
+                      }}
+                      className={`p-3.5 rounded-xl text-left border transition-all cursor-pointer space-y-1.5 ${
+                        strategyArchetype === arch.id
+                          ? "bg-[var(--brass-glow)] border-[var(--brass)] shadow-md text-[var(--paper)]"
+                          : "bg-[var(--ink-3)] border-[var(--line)] text-[var(--mist)] hover:border-[var(--brass-dim)] hover:text-[var(--paper)]"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-serif font-bold text-xs text-[var(--paper)]">
+                          {arch.title}
+                        </span>
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-[var(--ink)] border border-[var(--line)] text-[var(--brass)] font-bold">
+                          {arch.badge}
+                        </span>
+                      </div>
+                      <p className="text-[11px] leading-relaxed text-[var(--mist)] line-clamp-2">
+                        {arch.desc}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 2. Risk, Evren & Ağırlıklandırma Modeli */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Risk Toleransı */}
+                <div>
+                  <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)] mb-2">
+                    2. Risk Toleransı
+                  </label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      "Düşük Risk (Defansif)",
+                      "Dengeli (Orta Risk)",
+                      "Yüksek Risk (Agresif)",
+                    ].map((r) => (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => setRisk(r)}
+                        className={`p-2 rounded-lg text-xs font-mono border text-center transition-all cursor-pointer truncate ${
+                          risk === r
+                            ? "border-[var(--brass)] bg-[var(--brass-glow)] text-[var(--brass)] font-bold shadow-xs"
+                            : "border-[var(--line)] bg-[var(--ink-3)] text-[var(--mist)] hover:text-[var(--paper)]"
                         }`}
                       >
-                        {cnt}
+                        {r.split(" ")[0]}
                       </button>
                     ))}
                   </div>
                 </div>
 
-                <div
-                  onClick={() => setIncludeGoldBuffer(!includeGoldBuffer)}
-                  className={`p-3 rounded-lg border flex items-center justify-between cursor-pointer transition-all ${
-                    includeGoldBuffer
-                      ? "bg-[var(--brass-glow)] border-[var(--brass)] text-[var(--paper)] font-bold shadow-xs"
-                      : "bg-[var(--ink-2)] border-[var(--line)] text-[var(--mist)]"
-                  }`}
-                >
-                  <div>
-                    <span className="text-[11px] font-bold block text-[var(--paper)]">Kıymetli Maden Tamponu</span>
-                    <span className="text-[10px] opacity-80 block">En az %15 Gram Altın sigortası ekle</span>
+                {/* Yatırım Evreni (8 Seçenek) */}
+                <div>
+                  <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)] mb-2">
+                    3. Yatırım Evreni
+                  </label>
+                  <select
+                    value={universe}
+                    onChange={(e) => setUniverse(e.target.value)}
+                    className="w-full bg-[var(--ink-3)] border border-[var(--line)] rounded-lg p-2.5 text-xs font-mono text-[var(--paper)] outline-none focus:border-[var(--brass)]"
+                  >
+                    <option value="BIST 30 & Kıymetli Maden">BIST 30 & Kıymetli Maden</option>
+                    <option value="Tüm BIST 100 & Temettü 25">Tüm BIST 100 & Temettü 25</option>
+                    <option value="BIST Teknoloji & Savunma (XTEK)">BIST Teknoloji & Savunma (XTEK)</option>
+                    <option value="BIST Sınai & Üretim Liderleri">BIST Sınai & Üretim Liderleri</option>
+                    <option value="Yeşil Enerji & Sürdürülebilirlik">Yeşil Enerji & Sürdürülebilirlik</option>
+                    <option value="TEFAS Fonları & Emtia">TEFAS Fonları & Emtia</option>
+                    <option value="Küresel Piyasalar (ABD & BIST)">Küresel Piyasalar (ABD & BIST)</option>
+                    <option value="Tüm Defter Kütüğü (420+ Varlık)">Tüm Defter Kütüğü (420+ Varlık)</option>
+                  </select>
+                </div>
+
+                {/* Yatırım Ufku */}
+                <div>
+                  <label className="block font-mono text-xs uppercase tracking-wider text-[var(--mist)] mb-2">
+                    4. Hedef Vade
+                  </label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      "Kısa Vade (1-6 Ay)",
+                      "Orta Vade (6-18 Ay)",
+                      "Uzun Vade (3-5+ Yıl)",
+                    ].map((hOpt) => (
+                      <button
+                        key={hOpt}
+                        type="button"
+                        onClick={() => setHorizon(hOpt)}
+                        className={`p-2 rounded-lg text-xs font-mono border text-center transition-all cursor-pointer truncate ${
+                          horizon === hOpt
+                            ? "border-[var(--brass)] bg-[var(--brass-glow)] text-[var(--brass)] font-bold shadow-xs"
+                            : "border-[var(--line)] bg-[var(--ink-3)] text-[var(--mist)] hover:text-[var(--paper)]"
+                        }`}
+                      >
+                        {hOpt.split(" ")[0]}
+                      </button>
+                    ))}
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={includeGoldBuffer}
-                    onChange={(e) => setIncludeGoldBuffer(e.target.checked)}
-                    className="w-4 h-4 accent-[var(--brass)] rounded cursor-pointer"
-                  />
                 </div>
               </div>
 
-              {/* Gelişmiş Açılır Alan */}
-              {showAdvancedFilters && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-[var(--line)]/60 animate-in fade-in">
-                  <div className="p-3 bg-[var(--ink-2)] rounded-lg border border-[var(--line)] space-y-1.5">
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-[var(--mist)]">Minimum Temettü Verimi:</span>
-                      <span className="font-bold text-[var(--paper)] font-mono">
-                        {minDividendYield > 0 ? `%${minDividendYield}` : "Kısıt Yok"}
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min={0}
-                      max={10}
-                      step={1}
-                      value={minDividendYield}
-                      onChange={(e) => setMinDividendYield(Number(e.target.value))}
-                      className="w-full accent-[var(--brass)] cursor-pointer"
-                    />
-                  </div>
-
-                  <div className="p-3 bg-[var(--ink-2)] rounded-lg border border-[var(--line)] space-y-1.5">
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-[var(--mist)]">Maksimum Fiyat/Kazanç (F/K) Tavanı:</span>
-                      <span className="font-bold text-[var(--paper)] font-mono">
-                        {maxPeRatio > 0 ? `F/K ≤ ${maxPeRatio}` : "Kısıt Yok"}
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min={0}
-                      max={30}
-                      step={2}
-                      value={maxPeRatio}
-                      onChange={(e) => setMaxPeRatio(Number(e.target.value))}
-                      className="w-full accent-[var(--brass)] cursor-pointer"
-                    />
-                  </div>
-
-                  <div className="p-3 bg-[var(--ink-2)] rounded-lg border border-[var(--line)] space-y-1.5">
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-[var(--mist)]">Maksimum Sektör Ağırlığı Tavanı:</span>
-                      <span className="font-bold text-[var(--paper)] font-mono">
-                        %{maxSectorWeight}
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min={20}
-                      max={80}
-                      step={5}
-                      value={maxSectorWeight}
-                      onChange={(e) => setMaxSectorWeight(Number(e.target.value))}
-                      className="w-full accent-[var(--brass)] cursor-pointer"
-                    />
-                  </div>
-
-                  <div className="p-3 bg-[var(--ink-2)] rounded-lg border border-[var(--line)] space-y-1.5">
-                    <div className="flex justify-between text-[11px]">
-                      <span className="text-[var(--mist)]">Min. Günlük Hacim Oranı:</span>
-                      <span className="font-bold text-[var(--paper)] font-mono">
-                        {minVolumeRatio > 0 ? `≥ ${minVolumeRatio.toFixed(1)}x` : "Kısıt Yok"}
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min={0}
-                      max={2.0}
-                      step={0.2}
-                      value={minVolumeRatio}
-                      onChange={(e) => setMinVolumeRatio(Number(e.target.value))}
-                      className="w-full accent-[var(--brass)] cursor-pointer"
-                    />
-                  </div>
-
-                  <div
-                    onClick={() => setExcludeOverbought(!excludeOverbought)}
-                    className={`sm:col-span-2 p-3 rounded-lg border flex items-center justify-between cursor-pointer transition-all ${
-                      excludeOverbought
-                        ? "bg-emerald-500/10 border-emerald-500/40 text-[var(--paper)] font-bold shadow-xs"
-                        : "bg-[var(--ink-2)] border-[var(--line)] text-[var(--mist)]"
-                    }`}
-                  >
-                    <div>
-                      <span className="text-[11px] font-bold block text-[var(--paper)]">Aşırı Alınmış Hisseleri Hariç Tut (RSI / Momentum Süzgeci)</span>
-                      <span className="text-[10px] opacity-80 block">Son dönemde aşırı primlenmiş veya RSI &gt; 70 olan riskli varlıkları havuzdan eler</span>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={excludeOverbought}
-                      onChange={(e) => setExcludeOverbought(e.target.checked)}
-                      className="w-4 h-4 accent-emerald-500 rounded cursor-pointer"
-                    />
-                  </div>
+              {/* Portföy Optimizasyon Ağırlıklandırma Modeli (Markowitz / Min Vol / Max Sharpe) */}
+              <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-xs uppercase tracking-wider text-[var(--brass)] font-bold flex items-center gap-1.5">
+                    <Percent className="w-3.5 h-3.5" />
+                    <span>5. Portföy Optimizasyon &amp; Ağırlıklandırma Modeli</span>
+                  </span>
+                  <span className="text-[10px] font-mono text-[var(--mist)]">
+                    Markowitz MPT Standartları
+                  </span>
                 </div>
-              )}
-            </div>
 
-            {/* 6. Başlangıç Bütçesi */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="font-mono text-xs uppercase tracking-wider text-[var(--mist)]">
-                  6. Başlangıç Bütçesi (₺)
-                </label>
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {["25.000", "50.000", "100.000", "250.000", "500.000", "1.000.000"].map((bVal) => (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 font-mono text-xs">
+                  {[
+                    { id: "balanced", title: "Dengeli Dağılım", desc: "Klasik kademeli eğimli dağılım" },
+                    { id: "min_volatility", title: "Minimum Risk / Oynaklık", desc: "Ters volatilite ile en düşük dalgalanma" },
+                    { id: "max_sharpe", title: "Maksimum Sharpe Oranı", desc: "Risk başına en yüksek beklenen getiri" },
+                  ].map((m) => (
                     <button
-                      key={bVal}
+                      key={m.id}
                       type="button"
-                      onClick={() => setBudget(bVal)}
-                      className="text-[10px] font-mono px-2 py-0.5 rounded bg-[var(--ink-3)] hover:bg-[var(--ink)] border border-[var(--line)] text-[var(--mist)] hover:text-[var(--brass)] cursor-pointer"
+                      onClick={() => setWeightingModel(m.id as any)}
+                      className={`p-2.5 rounded-lg border text-left transition-all cursor-pointer space-y-1 ${
+                        weightingModel === m.id
+                          ? "bg-[var(--brass-glow)] border-[var(--brass)] text-[var(--paper)] font-bold shadow-xs"
+                          : "bg-[var(--ink-2)] border-[var(--line)] text-[var(--mist)] hover:border-[var(--brass-dim)]"
+                      }`}
                     >
-                      {bVal} ₺
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-[var(--paper)]">{m.title}</span>
+                        {weightingModel === m.id && <Check className="w-3.5 h-3.5 text-[var(--brass)]" />}
+                      </div>
+                      <p className="text-[10px] text-[var(--mist)] font-sans leading-tight">
+                        {m.desc}
+                      </p>
                     </button>
                   ))}
                 </div>
               </div>
-              <input
-                type="text"
-                value={budget}
-                onChange={(e) => setBudget(e.target.value)}
-                className="w-full bg-[var(--ink-3)] border border-[var(--line)] text-sm text-[var(--paper)] rounded-lg p-3 font-mono outline-none focus:border-[var(--brass)] shadow-inner"
-                placeholder="100.000"
-              />
 
-              {/* İşlem Maliyetleri Toggle */}
-              <div
-                onClick={() => setIncludeTransactionFees(!includeTransactionFees)}
-                className={`mt-2.5 p-2.5 rounded-lg border flex items-center justify-between cursor-pointer transition-all ${
-                  includeTransactionFees
-                    ? "bg-amber-500/10 border-amber-500/30 text-[var(--paper)] font-medium"
-                    : "bg-[var(--ink-2)] border-[var(--line)] text-[var(--mist)]"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <Calculator className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <div>
-                    <span className="text-xs font-bold block text-[var(--paper)]">
-                      Tahmini İşlem Masraflarını (~%0.20 Komisyon + BSMV) Hesaba Kat
-                    </span>
-                    <span className="text-[10px] text-[var(--mist)] block">
-                      Yatırılabilir bütçe masraflar düşülerek net lotlara paylaştırılır
-                    </span>
+              {/* 6. Gelişmiş Nicel Süzgeçler & Kural Kısıtları (Akordiyon) */}
+              <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-3 font-mono text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-[var(--brass)] font-bold uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-[var(--brass)]" />
+                    <span>6. Nicel Süzgeçler &amp; Portföy Güvenlik Kalkanı</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                    className="text-[10px] text-[var(--brass)] hover:underline cursor-pointer font-bold"
+                  >
+                    {showAdvancedFilters ? "▲ Filtreleri Gizle" : "▼ Gelişmiş Kriterleri Düzenle"}
+                  </button>
+                </div>
+
+                {/* Varlık Sayısı ve Altın Sigortası */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div className="p-3 bg-[var(--ink-2)] rounded-lg border border-[var(--line)] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-[var(--mist)] font-medium">Hedef Varlık Adedi</span>
+                      <span className="font-mono text-xs text-[var(--brass)] font-bold">{assetCount} Varlık</span>
+                    </div>
+                    <div className="grid grid-cols-5 gap-1 font-mono text-xs">
+                      {[3, 4, 5, 6, 8].map((cnt) => (
+                        <button
+                          key={cnt}
+                          type="button"
+                          onClick={() => setAssetCount(cnt)}
+                          className={`py-1.5 rounded text-center border transition-all cursor-pointer ${
+                            assetCount === cnt
+                              ? "bg-[var(--brass)] text-[var(--ink)] font-bold border-[var(--brass)] shadow-xs"
+                              : "bg-[var(--ink-3)] text-[var(--mist)] border-[var(--line)]"
+                          }`}
+                        >
+                          {cnt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Düzeltilmiş Kıymetli Maden Tamponu Butonu */}
+                  <button
+                    type="button"
+                    onClick={() => setIncludeGoldBuffer(!includeGoldBuffer)}
+                    className={`p-3 rounded-lg border flex items-center justify-between cursor-pointer transition-all ${
+                      includeGoldBuffer
+                        ? "bg-[var(--brass-glow)] border-[var(--brass)] text-[var(--paper)] font-bold shadow-xs"
+                        : "bg-[var(--ink-2)] border-[var(--line)] text-[var(--mist)] hover:border-[var(--brass)]/40"
+                    }`}
+                  >
+                    <div className="text-left space-y-0.5">
+                      <span className="text-[11px] font-bold block text-[var(--paper)]">Kıymetli Maden Tamponu</span>
+                      <span className="text-[10px] text-[var(--mist)] block">En az %15 Gram Altın sigortası ekle</span>
+                    </div>
+                    <div
+                      className={`w-5 h-5 rounded flex items-center justify-center border transition-all ${
+                        includeGoldBuffer
+                          ? "bg-[var(--brass)] border-[var(--brass)] text-[var(--ink)]"
+                          : "border-[var(--line)] bg-[var(--ink-3)] text-transparent"
+                      }`}
+                    >
+                      <Check className="w-3.5 h-3.5 stroke-[3]" />
+                    </div>
+                  </button>
+                </div>
+
+                {/* Gelişmiş Açılır Alan */}
+                {showAdvancedFilters && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-[var(--line)]/60 animate-in fade-in">
+                    <div className="p-3 bg-[var(--ink-2)] rounded-lg border border-[var(--line)] space-y-1.5">
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-[var(--mist)]">Minimum Temettü Verimi:</span>
+                        <span className="font-bold text-[var(--paper)] font-mono">
+                          {minDividendYield > 0 ? `%${minDividendYield}` : "Kısıt Yok"}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={10}
+                        step={1}
+                        value={minDividendYield}
+                        onChange={(e) => setMinDividendYield(Number(e.target.value))}
+                        className="w-full accent-[var(--brass)] cursor-pointer"
+                      />
+                    </div>
+
+                    <div className="p-3 bg-[var(--ink-2)] rounded-lg border border-[var(--line)] space-y-1.5">
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-[var(--mist)]">Maksimum Fiyat/Kazanç (F/K) Tavanı:</span>
+                        <span className="font-bold text-[var(--paper)] font-mono">
+                          {maxPeRatio > 0 ? `F/K ≤ ${maxPeRatio}` : "Kısıt Yok"}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={30}
+                        step={2}
+                        value={maxPeRatio}
+                        onChange={(e) => setMaxPeRatio(Number(e.target.value))}
+                        className="w-full accent-[var(--brass)] cursor-pointer"
+                      />
+                    </div>
+
+                    <div className="p-3 bg-[var(--ink-2)] rounded-lg border border-[var(--line)] space-y-1.5">
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-[var(--mist)]">Maksimum Sektör Ağırlığı Tavanı:</span>
+                        <span className="font-bold text-[var(--paper)] font-mono">
+                          %{maxSectorWeight}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={20}
+                        max={80}
+                        step={5}
+                        value={maxSectorWeight}
+                        onChange={(e) => setMaxSectorWeight(Number(e.target.value))}
+                        className="w-full accent-[var(--brass)] cursor-pointer"
+                      />
+                    </div>
+
+                    <div className="p-3 bg-[var(--ink-2)] rounded-lg border border-[var(--line)] space-y-1.5">
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-[var(--mist)]">Min. Günlük Hacim Oranı:</span>
+                        <span className="font-bold text-[var(--paper)] font-mono">
+                          {minVolumeRatio > 0 ? `≥ ${minVolumeRatio.toFixed(1)}x` : "Kısıt Yok"}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={2.0}
+                        step={0.2}
+                        value={minVolumeRatio}
+                        onChange={(e) => setMinVolumeRatio(Number(e.target.value))}
+                        className="w-full accent-[var(--brass)] cursor-pointer"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setExcludeOverbought(!excludeOverbought)}
+                      className={`sm:col-span-2 p-3 rounded-lg border flex items-center justify-between cursor-pointer transition-all ${
+                        excludeOverbought
+                          ? "bg-emerald-500/10 border-emerald-500/40 text-[var(--paper)] font-bold shadow-xs"
+                          : "bg-[var(--ink-2)] border-[var(--line)] text-[var(--mist)]"
+                      }`}
+                    >
+                      <div className="text-left">
+                        <span className="text-[11px] font-bold block text-[var(--paper)]">Aşırı Alınmış Hisseleri Hariç Tut (RSI / Momentum Süzgeci)</span>
+                        <span className="text-[10px] opacity-80 block">Son dönemde aşırı primlenmiş veya RSI &gt; 70 olan riskli varlıkları havuzdan eler</span>
+                      </div>
+                      <div
+                        className={`w-4 h-4 rounded flex items-center justify-center border transition-all ${
+                          excludeOverbought ? "bg-emerald-500 border-emerald-500 text-black" : "border-[var(--line)]"
+                        }`}
+                      >
+                        {excludeOverbought && <Check className="w-3 h-3 stroke-[3]" />}
+                      </div>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* 7. Başlangıç Bütçesi */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="font-mono text-xs uppercase tracking-wider text-[var(--mist)]">
+                    7. Başlangıç Bütçesi (₺)
+                  </label>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {["25.000", "50.000", "100.000", "250.000", "500.000", "1.000.000"].map((bVal) => (
+                      <button
+                        key={bVal}
+                        type="button"
+                        onClick={() => setBudget(bVal)}
+                        className="text-[10px] font-mono px-2 py-0.5 rounded bg-[var(--ink-3)] hover:bg-[var(--ink)] border border-[var(--line)] text-[var(--mist)] hover:text-[var(--brass)] cursor-pointer"
+                      >
+                        {bVal} ₺
+                      </button>
+                    ))}
                   </div>
                 </div>
                 <input
-                  type="checkbox"
-                  checked={includeTransactionFees}
-                  onChange={(e) => setIncludeTransactionFees(e.target.checked)}
-                  className="w-4 h-4 accent-amber-500 rounded cursor-pointer"
+                  type="text"
+                  value={budget}
+                  onChange={(e) => setBudget(e.target.value)}
+                  className="w-full bg-[var(--ink-3)] border border-[var(--line)] text-sm text-[var(--paper)] rounded-lg p-3 font-mono outline-none focus:border-[var(--brass)] shadow-inner"
+                  placeholder="100.000"
                 />
+
+                {/* İşlem Maliyetleri Toggle */}
+                <button
+                  type="button"
+                  onClick={() => setIncludeTransactionFees(!includeTransactionFees)}
+                  className={`w-full mt-2.5 p-2.5 rounded-lg border flex items-center justify-between cursor-pointer transition-all ${
+                    includeTransactionFees
+                      ? "bg-amber-500/10 border-amber-500/30 text-[var(--paper)] font-medium"
+                      : "bg-[var(--ink-2)] border-[var(--line)] text-[var(--mist)]"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 text-left">
+                    <Calculator className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <div>
+                      <span className="text-xs font-bold block text-[var(--paper)]">
+                        Tahmini İşlem Masraflarını (~%0.20 Komisyon + BSMV) Hesaba Kat
+                      </span>
+                      <span className="text-[10px] text-[var(--mist)] block">
+                        Yatırılabilir bütçe masraflar düşülerek net lotlara paylaştırılır
+                      </span>
+                    </div>
+                  </div>
+                  <div
+                    className={`w-4 h-4 rounded flex items-center justify-center border transition-all ${
+                      includeTransactionFees ? "bg-amber-500 border-amber-500 text-black" : "border-[var(--line)]"
+                    }`}
+                  >
+                    {includeTransactionFees && <Check className="w-3 h-3 stroke-[3]" />}
+                  </div>
+                </button>
               </div>
+
+              <button
+                onClick={handleGenerateRecipe}
+                disabled={loading}
+                className="w-full bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold text-sm py-3.5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 active:scale-95"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>{loading ? "Orakul Reçetesi Hesaplanıyor..." : "Orakul AI Reçetesini Üret"}</span>
+              </button>
+
+              {/* Live Progress Banner for Recipe */}
+              {loading && recipePhase && (
+                <div className="p-4 bg-[var(--ink-3)] border border-[var(--brass)] rounded-xl space-y-2 animate-pulse mt-3">
+                  <div className="flex items-center justify-between font-mono text-xs">
+                    <span className="text-[var(--brass)] font-bold flex items-center gap-2">
+                      <RefreshCw className="w-4 h-4 animate-spin text-[var(--brass)]" />
+                      <span>{recipePhase}</span>
+                    </span>
+                    <span className="text-[var(--mist)]">3-Agent Hedge-Fund Model</span>
+                  </div>
+                  <div className="w-full bg-[var(--ink-2)] h-1.5 rounded-full overflow-hidden">
+                    <div className="bg-[var(--brass)] h-full w-2/3 animate-pulse rounded-full" />
+                  </div>
+                </div>
+              )}
             </div>
-
-            <button
-              onClick={handleGenerateRecipe}
-              disabled={loading}
-              className="w-full bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold text-sm py-3.5 rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 active:scale-95"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>{loading ? "Orakul Reçetesi Hesaplanıyor..." : "Orakul AI Reçetesini Üret"}</span>
-            </button>
-
-            {/* Live Progress Banner for Recipe */}
-            {loading && recipePhase && (
-              <div className="p-4 bg-[var(--ink-3)] border border-[var(--brass)] rounded-xl space-y-2 animate-pulse mt-3">
-                <div className="flex items-center justify-between font-mono text-xs">
-                  <span className="text-[var(--brass)] font-bold flex items-center gap-2">
-                    <RefreshCw className="w-4 h-4 animate-spin text-[var(--brass)]" />
-                    <span>{recipePhase}</span>
-                  </span>
-                  <span className="text-[var(--mist)]">3-Agent Hedge-Fund Model</span>
-                </div>
-                <div className="w-full bg-[var(--ink-2)] h-1.5 rounded-full overflow-hidden">
-                  <div className="bg-[var(--brass)] h-full w-2/3 animate-pulse rounded-full" />
-                </div>
-              </div>
-            )}
-          </div>
+          )}
 
           {/* SONUÇ KARTI (ZENGİN KOMİTE, HESAPLANAN QUANT & LOT DAĞILIMI) */}
           {result && (
@@ -3080,7 +3426,12 @@ async function fetchAndEnrichCompanyWithDeepData(co: Company): Promise<Record<st
       {/* TAB: Orakul AI Copilot (OpenBB Copilot Financial AI Assistant) */}
       {activeTab === "copilot" && (
         <section className="animate-in fade-in duration-300">
-          <OrakulCopilotChat />
+          <OrakulCopilotChat
+            onSelectSymbol={(sym) => {
+              setSelectedCoSymbol(sym);
+              setActiveTab("company");
+            }}
+          />
         </section>
       )}
 

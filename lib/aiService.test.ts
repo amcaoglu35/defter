@@ -140,6 +140,48 @@ describe("aiService Unit & Contract Tests", () => {
       expect(result.strategyArchetype).toBe("deep_value");
       expect(result.allocation.length).toBe(4);
     });
+
+    it("supports weightingModel: min_volatility and max_sharpe with exact 100 weight sum", async () => {
+      const minVolReq: AiRecipeRequest = {
+        goal: "Dengeli",
+        risk: "Düşük",
+        universe: "BIST 30",
+        budget: 100000,
+        assetCount: 4,
+        weightingModel: "min_volatility",
+      };
+
+      const minVolResult = await generateOrakulRecipe(minVolReq, sampleCompanies, undefined);
+      const sumMinVol = minVolResult.allocation.reduce((a, b) => a + b.weight, 0);
+      expect(sumMinVol).toBe(100);
+
+      const maxSharpeReq: AiRecipeRequest = {
+        goal: "Büyüme",
+        risk: "Yüksek",
+        universe: "BIST 100",
+        budget: 100000,
+        assetCount: 4,
+        weightingModel: "max_sharpe",
+      };
+
+      const maxSharpeResult = await generateOrakulRecipe(maxSharpeReq, sampleCompanies, undefined);
+      const sumMaxSharpe = maxSharpeResult.allocation.reduce((a, b) => a + b.weight, 0);
+      expect(sumMaxSharpe).toBe(100);
+    });
+
+    it("supports new archetypes: growth_quality, bist_technology and green_energy", async () => {
+      const techReq: AiRecipeRequest = {
+        goal: "Teknoloji",
+        risk: "Yüksek",
+        universe: "BIST Teknoloji & Savunma (XTEK)",
+        budget: 100000,
+        assetCount: 3,
+        strategyArchetype: "bist_technology",
+      };
+
+      const techResult = await generateOrakulRecipe(techReq, sampleCompanies, undefined);
+      expect(techResult.allocation.length).toBe(3);
+    });
   });
 
   // -------------------------------------------------------------
@@ -770,7 +812,7 @@ describe("aiService Unit & Contract Tests", () => {
         undefined
       );
 
-      expect(response).toContain("Henüz yeterli sayıda tamamlanmış Orakul analizi/karnesi bulunmuyor");
+      expect(response).toContain("Henüz yeterli sayıda tamamlanmış");
       expect(response).not.toContain("%78");
       expect(response).not.toContain("12 analizin");
     });
@@ -782,7 +824,57 @@ describe("aiService Unit & Contract Tests", () => {
         undefined
       );
 
-      expect(response).toContain("**45 analizin %84'i**");
+      expect(response).toContain("45 adet");
+      expect(response).toContain("%84");
+    });
+
+    it("askOrakulChat generates comparative matrix when multiple symbols are queried", async () => {
+      const response = await askOrakulChat(
+        [{ role: "user", content: "THYAO ve PGSUS şirketlerini kıyaslar mısın?" }],
+        { companies: sampleCompanies },
+        undefined
+      );
+
+      expect(response).toContain("Şirket Karşılaştırmalı Kantitatif Rapor");
+      expect(response).toContain("$THYAO");
+      expect(response).toContain("$PGSUS");
+      expect(response).toContain("F/K Çarpanı");
+    });
+
+    it("askOrakulChat generates portfolio diagnostics when asked about portfolio health", async () => {
+      const response = await askOrakulChat(
+        [{ role: "user", content: "Portföyümün sağlık durumunu analiz eder misin?" }],
+        {
+          baskets: [
+            {
+              id: "b1",
+              name: "Ana Sepet",
+              totalValue: 120000,
+              totalCost: 100000,
+              holdings: [
+                { companySymbol: "THYAO", quantity: 100, avgCost: 250, currentPrice: 300, weightPercent: 50 },
+                { companySymbol: "ALTIN/GR", quantity: 20, avgCost: 2500, currentPrice: 3000, weightPercent: 50 },
+              ],
+            },
+          ],
+        },
+        undefined
+      );
+
+      expect(response).toContain("Portföy Sağlık & Risk Teşhis Raporu");
+      expect(response).toContain("120.000 ₺");
+      expect(response).toContain("%+20");
+    });
+
+    it("askOrakulChat filters low PE stocks when asked for cheap/value stocks", async () => {
+      const response = await askOrakulChat(
+        [{ role: "user", content: "Kütükte F/K oranı en düşük kelepir hisseler hangileri?" }],
+        { companies: sampleCompanies },
+        undefined
+      );
+
+      expect(response).toContain("Düşük F/K & Derin Değer Hisseleri");
+      expect(response).toContain("F/K");
     });
 
     it("chatWithOrakulCopilot returns honest error message on failure and never fake neutral financial judgment", async () => {

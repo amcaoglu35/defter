@@ -16,6 +16,8 @@ export async function POST(req: Request) {
   const cookieKey = cookieMatch ? decodeURIComponent(cookieMatch[1]).trim() : undefined;
   let bodyKey: string | undefined;
   let count: number | undefined;
+  let category: "ALL" | "BIST30" | "XTEK" | "DIVIDEND" | "VALUE" | "MOMENTUM" | undefined;
+  let excludeSymbols: string[] | undefined;
 
   try {
     const body = await req.json().catch(() => ({}));
@@ -26,17 +28,24 @@ export async function POST(req: Request) {
       if (typeof body.count === "number") {
         count = body.count;
       }
+      if (typeof body.category === "string") {
+        category = body.category;
+      }
+      if (Array.isArray(body.excludeSymbols)) {
+        excludeSymbols = body.excludeSymbols;
+      }
     }
   } catch {}
 
   const effectiveApiKey = headerKey || bodyKey || (cookieKey && cookieKey.length > 5 ? cookieKey : undefined);
 
   try {
-    const scans = await runAutonomousScan({ count, customApiKey: effectiveApiKey });
+    const scans = await runAutonomousScan({ count, category, excludeSymbols, customApiKey: effectiveApiKey });
     return NextResponse.json({
       success: true,
       scannedCount: scans.length,
       scans,
+      category: category || "ALL",
       timestamp: new Date().toISOString(),
     });
   } catch (error: unknown) {

@@ -102,6 +102,7 @@ export interface Basket {
   description: string;
   aiNote?: string;
   holdings: BasketHolding[];
+  isAiModel?: boolean;
 }
 
 export interface DividendItem {
@@ -166,7 +167,15 @@ export interface AiHistoryItem {
   model?: string;
   strategyArchetype?: string;
   persona?: string;
-  allocation?: Array<{ symbol: string; weight: number; price?: number }>;
+  allocation?: Array<{
+    symbol: string;
+    weight: number;
+    price?: number;
+    suggestedShares?: number;
+    totalCost?: number;
+    priceInTRY?: number;
+    note?: string;
+  }>;
   realizedReturnPct?: number;
 }
 
