@@ -23,6 +23,7 @@ import {
   calculateHHI,
   calculateHistoricalVolatility,
   PortfolioAssetInput,
+  ValuationMetrics,
 } from "./quantEngine";
 import { getOptimalModelForTask, logOrakulTelemetry } from "./orakulCache";
 
@@ -238,6 +239,110 @@ export function stripJsonFences(text: string): string {
   return clean.trim();
 }
 
+export interface FactCheckResult {
+  claim: string;
+  verified: boolean | "unverifiable"; // sayı içermeyen/karşılaştırılamayan iddialar için "unverifiable"
+  actualValue?: number;
+  claimedValue?: number;
+  discrepancyNote?: string;
+}
+
+/**
+ * Kod-Seviyeli Deterministik Fact-Check Katmanı
+ * Ajanların supportingEvidence alanlarındaki sayısal iddialarını gerçek finansal verilerle karşılaştırır.
+ */
+export function factCheckAgentClaims(
+  evidenceList: string[],
+  company: CompanyAnalysisRequest,
+  mathVal: ValuationMetrics
+): FactCheckResult[] {
+  const referenceValues: Record<string, number | undefined> = {
+    "f/k": company.peRatio,
+    "pe": company.peRatio,
+    "pd/dd": company.pbRatio,
+    "pb": company.pbRatio,
+    "temettü": company.dividendYield,
+    "piotroski": mathVal.piotroskiFScore,
+    "graham": mathVal.grahamNumber ?? undefined,
+    "dcf": mathVal.dcfFairValue ?? undefined,
+    "altman": mathVal.altmanZScore ? parseFloat(String(mathVal.altmanZScore).replace(",", ".")) : undefined,
+    "fcf": company.freeCashFlow ? company.freeCashFlow / 1_000_000_000 : undefined,
+    "roe": mathVal.dupontRoePct,
+    "merton": mathVal.mertonDefaultProbabilityPct ?? undefined,
+  };
+
+  return (evidenceList || []).map((claim) => {
+    const lowerClaim = claim.toLowerCase();
+    const numberMatch = claim.match(/(\d+[.,]?\d*)/);
+    const claimedValue = numberMatch ? parseFloat(numberMatch[1].replace(",", ".")) : undefined;
+
+    for (const [key, actualValue] of Object.entries(referenceValues)) {
+      if (lowerClaim.includes(key) && claimedValue !== undefined && actualValue !== undefined) {
+        const tolerance = Math.abs(actualValue) * 0.05 + 0.1; // %5 tolerans + 0.1 mutlak pay
+        const verified = Math.abs(claimedValue - actualValue) <= tolerance;
+        return {
+          claim,
+          verified,
+          actualValue,
+          claimedValue,
+          discrepancyNote: verified
+            ? undefined
+            : `İddia edilen ${claimedValue}, gerçek değer ${actualValue} ile uyuşmuyor.`,
+        };
+      }
+    }
+    return { claim, verified: "unverifiable" as const };
+  });
+}
+
+export interface AgentDebateResult {
+  macroContext?: {
+    macroContext: string[];
+    sectorSensitivity: string;
+  };
+  bullCase: {
+    catalyst: string;
+    targetUpside: string;
+    coreThesis: string;
+    supportingEvidence?: string[];
+    finalRebuttal?: string;
+    concedesPoint?: boolean;
+  };
+  bearCase: {
+    keyRisk: string;
+    downsideRisk: string;
+    coreThesis: string;
+    rebuttalToBull?: string;
+    supportingEvidence?: string[];
+  };
+  factCheck?: {
+    bullFactCheck: FactCheckResult[];
+    bearFactCheck: FactCheckResult[];
+  };
+  committeeVerdict: {
+    verdict: "GÜÇLÜ AL" | "AL" | "TUT" | "SAT" | "GÜÇLÜ SAT";
+    confidence: string;
+    reasoning: string;
+    dissentingNote?: string;
+    trackRecordConsidered?: boolean;
+  };
+}
+
+export type CommitteeProgressCallback = (
+  step:
+    | "macro_started"
+    | "macro_done"
+    | "bull_started"
+    | "bull_done"
+    | "bear_started"
+    | "bear_done"
+    | "bull_rebuttal_started"
+    | "bull_rebuttal_done"
+    | "judge_started"
+    | "judge_done",
+  data?: unknown
+) => void;
+
 export interface CompanyDiagnosisReport {
   symbol: string;
   valuationScore?: string;
@@ -260,16 +365,38 @@ export interface CompanyDiagnosisReport {
   isFallbackMode?: boolean;
   metricsSource?: "calculated";
 
+  // Macro Context (Independent Macro Agent)
+  macroContext?: {
+    macroContext: string[];
+    sectorSensitivity: string;
+  };
+
   // Multi-Agent Bull vs Bear Debate
   bullCase?: {
     catalyst: string;
     targetUpside: string;
     coreThesis: string;
+    supportingEvidence?: string[];
+    finalRebuttal?: string;
+    concedesPoint?: boolean;
   };
   bearCase?: {
     keyRisk: string;
     downsideRisk: string;
     coreThesis: string;
+    rebuttalToBull?: string;
+    supportingEvidence?: string[];
+  };
+  factCheck?: {
+    bullFactCheck: FactCheckResult[];
+    bearFactCheck: FactCheckResult[];
+  };
+  committeeVerdict?: {
+    verdict: "GÜÇLÜ AL" | "AL" | "TUT" | "SAT" | "GÜÇLÜ SAT";
+    confidence: string;
+    reasoning: string;
+    dissentingNote?: string;
+    trackRecordConsidered?: boolean;
   };
 
   // Macro Scenario Stress Testing
@@ -278,6 +405,324 @@ export interface CompanyDiagnosisReport {
     rateCutShock: string;      // Faiz indirimi döngüsünde
     marketCrashShock: string;  // BIST %15 düzeltme yaparsa
   };
+}
+
+/**
+ * Multi-Agent Investment Committee Workflow
+ * Akış Sırası:
+ * 1. Makro Ajanı (bağımsız, tarafsız ortak zemin)
+ * 2. Boğa Ajanı (pozitif büyüme tezi)
+ * 3. Ayı Ajanı (Boğa'yı eleştirir ve riskleri sunar)
+ * 4. Boğa'nın Son Sözü (kısa ve somut rebuttal / ödün)
+ * 5. Kod-Seviyeli Fact-Check (deterministik doğrulama)
+ * 6. Hakem / Komite Ajanı (hepsini + geçmiş karneyi görür ve karar verir)
+ */
+export async function runInvestmentCommittee(
+  company: CompanyAnalysisRequest,
+  mathVal: ValuationMetrics,
+  personaInstruction: string,
+  resolvedApiKey: string,
+  customModel?: string,
+  onProgress?: CommitteeProgressCallback,
+  pastHistory: AiHistoryItem[] = [],
+  personalizationContext?: string,
+  calibrationNotice?: string
+): Promise<AgentDebateResult | null> {
+  try {
+    // 1. MAKRO AJANI ÇAĞRISI (Macro Agent) — Bağımsız, tarafsız ortak zemin
+    onProgress?.("macro_started");
+    const macroPrompt = `Sen tarafsız bir Makroekonomi Stratejistisin.
+${company.sector || "Genel"} sektörü ve Türkiye/BIST bağlamında güncel makroekonomik ortamı (faiz patikası, döviz kuru beklentisi, enflasyon baskısı) 3-4 maddede özetle.
+Şirkete özel yorum yapma, sadece genel makro çerçeveyi çiz.
+YALNIZCA JSON dön:
+{
+  "macroContext": ["Makro madde 1 (faiz)", "Makro madde 2 (kur/enflasyon)", "Makro madde 3 (küresel/BIST)"],
+  "sectorSensitivity": "Bu sektörün faiz/döviz/enflasyona duyarlılığı (1-2 cümle)"
+}`;
+
+    const macroRes = await fetchGeminiWithFallback(
+      resolvedApiKey,
+      {
+        contents: [{ role: "user", parts: [{ text: macroPrompt }] }],
+        generationConfig: { responseMimeType: "application/json", temperature: 0.2 },
+      },
+      customModel
+    );
+
+    if (!macroRes?.ok) return null;
+    const macroData = await macroRes.json().catch(() => null);
+    const macroRaw = macroData?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!macroRaw) return null;
+    const parsedMacro = JSON.parse(stripJsonFences(macroRaw));
+    const macroContext = {
+      macroContext: Array.isArray(parsedMacro?.macroContext) ? parsedMacro.macroContext : ["Makro dengelenme süreci devam ediyor."],
+      sectorSensitivity: typeof parsedMacro?.sectorSensitivity === "string" ? parsedMacro.sectorSensitivity : "Sektörel faiz ve kur duyarlılığı dengeli.",
+    };
+    onProgress?.("macro_done", macroContext);
+
+    // 2. BOĞA AJANI ÇAĞRISI (Bull Agent) — Ortak makro çerçeveyi kullanır
+    onProgress?.("bull_started");
+    const bullPrompt = `Sen agresif ama VERİYE DAYALI bir Boğa (Bull) Yatırım Analistisin. Görevin ${company.symbol} hissesi için en güçlü YATIRIM TEZİNİ savunmak.
+KURAL: Sadece aşağıda verilen gerçek verilere dayan, uydurma istatistik üretme. Veri yoksa o başlığı atla.
+
+MAKRO ÇERÇEVE (tüm ajanlar için ortak zemin):
+${JSON.stringify(macroContext, null, 2)}
+Bu makro çerçeveyi kendi tezine dahil et ama çelişme.
+
+Şirket Verileri:
+${JSON.stringify({
+  symbol: company.symbol,
+  name: company.name,
+  price: company.price,
+  pe: company.peRatio,
+  pb: company.pbRatio,
+  sector: company.sector,
+  dividendYield: company.dividendYield,
+  fundamentals: {
+    freeCashFlow: company.freeCashFlow,
+    operatingCashFlow: company.operatingCashFlow,
+    netMargin: company.netMargin,
+    grossMargin: company.grossMargin,
+    revenueGrowth: company.revenueGrowth,
+    roa: company.roa,
+    currentRatio: company.currentRatio,
+  },
+})}
+
+Kantitatif Motor Bulguları:
+- Graham: ${mathVal.grahamNumber ? `${mathVal.grahamNumber} ₺ (%${mathVal.grahamDiscountPct} İskontolu)` : "Hesaplanamadı"}
+- DCF: ${mathVal.dcfFairValue ? `${mathVal.dcfFairValue} ₺ (%${mathVal.dcfDiscountPct} İskontolu)` : "Kapsam Dışı / FCF Yok"}
+- Piotroski: ${mathVal.piotroskiSummary} (${mathVal.piotroskiRank})
+- DuPont ROE: %${mathVal.dupontRoePct} (Net Marj %${mathVal.dupontNetMarginPct})
+- Magic Formula: ${mathVal.magicFormulaScore} (${mathVal.magicFormulaRank})
+
+YALNIZCA JSON dön:
+{
+  "catalyst": "En güçlü operasyonel, sektörel veya nakit akışı büyüme katalizörü",
+  "targetUpside": "+XX% Potansiyel",
+  "coreThesis": "Boğa senaryosunun ana yatırım tezi (2-3 cümle)",
+  "supportingEvidence": ["Kullandığın gerçek veriye atıfta bulunan kanıt 1", "Kanıt 2"]
+}`;
+
+    const bullRes = await fetchGeminiWithFallback(
+      resolvedApiKey,
+      {
+        contents: [{ role: "user", parts: [{ text: bullPrompt }] }],
+        generationConfig: { responseMimeType: "application/json", temperature: 0.3 },
+      },
+      customModel
+    );
+
+    if (!bullRes?.ok) return null;
+    const bullData = await bullRes.json().catch(() => null);
+    const bullRaw = bullData?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!bullRaw) return null;
+    const bullCase = JSON.parse(stripJsonFences(bullRaw));
+    if (!bullCase?.catalyst || !bullCase?.coreThesis) return null;
+    onProgress?.("bull_done", bullCase);
+
+    // 3. AYI AJANI ÇAĞRISI (Bear Agent) — Boğa'nın tezini ve ortak makro çerçeveyi görür
+    onProgress?.("bear_started");
+    const bearPrompt = `Sen şüpheci ama VERİYE DAYALI bir Ayı (Bear) Risk Analistisin. Görevin ${company.symbol} için Boğa Ajanının tezini eleştirel şekilde incelemek ve en güçlü RİSK TEZİNİ ortaya koymak.
+
+MAKRO ÇERÇEVE (tüm ajanlar için ortak zemin):
+${JSON.stringify(macroContext, null, 2)}
+
+Boğa Ajanının Tezi:
+${JSON.stringify(bullCase, null, 2)}
+
+Şirket Verileri:
+${JSON.stringify({
+  symbol: company.symbol,
+  price: company.price,
+  pe: company.peRatio,
+  pb: company.pbRatio,
+  sector: company.sector,
+  totalDebt: company.totalDebt,
+  financialLeverage: company.financialLeverage,
+})}
+
+Kantitatif Motor Bulguları:
+- Merton Temerrüt Riski: ${mathVal.mertonDefaultProbabilityPct !== null ? `%${mathVal.mertonDefaultProbabilityPct}` : "Kapsam Dışı"}
+- Altman Z-Score: ${mathVal.altmanZScore ? `${mathVal.altmanZScore} (${mathVal.altmanZone})` : "Kapsam Dışı"}
+- Piotroski Skoru: ${mathVal.piotroskiSummary}
+
+GÖREV: Boğa'nın tezindeki zayıf noktaları belirt (rebuttalToBull) ve bağımsız bir risk tezi sun.
+YALNIZCA JSON dön:
+{
+  "keyRisk": "En kritik finansal, borçluluk veya sektörel risk",
+  "downsideRisk": "-XX% Düzeltme Riski",
+  "coreThesis": "Ayı senaryosunun ana risk tezi (2-3 cümle)",
+  "rebuttalToBull": "Boğa tezinin zayıf/aşırı iyimser yönlerine veriyle verilen somut yanıt",
+  "supportingEvidence": ["Kullandığın gerçek veriye atıfta bulunan risk kanıtı 1", "Risk kanıtı 2"]
+}`;
+
+    const bearRes = await fetchGeminiWithFallback(
+      resolvedApiKey,
+      {
+        contents: [{ role: "user", parts: [{ text: bearPrompt }] }],
+        generationConfig: { responseMimeType: "application/json", temperature: 0.3 },
+      },
+      customModel
+    );
+
+    if (!bearRes?.ok) return null;
+    const bearData = await bearRes.json().catch(() => null);
+    const bearRaw = bearData?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!bearRaw) return null;
+    const bearCase = JSON.parse(stripJsonFences(bearRaw));
+    if (!bearCase?.keyRisk || !bearCase?.coreThesis) return null;
+    onProgress?.("bear_done", bearCase);
+
+    // 4. İKİNCİ TUR — BOĞA'NIN SON SÖZÜ (Kısa Rebuttal & Ödün)
+    onProgress?.("bull_rebuttal_started");
+    const bullRebuttalPrompt = `Sen Boğa Analistisin. Ayı Ajanı tezini şöyle eleştirdi: "${bearCase.rebuttalToBull || bearCase.keyRisk}"
+Buna KISA (maksimum 2 cümle) ve YALNIZCA veriye dayanarak yanıt ver. Eğer Ayı'nın eleştirisi haklıysa bunu kabul et, çürütemiyorsan uydurma karşı argüman üretme.
+
+YALNIZCA JSON dön:
+{
+  "finalRebuttal": "Ayı'ya verilen kısa ve somut veri odaklı son yanıt",
+  "concedesPoint": true
+}`;
+
+    let finalRebuttal: string | undefined;
+    let concedesPoint: boolean | undefined;
+
+    const rebuttalRes = await fetchGeminiWithFallback(
+      resolvedApiKey,
+      {
+        contents: [{ role: "user", parts: [{ text: bullRebuttalPrompt }] }],
+        generationConfig: { responseMimeType: "application/json", temperature: 0.2, maxOutputTokens: 256 },
+      },
+      customModel
+    );
+
+    if (rebuttalRes?.ok) {
+      const rebuttalData = await rebuttalRes.json().catch(() => null);
+      const rebuttalRaw = rebuttalData?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (rebuttalRaw) {
+        try {
+          const parsedRebuttal = JSON.parse(stripJsonFences(rebuttalRaw));
+          finalRebuttal = parsedRebuttal.finalRebuttal;
+          concedesPoint = Boolean(parsedRebuttal.concedesPoint);
+        } catch {
+          // ignore rebuttal parse error
+        }
+      }
+    }
+    onProgress?.("bull_rebuttal_done", { finalRebuttal, concedesPoint });
+
+    // 5. KOD-SEVİYELİ DETERMINISTIK FACT-CHECK KATMANI
+    const bullFactCheck = factCheckAgentClaims(bullCase.supportingEvidence || [], company, mathVal);
+    const bearFactCheck = factCheckAgentClaims(bearCase.supportingEvidence || [], company, mathVal);
+
+    const unverifiedBull = bullFactCheck.filter((fc) => fc.verified === false);
+    const unverifiedBear = bearFactCheck.filter((fc) => fc.verified === false);
+    const totalDiscrepancies = unverifiedBull.length + unverifiedBear.length;
+
+    // Yüksek halüsinasyon riski (> 2 tutarsız iddia) varsa komiteyi iptal et ve temiz fallback'e düş
+    if (totalDiscrepancies > 2) {
+      console.warn(`[InvestmentCommittee] High hallucination count (${totalDiscrepancies}), falling back to quant engine.`);
+      return null;
+    }
+
+    let factCheckWarningText = "";
+    if (unverifiedBull.length > 0 || unverifiedBear.length > 0) {
+      const notes = [
+        ...unverifiedBull.map((fc) => `⚠️ Boğa İddiası Tutarsız: "${fc.claim}" -> ${fc.discrepancyNote}`),
+        ...unverifiedBear.map((fc) => `⚠️ Ayı İddiası Tutarsız: "${fc.claim}" -> ${fc.discrepancyNote}`),
+      ];
+      factCheckWarningText = `\nFACT-CHECK UYARILARI (Hakem bu iddiaları dikkate almalı ve güven skorunu düşürmelidir):\n${notes.join("\n")}\n`;
+    }
+
+    // 6. GEÇMİŞ KARNE ENJEKSİYONU
+    const symbolPastHistory = pastHistory.filter(
+      (h) => h.symbol?.toUpperCase() === company.symbol.toUpperCase()
+    );
+
+    const trackRecordContext =
+      symbolPastHistory.length > 0
+        ? `Orakul'un ${company.symbol} için geçmiş kararları:
+${symbolPastHistory.slice(-3).map((h) =>
+  `${h.date || h.verdictDate}: "${h.verdict || h.verdictTag}" dedi, sonuç: ${h.outcomeCorrect === true ? "İSABETLİ" : h.outcomeCorrect === false ? "YANILDI" : "Takipte"}`
+).join("; ")}`
+        : "Bu sembol için Orakul'un daha önce kaydedilmiş bir kararı yok.";
+
+    // 7. HAKEM / KOMİTE AJANI ÇAĞRISI (Committee Judge) — Tüm süreci görür
+    onProgress?.("judge_started");
+    const judgePrompt = `Sen tarafsız ve üst düzey bir Yatırım Komitesi Başkanısın.
+${personaInstruction}
+
+Aşağıda ${company.symbol} için Makro Ajanı, Boğa Ajanı, Ayı Ajanı ve Boğa'nın Son Sözü ile yürütülen derin yatırım komitesi müzakeresi yer almaktadır.
+
+MAKRO ÇERÇEVE:
+${JSON.stringify(macroContext, null, 2)}
+
+BOĞA TEZİ:
+${JSON.stringify(bullCase, null, 2)}
+
+AYI TEZİ:
+${JSON.stringify(bearCase, null, 2)}
+
+BOĞA'NIN SON SÖZÜ:
+${JSON.stringify({ finalRebuttal, concedesPoint: Boolean(concedesPoint) }, null, 2)}
+${concedesPoint ? "⚠️ NOT: Boğa Ajanı, Ayı'nın eleştirisinde haklılık payı olduğunu kabul etmiştir." : ""}
+${factCheckWarningText}
+GEÇMİŞ KARNE:
+${trackRecordContext}
+(Eğer Orakul bu sembolde yakın zamanda yanıldıysa, bu seferki kararında ekstra temkinli ol ve nedenini belirt.)
+${calibrationNotice ? `\n${calibrationNotice}\n` : ""}
+${personalizationContext ? `\n${personalizationContext}\n` : ""}
+KANTİTATİF DEĞERLEME ÖZETİ:
+- Graham: ${mathVal.grahamNumber ?? "—"} ₺ | DCF: ${mathVal.dcfFairValue ?? "—"} ₺ | Piotroski: ${mathVal.piotroskiSummary} | Altman Z: ${mathVal.altmanZScore ?? "—"} | DuPont ROE: %${mathVal.dupontRoePct}
+
+GÖREV: Kararında (reasoning) fact-check sonuçlarına, Boğa/Ayı argümanlarına ve geçmiş karneye somut referans ver.
+YALNIZCA JSON dön:
+{
+  "verdict": "GÜÇLÜ AL" | "AL" | "TUT" | "SAT" | "GÜÇLÜ SAT",
+  "confidence": "%XX",
+  "reasoning": "Hangi argümanı neden daha ikna edici bulduğunun, fact-check ve geçmiş karneye dayalı 2-3 cümlelik net açıklaması",
+  "dissentingNote": "Varsa komitenin çekincesi veya azınlık şerhi, yoksa boş bırak"
+}`;
+
+    const judgeRes = await fetchGeminiWithFallback(
+      resolvedApiKey,
+      {
+        contents: [{ role: "user", parts: [{ text: judgePrompt }] }],
+        generationConfig: { responseMimeType: "application/json", temperature: 0.15 },
+      },
+      customModel
+    );
+
+    if (!judgeRes?.ok) return null;
+    const judgeData = await judgeRes.json().catch(() => null);
+    const judgeRaw = judgeData?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!judgeRaw) return null;
+    const committeeVerdict = JSON.parse(stripJsonFences(judgeRaw));
+    if (!committeeVerdict?.verdict || !committeeVerdict?.reasoning) return null;
+    onProgress?.("judge_done", committeeVerdict);
+
+    return {
+      macroContext,
+      bullCase: {
+        ...bullCase,
+        finalRebuttal,
+        concedesPoint,
+      },
+      bearCase,
+      factCheck: {
+        bullFactCheck,
+        bearFactCheck,
+      },
+      committeeVerdict: {
+        ...committeeVerdict,
+        trackRecordConsidered: symbolPastHistory.length > 0,
+      },
+    };
+  } catch (err) {
+    console.warn("[InvestmentCommittee] Multi-agent debate error:", err);
+    return null;
+  }
 }
 
 /**
@@ -290,7 +735,11 @@ export async function generateCompanyAnalysis(
   _apiKey?: string,
   provider: string = "gemini",
   customModel?: string,
-  persona: string = "deger"
+  persona: string = "deger",
+  onProgress?: CommitteeProgressCallback,
+  mode: "deep" | "fast" = "deep",
+  personalizationContext?: string,
+  calibrationNotice?: string
 ): Promise<CompanyDiagnosisReport> {
   const symbol = company.symbol.toUpperCase();
   const price = company.price || 0;
@@ -406,11 +855,68 @@ export async function generateCompanyAnalysis(
     marketCrashShock: "-%6 Sınırlı Defansif Düzeltme (Yüksek Nakit Kalkanı)",
   };
 
-  const resolvedApiKey = getResolvedApiKey(provider);
+  const resolvedApiKey = (typeof _apiKey === "string" && _apiKey.trim().length > 10)
+    ? _apiKey.trim()
+    : getResolvedApiKey(provider);
 
   if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
     try {
       if (provider === "gemini") {
+        // 1. Derin Komite Modu (Çoklu Ajanlı Sıralı Müzakere + Fact-Check)
+        if (mode === "deep") {
+          const debateResult = await runInvestmentCommittee(
+            company,
+            mathVal,
+            personaInstruction,
+            resolvedApiKey,
+            customModel,
+            onProgress,
+            pastHistory,
+            personalizationContext,
+            calibrationNotice
+          );
+
+          if (debateResult) {
+            const whyText = `${debateResult.committeeVerdict.reasoning} ${company.name} (${symbol}), ${company.sector || "Genel"} sektöründe Stanford Piotroski ${mathVal.piotroskiSummary} bilanço skoru ve %${mathVal.dupontRoePct} DuPont özkaynak kârlılığı ile işlem görmektedir.`;
+
+            return {
+              symbol,
+              valuationScore: calculatedValuationScore,
+              fairValue: calculatedFairValue,
+              targetPrice12M: calculatedTargetPrice,
+              upsidePotential: calculatedUpsidePotential,
+              piotroskiScore: mathVal.piotroskiFScore,
+              piotroskiEvaluatedCount: mathVal.piotroskiEvaluatedCount,
+              piotroskiSummary: mathVal.piotroskiSummary,
+              altmanZScore: calculatedAltmanZStr,
+              dupontRoe: calculatedDupontRoeStr,
+              peVsSector: pDisc,
+              whyMoved: whyText,
+              pros: debateResult.bullCase.supportingEvidence?.length ? debateResult.bullCase.supportingEvidence : prosList,
+              risks: debateResult.bearCase.supportingEvidence?.length ? debateResult.bearCase.supportingEvidence : risksList,
+              verdict: debateResult.committeeVerdict.verdict,
+              confidence: debateResult.committeeVerdict.confidence,
+              pastFeedbackSummary: calculatedPastFeedbackSummary,
+              evidenceChain: [
+                `① Makro Duyarlılık: ${debateResult.macroContext?.sectorSensitivity || "Dengeli makro zemin"}`,
+                `② Boğa Katalizörü: ${debateResult.bullCase.catalyst} (${debateResult.bullCase.targetUpside})`,
+                `③ Ayı Risk Analizi: ${debateResult.bearCase.keyRisk} (${debateResult.bearCase.downsideRisk})`,
+                `④ Bilanço Sağlığı: Piotroski ${mathVal.piotroskiSummary} | DuPont ROE %${mathVal.dupontRoePct}`,
+                `⑤ Komite Kararı: ${debateResult.committeeVerdict.verdict} (${debateResult.committeeVerdict.confidence})`,
+              ],
+              macroContext: debateResult.macroContext,
+              bullCase: debateResult.bullCase,
+              bearCase: debateResult.bearCase,
+              factCheck: debateResult.factCheck,
+              committeeVerdict: debateResult.committeeVerdict,
+              stressTest,
+              isFallbackMode: false,
+              metricsSource: "calculated",
+            };
+          }
+        }
+
+        // 2. Hızlı Mod (Tek Çağrılı LLM)
         const prompt = `Sen Borsa İstanbul ve küresel piyasalarda uzmanlaşmış Baş Finansal Analist (CFA) seviyesinde 'Orakul' yapay zekasısın.
 ${personaInstruction}
 
@@ -524,7 +1030,7 @@ Boğa vs Ayı analizi (bullCase, bearCase), Makro Senaryo Stres Testi (stressTes
     }
   }
 
-  // Fallback mode
+  // Fallback mode (Authentic Quantitative Fallback Engine)
   return {
     symbol,
     valuationScore: calculatedValuationScore,

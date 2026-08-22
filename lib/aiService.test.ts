@@ -12,9 +12,13 @@ import {
   askOrakulChat,
   chatWithOrakulCopilot,
   runBacktestSimulation,
+  runInvestmentCommittee,
+  generateCompanyAnalysis,
+  factCheckAgentClaims,
   CompanyAnalysisRequest,
   AiRecipeRequest,
 } from "./aiService";
+import { calculateValuationFormulas } from "./quantEngine";
 import { MOCK_COMPANIES } from "./mockData";
 
 const sampleCompanies: CompanyAnalysisRequest[] = MOCK_COMPANIES.map((c) => ({
@@ -827,6 +831,430 @@ describe("aiService Unit & Contract Tests", () => {
         expect(item.price).toBeGreaterThan(0);
         expect(item.suggestedShares).toBeGreaterThanOrEqual(1);
       }
+    });
+  });
+
+  // -------------------------------------------------------------
+  // 6. Fact-Check & Multi-Agent Investment Committee
+  // -------------------------------------------------------------
+  describe("Kod-Seviyeli Deterministik Fact-Check (factCheckAgentClaims)", () => {
+    it("verifies accurate numerical claims against authentic company and valuation metrics", () => {
+      const company: CompanyAnalysisRequest = {
+        symbol: "THYAO",
+        name: "Türk Hava Yolları",
+        price: 300,
+        dailyChange: 1.5,
+        peRatio: 5.2,
+        pbRatio: 1.1,
+        dividendYield: 3.5,
+        freeCashFlow: 35000000000, // 35 Milyar TL
+        sector: "Havacılık",
+      };
+
+      const mathVal = calculateValuationFormulas(company);
+
+      const claims = [
+        "F/K 5.2 ile sektör ortalamasına göre oldukça ucuz",
+        "PD/DD 1.1 seviyesinde defter değerine yakın",
+        `Piotroski skoru ${mathVal.piotroskiFScore} seviyesinde hesaplanmıştır`,
+        "Şirketin operasyonel serbest nakit akışı güçlü ve pazar payı artıyor", // unverifiable (sayı yok)
+      ];
+
+      const results = factCheckAgentClaims(claims, company, mathVal);
+      expect(results.length).toBe(4);
+
+      // F/K verified
+      expect(results[0].verified).toBe(true);
+      expect(results[0].claimedValue).toBe(5.2);
+      expect(results[0].actualValue).toBe(5.2);
+
+      // PD/DD verified
+      expect(results[1].verified).toBe(true);
+      expect(results[1].claimedValue).toBe(1.1);
+
+      // Piotroski verified
+      expect(results[2].verified).toBe(true);
+      expect(results[2].claimedValue).toBe(mathVal.piotroskiFScore);
+
+      // Qualitative claim unverifiable
+      expect(results[3].verified).toBe("unverifiable");
+    });
+
+    it("catches quantitative discrepancies when agent invents false valuation numbers", () => {
+      const company: CompanyAnalysisRequest = {
+        symbol: "ASELS",
+        name: "Aselsan",
+        price: 60,
+        dailyChange: 0,
+        peRatio: 15.0,
+        pbRatio: 3.2,
+        sector: "Savunma",
+      };
+
+      const mathVal = calculateValuationFormulas(company);
+
+      const claims = [
+        "F/K oranı 4.5 ile tarihi diplerde", // Gerçek 15.0 -> Discrepancy!
+        "PD/DD çarpanı 1.2 seviyesinde", // Gerçek 3.2 -> Discrepancy!
+      ];
+
+      const results = factCheckAgentClaims(claims, company, mathVal);
+      expect(results[0].verified).toBe(false);
+      expect(results[0].discrepancyNote).toContain("İddia edilen 4.5, gerçek değer 15 ile uyuşmuyor");
+
+      expect(results[1].verified).toBe(false);
+      expect(results[1].discrepancyNote).toContain("İddia edilen 1.2, gerçek değer 3.2 ile uyuşmuyor");
+    });
+  });
+
+  describe("Multi-Agent Investment Committee (Macro / Bull / Bear / Rebuttal / Judge)", () => {
+    it("runs full 5-stage sequential interdependent LLM calls with Macro, Rebuttal, Fact-Check and Past History", async () => {
+      const recordedPrompts: string[] = [];
+      const progressSteps: string[] = [];
+
+      const mockFetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+        const bodyStr = init?.body ? String(init.body) : "";
+        recordedPrompts.push(bodyStr);
+
+        if (recordedPrompts.length === 1) {
+          // 1. Macro Agent response
+          return {
+            ok: true,
+            json: async () => ({
+              candidates: [
+                {
+                  content: {
+                    parts: [
+                      {
+                        text: JSON.stringify({
+                          macroContext: [
+                            "TCMB faiz indirimi döngüsünde kademeli gevşeme bekleniyor",
+                            "Döviz kuru reel olarak dengeli seyrediyor",
+                            "Küresel ticaret hacminde toparlanma eğilimi var",
+                          ],
+                          sectorSensitivity: "Havacılık sektörü döviz bazlı gelir kalkanına sahiptir.",
+                        }),
+                      },
+                    ],
+                  },
+                },
+              ],
+            }),
+          };
+        } else if (recordedPrompts.length === 2) {
+          // 2. Bull Agent response
+          return {
+            ok: true,
+            json: async () => ({
+              candidates: [
+                {
+                  content: {
+                    parts: [
+                      {
+                        text: JSON.stringify({
+                          catalyst: "İhracat kapasite artışı ve serbest nakit akışı",
+                          targetUpside: "+35%",
+                          coreThesis: "Şirketin net nakit pozisyonu ve serbest nakit akışı marjı güçlü.",
+                          supportingEvidence: ["F/K 5.2", "Piotroski 9"],
+                        }),
+                      },
+                    ],
+                  },
+                },
+              ],
+            }),
+          };
+        } else if (recordedPrompts.length === 3) {
+          // 3. Bear Agent response
+          return {
+            ok: true,
+            json: async () => ({
+              candidates: [
+                {
+                  content: {
+                    parts: [
+                      {
+                        text: JSON.stringify({
+                          keyRisk: "Faiz ortamında artan kısa vadeli borçlanma maliyeti",
+                          downsideRisk: "-15%",
+                          coreThesis: "Yakıt maliyet oynaklığı marjları daraltabilir.",
+                          rebuttalToBull: "Boğa ajanı borç çevirme riskini ve yakıt maliyetini göz ardı ediyor.",
+                          supportingEvidence: ["Merton temerrüt riski %1.2"],
+                        }),
+                      },
+                    ],
+                  },
+                },
+              ],
+            }),
+          };
+        } else if (recordedPrompts.length === 4) {
+          // 4. Bull Rebuttal response
+          return {
+            ok: true,
+            json: async () => ({
+              candidates: [
+                {
+                  content: {
+                    parts: [
+                      {
+                        text: JSON.stringify({
+                          finalRebuttal: "Yakıt riskine katılıyoruz ancak forward hedging kalkanı marjları korur.",
+                          concedesPoint: true,
+                        }),
+                      },
+                    ],
+                  },
+                },
+              ],
+            }),
+          };
+        } else {
+          // 5. Committee Judge response
+          return {
+            ok: true,
+            json: async () => ({
+              candidates: [
+                {
+                  content: {
+                    parts: [
+                      {
+                        text: JSON.stringify({
+                          verdict: "GÜÇLÜ AL",
+                          confidence: "%88",
+                          reasoning: "Boğa ajanının nakit akışı ve F/K 5.2 verileri doğrulanmış olup Ayı'nın yakıt çekincesi hedging ile dengelenmektedir.",
+                          dissentingNote: "Faiz artışları yakından izlenmeli.",
+                        }),
+                      },
+                    ],
+                  },
+                },
+              ],
+            }),
+          };
+        }
+      });
+
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      const testCompany: CompanyAnalysisRequest = {
+        symbol: "THYAO",
+        name: "Türk Hava Yolları",
+        price: 300,
+        dailyChange: 1.5,
+        peRatio: 5.2,
+        pbRatio: 1.1,
+        freeCashFlow: 35000000000,
+        netMargin: 18.5,
+        sector: "Havacılık",
+      };
+
+      const pastHistory = [
+        {
+          id: "hist-1",
+          date: "2026-07-01",
+          symbol: "THYAO",
+          type: "Şirket Değerleme" as const,
+          title: "THYAO Analiz",
+          description: "Test",
+          verdictTag: "AL",
+          verdict: "AL" as const,
+          verdictDate: "2026-07-01",
+          priceAtVerdict: 280,
+          outcomeCorrect: true,
+          confidence: "%85",
+        },
+      ];
+
+      const result = await runInvestmentCommittee(
+        testCompany,
+        calculateValuationFormulas(testCompany),
+        "Değer yatırımcısı perspektifi",
+        "mock-api-key-test-1234567",
+        undefined,
+        (step) => {
+          progressSteps.push(step);
+        },
+        pastHistory
+      );
+
+      // Verify 5 sequential calls occurred
+      expect(mockFetch).toHaveBeenCalledTimes(5);
+      expect(result).not.toBeNull();
+      expect(result?.macroContext?.sectorSensitivity).toContain("Havacılık");
+      expect(result?.bullCase.catalyst).toContain("İhracat");
+      expect(result?.bullCase.concedesPoint).toBe(true);
+      expect(result?.bearCase.keyRisk).toContain("Faiz");
+      expect(result?.committeeVerdict.verdict).toBe("GÜÇLÜ AL");
+      expect(result?.committeeVerdict.trackRecordConsidered).toBe(true);
+
+      // Verify Bull prompt saw Macro context
+      expect(recordedPrompts[1]).toContain("TCMB faiz indirimi");
+
+      // Verify Bear prompt saw Macro context AND Bull's thesis
+      expect(recordedPrompts[2]).toContain("TCMB faiz indirimi");
+      expect(recordedPrompts[2]).toContain("İhracat kapasite artışı");
+
+      // Verify Bull Rebuttal prompt saw Bear's rebuttal
+      expect(recordedPrompts[3]).toContain("Boğa ajanı borç çevirme riskini");
+
+      // Verify Judge prompt saw Macro, Bull, Bear, Rebuttal, Past History
+      expect(recordedPrompts[4]).toContain("TCMB faiz indirimi");
+      expect(recordedPrompts[4]).toContain("İhracat kapasite artışı");
+      expect(recordedPrompts[4]).toContain("Yakıt riskine katılıyoruz");
+      expect(recordedPrompts[4]).toContain("Boğa Ajanı, Ayı'nın eleştirisinde haklılık payı olduğunu kabul etmiştir");
+      expect(recordedPrompts[4]).toContain("Orakul'un THYAO için geçmiş kararları");
+
+      // Verify progress callback sequence
+      expect(progressSteps).toEqual([
+        "macro_started",
+        "macro_done",
+        "bull_started",
+        "bull_done",
+        "bear_started",
+        "bear_done",
+        "bull_rebuttal_started",
+        "bull_rebuttal_done",
+        "judge_started",
+        "judge_done",
+      ]);
+    });
+
+    it("falls back cleanly when hallucination count exceeds threshold (> 2 falsified claims)", async () => {
+      const mockFetch = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+        const bodyStr = init?.body ? String(init.body) : "";
+
+        if (bodyStr.includes("Makroekonomi")) {
+          return {
+            ok: true,
+            json: async () => ({
+              candidates: [{ content: { parts: [{ text: JSON.stringify({ macroContext: ["Test"], sectorSensitivity: "Dengeli" }) }] } }],
+            }),
+          };
+        } else if (bodyStr.includes("Boğa")) {
+          // Bull agent returns 2 fake numbers
+          return {
+            ok: true,
+            json: async () => ({
+              candidates: [
+                {
+                  content: {
+                    parts: [
+                      {
+                        text: JSON.stringify({
+                          catalyst: "Uydurma büyüme",
+                          targetUpside: "+50%",
+                          coreThesis: "Test",
+                          supportingEvidence: ["F/K 1.2", "PD/DD 0.3"], // Gerçek değerler 15.0 ve 3.2
+                        }),
+                      },
+                    ],
+                  },
+                },
+              ],
+            }),
+          };
+        } else if (bodyStr.includes("Ayı")) {
+          // Bear agent returns 1 more fake number (total 3 discrepancies)
+          return {
+            ok: true,
+            json: async () => ({
+              candidates: [
+                {
+                  content: {
+                    parts: [
+                      {
+                        text: JSON.stringify({
+                          keyRisk: "Uydurma risk",
+                          downsideRisk: "-30%",
+                          coreThesis: "Test",
+                          rebuttalToBull: "Test",
+                          supportingEvidence: ["F/K 25.0"], // Gerçek F/K 15.0
+                        }),
+                      },
+                    ],
+                  },
+                },
+              ],
+            }),
+          };
+        }
+        return { ok: true, json: async () => ({ candidates: [{ content: { parts: [{ text: "{}" }] } }] }) };
+      });
+
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      const testCompany: CompanyAnalysisRequest = {
+        symbol: "ASELS",
+        name: "Aselsan",
+        price: 60,
+        dailyChange: 0,
+        peRatio: 15.0,
+        pbRatio: 3.2,
+        sector: "Savunma",
+      };
+
+      const result = await runInvestmentCommittee(
+        testCompany,
+        calculateValuationFormulas(testCompany),
+        "Değer odaklı",
+        "mock-key-12345"
+      );
+
+      // Should cancel committee and return null due to high hallucination count (> 2)
+      expect(result).toBeNull();
+    });
+
+    it("returns null if any agent call fails, allowing clean fallback to quantitative engine", async () => {
+      const mockFetch = vi.fn().mockImplementation(async () => {
+        return {
+          ok: false,
+          status: 500,
+          json: async () => ({ error: { message: "Internal Server Error" } }),
+        };
+      });
+
+      global.fetch = mockFetch as unknown as typeof fetch;
+
+      const testCompany: CompanyAnalysisRequest = {
+        symbol: "ASELS",
+        name: "Aselsan",
+        price: 60,
+        dailyChange: -0.8,
+        peRatio: 12,
+        sector: "Savunma",
+      };
+
+      const result = await runInvestmentCommittee(
+        testCompany,
+        calculateValuationFormulas(testCompany),
+        "Değer odaklı",
+        "mock-key-12345"
+      );
+
+      expect(result).toBeNull();
+    });
+
+    it("generateCompanyAnalysis gracefully falls back to quantitative report when API key is missing or agent fails", async () => {
+      const report = await generateCompanyAnalysis(
+        {
+          symbol: "KCHOL",
+          name: "Koç Holding",
+          price: 210,
+          dailyChange: 0.5,
+          peRatio: 6.5,
+          pbRatio: 1.3,
+          sector: "Holding",
+        },
+        [],
+        undefined // No API key -> clean authentic quantitative fallback
+      );
+
+      expect(report.isFallbackMode).toBe(true);
+      expect(report.symbol).toBe("KCHOL");
+      expect(report.verdict).toBeDefined();
+      expect(report.bullCase?.coreThesis).toBeDefined();
+      expect(report.bearCase?.coreThesis).toBeDefined();
     });
   });
 });

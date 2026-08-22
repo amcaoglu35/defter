@@ -37,6 +37,9 @@ import {
   getOptimalModelForTask,
   logOrakulTelemetry,
 } from "@/lib/orakulCache";
+import { supabaseAdmin, isSupabaseAdminConfigured } from "@/lib/supabaseAdmin";
+import { computeServerSideAccuracyStats, computeConfidenceCalibration } from "@/lib/aiAccuracy";
+import { computeUserPreferenceProfile } from "@/lib/userProfile";
 
 type AnyRecord = Record<string, unknown>;
 
@@ -77,10 +80,10 @@ export async function POST(req: Request) {
       );
     }
 
-    const { type, payload, messages, context, history, provider, model, persona, apiKey } = parsedRequest.data;
+    const { type, payload, messages, context, history, provider, model, persona, apiKey, stream, mode } = parsedRequest.data;
 
     // 4. Granular Tiered Rate Limiting by Action Type
-    const tier = getOrakulRateLimitTier(type);
+    const tier = getOrakulRateLimitTier(type, mode);
     const rateLimit = await checkRateLimit(`${tier.keyPrefix}:${clientIp}`, tier.maxRequests, tier.windowMs);
     if (!rateLimit.allowed) {
       return createRateLimitResponse(rateLimit.resetInSeconds);
@@ -306,13 +309,80 @@ export async function POST(req: Request) {
       const validatedPayload = OrakulCompanyPayloadSchema.safeParse(payload || {});
       const p = validatedPayload.success ? validatedPayload.data : (payload || {});
 
+      // Kullanıcı tercih profili ve güven kalibrasyonu (Faz 3)
+      let personalizationContext: string | undefined;
+      let calibrationNotice: string | undefined;
+
+      if (isSupabaseAdminConfigured && supabaseAdmin) {
+        try {
+          const [userProfile, calibration] = await Promise.all([
+            computeUserPreferenceProfile(supabaseAdmin).catch(() => null),
+            computeConfidenceCalibration(supabaseAdmin).catch(() => null),
+          ]);
+          if (userProfile?.personalizationContext) {
+            personalizationContext = userProfile.personalizationContext;
+          }
+          if (calibration?.calibrationNote) {
+            calibrationNotice = calibration.calibrationNote;
+          }
+        } catch {
+          // profilleme hatası akışı engellemez
+        }
+      }
+
+      const isStreamRequested = stream === true || req.headers.get("accept")?.includes("text/event-stream");
+
+      if (isStreamRequested) {
+        const encoder = new TextEncoder();
+        const customStream = new ReadableStream({
+          async start(controller) {
+            try {
+              controller.enqueue(encoder.encode(`event: progress\ndata: ${JSON.stringify({ step: "init", message: "Yatırım Komitesi Analizi Başlatıldı" })}\n\n`));
+
+              const analysis = await generateCompanyAnalysis(
+                p,
+                history || [],
+                effectiveKey,
+                selectedProvider,
+                reqModel,
+                selectedPersona,
+                (step, data) => {
+                  controller.enqueue(encoder.encode(`event: progress\ndata: ${JSON.stringify({ step, data })}\n\n`));
+                },
+                mode || "deep",
+                personalizationContext,
+                calibrationNotice
+              );
+
+              controller.enqueue(encoder.encode(`event: complete\ndata: ${JSON.stringify({ success: true, data: analysis })}\n\n`));
+            } catch (streamErr) {
+              controller.enqueue(encoder.encode(`event: error\ndata: ${JSON.stringify({ success: false, error: "Analiz sırasında bir sorun oluştu." })}\n\n`));
+            } finally {
+              controller.close();
+            }
+          },
+        });
+
+        return new Response(customStream, {
+          headers: {
+            "Content-Type": "text/event-stream; charset=utf-8",
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+          },
+        });
+      }
+
       const analysis = await generateCompanyAnalysis(
         p,
         history || [],
         effectiveKey,
         selectedProvider,
         reqModel,
-        selectedPersona
+        selectedPersona,
+        undefined,
+        mode || "deep",
+        personalizationContext,
+        calibrationNotice
       );
       return returnJsonWithCache(analysis);
     }
@@ -433,9 +503,33 @@ export async function POST(req: Request) {
     }
 
     if (type === "chat") {
+      let enrichedContext = { ...(context || {}) };
+
+      // Sunucu tarafı gerçek isabet oranı ve karne verisini bağla (06 numaralı prompt kuralı)
+      if (isSupabaseAdminConfigured && supabaseAdmin) {
+        try {
+          const targetSym = typeof context?.company?.symbol === "string" ? context.company.symbol : undefined;
+          const serverAccuracy = await computeServerSideAccuracyStats(supabaseAdmin, targetSym);
+          if (serverAccuracy) {
+            enrichedContext = {
+              ...enrichedContext,
+              accuracyStats: {
+                totalCount: serverAccuracy.total,
+                accurateCount: serverAccuracy.correct,
+                overallRate: serverAccuracy.accuracyRate,
+                alSuccessRate: serverAccuracy.alAccuracy,
+                satSuccessRate: serverAccuracy.satAccuracy,
+              },
+            };
+          }
+        } catch {
+          // stats hatası akışı engellemez
+        }
+      }
+
       const reply = await askOrakulChat(
         messages || [],
-        context || {},
+        enrichedContext,
         effectiveKey,
         selectedProvider,
         reqModel

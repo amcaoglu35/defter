@@ -271,12 +271,17 @@ export function formatApiError(
  * Granular rate limit tier determination by Orakul action type.
  * Prevents cheap actions (ping/test) from depleting expensive LLM quotas.
  */
-export function getOrakulRateLimitTier(type: string): { keyPrefix: string; maxRequests: number; windowMs: number } {
+export function getOrakulRateLimitTier(type: string, mode?: string): { keyPrefix: string; maxRequests: number; windowMs: number } {
   switch (type) {
     case "test_connection":
       return { keyPrefix: "orakul:ping", maxRequests: 30, windowMs: 60000 };
-    case "recipe":
     case "company_analysis":
+      if (mode === "deep" || !mode) {
+        // Multi-Agent (Bull / Bear / Judge) 3-step call uses dedicated 5 req/min quota
+        return { keyPrefix: "orakul:multiagent", maxRequests: 5, windowMs: 60000 };
+      }
+      return { keyPrefix: "orakul:heavy", maxRequests: 10, windowMs: 60000 };
+    case "recipe":
     case "earnings_flash":
     case "value_trap":
     case "backtest":

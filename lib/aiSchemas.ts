@@ -313,4 +313,6 @@ export const OrakulApiRequestSchema = z.object({
   persona: z.enum(["deger", "temettu", "buyume", "garp", "hisse", "fon", "makro"]).optional(),
   apiKey: z.string().max(256).optional(),
   companies: z.array(z.any()).max(500).optional(),
+  stream: z.boolean().optional(),
+  mode: z.enum(["deep", "fast"]).optional(),
 });

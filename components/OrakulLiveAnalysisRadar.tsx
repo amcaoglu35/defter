@@ -8,6 +8,10 @@ import {
   Calculator,
   Sparkles,
   Search,
+  TrendingUp,
+  TrendingDown,
+  ShieldCheck,
+  Scale,
 } from "lucide-react";
 
 interface OrakulLiveAnalysisRadarProps {
@@ -20,18 +24,28 @@ interface OrakulLiveAnalysisRadarProps {
 const ANALYSIS_STEPS = [
   {
     icon: Search,
-    title: "Aşama 1: Finansal Veri & Bilanço Doğrulaması",
-    desc: "Fiyat çarpanları, kârlılık metrikleri ve sektör ortalamaları derleniyor...",
+    title: "1. Aşama: Makro Ajanı & Sektörel Çerçeve",
+    desc: "Türkiye/BIST makro dengesi, faiz/kur patikası ve sektörel duyarlılık haritası çıkarılıyor...",
   },
   {
-    icon: Calculator,
-    title: "Aşama 2: Deterministik Değerleme & Risk Modelleri",
-    desc: "Graham içsel değeri, sektörel DCF, Gordon DDM ve Piotroski sağlık testi hesaplanıyor...",
+    icon: TrendingUp,
+    title: "2. Aşama: Boğa Ajanı (Bull Thesis)",
+    desc: "Pozitif büyüme tezi, serbest nakit akışı katalizörleri ve hedef getiri potansiyeli savunuluyor...",
   },
   {
-    icon: Sparkles,
-    title: "Aşama 3: Orakul AI Sentez & Karar Raporu",
-    desc: "Boğa vs Ayı ikili tezi, makro stres senaryoları ve kanıt zinciri oluşturuluyor...",
+    icon: TrendingDown,
+    title: "3. Aşama: Ayı Ajanı (Bear Thesis & Rebuttal)",
+    desc: "Boğa tezine itirazlar, borç çevirme riskleri ve temerrüt olasılığı inceleniyor...",
+  },
+  {
+    icon: ShieldCheck,
+    title: "4. Aşama: Boğa'nın Son Sözü & Kod-Seviyeli Fact-Check",
+    desc: "Boğa son yanıtı, ödün noktaları ve sayısal iddiaların deterministik doğruluk testi yapılıyor...",
+  },
+  {
+    icon: Scale,
+    title: "5. Aşama: Yatırım Komitesi Hakemi & Nihai Karar",
+    desc: "Geçmiş karne hafızası, kanıtlar ve hakem gerekçesiyle nihai komite kararı sentezleniyor...",
   },
 ];
 

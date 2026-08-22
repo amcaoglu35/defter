@@ -319,6 +319,14 @@ export async function POST(req: Request) {
 
     if (action === "add_ai_history") {
       try {
+        let confNum: number | null = null;
+        if (typeof payload.confidence === "string") {
+          const match = payload.confidence.match(/(\d+)/);
+          if (match) confNum = parseInt(match[1], 10);
+        } else if (typeof payload.confidence === "number") {
+          confNum = payload.confidence;
+        }
+
         await supabaseAdmin.from("ai_history").insert({
           id: payload.id,
           type: payload.type,
@@ -328,9 +336,12 @@ export async function POST(req: Request) {
           verdict: payload.verdict,
           symbol: payload.symbol,
           verdict_date: payload.date || new Date().toISOString().split("T")[0],
+          price_at_verdict: payload.priceAtVerdict || payload.price || null,
           target_period_days: payload.targetPeriodDays || 30,
           provider: payload.provider || null,
           model: payload.model || null,
+          persona_used: payload.persona || payload.personaUsed || payload.strategyArchetype || null,
+          confidence_at_verdict: confNum,
         });
       } catch (err) {
         console.warn("[Sync] ai_history insert warning:", err);

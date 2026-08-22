@@ -399,15 +399,35 @@ interface CompanyAnalysisResult {
   confidence?: string;
   pastFeedbackSummary?: string;
   evidenceChain?: string[];
+  macroContext?: {
+    macroContext: string[];
+    sectorSensitivity: string;
+  };
   bullCase?: {
     catalyst: string;
     targetUpside: string;
     coreThesis: string;
+    supportingEvidence?: string[];
+    finalRebuttal?: string;
+    concedesPoint?: boolean;
   };
   bearCase?: {
     keyRisk: string;
     downsideRisk: string;
     coreThesis: string;
+    rebuttalToBull?: string;
+    supportingEvidence?: string[];
+  };
+  factCheck?: {
+    bullFactCheck: Array<{ claim: string; verified: boolean | "unverifiable"; actualValue?: number; claimedValue?: number; discrepancyNote?: string }>;
+    bearFactCheck: Array<{ claim: string; verified: boolean | "unverifiable"; actualValue?: number; claimedValue?: number; discrepancyNote?: string }>;
+  };
+  committeeVerdict?: {
+    verdict: "GÜÇLÜ AL" | "AL" | "TUT" | "SAT" | "GÜÇLÜ SAT";
+    confidence: string;
+    reasoning: string;
+    dissentingNote?: string;
+    trackRecordConsidered?: boolean;
   };
   stressTest?: {
     fxShock20Pct: string;
@@ -439,6 +459,8 @@ interface WeeklyLetterResult {
   const [companyAnalysis, setCompanyAnalysis] = useState<CompanyAnalysisResult | null>(null);
   const [companyLoading, setCompanyLoading] = useState(false);
   const [analysisPhase, setAnalysisPhase] = useState<string | null>(null);
+  const [analysisRadarStep, setAnalysisRadarStep] = useState<number | undefined>(undefined);
+  const [analysisMode, setAnalysisMode] = useState<"deep" | "fast">("deep");
   const [showEvidenceChain, setShowEvidenceChain] = useState<Record<string, boolean>>({});
 
   // 2b. Comparative Company Deep-Dive state (Item 6)
@@ -1425,59 +1447,104 @@ async function fetchAndEnrichCompanyWithDeepData(co: Company): Promise<Record<st
     setCompanyLoading(true);
     setCompanyAnalysis(null);
     setCompareAnalysis(null);
+    setAnalysisRadarStep(0);
     setAnalysisPhase("1. Bilanço, Nakit Akışı ve Çarpanlar Çekiliyor...");
 
     try {
       const enrichedCo = await fetchAndEnrichCompanyWithDeepData(co);
 
-      const [res] = await Promise.all([
-        fetch("/api/orakul", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "company_analysis",
-            payload: enrichedCo,
-            history: aiHistory,
-            provider: aiProvider,
-            model: geminiModel,
-            persona: userSettings?.orakulPersona || "deger",
-            apiKey: aiApiKey,
-          }),
+      const res = await fetch("/api/orakul", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "company_analysis",
+          payload: enrichedCo,
+          history: aiHistory,
+          provider: aiProvider,
+          model: geminiModel,
+          persona: userSettings?.orakulPersona || "deger",
+          apiKey: aiApiKey,
+          stream: true,
+          mode: analysisMode,
         }),
-        new Promise((resolve) => setTimeout(resolve, 2800)),
-      ]);
+      });
 
-      if (res.ok) {
-        const data = await res.json();
-        setCompanyAnalysis(data.data);
-        showToast("Analiz Tamamlandı", `${co?.name || selectedCoSymbol} için değerleme raporu hazırlandı.`, "success");
+      let finalReport: CompanyAnalysisResult | null = null;
 
-        // Record analysis into aiHistory for persistent feedback tracking (Item 3)
-        if (data.data) {
-          const newHist: AiHistoryItem = {
-            id: `ai-${Date.now()}`,
-            date: "Bugün " + new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
-            symbol: co?.symbol,
-            type: "Şirket Değerleme",
-            title: `${co?.name || selectedCoSymbol} Değerleme Raporu`,
-            description: `${data.data.whyMoved} Değerleme Skoru: ${data.data.valuationScore}.`,
-            verdictTag: data.data.verdict,
-            verdict: data.data.verdict,
-            verdictDate: new Date().toISOString().split("T")[0],
-            priceAtVerdict: co?.price || 0,
-            bist100AtVerdict: indices["BIST 100"]?.price || indices["XU100"]?.price || 9840.5,
-            confidence: data.data.confidence || "%90",
-            outcomeCorrect: null,
-            targetPeriodDays: 30,
-            provider: aiStatus?.isRealAiActive ? (aiProvider === "openai" ? "OpenAI" : "Gemini") : "Şablon",
-            model: aiStatus?.isRealAiActive ? (aiProvider === "openai" ? "gpt-4o-mini" : geminiModel) : "Algoritmik",
-          };
-          addAiHistory(newHist);
+      if (res.ok && res.headers.get("content-type")?.includes("text/event-stream") && res.body) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const blocks = buffer.split("\n\n");
+          buffer = blocks.pop() || "";
+
+          for (const block of blocks) {
+            const match = block.match(/data:\s*(.+)/);
+            if (match) {
+              try {
+                const parsed = JSON.parse(match[1]);
+                if (parsed.step === "macro_started") {
+                  setAnalysisRadarStep(0);
+                  setAnalysisPhase("1. Makro Ajanı (Macro) Sektörel Ortak Zemini Çiziyor...");
+                } else if (parsed.step === "bull_started") {
+                  setAnalysisRadarStep(1);
+                  setAnalysisPhase("2. Boğa Ajanı (Bull) Pozitif Yatırım Tezi Geliştiriyor...");
+                } else if (parsed.step === "bear_started") {
+                  setAnalysisRadarStep(2);
+                  setAnalysisPhase("3. Ayı Ajanı (Bear) Risk & Temerrüt İtirazlarını Sunuyor...");
+                } else if (parsed.step === "bull_rebuttal_started") {
+                  setAnalysisRadarStep(3);
+                  setAnalysisPhase("4. Boğa'nın Son Sözü & Kod-Seviyeli Fact-Check Yapılıyor...");
+                } else if (parsed.step === "judge_started") {
+                  setAnalysisRadarStep(4);
+                  setAnalysisPhase("5. Yatırım Komitesi Hakemi Kararını Şekillendiriyor...");
+                } else if (parsed.step === "complete" && parsed.data) {
+                  finalReport = parsed.data;
+                }
+              } catch {
+                // ignore parse errors in event stream chunk
+              }
+            }
+          }
         }
+      } else if (res.ok) {
+        const data = await res.json();
+        finalReport = data.data;
       } else {
         const errJson = await res.json().catch(() => null);
         const msg = errJson?.error || errJson?.message || "Şirket verisi analiz edilirken bir sorun yaşandı.";
         showToast("Analiz Başarısız", msg, "error");
+      }
+
+      if (finalReport) {
+        setCompanyAnalysis(finalReport);
+        showToast("Komite Raporu Hazır", `${co?.name || selectedCoSymbol} için yatırım komitesi analizi tamamlandı.`, "success");
+
+        // Record analysis into aiHistory for persistent feedback tracking
+        const newHist: AiHistoryItem = {
+          id: `ai-${Date.now()}`,
+          date: "Bugün " + new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }),
+          symbol: co?.symbol || selectedCoSymbol,
+          type: "Şirket Değerleme",
+          title: `${co?.name || selectedCoSymbol} Değerleme Raporu`,
+          description: `${finalReport.whyMoved} Değerleme Skoru: ${finalReport.valuationScore}.`,
+          verdictTag: finalReport.verdict || "TUT",
+          verdict: finalReport.verdict,
+          verdictDate: new Date().toISOString().split("T")[0],
+          priceAtVerdict: co?.price || 0,
+          bist100AtVerdict: indices["BIST 100"]?.price || indices["XU100"]?.price || 9840.5,
+          confidence: finalReport.confidence || "%90",
+          outcomeCorrect: null,
+          targetPeriodDays: 30,
+          provider: aiStatus?.isRealAiActive ? (aiProvider === "openai" ? "OpenAI" : "Gemini") : "Şablon",
+          model: aiStatus?.isRealAiActive ? (aiProvider === "openai" ? "gpt-4o-mini" : geminiModel) : "Algoritmik",
+        };
+        addAiHistory(newHist);
       }
     } catch (e) {
       console.warn("Company analyze error:", e);
@@ -1485,6 +1552,7 @@ async function fetchAndEnrichCompanyWithDeepData(co: Company): Promise<Record<st
     } finally {
       setCompanyLoading(false);
       setAnalysisPhase(null);
+      setAnalysisRadarStep(undefined);
     }
   };
 
@@ -3111,12 +3179,39 @@ async function fetchAndEnrichCompanyWithDeepData(co: Company): Promise<Record<st
                     }}
                     label="İncelenecek Şirket / Varlık"
                   />
+
+                  {/* Multi-Agent Committee Mode Selector */}
+                  <div className="flex items-center gap-1 bg-[var(--ink-2)] p-1 rounded-lg border border-[var(--line)] w-full text-xs font-mono mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setAnalysisMode("deep")}
+                      className={`flex-1 py-1.5 px-2 rounded-md font-medium transition-all ${
+                        analysisMode === "deep"
+                          ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-sm"
+                          : "text-[var(--mist)] hover:text-[var(--paper)]"
+                      }`}
+                    >
+                      🏛️ Komite (3 Ajan)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAnalysisMode("fast")}
+                      className={`flex-1 py-1.5 px-2 rounded-md font-medium transition-all ${
+                        analysisMode === "fast"
+                          ? "bg-[var(--brass)] text-[var(--ink)] font-bold shadow-sm"
+                          : "text-[var(--mist)] hover:text-[var(--paper)]"
+                      }`}
+                    >
+                      ⚡ Hızlı Mod
+                    </button>
+                  </div>
+
                   <button
                     onClick={handleCompanyAnalyze}
                     disabled={companyLoading}
-                    className="w-full mt-2 bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold text-xs py-2.5 rounded-lg cursor-pointer disabled:opacity-50 shadow transition-all active:scale-95"
+                    className="w-full mt-2 bg-[var(--brass)] hover:bg-[#d9b35a] text-[var(--ink)] font-bold text-xs py-2.5 rounded-lg cursor-pointer disabled:opacity-50 shadow transition-all active:scale-95 flex items-center justify-center gap-1.5"
                   >
-                    {companyLoading ? "Teşhis Ediliyor..." : `${selectedCoSymbol} İçin Teşhis Üret`}
+                    <span>{companyLoading ? "Yatırım Komitesi Toplanıyor..." : `${selectedCoSymbol} İçin Teşhis Üret`}</span>
                   </button>
                 </div>
               )}
@@ -3127,7 +3222,7 @@ async function fetchAndEnrichCompanyWithDeepData(co: Company): Promise<Record<st
           {companyLoading && (
             <OrakulLiveAnalysisRadar
               symbol={selectedCoSymbol}
-              minDurationMs={2800}
+              currentStep={analysisRadarStep}
             />
           )}
 
@@ -3296,6 +3391,25 @@ async function fetchAndEnrichCompanyWithDeepData(co: Company): Promise<Record<st
                   </div>
                 </div>
 
+                {/* Makro Ajanı Ortak Çerçevesi (Macro Context) */}
+                {companyAnalysis.macroContext && (
+                  <div className="p-4 bg-[var(--ink-2)] rounded-xl border border-[var(--line)] space-y-2 animate-in fade-in">
+                    <div className="flex items-center justify-between border-b border-[var(--line)] pb-2">
+                      <span className="font-mono text-xs font-bold text-[var(--brass)] flex items-center gap-1.5 uppercase">
+                        <span>🌐 Bağımsız Makro Çerçeve &amp; Sektörel Duyarlılık</span>
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-[var(--brass-glow)] text-[var(--brass)] font-mono text-[10px] font-bold">
+                        {companyAnalysis.macroContext.sectorSensitivity}
+                      </span>
+                    </div>
+                    <ul className="text-xs text-[var(--paper-dim)] font-mono space-y-1 list-disc list-inside">
+                      {companyAnalysis.macroContext.macroContext.map((m: string, idx: number) => (
+                        <li key={idx}>{m}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
                 {/* Boğa vs. Ayı İkili Analiz (Bull vs Bear Debate) */}
                 {(companyAnalysis.bullCase || companyAnalysis.bearCase) && (
                   <div className="p-5 bg-[var(--ink-2)] rounded-xl border border-[var(--line)] space-y-4">
@@ -3303,11 +3417,11 @@ async function fetchAndEnrichCompanyWithDeepData(co: Company): Promise<Record<st
                       <div className="flex items-center gap-2">
                         <Scale className="w-4 h-4 text-[var(--brass)]" />
                         <span className="font-serif text-sm font-bold text-[var(--paper)]">
-                          🎭 Boğa vs. Ayı İkili Analiz (Çift Yönlü Değerleme)
+                          🎭 Boğa vs. Ayı İkili Analiz (Çift Yönlü Değerleme &amp; Müzakere)
                         </span>
                       </div>
                       <span className="font-mono text-[10px] text-[var(--mist)] uppercase tracking-wider">
-                        İkili Argüman Dengesi
+                        İkili Argüman &amp; Fact-Check Dengesi
                       </span>
                     </div>
 
@@ -3330,6 +3444,41 @@ async function fetchAndEnrichCompanyWithDeepData(co: Company): Promise<Record<st
                           <div className="p-2.5 bg-[var(--ink-3)] rounded border border-[rgba(91,140,123,0.2)] text-[11px] font-mono text-[var(--paper-dim)]">
                             <strong className="text-[var(--verdigris)]">Katalizör:</strong> {companyAnalysis.bullCase.catalyst}
                           </div>
+                          {companyAnalysis.bullCase.finalRebuttal && (
+                            <div className="p-2.5 bg-[var(--ink-3)] rounded border border-[rgba(91,140,123,0.3)] text-[11px] font-mono text-[var(--paper-dim)] space-y-1">
+                              <div className="flex items-center justify-between">
+                                <strong className="text-[var(--verdigris)]">Boğa'nın Son Sözü (Rebuttal):</strong>
+                                {companyAnalysis.bullCase.concedesPoint && (
+                                  <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono text-[9px] font-bold">
+                                    🤝 Ödün Verildi (Ayı Haklı Bulundu)
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[11px] text-[var(--paper-dim)]">{companyAnalysis.bullCase.finalRebuttal}</p>
+                            </div>
+                          )}
+                          {companyAnalysis.bullCase.supportingEvidence && companyAnalysis.bullCase.supportingEvidence.length > 0 && (
+                            <div className="pt-2 border-t border-[rgba(91,140,123,0.2)] space-y-1">
+                              <span className="text-[10px] font-mono uppercase text-[var(--verdigris)] font-semibold">Dayanak Kanıtlar &amp; Fact-Check:</span>
+                              <ul className="text-[10px] text-[var(--verdigris)] font-mono space-y-1">
+                                {companyAnalysis.bullCase.supportingEvidence.map((ev: string, i: number) => {
+                                  const fc = companyAnalysis.factCheck?.bullFactCheck?.[i];
+                                  return (
+                                    <li key={i} className="flex items-start gap-1.5">
+                                      <span>•</span>
+                                      <span className="flex-1">{ev}</span>
+                                      {fc && fc.verified === true && (
+                                        <span className="text-[9px] px-1 rounded bg-emerald-500/20 text-emerald-300">✓ Doğrulandı</span>
+                                      )}
+                                      {fc && fc.verified === false && (
+                                        <span className="text-[9px] px-1 rounded bg-rose-500/20 text-rose-300">⚠️ Uyuşmuyor</span>
+                                      )}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            </div>
+                          )}
                         </div>
                       )}
 
@@ -3351,9 +3500,66 @@ async function fetchAndEnrichCompanyWithDeepData(co: Company): Promise<Record<st
                           <div className="p-2.5 bg-[var(--ink-3)] rounded border border-[rgba(201,124,124,0.2)] text-[11px] font-mono text-[var(--paper-dim)]">
                             <strong className="text-[var(--loss)]">Kritik Risk:</strong> {companyAnalysis.bearCase.keyRisk}
                           </div>
+                          {companyAnalysis.bearCase.rebuttalToBull && (
+                            <div className="p-2.5 bg-[var(--ink-3)] rounded border border-[rgba(201,124,124,0.3)] text-[11px] font-mono text-[var(--paper-dim)]">
+                              <strong className="text-[var(--loss)]">Boğa Tezini Çürütme (Rebuttal):</strong> {companyAnalysis.bearCase.rebuttalToBull}
+                            </div>
+                          )}
+                          {companyAnalysis.bearCase.supportingEvidence && companyAnalysis.bearCase.supportingEvidence.length > 0 && (
+                            <div className="pt-2 border-t border-[rgba(201,124,124,0.2)] space-y-1">
+                              <span className="text-[10px] font-mono uppercase text-[var(--loss)] font-semibold">Risk Kanıtları &amp; Fact-Check:</span>
+                              <ul className="text-[10px] text-[var(--loss)] font-mono space-y-1">
+                                {companyAnalysis.bearCase.supportingEvidence.map((ev: string, i: number) => {
+                                  const fc = companyAnalysis.factCheck?.bearFactCheck?.[i];
+                                  return (
+                                    <li key={i} className="flex items-start gap-1.5">
+                                      <span>•</span>
+                                      <span className="flex-1">{ev}</span>
+                                      {fc && fc.verified === true && (
+                                        <span className="text-[9px] px-1 rounded bg-emerald-500/20 text-emerald-300">✓ Doğrulandı</span>
+                                      )}
+                                      {fc && fc.verified === false && (
+                                        <span className="text-[9px] px-1 rounded bg-rose-500/20 text-rose-300">⚠️ Uyuşmuyor</span>
+                                      )}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
+
+                    {/* Yatırım Komitesi Hakem Kararı (Committee Verdict) */}
+                    {companyAnalysis.committeeVerdict && (
+                      <div className="p-4 rounded-xl bg-[var(--ink-3)] border border-[var(--brass)] space-y-2 animate-in fade-in">
+                        <div className="flex items-center justify-between border-b border-[var(--line)] pb-2 flex-wrap gap-2">
+                          <span className="font-mono text-xs font-bold text-[var(--brass)] flex items-center gap-1.5 uppercase">
+                            <Scale className="w-4 h-4" />
+                            <span>🏛️ Yatırım Komitesi Hakem Kararı: {companyAnalysis.committeeVerdict.verdict}</span>
+                          </span>
+                          <div className="flex items-center gap-2">
+                            {companyAnalysis.committeeVerdict.trackRecordConsidered && (
+                              <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono text-[9px] font-bold border border-blue-500/30">
+                                📌 Geçmiş Karne Hafızası Dikkate Alındı
+                              </span>
+                            )}
+                            <span className="px-2 py-0.5 rounded bg-[var(--brass)]/20 text-[var(--brass)] font-mono text-[10px] font-bold border border-[var(--brass)]/30">
+                              Güven: {companyAnalysis.committeeVerdict.confidence}
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-[var(--paper)] leading-relaxed font-sans font-medium">
+                          {companyAnalysis.committeeVerdict.reasoning}
+                        </p>
+                        {companyAnalysis.committeeVerdict.dissentingNote && (
+                          <p className="text-[11px] text-[var(--mist)] italic font-sans border-t border-[var(--line)] pt-2 mt-1">
+                            <strong className="text-[var(--paper-dim)]">Komite Çekincesi / Azınlık Şerhi:</strong> {companyAnalysis.committeeVerdict.dissentingNote}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 

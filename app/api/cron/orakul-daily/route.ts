@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin, isSupabaseAdminConfigured } from "@/lib/supabaseAdmin";
 import { generateDailyBriefing } from "@/lib/aiService";
+import { evaluatePendingOutcomesServerSide } from "@/lib/aiAccuracy";
 import { MOCK_COMPANIES, MOCK_BASKETS } from "@/lib/mockData";
 import { dispatchDailyReportToChannels } from "@/lib/notificationChannels";
 import { getClientIp, checkRateLimit, createRateLimitResponse } from "@/lib/rateLimit";
@@ -37,6 +38,13 @@ async function handleDailyCron(req: Request) {
   }
 
   try {
+    // 3. Sunucu tarafı geçmiş AI kararlarını otomatik değerlendir
+    if (isSupabaseAdminConfigured && supabaseAdmin) {
+      await evaluatePendingOutcomesServerSide(supabaseAdmin).catch((err) => {
+        console.warn("[Cron: orakul-daily] AI karne değerlendirme adımı atlandı:", err);
+      });
+    }
+
     type RowRecord = Record<string, unknown>;
 
     const initialCompanies = MOCK_COMPANIES;
