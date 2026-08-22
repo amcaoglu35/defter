@@ -85,6 +85,8 @@ export const CompanyAnalysisAiResponseSchema = z.object({
   targetPrice12M: z.number().optional(),
   upsidePotential: z.string().optional(),
   piotroskiScore: z.number().optional(),
+  piotroskiEvaluatedCount: z.number().optional(),
+  piotroskiSummary: z.string().optional(),
   altmanZScore: z.union([z.string(), z.number()]).optional(),
   dupontRoe: z.string().optional(),
   peVsSector: z.string().optional(),

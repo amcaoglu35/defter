@@ -293,6 +293,76 @@ describe("quantEngine Unit Tests", () => {
       // Piotroski F-Score (0 to 9)
       expect(val.piotroskiFScore).toBeGreaterThanOrEqual(0);
       expect(val.piotroskiFScore).toBeLessThanOrEqual(9);
+      expect(val.piotroskiEvaluatedCount).toBeGreaterThan(0);
+      expect(val.piotroskiSummary).toBeDefined();
+    });
+
+    it("evaluates Piotroski with null (not hardcoded true) when comparative metrics are missing", () => {
+      const partial = calculateValuationFormulas({
+        symbol: "MINIMAL",
+        price: 50,
+        eps: 5,
+      });
+
+      // Criteria without data (e.g. priorRoa, currentRatio, sharesOutstanding) must be null
+      const nullCriteria = partial.piotroskiDetails.filter((d) => d.passed === null);
+      expect(nullCriteria.length).toBeGreaterThanOrEqual(4);
+      expect(partial.piotroskiEvaluatedCount).toBeLessThan(9);
+      expect(partial.piotroskiSummary).toContain(`${partial.piotroskiEvaluatedCount}/9 Kriter Değerlendirildi`);
+    });
+
+    it("evaluates a perfect 9/9 Piotroski score when complete positive historical data is provided", () => {
+      const fullHealthy = calculateValuationFormulas({
+        symbol: "HEALTHY",
+        price: 100,
+        peRatio: 10,
+        pbRatio: 2,
+        eps: 10,
+        roa: 12,
+        priorRoa: 8,
+        operatingCashFlow: 5000000,
+        netIncome: 3000000,
+        longTermDebtToAssets: 0.2,
+        priorLongTermDebtToAssets: 0.35,
+        currentRatio: 2.2,
+        priorCurrentRatio: 1.8,
+        sharesOutstanding: 1000000,
+        priorSharesOutstanding: 1000000,
+        grossMargin: 28,
+        priorGrossMargin: 24,
+        assetTurnover: 0.9,
+      });
+
+      expect(fullHealthy.piotroskiEvaluatedCount).toBe(9);
+      expect(fullHealthy.piotroskiFScore).toBe(9);
+      expect(fullHealthy.piotroskiRank).toBe("Çok Güçlü / Elit");
+      expect(fullHealthy.piotroskiSummary).toBe("9/9 (Tam Değerlendirme)");
+    });
+
+    it("evaluates a 0/9 Piotroski score and flags 'Zayıf / Riskli' when all metrics fail", () => {
+      const distressed = calculateValuationFormulas({
+        symbol: "DISTRESSED",
+        price: 10,
+        eps: -5,
+        roa: -8,
+        priorRoa: -2,
+        operatingCashFlow: -1000000,
+        netIncome: -500000,
+        longTermDebtToAssets: 0.7,
+        priorLongTermDebtToAssets: 0.4,
+        currentRatio: 0.8,
+        priorCurrentRatio: 1.2,
+        sharesOutstanding: 2000000,
+        priorSharesOutstanding: 1000000,
+        grossMargin: 8,
+        priorGrossMargin: 15,
+        assetTurnover: 0.3,
+      });
+
+      expect(distressed.piotroskiEvaluatedCount).toBe(9);
+      expect(distressed.piotroskiFScore).toBe(0);
+      expect(distressed.piotroskiRank).toBe("Zayıf / Riskli");
+      expect(distressed.piotroskiSummary).toBe("0/9 (Tam Değerlendirme)");
     });
 
     it("gracefully handles zero/undefined values without throwing", () => {

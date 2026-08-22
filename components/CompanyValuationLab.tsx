@@ -12,6 +12,7 @@ import {
   Flame,
   CheckCircle2,
   XCircle,
+  MinusCircle,
   Wand2,
   Coins,
   ShieldAlert,
@@ -243,17 +244,19 @@ export default function CompanyValuationLab({
             </button>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-mono text-[var(--mist)]">Toplam Skor:</span>
+            <span className="text-xs font-mono text-[var(--mist)]">Skor:</span>
             <span
               className={`px-3 py-1 rounded-lg font-mono text-sm font-bold ${
-                valuation.piotroskiFScore >= 8
+                valuation.piotroskiRank === "Çok Güçlü / Elit"
                   ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                  : valuation.piotroskiFScore >= 5
+                  : valuation.piotroskiRank === "Sağlıklı"
                   ? "bg-amber-500/20 text-amber-400 border border-amber-500/40"
+                  : valuation.piotroskiRank === "Yetersiz Veri"
+                  ? "bg-[var(--ink-4)] text-[var(--mist)] border border-[var(--line)]"
                   : "bg-rose-500/20 text-rose-400 border border-rose-500/40"
               }`}
             >
-              {valuation.piotroskiFScore} / 9 ({valuation.piotroskiRank})
+              {valuation.piotroskiSummary} ({valuation.piotroskiRank})
             </span>
           </div>
         </div>
@@ -263,17 +266,40 @@ export default function CompanyValuationLab({
           {valuation.piotroskiDetails.map((item, idx) => (
             <div
               key={idx}
-              className="p-2.5 rounded-lg bg-[var(--ink-2)] border border-[var(--line)] flex items-center justify-between"
+              className={`p-2.5 rounded-lg bg-[var(--ink-2)] border flex items-center justify-between gap-2 ${
+                item.passed === null
+                  ? "border-[var(--line)]/50 opacity-60"
+                  : item.passed
+                  ? "border-emerald-500/30"
+                  : "border-rose-500/30"
+              }`}
             >
-              <span className="text-[var(--paper-dim)] text-[11px]">{item.criterion}</span>
-              {item.passed ? (
+              <span className="text-[var(--paper-dim)] text-[11px] truncate" title={item.criterion}>
+                {item.criterion}
+              </span>
+              {item.passed === true ? (
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              ) : (
+              ) : item.passed === false ? (
                 <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
+              ) : (
+                <span className="flex items-center gap-1 text-[10px] text-[var(--mist)] shrink-0">
+                  <MinusCircle className="w-3.5 h-3.5" />
+                  <span>Veri Yok</span>
+                </span>
               )}
             </div>
           ))}
         </div>
+
+        {valuation.piotroskiEvaluatedCount < 9 && (
+          <div className="p-2.5 bg-[var(--ink-2)]/60 border border-[var(--line)] rounded-lg text-[11px] font-mono text-[var(--mist)] flex items-center gap-2">
+            <span>ℹ️</span>
+            <span>
+              9 kriterden <strong>{valuation.piotroskiEvaluatedCount}</strong> tanesi değerlendirilebildi (
+              {9 - valuation.piotroskiEvaluatedCount} kriter için geçmiş bilanço/nakit akışı verisi eksik olduğundan skor dışı bırakıldı).
+            </span>
+          </div>
+        )}
       </div>
 
       {/* 3. MERTON İFLAS OLASILIĞI, HURST EXPONENT & MAGIC FORMULA */}

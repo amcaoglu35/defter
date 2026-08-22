@@ -43,6 +43,12 @@ export interface RiskMetrics {
   recoveryDays: number;
 }
 
+export interface PiotroskiCriterion {
+  criterion: string;
+  passed: boolean | null; // null = veri yok, değerlendirilemedi
+  score: number;
+}
+
 export interface ValuationMetrics {
   grahamNumber: number | null;
   grahamDiscountPct: number | null;
@@ -55,9 +61,11 @@ export interface ValuationMetrics {
   magicFormulaRank: "Elit Sınıf" | "Güçlü" | "Ortalama" | "Düşük";
   earningsYieldPct: number;
   roicPct: number;
-  piotroskiFScore: number; // 0-9 Piotroski Bilanço Skoru
-  piotroskiRank: "Çok Güçlü / Elit" | "Sağlıklı" | "Zayıf / Riskli";
-  piotroskiDetails: { criterion: string; passed: boolean; score: number }[];
+  piotroskiFScore: number; // 0-9 Piotroski Bilanço Skoru (geçen kriter sayısı)
+  piotroskiEvaluatedCount: number; // Değerlendirilen kriter sayısı (0-9)
+  piotroskiRank: "Çok Güçlü / Elit" | "Sağlıklı" | "Zayıf / Riskli" | "Yetersiz Veri";
+  piotroskiDetails: PiotroskiCriterion[];
+  piotroskiSummary: string; // örn. "3/4 (4/9 Kriter Değerlendirildi)"
   mertonDefaultProbabilityPct: number; // Merton Temerrüt & İflas Riski (%)
   hurstExponent: number; // Fraktal Hurst Üssü
   hurstTrendType: "Kuvvetli Trend (Momentum)" | "Ortalamaya Dönüş (Mean Reverting)" | "Rastgele Salınım";
@@ -571,6 +579,18 @@ export function calculateValuationFormulas(company: {
   currentAssets?: number;
   operatingIncome?: number;
   interestExpense?: number;
+  operatingCashFlow?: number;
+  netIncome?: number;
+  roa?: number;
+  priorRoa?: number;
+  currentRatio?: number;
+  priorCurrentRatio?: number;
+  grossMargin?: number;
+  priorGrossMargin?: number;
+  sharesOutstanding?: number;
+  priorSharesOutstanding?: number;
+  longTermDebtToAssets?: number;
+  priorLongTermDebtToAssets?: number;
 }): ValuationMetrics {
   const price = company.price || 100;
   const pe = company.peRatio || 10;
@@ -632,22 +652,72 @@ export function calculateValuationFormulas(company: {
   else if (magicFormulaScore >= 50) magicFormulaRank = "Güçlü";
   else if (magicFormulaScore < 30) magicFormulaRank = "Düşük";
 
-  // 6. Piotroski F-Score (9 Kriterli Bilanço Matrisi)
-  const piotroskiDetails = [
-    { criterion: "Pozitif Net Kâr (ROA > 0)", passed: eps > 0, score: 1 },
-    { criterion: "Pozitif Faaliyet Nakit Akışı (CFO > 0)", passed: true, score: 1 },
-    { criterion: "Aktif Kârlılık Artışı (ΔROA > 0)", passed: true, score: 1 },
-    { criterion: "Kaliteli Nakit Kârı (CFO > Net Kâr)", passed: true, score: 1 },
-    { criterion: "Uzun Vadeli Borç Oranı Düşüşü", passed: (company.financialLeverage || 2) < 2.5, score: 1 },
-    { criterion: "Cari Oran (Likidite) Güçlenmesi", passed: true, score: 1 },
-    { criterion: "Seyreltmeme (Yeni hisse basılmaması)", passed: true, score: 1 },
-    { criterion: "Brüt Kâr Marjı Artışı", passed: (company.netMargin || 10) > 8, score: 1 },
-    { criterion: "Varlık Devir Hızı Artışı", passed: (company.assetTurnover || 0.8) > 0.6, score: 1 },
+  // 6. Piotroski F-Score (9 Kriterli Bilanço Matrisi — Gerçek Veri Temelli & Sahte Kesinlik Önleyici)
+  const hasPositiveRoa = company.roa != null ? company.roa > 0 : (company.eps != null ? company.eps > 0 : (company.netMargin != null ? company.netMargin > 0 : (pe > 0 ? true : null)));
+  const hasPositiveCfo = company.operatingCashFlow != null ? company.operatingCashFlow > 0 : (company.freeCashFlow != null ? company.freeCashFlow > 0 : null);
+  const isRoaGrowing = (company.roa != null && company.priorRoa != null) ? company.roa > company.priorRoa : null;
+  
+  let isAccrualHealthy: boolean | null = null;
+  if (company.operatingCashFlow != null && company.netIncome != null) {
+    isAccrualHealthy = company.operatingCashFlow > company.netIncome;
+  } else if (company.freeCashFlow != null && company.eps != null && company.price && company.peRatio && company.marketCap) {
+    isAccrualHealthy = company.freeCashFlow > (company.eps * (company.marketCap / company.price));
+  }
+
+  const isLeverageDecreasing = (company.longTermDebtToAssets != null && company.priorLongTermDebtToAssets != null)
+    ? company.longTermDebtToAssets < company.priorLongTermDebtToAssets
+    : (company.financialLeverage != null ? company.financialLeverage < 2.5 : null);
+
+  const isCurrentRatioImproving = (company.currentRatio != null && company.priorCurrentRatio != null)
+    ? company.currentRatio > company.priorCurrentRatio
+    : null;
+
+  const isNotDiluted = (company.sharesOutstanding != null && company.priorSharesOutstanding != null)
+    ? company.sharesOutstanding <= company.priorSharesOutstanding
+    : null;
+
+  const isGrossMarginImproving = (company.grossMargin != null && company.priorGrossMargin != null)
+    ? company.grossMargin > company.priorGrossMargin
+    : (company.netMargin != null ? company.netMargin > 8 : null);
+
+  const isAssetTurnoverImproving = company.assetTurnover != null ? company.assetTurnover > 0.6 : null;
+
+  const piotroskiDetails: PiotroskiCriterion[] = [
+    { criterion: "Pozitif Net Kâr (ROA > 0)", passed: hasPositiveRoa, score: 1 },
+    { criterion: "Pozitif Faaliyet Nakit Akışı (CFO > 0)", passed: hasPositiveCfo, score: 1 },
+    { criterion: "Aktif Kârlılık Artışı (ΔROA > 0)", passed: isRoaGrowing, score: 1 },
+    { criterion: "Kaliteli Nakit Kârı (CFO > Net Kâr)", passed: isAccrualHealthy, score: 1 },
+    { criterion: "Uzun Vadeli Borç Oranı Düşüşü", passed: isLeverageDecreasing, score: 1 },
+    { criterion: "Cari Oran (Likidite) Güçlenmesi", passed: isCurrentRatioImproving, score: 1 },
+    { criterion: "Seyreltmeme (Yeni Hisse İhracı Yapılmaması)", passed: isNotDiluted, score: 1 },
+    { criterion: "Brüt Kâr Marjı Artışı", passed: isGrossMarginImproving, score: 1 },
+    { criterion: "Varlık Devir Hızı Artışı", passed: isAssetTurnoverImproving, score: 1 },
   ];
-  const piotroskiFScore = piotroskiDetails.filter((d) => d.passed).length;
-  let piotroskiRank: "Çok Güçlü / Elit" | "Sağlıklı" | "Zayıf / Riskli" = "Sağlıklı";
-  if (piotroskiFScore >= 8) piotroskiRank = "Çok Güçlü / Elit";
-  else if (piotroskiFScore <= 4) piotroskiRank = "Zayıf / Riskli";
+
+  const evaluatedCriteria = piotroskiDetails.filter((d) => d.passed !== null);
+  const piotroskiFScore = evaluatedCriteria.filter((d) => d.passed === true).length;
+  const piotroskiEvaluatedCount = evaluatedCriteria.length;
+
+  let piotroskiRank: "Çok Güçlü / Elit" | "Sağlıklı" | "Zayıf / Riskli" | "Yetersiz Veri" = "Sağlıklı";
+  if (piotroskiEvaluatedCount === 0) {
+    piotroskiRank = "Yetersiz Veri";
+  } else if (piotroskiEvaluatedCount >= 7) {
+    if (piotroskiFScore >= 8) piotroskiRank = "Çok Güçlü / Elit";
+    else if (piotroskiFScore <= 4) piotroskiRank = "Zayıf / Riskli";
+    else piotroskiRank = "Sağlıklı";
+  } else {
+    const successRatio = piotroskiFScore / piotroskiEvaluatedCount;
+    if (successRatio >= 0.75) piotroskiRank = "Çok Güçlü / Elit";
+    else if (successRatio <= 0.35) piotroskiRank = "Zayıf / Riskli";
+    else piotroskiRank = "Sağlıklı";
+  }
+
+  const piotroskiSummary =
+    piotroskiEvaluatedCount === 9
+      ? `${piotroskiFScore}/9 (Tam Değerlendirme)`
+      : piotroskiEvaluatedCount > 0
+      ? `${piotroskiFScore}/${piotroskiEvaluatedCount} (${piotroskiEvaluatedCount}/9 Kriter Değerlendirildi)`
+      : "Veri Yetersiz";
 
   // 7. Merton İflas & Temerrüt Riski (%)
   const mertonDefaultProbabilityPct = parseFloat((Math.max(0.1, Math.min(18.5, ((company.financialLeverage || 2.0) * 1.8) - (eps > 0 ? 1.5 : 0)))).toFixed(2));
@@ -728,8 +798,10 @@ export function calculateValuationFormulas(company: {
     earningsYieldPct,
     roicPct,
     piotroskiFScore,
+    piotroskiEvaluatedCount,
     piotroskiRank,
     piotroskiDetails,
+    piotroskiSummary,
     mertonDefaultProbabilityPct,
     hurstExponent,
     hurstTrendType,

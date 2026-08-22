@@ -221,6 +221,8 @@ export interface CompanyDiagnosisReport {
   targetPrice12M?: number;
   upsidePotential?: string;
   piotroskiScore?: number; // 0-9
+  piotroskiEvaluatedCount?: number; // 0-9
+  piotroskiSummary?: string;
   altmanZScore?: string;
   dupontRoe?: string;
   peVsSector?: string;
@@ -288,7 +290,8 @@ export async function generateCompanyAnalysis(
     calculatedFairValue && price > 0
       ? `${calculatedFairValue >= price ? "+" : ""}${(((calculatedFairValue - price) / price) * 100).toFixed(1)}%`
       : undefined;
-  const calculatedValuationScore = `${Math.min(10, Math.max(1, ((mathVal.piotroskiFScore / 9) * 5 + (mathVal.magicFormulaScore / 100) * 5))).toFixed(1)} / 10`;
+  const normalizedPiotroski = mathVal.piotroskiEvaluatedCount > 0 ? (mathVal.piotroskiFScore / mathVal.piotroskiEvaluatedCount) : 0.5;
+  const calculatedValuationScore = `${Math.min(10, Math.max(1, (normalizedPiotroski * 5 + (mathVal.magicFormulaScore / 100) * 5))).toFixed(1)} / 10`;
   const calculatedAltmanZStr = mathVal.altmanZScore ? `${mathVal.altmanZScore} (${mathVal.altmanZone})` : undefined;
   const calculatedDupontRoeStr = `%${mathVal.dupontRoePct} (Net Marj %${mathVal.dupontNetMarginPct} x Devir ${mathVal.dupontAssetTurnover}x x Kaldıraç ${mathVal.dupontLeverageMultiplier}x)`;
 
@@ -330,9 +333,9 @@ export async function generateCompanyAnalysis(
   const isFinancialSector = (company.sector || "").toLowerCase().includes("banka") || (company.sector || "").toLowerCase().includes("finans") || (company.sector || "").toLowerCase().includes("holding");
   const isExportSector = (company.sector || "").toLowerCase().includes("sanayi") || (company.sector || "").toLowerCase().includes("otomotiv") || (company.sector || "").toLowerCase().includes("havacılık");
 
-  const why = `${company.name} (${symbol}), son dönemde ${company.sector || "Genel"} sektöründeki operasyonel dinamikleri ve maliyet yönetimiyle dengeli bir seyir izlemektedir. Şirketin Stanford Piotroski F-Score değeri ${mathVal.piotroskiFScore}/9 olarak hesaplanmış olup temel bilanço sağlamlığı teyit edilmektedir.`;
+  const why = `${company.name} (${symbol}), son dönemde ${company.sector || "Genel"} sektöründeki operasyonel dinamikleri ve maliyet yönetimiyle dengeli bir seyir izlemektedir. Şirketin Stanford Piotroski F-Score değeri ${mathVal.piotroskiSummary} olarak hesaplanmış olup (${mathVal.piotroskiRank}) temel bilanço görünümünü yansıtmaktadır.`;
   const prosList = [
-    `Stanford Piotroski F-Score: ${mathVal.piotroskiFScore}/9 ile güçlü bilanço disiplini.`,
+    `Stanford Piotroski Bilanço Sağlığı: ${mathVal.piotroskiSummary} (${mathVal.piotroskiRank}).`,
     `DuPont 3 Kademeli Özkaynak Kârlılığı: %${mathVal.dupontRoePct}`,
     `İflas & Temerrüt Riski: %${mathVal.mertonDefaultProbabilityPct} (Düşük Risk)`,
     mathVal.dcfFairValue ? `DCF İndirgenmiş Nakit Akımı Adil Değeri: ${mathVal.dcfFairValue} ₺` : `Mevcut piyasa fiyatı: ${price} ₺`,
@@ -344,9 +347,10 @@ export async function generateCompanyAnalysis(
   ];
 
   let verdict: CompanyDiagnosisReport["verdict"] = "TUT";
-  if (mathVal.piotroskiFScore >= 8 && (!pe || pe < 10)) {
+  const piotroskiRatio = mathVal.piotroskiEvaluatedCount > 0 ? mathVal.piotroskiFScore / mathVal.piotroskiEvaluatedCount : 0.5;
+  if (piotroskiRatio >= 0.8 && mathVal.piotroskiEvaluatedCount >= 3 && (!pe || pe < 10)) {
     verdict = "GÜÇLÜ AL";
-  } else if (mathVal.piotroskiFScore >= 6 && (!pe || pe < 16)) {
+  } else if (piotroskiRatio >= 0.6 && mathVal.piotroskiEvaluatedCount >= 2 && (!pe || pe < 16)) {
     verdict = "AL";
   } else if (pe && pe > 25) {
     verdict = "SAT";
@@ -394,7 +398,7 @@ F/K: ${pe !== undefined ? pe : "Kapsam Dışı / Tanımsız"} | PD/DD: ${pb !== 
 - Benjamin Graham Sayısı: ${mathVal.grahamNumber ? mathVal.grahamNumber + " ₺ (%" + mathVal.grahamDiscountPct + " İskontolu)" : "—"}
 - DCF Adil Değeri: ${mathVal.dcfFairValue ? mathVal.dcfFairValue + " ₺ (%" + mathVal.dcfDiscountPct + " Potansiyel)" : "—"}
 - Peter Lynch PEG Oranı: ${mathVal.pegRatio ?? "—"} (${mathVal.pegStatus})
-- Piotroski F-Score (Stanford 9 Kriterli Bilanço Sağlığı): ${mathVal.piotroskiFScore}/9 (${mathVal.piotroskiRank})
+- Piotroski F-Score (Stanford Bilanço Sağlığı): ${mathVal.piotroskiSummary} (${mathVal.piotroskiRank})
 - Merton İflas & Temerrüt Riski: %${mathVal.mertonDefaultProbabilityPct}
 - Hurst Fraktal Trend Analizi: ${mathVal.hurstTrendType} (H: ${mathVal.hurstExponent})
 - Magic Formula Puanı: ${mathVal.magicFormulaScore} (${mathVal.magicFormulaRank})
@@ -410,7 +414,7 @@ Boğa vs Ayı analizi (bullCase, bearCase), Makro Senaryo Stres Testi (stressTes
   "confidence": "%90",
   "evidenceChain": [
     "① F/K (${pe ?? '—'}) sektör ortalaması kıyaslaması",
-    "② Piotroski Skoru ${mathVal.piotroskiFScore}/9 → Bilanço sağlık testi",
+    "② Piotroski Skoru ${mathVal.piotroskiSummary} → Bilanço sağlık testi",
     "③ Merton Temerrüt Olasılığı %${mathVal.mertonDefaultProbabilityPct} → İflas kalkanı",
     "④ DuPont ROE %${mathVal.dupontRoePct} → Kârlılık ayrıştırması",
     "⑤ Sonuç Kararı: GÜÇLÜ AL"
@@ -457,6 +461,8 @@ Boğa vs Ayı analizi (bullCase, bearCase), Makro Senaryo Stres Testi (stressTes
                 targetPrice12M: calculatedTargetPrice,
                 upsidePotential: calculatedUpsidePotential,
                 piotroskiScore: mathVal.piotroskiFScore,
+                piotroskiEvaluatedCount: mathVal.piotroskiEvaluatedCount,
+                piotroskiSummary: mathVal.piotroskiSummary,
                 altmanZScore: calculatedAltmanZStr,
                 dupontRoe: calculatedDupontRoeStr,
                 peVsSector: aiData.peVsSector || pDisc,
@@ -468,7 +474,7 @@ Boğa vs Ayı analizi (bullCase, bearCase), Makro Senaryo Stres Testi (stressTes
                 pastFeedbackSummary: calculatedPastFeedbackSummary,
                 evidenceChain: aiData.evidenceChain?.length ? aiData.evidenceChain : [
                   `① Benjamin Graham Değerleme Modeli: ${calculatedFairValue ? `${calculatedFairValue} ₺` : "Kapsam Dışı"}`,
-                  `② Stanford Piotroski Bilanço Sağlığı: ${mathVal.piotroskiFScore}/9`,
+                  `② Stanford Piotroski Bilanço Sağlığı: ${mathVal.piotroskiSummary}`,
                   `③ Altman Z-Score Temerrüt Güvenliği: ${calculatedAltmanZStr || "Hesaplanamadı"}`,
                   `④ DuPont ROE Çözümlemesi: ${calculatedDupontRoeStr}`,
                 ],
@@ -497,6 +503,8 @@ Boğa vs Ayı analizi (bullCase, bearCase), Makro Senaryo Stres Testi (stressTes
     targetPrice12M: calculatedTargetPrice,
     upsidePotential: calculatedUpsidePotential,
     piotroskiScore: mathVal.piotroskiFScore,
+    piotroskiEvaluatedCount: mathVal.piotroskiEvaluatedCount,
+    piotroskiSummary: mathVal.piotroskiSummary,
     altmanZScore: calculatedAltmanZStr,
     dupontRoe: calculatedDupontRoeStr,
     peVsSector: pDisc,
@@ -508,7 +516,7 @@ Boğa vs Ayı analizi (bullCase, bearCase), Makro Senaryo Stres Testi (stressTes
     pastFeedbackSummary: calculatedPastFeedbackSummary,
     evidenceChain: [
       `① Benjamin Graham Değerleme Modeli: ${calculatedFairValue ? `${calculatedFairValue} ₺` : "Kapsam Dışı"}`,
-      `② Stanford Piotroski Bilanço Sağlığı: ${mathVal.piotroskiFScore}/9`,
+      `② Stanford Piotroski Bilanço Sağlığı: ${mathVal.piotroskiSummary}`,
       `③ Altman Z-Score Temerrüt Güvenliği: ${calculatedAltmanZStr || "Hesaplanamadı"}`,
       `④ DuPont ROE Çözümlemesi: ${calculatedDupontRoeStr}`,
     ],
