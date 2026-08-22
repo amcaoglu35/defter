@@ -3450,7 +3450,12 @@ async function fetchAndEnrichCompanyWithDeepData(co: Company): Promise<Record<st
       {/* TAB: AI Model Sepetler (Ai Model Portfolios & Self Learning) */}
       {activeTab === "model_baskets" && (
         <section className="animate-in fade-in duration-300">
-          <AiModelPortfolios />
+          <AiModelPortfolios
+            onSelectSymbol={(symbol) => {
+              setSelectedCoSymbol(symbol);
+              setActiveTab("company");
+            }}
+          />
         </section>
       )}
 

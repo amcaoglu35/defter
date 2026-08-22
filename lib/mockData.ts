@@ -220,6 +220,9 @@ export interface AiModelBasket {
     priceAtCreation: number;
     priceNow?: number;
     returnPct?: number;
+    peRatio?: number;
+    dividendYield?: number;
+    piotroskiFScore?: number;
   }>;
   totalReturnPct?: number; // hesaplanan ortalama ağırlıklı getiri
   benchmarkReturnPct?: number; // aynı dönemde BIST-100'ün getirisi

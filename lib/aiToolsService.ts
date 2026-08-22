@@ -29,29 +29,48 @@ export async function generateAiModelBaskets(options?: GenerateBasketsOptions): 
 
   const themes = [
     {
-      theme: "🤖 AI Değer Avcısı (Düşük F/K & Güçlü Bilanço)",
-      criteria: "Düşük F/K çarpanı ve nakit akışı güçlü şirketler",
-      filter: (c: Company) => (c.peRatio || 15) < 10 && (c.price || 0) > 0,
+      theme: "💎 AI Derin Değer & Graham Kelepiri",
+      criteria: "Düşük F/K çarpanı, PD/DD < 2.0 ve Stanford Piotroski bilanço sağlamlığı",
+      filter: (c: Company) =>
+        ((c.peRatio && c.peRatio > 0 && c.peRatio < 9.0) || (c.pbRatio && c.pbRatio > 0 && c.pbRatio < 2.2)) &&
+        (c.price || 0) > 0,
+    },
+    {
+      theme: "💰 AI Temettü Aristokratları & Bileşik Getiri",
+      criteria: "Yüksek nakit akışı ve istikrarlı kâr payı dağıtan devler",
+      filter: (c: Company) => (c.dividendYield || 0) >= 3.2 && (c.price || 0) > 0,
     },
     {
       theme: "🚀 AI Büyüme & İhracat Liderleri",
-      criteria: "İhracat gücü ve sanayi üretimi yüksek dinamik hisseler",
-      filter: (c: Company) => ["Sanayi & Üretim", "Otomotiv", "Havacılık", "Teknoloji"].includes(c.sector),
+      criteria: "Döviz bazlı ihracat geliri yüksek sanayi ve havacılık lokomotifleri",
+      filter: (c: Company) =>
+        ["Sanayi & Üretim", "Otomotiv", "Havacılık", "Kimya & Petrol", "Demir Çelik"].includes(c.sector) &&
+        (c.price || 0) > 0,
     },
     {
-      theme: "🛡️ AI Temettü Kalesi & Nakit Akışı",
-      criteria: "Yüksek ve istikrarlı temettü verimi sunan defansif varlıklar",
-      filter: (c: Company) => (c.dividendYield || 0) > 3.0,
+      theme: "⚡ AI Teknoloji & Savunma Öncüleri (XTEK)",
+      criteria: "Yazılım, askeri elektronik ve yüksek Ar-Ge kapasiteli şirketler",
+      filter: (c: Company) =>
+        (c.sector?.toLowerCase().includes("teknoloji") ||
+          c.sector?.toLowerCase().includes("bilişim") ||
+          c.sector?.toLowerCase().includes("savunma") ||
+          c.sector?.toLowerCase().includes("yazılım") ||
+          ["ASELS", "SDTTR", "KFEIN", "VBTYZ", "LOGO", "MIATK", "PAPIL", "REEDR", "KONTSE", "FONET", "NETAS", "INDES", "ARDYZ"].includes(c.symbol.toUpperCase())) &&
+        (c.price || 0) > 0,
     },
     {
-      theme: "🏰 AI Enflasyon Kalkanı & Kur Koruması",
-      criteria: "Fiyatlama gücü yüksek BIST 30 devleri ve kıymetli maden dengesi",
-      filter: (c: Company) => c.exchange === "Emtia" || ["Holding", "Havacılık", "Perakende"].includes(c.sector),
+      theme: "🏰 AI Defansif Kale & Altın Tamponlu",
+      criteria: "Kıymetli maden tamponu ve fiyatlama gücü yüksek BIST 30 holding/perakende devleri",
+      filter: (c: Company) =>
+        (c.exchange === "Emtia" || c.assetClass === "maden" || ["Holding", "Perakende", "Gıda & İçecek"].includes(c.sector)) &&
+        (c.price || 0) > 0,
     },
     {
-      theme: "⚡ AI Momentum & Trend Liderleri",
-      criteria: "Hacim artışı yaşayan ve teknik gücü yüksek hisseler",
-      filter: (c: Company) => (c.volumeRatio || 1) > 1.2 || (c.dailyChange || 0) > 1.0,
+      theme: "🔥 AI Momentum & Hacim Kırılımı",
+      criteria: "Göreceli hacim artışı yaşayan ve teknik momentumu güçlü liderler",
+      filter: (c: Company) =>
+        ((c.volumeRatio || 1) > 1.25 || Math.abs(c.dailyChange || 0) > 1.5 || (c.athDiscountPct || 0) < 12) &&
+        (c.price || 0) > 0,
     },
   ];
 
@@ -63,12 +82,53 @@ export async function generateAiModelBaskets(options?: GenerateBasketsOptions): 
     const shuffled = [...poolToUse].sort(() => 0.5 - Math.random());
     const selected = shuffled.slice(0, 4);
 
-    let summary = `${item.theme} stratejisi, mevcut piyasa çarpanlarına göre optimize edilmiş 4 şirketten oluşmaktadır.`;
+    // Her seçilen hissenin Stanford Piotroski ve Değerleme Metriklerini Hesapla
+    const evaluatedHoldings = selected.map((c) => {
+      const mathVal = calculateValuationFormulas({
+        symbol: c.symbol,
+        sector: c.sector,
+        price: c.price || 0,
+        peRatio: c.peRatio,
+        pbRatio: c.pbRatio,
+        dividendYield: c.dividendYield,
+        eps: c.eps,
+        revenueGrowth: c.revenueGrowth,
+        freeCashFlow: c.freeCashFlow,
+        marketCap: c.marketCap,
+      });
+
+      return {
+        company: c,
+        piotroskiScore: mathVal.piotroskiFScore,
+        magicScore: mathVal.magicFormulaScore,
+        dcfFairValue: mathVal.dcfFairValue,
+      };
+    });
+
+    // Piotroski Skoru & Finansal Güce Göre Dinamik Quant Ağırlıklandırma
+    const scoreSum = evaluatedHoldings.reduce((sum, h) => sum + Math.max(h.piotroskiScore, 3), 0);
+    let assignedWeights: number[] = evaluatedHoldings.map((h) =>
+      Math.round((Math.max(h.piotroskiScore, 3) / scoreSum) * 100)
+    );
+
+    // Ağırlıkların toplamının kesinlikle 100 olmasını garantile
+    const currentSum = assignedWeights.reduce((a, b) => a + b, 0);
+    const diff = 100 - currentSum;
+    if (assignedWeights.length > 0) {
+      assignedWeights[0] += diff;
+    }
+
+    let summary = `${item.theme} stratejisi; ${selected.map((c) => c.symbol).join(", ")} şirketlerinden oluşmakta olup Stanford Piotroski ve MPT modelleriyle optimize edilmiştir.`;
 
     if (ai) {
       try {
-        const prompt = `Sen portföy yöneticisi yapay zekasın. "${item.theme}" başlığı altında seçilen hisseler: ${selected.map((c) => `${c.name} (${c.symbol})`).join(", ")}.
-Bu sepet için yatırımcılara 1-2 cümlelik profesyonel stratejik gerekçe (summary) yaz. Türkçe olsun.`;
+        const prompt = `Sen kıdemli bir portföy yöneticisi yapay zekasın.
+"${item.theme}" stratejisi için seçilen şirketler:
+${evaluatedHoldings.map((h) => `- ${h.company.name} (${h.company.symbol}): Piotroski ${h.piotroskiScore}/9, F/K ${h.company.peRatio ? `${h.company.peRatio.toFixed(1)}x` : "—"}, Temettü %${(h.company.dividendYield || 0).toFixed(1)}`).join("\n")}
+
+GÖREVİN:
+Bu model sepet için yatırımcılara yönelik 1-2 cümlelik profesyonel bir kurumsal strateji özeti (summary) yaz.`;
+
         const resp = await ai.models.generateContent({
           model,
           contents: prompt,
@@ -81,16 +141,18 @@ Bu sepet için yatırımcılara 1-2 cümlelik profesyonel stratejik gerekçe (su
       }
     }
 
-    const equalWeight = Math.round(100 / selected.length);
-    const allocation = selected.map((c, idx) => {
-      const weight = idx === 0 ? 100 - equalWeight * (selected.length - 1) : equalWeight;
+    const allocation = evaluatedHoldings.map((h, idx) => {
+      const c = h.company;
       return {
         symbol: c.symbol,
         name: c.name,
-        weight,
+        weight: assignedWeights[idx] || 25,
         priceAtCreation: c.price || 100,
         priceNow: c.price || 100,
         returnPct: 0,
+        peRatio: c.peRatio,
+        dividendYield: c.dividendYield,
+        piotroskiFScore: h.piotroskiScore,
       };
     });
 
@@ -104,8 +166,8 @@ Bu sepet için yatırımcılara 1-2 cümlelik profesyonel stratejik gerekçe (su
       benchmarkReturnPct: 0,
       alpha: 0,
       status: "active",
-      provider: ai ? "Google Gemini" : "Otonom Algoritma",
-      model: ai ? model : "Defter Portfolio Engine",
+      provider: ai ? "Google Gemini" : "Otonom Quant Motoru",
+      model: ai ? model : "Defter MPT & Piotroski Engine",
       summary,
     };
 
