@@ -6,8 +6,6 @@ import {
   CheckCircle2,
   Loader2,
   Calculator,
-  ShieldCheck,
-  Dices,
   Sparkles,
   Search,
 } from "lucide-react";
@@ -16,55 +14,52 @@ interface OrakulLiveAnalysisRadarProps {
   symbol?: string;
   onComplete?: () => void;
   minDurationMs?: number;
+  currentStep?: number;
 }
 
 const ANALYSIS_STEPS = [
   {
     icon: Search,
-    title: "Piyasa Çarpanları & Bilanço Göstergeleri Taranıyor",
-    desc: "F/K, PD/DD, temettü akışı ve sektör ortalamaları doğrulanıyor...",
+    title: "Aşama 1: Finansal Veri & Bilanço Doğrulaması",
+    desc: "Fiyat çarpanları, kârlılık metrikleri ve sektör ortalamaları derleniyor...",
   },
   {
     icon: Calculator,
-    title: "Graham, Sektörel DCF & Gordon Değerlemesi Hesaplanıyor",
-    desc: "İçsel adil değer ve güvenlik marjı (Margin of Safety) indirgeniyor...",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Piotroski Bilanço Testi & Kaldıraç Riski Değerlendiriliyor",
-    desc: "Bilanço sağlığı, nakit üretimi kalitesi ve borçluluk analiz ediliyor...",
-  },
-  {
-    icon: Dices,
-    title: "Monte Carlo Simülasyonu & Makro Hassasiyet Testi Koşuluyor",
-    desc: "Kriz tabanı (%5), medyan beklenti (%50) ve boğa tavanı (%95) simüle ediliyor...",
+    title: "Aşama 2: Deterministik Değerleme & Risk Modelleri",
+    desc: "Graham içsel değeri, sektörel DCF, Gordon DDM ve Piotroski sağlık testi hesaplanıyor...",
   },
   {
     icon: Sparkles,
-    title: "Orakul AI Sentez & Karar Raporu Derleniyor",
-    desc: "Boğa vs Ayı ikili tezi, stres testi ve kanıt zinciri oluşturuluyor...",
+    title: "Aşama 3: Orakul AI Sentez & Karar Raporu",
+    desc: "Boğa vs Ayı ikili tezi, makro stres senaryoları ve kanıt zinciri oluşturuluyor...",
   },
 ];
 
 export default function OrakulLiveAnalysisRadar({
   symbol = "VARLIK",
-  minDurationMs = 3200,
+  minDurationMs = 2600,
+  currentStep: controlledStep,
+  onComplete,
 }: OrakulLiveAnalysisRadarProps) {
-  const [currentStep, setCurrentStep] = useState<number>(0);
+  const [internalStep, setInternalStep] = useState<number>(0);
+  const activeStep = controlledStep !== undefined ? controlledStep : internalStep;
 
   useEffect(() => {
+    if (controlledStep !== undefined) return;
+
     const stepDuration = minDurationMs / ANALYSIS_STEPS.length;
     const interval = setInterval(() => {
-      setCurrentStep((prev) => {
+      setInternalStep((prev) => {
         if (prev < ANALYSIS_STEPS.length - 1) {
           return prev + 1;
         }
+        if (onComplete) onComplete();
         return prev;
       });
     }, stepDuration);
 
     return () => clearInterval(interval);
-  }, [minDurationMs]);
+  }, [minDurationMs, controlledStep, onComplete]);
 
   return (
     <div className="p-6 bg-[var(--ink-2)] border border-[var(--brass-dim)] rounded-2xl shadow-2xl space-y-6 animate-in fade-in zoom-in-95 duration-200">
@@ -82,29 +77,29 @@ export default function OrakulLiveAnalysisRadar({
           </div>
           <div>
             <h4 className="font-serif font-bold text-base text-[var(--paper)] flex items-center gap-2">
-              <span>Orakul Kantitatif Analiz & Değerleme Motoru</span>
+              <span>Orakul Analiz &amp; Değerleme Süreci</span>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
-                KANTİTATİF MOTOR AKTİF
+                3 AŞAMALI RAPORLAMA
               </span>
             </h4>
             <p className="text-xs font-mono text-[var(--mist)]">
-              {symbol.toUpperCase()} için temel değerleme ve risk modelleri çalıştırılıyor...
+              {symbol.toUpperCase()} için temel değerleme modelleri ve yapay zeka sentezleniyor...
             </p>
           </div>
         </div>
 
         <div className="hidden sm:flex items-center gap-2 font-mono text-xs text-[var(--brass)] bg-[var(--ink-3)] px-3 py-1.5 rounded-lg border border-[var(--line)]">
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          <span>İşlem Adımı: {currentStep + 1} / {ANALYSIS_STEPS.length}</span>
+          <span>Aşama: {Math.min(activeStep + 1, ANALYSIS_STEPS.length)} / {ANALYSIS_STEPS.length}</span>
         </div>
       </div>
 
-      {/* 5 Canlı Düşünme & Tarama Adımı */}
+      {/* 3 Canlı Aşama */}
       <div className="space-y-3 font-mono">
         {ANALYSIS_STEPS.map((step, idx) => {
-          const isDone = idx < currentStep;
-          const isCurrent = idx === currentStep;
-          const isPending = idx > currentStep;
+          const isDone = idx < activeStep;
+          const isCurrent = idx === activeStep;
+          const isPending = idx > activeStep;
           const Icon = step.icon;
 
           return (
@@ -158,11 +153,11 @@ export default function OrakulLiveAnalysisRadar({
                 {isCurrent && (
                   <span className="flex items-center gap-1.5 text-[var(--brass)] text-xs font-bold">
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span className="hidden sm:inline">Hesaplanıyor...</span>
+                    <span className="hidden sm:inline">İşleniyor...</span>
                   </span>
                 )}
                 {isPending && (
-                  <span className="text-[var(--mist)] text-xs opacity-50">Sırada</span>
+                  <span className="text-[var(--mist)] text-xs opacity-50">Hazırlanıyor</span>
                 )}
               </div>
             </div>
@@ -176,7 +171,7 @@ export default function OrakulLiveAnalysisRadar({
           <div
             className="bg-gradient-to-r from-[var(--brass)] to-emerald-400 h-full transition-all duration-500 rounded-full"
             style={{
-              width: `${((currentStep + 1) / ANALYSIS_STEPS.length) * 100}%`,
+              width: `${((activeStep + 1) / ANALYSIS_STEPS.length) * 100}%`,
             }}
           />
         </div>
