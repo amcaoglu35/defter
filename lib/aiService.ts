@@ -131,7 +131,9 @@ export interface CompanyAnalysisRequest {
   exchange?: string;
   indexTag?: string;
   dividendYield?: number;
-  marketCap?: string;
+  marketCap?: string | number;
+  revenueGrowth?: number;
+  freeCashFlow?: number;
   returnOnEquity?: number;
   athDiscountPct?: number;
   assetClass?: "hisse" | "maden" | "fon" | "doviz" | string;
@@ -278,10 +280,14 @@ export async function generateCompanyAnalysis(
   // 1. Hesaplanan Matematiksel Quant & Değerleme Çıktıları (Deterministik)
   const mathVal = calculateValuationFormulas({
     symbol: symbol,
+    sector: company.sector,
     price: price,
     peRatio: pe,
     pbRatio: pb,
     dividendYield: divYield,
+    revenueGrowth: company.revenueGrowth,
+    freeCashFlow: company.freeCashFlow,
+    marketCap: company.marketCap,
   });
 
   const calculatedFairValue = mathVal.dcfFairValue || mathVal.grahamNumber || undefined;
@@ -396,7 +402,8 @@ F/K: ${pe !== undefined ? pe : "Kapsam Dışı / Tanımsız"} | PD/DD: ${pb !== 
 
 📐 MATEMATİKSEL VALUATION & QUANT MOTORU BULGULARI:
 - Benjamin Graham Sayısı: ${mathVal.grahamNumber ? mathVal.grahamNumber + " ₺ (%" + mathVal.grahamDiscountPct + " İskontolu)" : "—"}
-- DCF Adil Değeri: ${mathVal.dcfFairValue ? mathVal.dcfFairValue + " ₺ (%" + mathVal.dcfDiscountPct + " Potansiyel)" : "—"}
+- DCF Adil Değeri: ${mathVal.dcfFairValue ? mathVal.dcfFairValue + " ₺ (%" + mathVal.dcfDiscountPct + " Potansiyel)" : "Kapsam Dışı / Serbest Nakit Akışı Yok"}
+- Gordon DDM Temettü Değeri: ${mathVal.gordanDdmValue ? mathVal.gordanDdmValue + " ₺" : "Kapsam Dışı / Düzenli Temettü Yok"}
 - Peter Lynch PEG Oranı: ${mathVal.pegRatio ?? "—"} (${mathVal.pegStatus})
 - Piotroski F-Score (Stanford Bilanço Sağlığı): ${mathVal.piotroskiSummary} (${mathVal.piotroskiRank})
 - Merton İflas & Temerrüt Riski: %${mathVal.mertonDefaultProbabilityPct}

@@ -561,8 +561,53 @@ export function generateEfficientFrontier(
 // 6. ŞİRKET DEĞERLEME & FİNANS MODELLERİ (GRAHAM, DCF, PIOTROSKI, MERTON, HURST)
 // -------------------------------------------------------------
 
+export const SECTOR_WACC_MAP: Record<string, number> = {
+  "banka": 0.24,
+  "finans": 0.24,
+  "sigorta": 0.24,
+  "faktoring": 0.25,
+  "holding": 0.26,
+  "yatırım": 0.26,
+  "perakende": 0.27,
+  "gıda": 0.27,
+  "içecek": 0.27,
+  "telekom": 0.27,
+  "iletişim": 0.27,
+  "sanayi": 0.28,
+  "imalat": 0.28,
+  "otomotiv": 0.28,
+  "havacılık": 0.28,
+  "ulaştırma": 0.28,
+  "demir": 0.28,
+  "çelik": 0.28,
+  "cam": 0.28,
+  "sağlık": 0.28,
+  "ilaç": 0.28,
+  "gyo": 0.28,
+  "gayrimenkul": 0.28,
+  "enerji": 0.29,
+  "petrol": 0.29,
+  "maden": 0.29,
+  "çimento": 0.29,
+  "savunma": 0.29,
+  "teknoloji": 0.30,
+  "bilişim": 0.30,
+  "yazılım": 0.30,
+};
+
+export function getWaccForSector(sector?: string): number {
+  const normalized = (sector || "").toLowerCase().trim();
+  for (const key of Object.keys(SECTOR_WACC_MAP)) {
+    if (normalized.includes(key)) {
+      return SECTOR_WACC_MAP[key];
+    }
+  }
+  return 0.28; // Sektör bulunamazsa BIST medyan WACC varsayımı (%28)
+}
+
 export function calculateValuationFormulas(company: {
   symbol: string;
+  sector?: string;
   price?: number;
   peRatio?: number;
   pbRatio?: number;
@@ -574,7 +619,7 @@ export function calculateValuationFormulas(company: {
   assetTurnover?: number;
   financialLeverage?: number;
   freeCashFlow?: number;
-  marketCap?: number;
+  marketCap?: number | string;
   totalDebt?: number;
   currentAssets?: number;
   operatingIncome?: number;
@@ -598,6 +643,23 @@ export function calculateValuationFormulas(company: {
   const eps = company.eps || (pe > 0 ? price / pe : 10);
   const bvps = company.bookValuePerShare || (pb > 0 ? price / pb : 50);
 
+  let numericMarketCap: number | undefined = undefined;
+  if (typeof company.marketCap === "number") {
+    numericMarketCap = company.marketCap;
+  } else if (typeof company.marketCap === "string") {
+    const raw = company.marketCap.replace(/[^0-9.,]/g, "").replace(",", ".");
+    const parsed = parseFloat(raw);
+    if (!isNaN(parsed)) {
+      if (company.marketCap.toLowerCase().includes("milyar") || company.marketCap.includes("B") || company.marketCap.includes("b")) {
+        numericMarketCap = parsed * 1_000_000_000;
+      } else if (company.marketCap.toLowerCase().includes("milyon") || company.marketCap.includes("M") || company.marketCap.includes("m")) {
+        numericMarketCap = parsed * 1_000_000;
+      } else {
+        numericMarketCap = parsed;
+      }
+    }
+  }
+
   // 1. Graham Sayısı
   let grahamNumber: number | null = null;
   let grahamDiscountPct: number | null = null;
@@ -617,28 +679,32 @@ export function calculateValuationFormulas(company: {
     else pegStatus = "Pahalı";
   }
 
-  // 3. DCF Adil Değeri
+  // 3. DCF Adil Değeri (YALNIZCA gerçek Serbest Nakit Akışı verisi varsa hesaplanır)
   let dcfFairValue: number | null = null;
   let dcfDiscountPct: number | null = null;
-  const fcfPerShare = (company.freeCashFlow && company.marketCap) ? (company.freeCashFlow / (company.marketCap / price)) : eps * 0.9;
-  if (fcfPerShare > 0) {
-    const wacc = 0.32;
-    const g = 0.12;
-    const fairVal = (fcfPerShare * (1 + 0.20)) / (wacc - g);
-    if (fairVal > 0 && fairVal < price * 5) {
-      dcfFairValue = parseFloat(fairVal.toFixed(2));
-      dcfDiscountPct = parseFloat((((dcfFairValue - price) / dcfFairValue) * 100).toFixed(1));
+  if (company.freeCashFlow && company.freeCashFlow > 0 && numericMarketCap && numericMarketCap > 0 && price > 0) {
+    const fcfPerShare = company.freeCashFlow / (numericMarketCap / price);
+    const wacc = getWaccForSector(company.sector);
+    const baseGrowth = company.revenueGrowth != null ? company.revenueGrowth / 100 : (growth > 0 ? growth / 100 : 0.08);
+    const g = Math.max(0.02, Math.min(baseGrowth, wacc - 0.05)); // g < wacc matematiksel kısıtı
+    if (fcfPerShare > 0 && wacc > g) {
+      const fairVal = (fcfPerShare * (1 + g)) / (wacc - g);
+      if (fairVal > 0 && fairVal < price * 5) {
+        dcfFairValue = parseFloat(fairVal.toFixed(2));
+        dcfDiscountPct = parseFloat((((dcfFairValue - price) / dcfFairValue) * 100).toFixed(1));
+      }
     }
   }
 
-  // 4. Gordon DDM
+  // 4. Gordon DDM (Temettü Büyüme Modeli — Gerçek Temettü Verimi & Sektörel İskonto)
   let gordanDdmValue: number | null = null;
   const divYield = company.dividendYield || 0;
-  if (divYield > 0) {
+  if (divYield > 0 && price > 0) {
     const d1 = (price * divYield) / 100;
-    const r = 0.25;
-    const divGrowth = 0.12;
-    if (r > divGrowth) {
+    const r = getWaccForSector(company.sector);
+    const baseDivGrowth = company.revenueGrowth != null ? (company.revenueGrowth / 100) * 0.5 : 0.06;
+    const divGrowth = Math.max(0.02, Math.min(baseDivGrowth, r - 0.04));
+    if (r > divGrowth && d1 > 0) {
       gordanDdmValue = parseFloat((d1 / (r - divGrowth)).toFixed(2));
     }
   }
@@ -660,8 +726,8 @@ export function calculateValuationFormulas(company: {
   let isAccrualHealthy: boolean | null = null;
   if (company.operatingCashFlow != null && company.netIncome != null) {
     isAccrualHealthy = company.operatingCashFlow > company.netIncome;
-  } else if (company.freeCashFlow != null && company.eps != null && company.price && company.peRatio && company.marketCap) {
-    isAccrualHealthy = company.freeCashFlow > (company.eps * (company.marketCap / company.price));
+  } else if (company.freeCashFlow != null && company.eps != null && company.price && company.peRatio && numericMarketCap) {
+    isAccrualHealthy = company.freeCashFlow > (company.eps * (numericMarketCap / company.price));
   }
 
   const isLeverageDecreasing = (company.longTermDebtToAssets != null && company.priorLongTermDebtToAssets != null)
@@ -730,7 +796,7 @@ export function calculateValuationFormulas(company: {
   else hurstTrendType = "Rastgele Salınım";
 
   // 9. WACC, Beneish, DuPont, Altman, Kelly
-  const waccPct = 34.5;
+  const waccPct = parseFloat((getWaccForSector(company.sector) * 100).toFixed(1));
   let beneishMScore: number | null = -2.45;
   let beneishStatus: "Temiz Bilanço" | "Olası Makyaj / Manipülasyon Riski" = "Temiz Bilanço";
   if (company.peRatio && company.peRatio > 45 && company.pbRatio && company.pbRatio > 8) {
@@ -753,13 +819,13 @@ export function calculateValuationFormulas(company: {
   let evaAmount: number | null = null;
   if (company.operatingIncome) {
     const nopat = company.operatingIncome * 0.75;
-    const investedCapital = (company.marketCap || price * 1000000) * 0.6;
+    const investedCapital = (numericMarketCap || price * 1000000) * 0.6;
     evaAmount = Math.round(nopat - investedCapital * 0.35);
   }
 
   let fcfYieldPct: number | null = null;
-  if (company.freeCashFlow && company.marketCap) {
-    fcfYieldPct = parseFloat(((company.freeCashFlow / company.marketCap) * 100).toFixed(2));
+  if (company.freeCashFlow && numericMarketCap && numericMarketCap > 0) {
+    fcfYieldPct = parseFloat(((company.freeCashFlow / numericMarketCap) * 100).toFixed(2));
   } else {
     fcfYieldPct = parseFloat((Math.max(2, (company.dividendYield || 4) * 1.4)).toFixed(2));
   }

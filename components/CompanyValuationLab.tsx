@@ -51,10 +51,14 @@ export default function CompanyValuationLab({
     }
     return calculateValuationFormulas({
       symbol: selectedCompany.symbol,
+      sector: selectedCompany.sector,
       price: selectedCompany.price,
       peRatio: selectedCompany.peRatio,
       pbRatio: selectedCompany.pbRatio,
       dividendYield: selectedCompany.dividendYield,
+      revenueGrowth: selectedCompany.revenueGrowth,
+      freeCashFlow: selectedCompany.freeCashFlow,
+      marketCap: selectedCompany.marketCap,
     });
   }, [selectedCompany]);
 

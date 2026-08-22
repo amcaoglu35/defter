@@ -20,6 +20,8 @@ export interface Company {
   pbRatio?: number;
   dividendYield?: number;
   marketCap?: string;
+  revenueGrowth?: number;
+  freeCashFlow?: number;
   beta?: number;
   recommendation: "AL" | "SAT" | "TUT" | "NÖTR";
   inWatchlist: boolean;

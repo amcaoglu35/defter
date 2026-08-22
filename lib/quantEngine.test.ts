@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import {
   calculateCorrelationMatrix,
   getCorrelationBetween,
+  getWaccForSector,
+  SECTOR_WACC_MAP,
   calculatePortfolioRiskMetrics,
   runMonteCarloSimulation,
   calculateMacroSensitivities,
@@ -365,6 +367,66 @@ describe("quantEngine Unit Tests", () => {
       expect(distressed.piotroskiSummary).toBe("0/9 (Tam Değerlendirme)");
     });
 
+    it("returns dcfFairValue: null when freeCashFlow or marketCap is missing (no fake eps*0.9 proxy)", () => {
+      const noFcf = calculateValuationFormulas({
+        symbol: "NOFCF",
+        price: 150,
+        eps: 15,
+        peRatio: 10,
+        sector: "Teknoloji",
+      });
+
+      expect(noFcf.dcfFairValue).toBeNull();
+      expect(noFcf.dcfDiscountPct).toBeNull();
+    });
+
+    it("accurately computes dcfFairValue with sector-specific WACC and revenueGrowth when real FCF is present", () => {
+      // Bank sector: WACC = 0.24
+      const bankVal = calculateValuationFormulas({
+        symbol: "ISCTR",
+        sector: "Bankacılık",
+        price: 14.0,
+        freeCashFlow: 50_000_000_000,
+        marketCap: 250_000_000_000, // FCF per share = 50B / (250B / 14) = 2.8 TL
+        revenueGrowth: 15, // g = 0.15 (capped below wacc 0.24)
+      });
+
+      expect(bankVal.dcfFairValue).toBeDefined();
+      expect(bankVal.dcfFairValue).not.toBeNull();
+      expect(bankVal.dcfDiscountPct).toBeDefined();
+      expect(bankVal.waccPct).toBe(24.0);
+    });
+
+    it("safely handles divergent growth (revenueGrowth >= wacc) without crashing or blowing up", () => {
+      const hyperGrowth = calculateValuationFormulas({
+        symbol: "HYPER",
+        sector: "Teknoloji",
+        price: 100,
+        freeCashFlow: 10_000_000,
+        marketCap: 100_000_000,
+        revenueGrowth: 95, // 95% growth is above WACC 30%
+      });
+
+      expect(hyperGrowth.dcfFairValue).toBeDefined();
+      expect(hyperGrowth.dcfFairValue).not.toBeNull();
+      expect(hyperGrowth.dcfFairValue).toBeGreaterThan(0);
+      expect(hyperGrowth.waccPct).toBe(30.0);
+    });
+
+    it("computes Gordon DDM value when dividendYield is positive with sector discount rate", () => {
+      const dividendStock = calculateValuationFormulas({
+        symbol: "TUPRS",
+        sector: "Petrol & Enerji",
+        price: 160,
+        dividendYield: 8.5,
+        revenueGrowth: 12,
+      });
+
+      expect(dividendStock.gordanDdmValue).toBeDefined();
+      expect(dividendStock.gordanDdmValue).not.toBeNull();
+      expect(dividendStock.gordanDdmValue).toBeGreaterThan(0);
+    });
+
     it("gracefully handles zero/undefined values without throwing", () => {
       const val = calculateValuationFormulas({
         symbol: "TEST",
@@ -373,6 +435,31 @@ describe("quantEngine Unit Tests", () => {
       expect(val.dupontRoePct).toBeDefined();
       expect(val.piotroskiFScore).toBeGreaterThanOrEqual(0);
       expect(val.mertonDefaultProbabilityPct).toBeGreaterThanOrEqual(0);
+    });
+  });
+
+  // -------------------------------------------------------------
+  // 7.1 getWaccForSector
+  // -------------------------------------------------------------
+  describe("getWaccForSector", () => {
+    it("returns 0.24 for banking and financial sectors", () => {
+      expect(getWaccForSector("Bankacılık")).toBe(0.24);
+      expect(getWaccForSector("Finans")).toBe(0.24);
+      expect(getWaccForSector("Sigortacılık")).toBe(0.24);
+    });
+
+    it("returns 0.30 for technology and software sectors", () => {
+      expect(getWaccForSector("Teknoloji")).toBe(0.30);
+      expect(getWaccForSector("Bilişim & Yazılım")).toBe(0.30);
+    });
+
+    it("returns 0.26 for holdings", () => {
+      expect(getWaccForSector("Holding")).toBe(0.26);
+    });
+
+    it("returns default 0.28 for unspecified or unknown sectors", () => {
+      expect(getWaccForSector(undefined)).toBe(0.28);
+      expect(getWaccForSector("Bilinmeyen")).toBe(0.28);
     });
   });
 
