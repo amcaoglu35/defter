@@ -3616,25 +3616,25 @@ interface WeeklyLetterResult {
                 <div className="p-3 bg-[var(--ink-2)] border border-[var(--line)] rounded-xl space-y-1">
                   <span className="text-[10px] text-[var(--mist)] uppercase block">Reel Ciro Büyümesi</span>
                   <span className="text-sm font-bold text-[var(--paper)] block truncate">
-                    {earningsResult.revenueGrowth || "+%48 Büyüme"}
+                    {earningsResult.revenueGrowth || "— (Veri Yok)"}
                   </span>
                 </div>
                 <div className="p-3 bg-[var(--ink-2)] border border-[var(--line)] rounded-xl space-y-1">
-                  <span className="text-[10px] text-[var(--mist)] uppercase block">Net Kâr Büyümesi</span>
+                  <span className="text-[10px] text-[var(--mist)] uppercase block">Net Kâr / ROE</span>
                   <span className="text-sm font-bold text-emerald-400 block truncate">
-                    {earningsResult.netProfitGrowth || "+%38 Net Kâr"}
+                    {earningsResult.netProfitGrowth || "— (Veri Yok)"}
                   </span>
                 </div>
                 <div className="p-3 bg-[var(--ink-2)] border border-[var(--line)] rounded-xl space-y-1">
-                  <span className="text-[10px] text-[var(--mist)] uppercase block">FAVÖK / Marj</span>
+                  <span className="text-[10px] text-[var(--mist)] uppercase block">Brüt / Net Marj</span>
                   <span className="text-sm font-bold text-[var(--brass)] block truncate">
-                    {earningsResult.ebitdaMargin || "%24.2 FAVÖK"}
+                    {earningsResult.grossMargin || "— (Veri Yok)"}
                   </span>
                 </div>
                 <div className="p-3 bg-[var(--ink-2)] border border-[var(--line)] rounded-xl space-y-1">
                   <span className="text-[10px] text-[var(--mist)] uppercase block">Serbest Nakit (FCF)</span>
                   <span className="text-sm font-bold text-cyan-400 block truncate">
-                    {earningsResult.fcfStatus || "Pozitif Nakit Akışı"}
+                    {earningsResult.fcfStatus || "— (Kapsam Dışı)"}
                   </span>
                 </div>
               </div>
@@ -3832,12 +3832,18 @@ interface WeeklyLetterResult {
                   </span>
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-xl font-bold text-[var(--paper)]">
-                      {trapResult.altmanZScore?.toFixed(2) || "3.25"}
+                      {trapResult.altmanZScore != null ? trapResult.altmanZScore.toFixed(2) : "—"}
                     </span>
                     <span className={`text-[10px] font-bold ${
-                      (trapResult.altmanZScore || 3.25) > 2.99 ? "text-emerald-400" : (trapResult.altmanZScore || 3.25) > 1.81 ? "text-amber-400" : "text-rose-400"
+                      trapResult.altmanZScore != null
+                        ? trapResult.altmanZScore > 2.99
+                          ? "text-emerald-400"
+                          : trapResult.altmanZScore > 1.81
+                          ? "text-amber-400"
+                          : "text-rose-400"
+                        : "text-[var(--mist)]"
                     }`}>
-                      {trapResult.altmanZone || "GÜVENLİ"}
+                      {trapResult.altmanZone || "Kapsam Dışı"}
                     </span>
                   </div>
                 </div>
@@ -3848,7 +3854,7 @@ interface WeeklyLetterResult {
                   </span>
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-xl font-bold text-[var(--brass)]">
-                      {trapResult.piotroskiFScore || 8}/9
+                      {trapResult.piotroskiFScore != null ? `${trapResult.piotroskiFScore}/9` : "—"}
                     </span>
                     <span className="text-[10px] text-[var(--mist)]">Puan</span>
                   </div>
@@ -3859,7 +3865,7 @@ interface WeeklyLetterResult {
                     Faiz Karşılama
                   </span>
                   <div className="text-base font-bold text-emerald-400 mt-0.5">
-                    {trapResult.interestCoverageRatio ? `${trapResult.interestCoverageRatio}x EBIT` : "6.5x EBIT"}
+                    {trapResult.interestCoverageRatio != null ? `${trapResult.interestCoverageRatio.toFixed(1)}x EBIT` : "— (Veri Yok)"}
                   </div>
                 </div>
 

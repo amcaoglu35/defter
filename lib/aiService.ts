@@ -133,6 +133,8 @@ export interface CompanyAnalysisRequest {
   dividendYield?: number;
   marketCap?: string | number;
   revenueGrowth?: number;
+  grossMargin?: number;
+  netMargin?: number;
   freeCashFlow?: number;
   returnOnEquity?: number;
   athDiscountPct?: number;
@@ -1934,26 +1936,22 @@ export async function askOrakulChat(
     try {
       if (provider === "gemini") {
         const systemPrompt = `Sen Defter yatırım platformunun Baş Yapay Zeka Analisti ve Ekonometri Stratejisti 'Orakul'sun.
-Platformumuz bünyesinde 18 ileri ekonometri ve Wall Street modeli çalışmaktadır:
-- Monte Carlo Geometrik Brown Hareketi (GBM 1.000 Patika Simülatörü)
-- Omega Rasyosu, Treynor Oranı, Information Ratio ve Gain-to-Pain
-- Modigliani-Modigliani (M² Riski Eşitlenmiş Getiri), Up/Down Market Capture
-- Claude Shannon Entropisi ile Bilgi Çeşitlendirmesi
-- Stanford Piotroski F-Score (9 Kriterli Bilanço Matrisi)
-- Merton İflas & Temerrüt Riski (%)
-- Hurst Exponent (H - Momentum vs Ortalamaya Dönüş Fraktalı)
-- Benjamin Graham Kelepir Eşik Sayısı & DCF Adil Değeri
-- Joel Greenblatt Magic Formula & DuPont 3 Kademeli ROE Ağacı
-- Fama-French 5 Faktör Modeli & Arı Yetenek Alfası (α)
-- Makro Dolar/Faiz Elastikiyeti ve Black-Litterman Bayesyen Portföy Ağırlıkları.
+Platformumuz bünyesinde deterministik kantitatif analiz ve modern portföy teorisi modelleri çalışmaktadır:
+- Monte Carlo Geometrik Brown Hareketi (GBM Simülasyonu)
+- Portföy Risk Metrikleri (Sharpe Oranı, CVaR, HHI Yoğunlaşma İndeksi)
+- Stanford Piotroski Bilanço Sağlığı Kriterleri
+- Benjamin Graham İçsel Değer Formülü & Sektörel DCF İndirgenmiş Nakit Akımı
+- Gordon Temettü İskonto Modeli (DDM) & Peter Lynch Değerleme Yaklaşımı
+- DuPont 3 Kademeli ROE Ağacı & Kaldıraç Göstergeleri
+- Makro Dolar & Faiz Hassasiyeti Stres Senaryoları.
 
 Kullanıcının mevcut portföy, sepetler ve sistem bağlamı:
 ${JSON.stringify(contextData)}
 
 TALİMATLAR:
 1. Kullanıcı hisse, portföy, risk, getiri veya strateji sorduğunda yukarıdaki bilimsel finansal modelleri ve mantığı kullanarak yanıt ver.
-2. Asla sahte veya uydurma veri üretme; gerçek verilere ve matematiksel mantığa dayan.
-3. Samimi, bilge, finansal terimleri anlaşılır kılan ve Fraunces/Mürekkep & Pirinç estetiğine uygun bilgece Türkçe yanıtlar ver. Geçmiş analizlerindeki isabet oranını hatırlayarak konuş.`;
+2. Asla sahte veya uydurma veri üretme; kütükte olmayan veriler için "Veri yok / Kapsam dışı" belirt.
+3. Samimi, bilge, finansal terimleri anlaşılır kılan ve Fraunces/Mürekkep & Pirinç estetiğine uygun bilgece Türkçe yanıtlar ver.`;
 
         const geminiContents = messages.map((m) => ({
           role: m.role === "assistant" ? "model" : "user",
@@ -1989,7 +1987,7 @@ TALİMATLAR:
                 role: "system",
                 content: `Sen Defter yatırım platformunun yapay zeka analisti 'Orakul'sun. Kullanıcının mevcut portföy ve geçmiş analiz başarı karnesi bağlamı:\n${JSON.stringify(
                   contextData
-                )}\nKullanıcıya samimi, bilge, finansal terimleri anlaşılır kılan ve Fraunces/Mürekkep & Pirinç estetiğine uygun bilgece Türkçe yanıtlar ver. Geçmiş analizlerindeki isabet oranını ve kararlarını hatırlayarak konuş.`,
+                )}\nKullanıcıya samimi, bilge, finansal terimleri anlaşılır kılan ve Fraunces/Mürekkep & Pirinç estetiğine uygun bilgece Türkçe yanıtlar ver. Asla sahte veri üretme.`,
               },
               ...messages,
             ],
@@ -2011,16 +2009,16 @@ TALİMATLAR:
   const userBaskets = (contextData?.baskets as Basket[]) || [];
 
   // 1. Dynamic Stock / Company Look-up in entire 420+ universe
+  const words = query.split(/\s+/).map((w) => w.replace(/[.,?!:;()]/g, "").trim()).filter(Boolean);
   const matchedCompany = allCos.find((c) => {
     const sym = c.symbol.toLowerCase();
     const name = c.name.toLowerCase();
     return (
-      query.includes(` ${sym} `) ||
-      query.startsWith(`${sym} `) ||
-      query.endsWith(` ${sym}`) ||
-      query === sym ||
-      query.includes(name) ||
-      (name.length > 4 && query.includes(name.split(" ")[0].toLowerCase()))
+      words.includes(sym) ||
+      query.includes(` ${name} `) ||
+      query.startsWith(`${name} `) ||
+      query.endsWith(` ${name}`) ||
+      query === name
     );
   });
 
@@ -2049,9 +2047,10 @@ TALİMATLAR:
   // 2. Dynamic Accuracy & Success Record
   if (query.includes("isabet") || query.includes("başarı") || query.includes("karne") || query.includes("tahmin")) {
     const accuracyStats = contextData?.accuracyStats as { accuracyRate?: number; total?: number } | undefined;
-    const accuracy = accuracyStats?.accuracyRate ?? 78;
-    const total = accuracyStats?.total ?? (allCos.length > 10 ? 12 : 4);
-    return `Orakul geçmiş kararlar karnesi incelendiğinde; kütükteki varlıklar üzerinden üretilen **${total} analizin %${accuracy}'i** piyasa fiyatlaması tarafından doğrulanmıştır. Özellikle değerleme iskontosu yüksek sanayi ve ihracat şirketlerinde verilen 'AL' kararları sonraki 90 günde BIST 100 endeksine karşı pozitif alfa sağlamıştır.`;
+    if (accuracyStats?.total && accuracyStats.total > 0 && typeof accuracyStats.accuracyRate === "number") {
+      return `Orakul geçmiş kararlar karnesi incelendiğinde; kütükteki varlıklar üzerinden üretilen **${accuracyStats.total} analizin %${accuracyStats.accuracyRate}'i** piyasa fiyatlaması tarafından doğrulanmıştır.`;
+    }
+    return `Henüz yeterli sayıda tamamlanmış Orakul analizi/karnesi bulunmuyor, bu nedenle güvenilir bir isabet oranı hesaplanamıyor. Analiz geçmişiniz oluştukça doğrulanmış başarı karneniz burada görüntülenecektir.`;
   }
 
     // 3. Dynamic Portfolio & Baskets Context
@@ -2111,6 +2110,7 @@ export interface EarningsFlashResult {
     benGraham: string;
   };
   metricsSource?: "calculated";
+  isFallbackMode?: boolean;
 }
 
 export async function generateEarningsFlash(
@@ -2121,10 +2121,10 @@ export async function generateEarningsFlash(
 ): Promise<EarningsFlashResult> {
   const resolvedApiKey = _apiKey || getResolvedApiKey(provider);
 
-  const pe = company.peRatio || 8.5;
-  const pb = company.pbRatio || 1.8;
-  const divYield = company.dividendYield || 0;
-  const roe = company.returnOnEquity || 24.0;
+  const pe = company.peRatio ?? 0;
+  const pb = company.pbRatio ?? 0;
+  const divYield = company.dividendYield ?? 0;
+  const roe = company.returnOnEquity ?? 0;
 
   // 1. Deterministik Bilanço & Sağlık Skoru (Stanford Piotroski F-Score)
   const mathVal = calculateValuationFormulas({
@@ -2139,6 +2139,12 @@ export async function generateEarningsFlash(
   const deterministicGrade: "A+" | "A" | "B+" | "B" | "C" | "F" =
     deterministicHealth >= 8 ? "A+" : deterministicHealth >= 7 ? "A" : deterministicHealth >= 6 ? "B+" : deterministicHealth >= 5 ? "B" : deterministicHealth >= 4 ? "C" : "F";
   const deterministicVerdict = deterministicHealth >= 8 ? "ÇOK GÜÇLÜ" : deterministicHealth >= 6 ? "GÜÇLÜ" : deterministicHealth >= 4 ? "BEKLENTİYE PARALEL" : "RİSKLİ";
+
+  // Gerçek kütük verisi kontrolü (Sıfır Uydurma İlkesi)
+  const revenueGrowthStr = company.revenueGrowth != null ? `+${company.revenueGrowth}% Yıllık Büyüme` : undefined;
+  const grossMarginStr = company.grossMargin != null ? `%${company.grossMargin} Brüt Marj` : (company.netMargin != null ? `%${company.netMargin} Net Marj` : undefined);
+  const netProfitGrowthStr = company.returnOnEquity != null ? `%${company.returnOnEquity} ROE` : undefined;
+  const ebitdaMarginStr = undefined; // Dipnot verisi olmadan uydurma FAVÖK marjı üretilmez
 
   if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
     try {
@@ -2191,12 +2197,12 @@ Format (YALNIZCA geçerli JSON):
               healthScore: deterministicHealth,
               grade: deterministicGrade,
               summary: aiData.summary || `${company.name} son çeyrekte operasyonel kârlılığını korumuştur.`,
-              revenueGrowth: `+${Math.round(mathVal.dupontRoePct * 1.5)}% (Yıllık Hacim Artışı)`,
-              grossMargin: `%${mathVal.dupontNetMarginPct.toFixed(1)} Net Marj`,
-              netProfitGrowth: `+${mathVal.dupontRoePct.toFixed(1)}% ROE`,
-              ebitdaMargin: `%${(mathVal.dupontNetMarginPct * 1.6).toFixed(1)}`,
+              revenueGrowth: revenueGrowthStr,
+              grossMargin: grossMarginStr,
+              netProfitGrowth: netProfitGrowthStr,
+              ebitdaMargin: ebitdaMarginStr,
               debtStatus: aiData.debtStatus || (pe < 12 ? "Düşük Borçluluk / Net Nakit Pozisyonu" : "Yönetilebilir Borç Yükü"),
-              fcfStatus: aiData.fcfStatus || "Pozitif Serbest Nakit Akışı",
+              fcfStatus: aiData.fcfStatus || (company.freeCashFlow ? "Pozitif Serbest Nakit Akışı" : "Nakit Akışı İzleniyor"),
               keyCatalyst: aiData.keyCatalyst || "Sektörel pazar büyümesi ve kapasite artış yatırımları.",
               keyRisk: aiData.keyRisk || "Girdi maliyetleri ve faiz ortamı.",
               verdict: deterministicVerdict,
@@ -2206,6 +2212,7 @@ Format (YALNIZCA geçerli JSON):
                 benGraham: `Bilanço yapısı makul bir güvenlik marjı sağlamaktadır.`,
               },
               metricsSource: "calculated",
+              isFallbackMode: false,
             };
           }
         }
@@ -2248,22 +2255,23 @@ Format (YALNIZCA geçerli JSON):
     quarter: "Son Dönem Bilançosu",
     healthScore: deterministicHealth,
     grade: deterministicGrade,
-    summary: `${company.name} son çeyrekte operasyonel kârlılığını koruyarak ${company.peRatio ? `${company.peRatio} F/K çarpanı ile` : "mevcut çarpanlarıyla"} sektör ortalamaları dahilinde dengeli bir performans sergilemiştir. Borçluluk ve likidite oranları finansal kütük kayıtlarına uygundur.`,
-    revenueGrowth: `+${Math.round(mathVal.dupontRoePct * 1.5)}% (Yıllık Hacim Artışı)`,
-    grossMargin: `%${mathVal.dupontNetMarginPct.toFixed(1)} Net Marj`,
-    netProfitGrowth: `+${mathVal.dupontRoePct.toFixed(1)}% ROE`,
-    ebitdaMargin: `%${(mathVal.dupontNetMarginPct * 1.6).toFixed(1)}`,
+    summary: `${company.name} mevcut piyasa çarpanları (${company.peRatio ? `${company.peRatio} F/K` : "kütük çarpanları"}) dahilinde incelenmiştir. Not: Detaylı bilanço dipnot verileri kütükte yer almadığından değerlendirme çarpan bazlı kaba göstergelere dayanmaktadır.`,
+    revenueGrowth: revenueGrowthStr,
+    grossMargin: grossMarginStr,
+    netProfitGrowth: netProfitGrowthStr,
+    ebitdaMargin: ebitdaMarginStr,
     debtStatus: pe < 12 ? "Düşük Borçluluk / Net Nakit Pozisyonu" : "Yönetilebilir Borç Yükü",
-    fcfStatus: "Pozitif Serbest Nakit Akışı",
+    fcfStatus: company.freeCashFlow ? "Pozitif Serbest Nakit Akışı" : "Nötr / Bilanço Dipnotu Gerekli",
     keyCatalyst,
     keyRisk,
     verdict: deterministicVerdict,
     legendaryCommentary: {
       warrenBuffett: `${company.name}, sektördeki operasyonel ağırlığı ve nakit akış disipliniyle yatırımcısına savunmacı bir liman vadediyor.`,
-      peterLynch: `Fiyat-kazanç çarpanı ile ciro büyümesi arasındaki denge, şirketi makul fiyatlı büyüme (GARP) kategorisinde tutuyor.`,
+      peterLynch: `Fiyat-kazanç çarpanı ile büyüme hızı arasındaki denge, şirketi makul fiyatlı büyüme (GARP) kategorisinde tutuyor.`,
       benGraham: `Defter değerine göre sunulan iskonto seviyesi, olası piyasa dalgalanmalarında tatminkar bir güvenlik marjı sağlıyor.`,
     },
     metricsSource: "calculated",
+    isFallbackMode: true,
   };
 }
 
@@ -2276,16 +2284,17 @@ export interface ValueTrapResult {
   trapRiskScore: number; // 0-100 (0: perfectly safe, 100: pure trap)
   isGenuineBargain: boolean;
   verdictTitle: string;
-  altmanZScore?: number;
-  altmanZone?: "GÜVENLİ BÖLGE" | "GRİ BÖLGE (DİKKAT)" | "İFLAS / STRES RİSKİ";
+  altmanZScore?: number | null;
+  altmanZone?: string;
   piotroskiFScore?: number; // 0-9
-  interestCoverageRatio?: number; // EBIT / Interest
+  interestCoverageRatio?: number | null; // EBIT / Interest
   coreEbitStatus?: "Esas Faaliyet Kârı Güçlü" | "Tek Seferlik Gelir Şüphesi" | "Faaliyet Zararı";
   netDebtToEbitda?: string;
   forensicScorecard?: Array<{ metric: string; score: string; status: "good" | "warn" | "danger"; note: string }>;
   findings: string[];
   warningNote: string;
   metricsSource?: "calculated";
+  isFallbackMode?: boolean;
 }
 
 export async function detectValueTraps(
@@ -2296,13 +2305,13 @@ export async function detectValueTraps(
 ): Promise<ValueTrapResult> {
   const resolvedApiKey = _apiKey || getResolvedApiKey(provider);
 
-  const pe = company.peRatio || 8.5;
-  const pb = company.pbRatio || 1.8;
-  const divYield = company.dividendYield || 0;
-  const roe = company.returnOnEquity || 24.0;
+  const pe = company.peRatio ?? 0;
+  const pb = company.pbRatio ?? 0;
+  const divYield = company.dividendYield ?? 0;
+  const roe = company.returnOnEquity ?? 0;
   const price = company.price || 50;
 
-  // 1. Deterministik Adli Finans ve Değerleme Hesaplamaları
+  // 1. Deterministik Adli Finans ve Değerleme Hesaplamaları (Tekil Doğruluk Kaynağı: quantEngine)
   const mathVal = calculateValuationFormulas({
     symbol: company.symbol,
     price,
@@ -2311,21 +2320,24 @@ export async function detectValueTraps(
     dividendYield: divYield,
   });
 
-  const altmanZ = mathVal.altmanZScore ?? (pe < 8 ? 3.42 : pe > 20 ? 1.85 : 2.65);
-  const altmanZone: "GÜVENLİ BÖLGE" | "GRİ BÖLGE (DİKKAT)" | "İFLAS / STRES RİSKİ" =
-    altmanZ > 2.99 ? "GÜVENLİ BÖLGE" : altmanZ > 1.81 ? "GRİ BÖLGE (DİKKAT)" : "İFLAS / STRES RİSKİ";
+  const altmanZ = mathVal.altmanZScore ?? null;
+  const altmanZone = mathVal.altmanZone || "Kapsam Dışı / Yetersiz Bilanço Verisi";
   const piotroski = mathVal.piotroskiFScore;
-  const interestCov = mathVal.interestCoverageRatio ?? (pe < 8 ? 6.5 : pe > 20 ? 1.8 : 3.5);
+  const interestCov = mathVal.interestCoverageRatio ?? null;
 
   let trapRiskScore = 20;
-  if (altmanZ < 1.81) trapRiskScore += 35;
-  else if (altmanZ < 2.99) trapRiskScore += 15;
+  if (altmanZ !== null) {
+    if (altmanZ < 1.81) trapRiskScore += 35;
+    else if (altmanZ < 2.99) trapRiskScore += 15;
+  } else {
+    if (pe > 25) trapRiskScore += 15;
+  }
 
   if (piotroski <= 3) trapRiskScore += 35;
   else if (piotroski <= 5) trapRiskScore += 15;
 
   if (mathVal.beneishStatus === "Olası Makyaj / Manipülasyon Riski") trapRiskScore += 25;
-  if (pe < 5 && pb > 3.5) trapRiskScore += 30; // Tek seferlik satış tuzağı
+  if (pe < 5 && pb > 3.5) trapRiskScore += 30; // Tek seferlik satış/kâr tuzağı
 
   trapRiskScore = Math.min(95, Math.max(10, trapRiskScore));
   const trapRiskLevel: "DÜŞÜK (GÜVENLİ)" | "ORTA (DİKKAT)" | "YÜKSEK (TUZAK RİSKİ)" =
@@ -2335,38 +2347,39 @@ export async function detectValueTraps(
     trapRiskLevel === "YÜKSEK (TUZAK RİSKİ)" ? "Tek Seferlik Gelir Şüphesi" : "Esas Faaliyet Kârı Güçlü";
   const netDebt = pe < 10 ? "1.1x (Düşük Borçluluk)" : "3.2x (Orta/Yüksek Borçluluk)";
 
-  const forensicScorecard = [
+  const forensicScorecard: Array<{ metric: string; score: string; status: "good" | "warn" | "danger"; note: string }> = [
     {
       metric: "Altman Z-Score (İflas Güvenliği)",
-      score: altmanZ.toFixed(2),
-      status: (altmanZ > 2.99 ? "good" : altmanZ > 1.81 ? "warn" : "danger") as "good" | "warn" | "danger",
+      score: altmanZ !== null ? altmanZ.toFixed(2) : "Veri Yok",
+      status: altmanZ !== null ? (altmanZ > 2.99 ? "good" : altmanZ > 1.81 ? "warn" : "danger") : "warn",
       note: altmanZone,
     },
     {
       metric: "Piotroski F-Score (Bilanço Sağlığı)",
-      score: `${piotroski}/9`,
-      status: (piotroski >= 7 ? "good" : piotroski >= 5 ? "warn" : "danger") as "good" | "warn" | "danger",
-      note: piotroski >= 7 ? "Çok Güçlü Bilanço" : piotroski >= 5 ? "Orta Düzey Sağlık" : "Mali Bozulma Riski",
+      score: mathVal.piotroskiSummary,
+      status: mathVal.piotroskiRank === "Çok Güçlü / Elit" || mathVal.piotroskiRank === "Sağlıklı" ? "good" : "danger",
+      note: mathVal.piotroskiRank,
     },
     {
       metric: "Faiz Karşılama Oranı (EBIT/Faiz)",
-      score: `${interestCov.toFixed(1)}x`,
-      status: (interestCov > 4 ? "good" : interestCov > 2 ? "warn" : "danger") as "good" | "warn" | "danger",
-      note: interestCov > 4 ? "Faiz Yükü Çok Düşük" : "Faiz Gideri Baskı Yaratıyor",
+      score: interestCov !== null ? `${interestCov.toFixed(1)}x` : "Veri Yok",
+      status: interestCov !== null ? (interestCov > 4 ? "good" : interestCov > 2 ? "warn" : "danger") : "warn",
+      note: interestCov !== null ? (interestCov > 4 ? "Faiz Yükü Çok Düşük" : "Faiz Gideri Baskı Yaratıyor") : "Kapsam Dışı / Borçluluk Verisi Yok",
     },
     {
       metric: "Beneish Manipülasyon Analizi",
       score: mathVal.beneishStatus,
-      status: (mathVal.beneishStatus === "Temiz Bilanço" ? "good" : "danger") as "good" | "warn" | "danger",
-      note: mathVal.beneishStatus === "Temiz Bilanço" ? "Organik Nakit Akışı" : "Tek Seferlik Gelir Şüphesi",
+      status: mathVal.beneishStatus === "Temiz Bilanço" ? "good" : mathVal.beneishStatus === "Olası Makyaj / Manipülasyon Riski" ? "danger" : "warn",
+      note: mathVal.beneishStatus === "Temiz Bilanço" ? "Organik Nakit Akışı" : mathVal.beneishStatus === "Olası Makyaj / Manipülasyon Riski" ? "Tek Seferlik Gelir Şüphesi" : "Dipnot Verisi Gerekli",
     },
   ];
 
   if (resolvedApiKey && resolvedApiKey.trim().length > 10) {
     try {
       if (provider === "gemini") {
+        const altmanStr = altmanZ !== null ? altmanZ.toFixed(2) : "Veri Yok";
         const prompt = `Sen CFA sertifikalı adli finans uzmanı ve 'Orakul Değer Tuzağı (Value Trap) & Adli Bilanço' yapay zekasısın.
-Şirketin çarpanlarını (F/K: ${pe}, PD/DD: ${pb}, Temettü: %${divYield}, ROE: %${roe}) ve hesaplanan adli bulguları (Altman Z: ${altmanZ.toFixed(2)}, Piotroski: ${piotroski}/9, Beneish: ${mathVal.beneishStatus}) incele.
+Şirketin çarpanlarını (F/K: ${pe}, PD/DD: ${pb}, Temettü: %${divYield}, ROE: %${roe}) ve hesaplanan adli bulguları (Altman Z: ${altmanStr}, Piotroski: ${mathVal.piotroskiSummary}, Beneish: ${mathVal.beneishStatus}) incele.
 Şirketin ucuzluğunun gerçek bir kelepir fırsat mı yoksa borç batağı veya tek seferlik gayrimenkul satışı taşıyan bir 'Değer Tuzağı' mı olduğunu adli gerekçelerle açıkla.
 
 GÖREVİN:
@@ -2416,13 +2429,16 @@ Format (YALNIZCA geçerli JSON):
               forensicScorecard,
               findings: aiData.findings?.length ? aiData.findings : [
                 `F/K (${pe}) ve PD/DD (${pb}) çarpanları adli finans süzgecinden geçirildi.`,
-                `Altman Z-Score ${altmanZ.toFixed(2)} ile '${altmanZone}' alanında yer alıyor.`,
-                `Piotroski F-Score ${piotroski}/9 puan ile operasyonel verimliliği onaylıyor.`,
+                altmanZ !== null
+                  ? `Altman Z-Score ${altmanZ.toFixed(2)} ile '${altmanZone}' alanında yer alıyor.`
+                  : "Detaylı bilanço kalemleri bulunmadığından Altman Z iflas skoru kapsam dışıdır.",
+                `Piotroski F-Score ${mathVal.piotroskiSummary} seviyesindedir.`,
               ],
               warningNote: aiData.warningNote || (trapRiskLevel === "YÜKSEK (TUZAK RİSKİ)"
                 ? "Yalnızca düşük F/K oranına aldanılmamalı; nakit üretme kapasitesi izlenmelidir."
                 : "Şirketin operasyonel nakit akışı ve bilanço güvenlik marjı yatırımı desteklemektedir."),
               metricsSource: "calculated",
+              isFallbackMode: false,
             };
           }
         }
@@ -2448,15 +2464,20 @@ Format (YALNIZCA geçerli JSON):
     forensicScorecard,
     findings: [
       `F/K (${pe}) ve PD/DD (${pb}) çarpanları adli finans süzgecinden geçirildi.`,
-      `Altman Z-Score ${altmanZ.toFixed(2)} ile '${altmanZone}' alanında yer alıyor.`,
-      `Piotroski F-Score ${piotroski}/9 puan ile operasyonel verimliliği onaylıyor.`,
-      `Net borçluluk seviyesi (${netDebt}) faiz karşılama kapasitesiyle dengeli.`,
+      altmanZ !== null
+        ? `Altman Z-Score ${altmanZ.toFixed(2)} ile '${altmanZone}' alanında yer alıyor.`
+        : "Detaylı bilanço kalemleri bulunmadığından Altman Z iflas skoru kapsam dışıdır.",
+      `Piotroski F-Score ${mathVal.piotroskiSummary} seviyesindedir.`,
+      interestCov !== null
+        ? `Net borçluluk seviyesi (${netDebt}) faiz karşılama kapasitesiyle (${interestCov.toFixed(1)}x) dengeli.`
+        : "Faiz karşılama oranı için borç dipnotları kütükte mevcut değildir.",
     ],
     warningNote:
       trapRiskLevel === "YÜKSEK (TUZAK RİSKİ)"
         ? "Yalnızca düşük F/K oranına aldanılmamalı; şirketin nakit üretme kapasitesi ve borç çevirme kabiliyeti detaylı izlenmelidir."
         : "Şirketin operasyonel nakit akışı ve bilanço güvenlik marjı uzun vadeli yatırımı desteklemektedir.",
     metricsSource: "calculated",
+    isFallbackMode: true,
   };
 }
 
@@ -2682,10 +2703,26 @@ export async function runBacktestSimulation(
     }
   }
 
-  // Sharpe Ratio
-  const estimatedVol = Math.max(0.05, (maxDrawdownPct / 100) * 1.2);
+  // Gerçek periyodik getirilerden hesaplanan standart sapma & Sharpe Oranı
+  const periodReturns: number[] = [];
+  for (let i = 1; i < timeline.length; i++) {
+    const prev = timeline[i - 1].portfolioValue;
+    const curr = timeline[i].portfolioValue;
+    if (prev > 0) {
+      periodReturns.push((curr - prev) / prev);
+    }
+  }
+
+  let annualizedVol = 0.15;
+  if (periodReturns.length >= 2) {
+    const meanReturn = periodReturns.reduce((a, b) => a + b, 0) / periodReturns.length;
+    const variance = periodReturns.reduce((a, b) => a + Math.pow(b - meanReturn, 2), 0) / periodReturns.length;
+    const monthlyVol = Math.sqrt(variance);
+    annualizedVol = monthlyVol * Math.sqrt(12);
+  }
+
   const annualizedReturn = (portReturn / Math.max(1, months)) * 12 / 100;
-  const sharpeRatio = parseFloat(Math.max(-2, ((annualizedReturn - 0.25) / estimatedVol)).toFixed(2));
+  const sharpeRatio = annualizedVol > 0 ? parseFloat(((annualizedReturn - 0.25) / annualizedVol).toFixed(2)) : 0;
 
   let aiVerdict = isRealData
     ? `Son ${months} aylık gerçek piyasa verileri incelendiğinde bu sepet **%${portReturn}** getiri üreterek BIST 100 endeksine karşı **${alpha >= 0 ? `+` : ""}%${alpha} Alfa** farkı kaydetmiştir. Tarihsel maksimum tepe-dip değer kaybı (Max Drawdown) %${maxDrawdownPct} olarak gerçekleşmiştir.`

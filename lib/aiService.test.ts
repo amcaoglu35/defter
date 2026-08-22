@@ -9,6 +9,8 @@ import {
   calculateDeterministicMatchScore,
   analyzeNewsTitleSentiment,
   getLotRoundingRule,
+  askOrakulChat,
+  runBacktestSimulation,
   CompanyAnalysisRequest,
   AiRecipeRequest,
 } from "./aiService";
@@ -710,6 +712,72 @@ describe("aiService Unit & Contract Tests", () => {
       expect(result.stressScenarios?.rateShock500bp.estimatedImpactPct).toBeDefined();
       expect(result.stressScenarios?.marketCrash20pct.estimatedImpactPct).toBeDefined();
       expect(result.stressScenarios?.marketCrash20pct.estimatedImpactPct).toBeLessThan(0);
+    });
+  });
+
+  describe("Fallback Engine Data Integrity & Zero Mock Compliance", () => {
+    it("generateEarningsFlash returns undefined for revenueGrowth/margins when real data is missing and sets isFallbackMode", async () => {
+      const co: CompanyAnalysisRequest = {
+        symbol: "TESTCO",
+        name: "Test Şirketi",
+        price: 100,
+        dailyChange: 0,
+        sector: "Sanayi",
+        peRatio: 10,
+        pbRatio: 2,
+        dividendYield: 3,
+        returnOnEquity: 20,
+      };
+
+      const flash = await generateEarningsFlash(co, undefined);
+      expect(flash.revenueGrowth).toBeUndefined();
+      expect(flash.grossMargin).toBeUndefined();
+      expect(flash.ebitdaMargin).toBeUndefined();
+      expect(flash.isFallbackMode).toBe(true);
+      expect(flash.summary).toContain("Detaylı bilanço dipnot verileri kütükte yer almadığından");
+    });
+
+    it("detectValueTraps produces honest null values and 'Veri Yok' scorecard entries when balance sheet items are absent", async () => {
+      const co: CompanyAnalysisRequest = {
+        symbol: "TRAPCO",
+        name: "Trap Şirketi",
+        price: 50,
+        dailyChange: 0,
+        sector: "Sanayi",
+      };
+
+      const trap = await detectValueTraps(co, undefined);
+      expect(trap.altmanZScore).toBeNull();
+      expect(trap.interestCoverageRatio).toBeNull();
+      expect(trap.isFallbackMode).toBe(true);
+
+      const altmanItem = trap.forensicScorecard?.find((item) => item.metric.includes("Altman Z-Score"));
+      expect(altmanItem?.score).toBe("Veri Yok");
+
+      const interestItem = trap.forensicScorecard?.find((item) => item.metric.includes("Faiz Karşılama"));
+      expect(interestItem?.score).toBe("Veri Yok");
+    });
+
+    it("askOrakulChat returns honest zero-state message when accuracyStats is not available instead of fake 78%", async () => {
+      const response = await askOrakulChat(
+        [{ role: "user", content: "Geçmiş başarı ve isabet oranınız nedir?" }],
+        {},
+        undefined
+      );
+
+      expect(response).toContain("Henüz yeterli sayıda tamamlanmış Orakul analizi/karnesi bulunmuyor");
+      expect(response).not.toContain("%78");
+      expect(response).not.toContain("12 analizin");
+    });
+
+    it("askOrakulChat uses actual accuracy stats when provided in contextData", async () => {
+      const response = await askOrakulChat(
+        [{ role: "user", content: "Başarı karneniz nasıl?" }],
+        { accuracyStats: { total: 45, accuracyRate: 84 } },
+        undefined
+      );
+
+      expect(response).toContain("**45 analizin %84'i**");
     });
   });
 });

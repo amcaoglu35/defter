@@ -700,10 +700,10 @@ export function calculateValuationFormulas(company: {
   prices?: number[];
 }): ValuationMetrics {
   const price = company.price || 100;
-  const pe = company.peRatio || 10;
-  const pb = company.pbRatio || 2;
-  const eps = company.eps || (pe > 0 ? price / pe : 10);
-  const bvps = company.bookValuePerShare || (pb > 0 ? price / pb : 50);
+  const pe = company.peRatio ?? 0;
+  const pb = company.pbRatio ?? 0;
+  const eps = company.eps || (pe > 0 ? price / pe : 0);
+  const bvps = company.bookValuePerShare || (pb > 0 ? price / pb : 0);
 
   let numericMarketCap: number | undefined = undefined;
   if (typeof company.marketCap === "number") {
@@ -904,7 +904,7 @@ export function calculateValuationFormulas(company: {
     fcfYieldPct = parseFloat((Math.max(2, (company.dividendYield || 4) * 1.4)).toFixed(2));
   }
 
-  let interestCoverageRatio: number | null = 4.8;
+  let interestCoverageRatio: number | null = null;
   if (company.operatingIncome && company.interestExpense && company.interestExpense > 0) {
     interestCoverageRatio = parseFloat((company.operatingIncome / company.interestExpense).toFixed(2));
   }
