@@ -3,6 +3,7 @@ import { supabaseAdmin, isSupabaseAdminConfigured } from "@/lib/supabaseAdmin";
 import { generateDailyBriefing } from "@/lib/aiService";
 import { MOCK_COMPANIES, MOCK_BASKETS } from "@/lib/mockData";
 import { dispatchDailyReportToChannels } from "@/lib/notificationChannels";
+import { getClientIp, checkRateLimit, createRateLimitResponse } from "@/lib/rateLimit";
 
 export async function GET(req: Request) {
   return handleDailyCron(req);
@@ -13,11 +14,26 @@ export async function POST(req: Request) {
 }
 
 async function handleDailyCron(req: Request) {
-  // Optional CRON_SECRET verification for secure cloud execution
-  const authHeader = req.headers.get("authorization");
+  // 1. Mandatory CRON_SECRET verification (Fail-Closed Protection)
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret) {
+    console.error("[Cron: orakul-daily] CRON_SECRET env değişkeni tanımlı değil — fail-closed koruması devrede, istek reddedildi.");
+    return NextResponse.json(
+      { error: "Sunucu yapılandırma hatası: CRON_SECRET eksik." },
+      { status: 500 }
+    );
+  }
+
+  const authHeader = req.headers.get("authorization");
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Yetkisiz erişim (Invalid CRON_SECRET)" }, { status: 401 });
+  }
+
+  // 2. IP-based Rate Limiting (Defense in Depth: max 2 requests per minute)
+  const clientIp = getClientIp(req);
+  const rateLimit = await checkRateLimit(`cron:orakul-daily:${clientIp}`, 2, 60000);
+  if (!rateLimit.allowed) {
+    return createRateLimitResponse(rateLimit.resetInSeconds);
   }
 
   try {
