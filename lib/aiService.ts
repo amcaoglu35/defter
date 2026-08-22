@@ -1183,7 +1183,7 @@ export async function generateOrakulRecipe(
 
       const prompt = `Sen 'Orakul' portföy mimarısın. Aşağıdaki doğrulanmış varlıklardan tam ${targetAssetCount} adet varlık seç ve toplamı %100 eden dağılımı oluştur.
 Format (JSON):
-{"recipeTitle": "Strateji Adı", "summary": "2 cümlelik özet", "expectedYield": "%45 Yıllık Getiri", "riskRating": "Orta", "committeeDebate": {"bullSummary": "Boğa tezi", "bearSummary": "Ayı riski", "verdict": "Komite kararı"}, "allocation": [{"symbol": "THYAO", "name": "THY", "weight": 30, "price": 310, "note": "Gerekçe", "bullThesis": "Boğa tezi", "bearRisk": "Ayı riski"}]}
+{"recipeTitle": "<Strateji Adı>", "summary": "<2 cümlelik rasyonel özet>", "expectedYield": "<Yüzdelik hedef getiri, girdi profiline göre HESAPLA>", "riskRating": "<Düşük / Orta / Yüksek>", "committeeDebate": {"bullSummary": "<Boğa tezi>", "bearSummary": "<Ayı riski>", "verdict": "<Komite kararı>"}, "allocation": [{"symbol": "<SEMBOL>", "name": "<Şirket Adı>", "weight": "<Yüzdelik Ağırlık, Toplam=100>", "price": "<Aday listesindeki gerçek fiyat>", "note": "<Gerekçe>", "bullThesis": "<Boğa tezi>", "bearRisk": "<Ayı riski>"}]}
 
 Kullanıcı Parametreleri:
 Hedef: ${req.goal}, Risk: ${req.risk}, Bütçe: ${budgetNum} TL (Net Yatırılabilir: ${investableBudget} TL, Tahmini Komisyon: ${estimatedFeeAmount} TL), Varlık Sayısı: ${targetAssetCount}, Maksimum Sektör Ağırlığı: %${maxSectorW}${existingExposurePrompt}
@@ -1193,6 +1193,7 @@ Kritik Kısıtlar ve Talimatlar:
 3. Bir varlığın F/K veya PD/DD verisi eksikse bunu varsaymak yerine notlarında açıkça 'veri sınırlı' şeklinde belirt.
 4. BIST hisseleri için suggestedShares tam sayı (Math.floor), kıymetli maden/döviz/fon için ondalıklı olabilir.
 5. ABD borsası (exchange: 'ABD') varlıkları USD fiyatlıdır (1 USD = ${usdTryRate.toFixed(2)} TL). Lot hesabı TL bütçeye göre kur çevrimi yapılarak hesaplanır.
+6. Yukarıdaki JSON örneğindeki alanlar yalnızca formatı belirtir. Getiri, ağırlık ve risk değerlerini girdi verilerine ve aday listesindeki gerçek fiyatlara göre bağımsız olarak hesapla.
 Adaylar (SEMBOL|SEKTÖR|FİYAT|FK|PD|TEM|HACIM):
 ${candidatesSample}`;
 
@@ -1369,25 +1370,37 @@ ${candidatesSample}`;
   const maxSectorWeight = req.maxSectorWeight || 45;
 
   // =========================================================================
-  // ACİL DURUM YEDEĞİ (defaultSeeds) — SON GÜNCELLEME: 2026-08
+  // ACİL DURUM YEDEĞİ (Catalog Seeds) — Dinamik Kütük Eşleştirmesi
+  // Sabit/donmuş fiyat içermez; doğrudan MOCK_COMPANIES kütüğündeki güncel veriyi kullanır.
   // =========================================================================
-  const defaultSeeds: CompanyAnalysisRequest[] = [
-    { symbol: "THYAO", name: "Türk Hava Yolları", price: 310.0, sector: "Havacılık & Ulaştırma", exchange: "BIST", peRatio: 4.8, dividendYield: 0, dailyChange: 1.2 },
-    { symbol: "FROTO", name: "Ford Otomotiv", price: 1050.0, sector: "Otomotiv Sanayi", exchange: "BIST", peRatio: 9.2, dividendYield: 6.8, dailyChange: 0.5 },
-    { symbol: "TUPRS", name: "Tüpraş Rafineri", price: 168.0, sector: "Petrol & Enerji", exchange: "BIST", peRatio: 6.1, dividendYield: 9.4, dailyChange: -0.4 },
-    { symbol: "ASELS", name: "Aselsan Elektronik", price: 64.5, sector: "Savunma Sanayi", exchange: "BIST", peRatio: 12.5, dividendYield: 0.8, dailyChange: 2.1 },
-    { symbol: "BIMAS", name: "BİM Mağazalar", price: 495.0, sector: "Perakende Ticaret", exchange: "BIST", peRatio: 14.2, dividendYield: 2.5, dailyChange: 0.3 },
-    { symbol: "KCHOL", name: "Koç Holding", price: 215.0, sector: "Holding & Yatırım", exchange: "BIST", peRatio: 7.4, dividendYield: 3.2, dailyChange: 0.8 },
-    { symbol: "SISE", name: "Şişecam", price: 48.0, sector: "Cam & Sanayi", exchange: "BIST", peRatio: 8.9, dividendYield: 1.8, dailyChange: -0.2 },
-    { symbol: "ALTIN/GR", name: "Gram Altın", price: 3150.0, sector: "Kıymetli Maden", exchange: "Emtia", dailyChange: 0.4 },
-    { symbol: "GÜMÜŞ/GR", name: "Gram Gümüş", price: 38.5, sector: "Kıymetli Maden", exchange: "Emtia", dailyChange: 0.9 },
-    { symbol: "USD/TRY", name: "Amerikan Doları", price: 47.88, sector: "Döviz", exchange: "Döviz", dailyChange: 0.1 },
-    { symbol: "NVDA", name: "NVIDIA Corp", price: 135.0, sector: "Yapay Zeka & Yarıiletken", exchange: "ABD", currency: "USD", peRatio: 38.0, dividendYield: 0.1, dailyChange: 1.8 },
-    { symbol: "AAPL", name: "Apple Inc.", price: 228.0, sector: "Tüketici Teknolojisi", exchange: "ABD", currency: "USD", peRatio: 32.0, dividendYield: 0.5, dailyChange: 0.4 },
+  const fallbackSymbols = [
+    "THYAO", "FROTO", "TUPRS", "ASELS", "BIMAS", "KCHOL", "SISE",
+    "ALTIN/GR", "GÜMÜŞ/GR", "USD/TRY", "NVDA", "AAPL"
   ];
+  const fallbackSeedsFromCatalog: CompanyAnalysisRequest[] = [];
+  for (const sym of fallbackSymbols) {
+    const co = MOCK_COMPANIES.find((m) => m.symbol === sym);
+    if (co && co.price && co.price > 0) {
+      fallbackSeedsFromCatalog.push({
+        symbol: co.symbol,
+        name: co.name,
+        price: co.price,
+        sector: co.sector || "Genel",
+        exchange: co.exchange || "BIST",
+        peRatio: co.peRatio,
+        pbRatio: co.pbRatio,
+        dividendYield: co.dividendYield,
+        dailyChange: co.dailyChange || 0,
+        currency: co.currency,
+      });
+    }
+  }
 
   // Merge available pool with default seeds to ensure rich diversity
-  const candidatePool = pool.length >= targetCount ? pool : Array.from(new Map([...pool, ...defaultSeeds].map((c) => [c.symbol, c])).values());
+  const candidatePool = (pool.length >= targetCount
+    ? pool
+    : Array.from(new Map([...pool, ...fallbackSeedsFromCatalog].map((c) => [c.symbol, c])).values())
+  ).filter((c) => c.price && c.price > 0);
 
   // Dynamic ranking function based on strategy goal + Persona Bonus + Existing Concentration Penalty + Liquidity
   const rankedCandidates = [...candidatePool].map((c) => {
@@ -3508,7 +3521,7 @@ export async function chatWithOrakulCopilot(
 ): Promise<string> {
   const apiKey = userApiKey || getResolvedApiKey(provider);
   if (!apiKey) {
-    return `[Nötr Mod - API Anahtarı Tanımlı Değil] "${userPrompt}" sorunuz incelendi. Canlı yapay zeka analiz yanıtı üretmek için lütfen Ayarlar sayfasından Gemini veya OpenAI API anahtarınızı tanımlayın.`;
+    return `[Nötr Mod - API Anahtarı Tanımlı Değil] "${userPrompt}" sorunuz için canlı yapay zeka yanıtı üretmek üzere lütfen Ayarlar sayfasından Gemini veya OpenAI API anahtarınızı tanımlayın.`;
   }
 
   try {
@@ -3531,8 +3544,12 @@ export async function chatWithOrakulCopilot(
       const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
       if (text) return text;
     }
-  } catch {}
 
-  return `Orakul Copilot Yanıtı: "${userPrompt}" analizi tamamlandı. Şirketin F/K ve borçluluk çarpanları nötr seviyede olup temettü verimliliği korunmaktadır.`;
+    console.warn("[Orakul Copilot] API yanıtı başarısız veya boş içerik döndü.");
+    return `Şu anda Orakul Copilot'a bağlanırken bir sorun yaşandı, bu nedenle "${userPrompt}" sorunuza gerçek zamanlı bir analiz üretilemedi. Lütfen birkaç saniye sonra tekrar deneyin.`;
+  } catch (e) {
+    console.error("[Orakul Copilot] Beklenmeyen hata:", e);
+    return `Şu anda Orakul Copilot'a bağlanırken teknik bir sorun oluştu, bu nedenle "${userPrompt}" sorunuza yanıt üretilemedi. Lütfen tekrar deneyin veya bağlantınızı kontrol edin.`;
+  }
 }
 

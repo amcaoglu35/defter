@@ -10,6 +10,7 @@ import {
   analyzeNewsTitleSentiment,
   getLotRoundingRule,
   askOrakulChat,
+  chatWithOrakulCopilot,
   runBacktestSimulation,
   CompanyAnalysisRequest,
   AiRecipeRequest,
@@ -778,6 +779,54 @@ describe("aiService Unit & Contract Tests", () => {
       );
 
       expect(response).toContain("**45 analizin %84'i**");
+    });
+
+    it("chatWithOrakulCopilot returns honest error message on failure and never fake neutral financial judgment", async () => {
+      // Missing API key case
+      const noKeyRes = await chatWithOrakulCopilot(
+        "THYAO alınır mı?",
+        [],
+        "Portföy boş",
+        undefined,
+        "gemini"
+      );
+      expect(noKeyRes).toContain("[Nötr Mod - API Anahtarı Tanımlı Değil]");
+      expect(noKeyRes).not.toContain("analizi tamamlandı");
+      expect(noKeyRes).not.toContain("temettü verimliliği korunmaktadır");
+
+      // API failure case (invalid key)
+      const errRes = await chatWithOrakulCopilot(
+        "THYAO alınır mı?",
+        [],
+        "Portföy boş",
+        "invalid-key-xyz",
+        "gemini"
+      );
+      expect(errRes).toContain("Orakul Copilot'a bağlanırken");
+      expect(errRes).not.toContain("analizi tamamlandı");
+      expect(errRes).not.toContain("temettü verimliliği korunmaktadır");
+    });
+
+    it("generateOrakulRecipe dynamically resolves seeds from authentic catalog without frozen prices", async () => {
+      const req: AiRecipeRequest = {
+        budget: 50000,
+        risk: "Dengeli (Orta)",
+        goal: "Temettü ve Büyüme",
+        horizon: "3 Yıl",
+        universe: "BIST 30",
+        assetCount: 4,
+      };
+
+      // Pass empty pool to trigger fallback catalog seeds
+      const recipe = await generateOrakulRecipe(req, [], undefined);
+      expect(recipe.usedFallbackSeeds).toBe(true);
+      expect(recipe.allocation.length).toBe(4);
+      
+      // All allocated assets must have a authentic positive price and lot count >= 1
+      for (const item of recipe.allocation) {
+        expect(item.price).toBeGreaterThan(0);
+        expect(item.suggestedShares).toBeGreaterThanOrEqual(1);
+      }
     });
   });
 });
