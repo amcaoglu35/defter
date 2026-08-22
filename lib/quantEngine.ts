@@ -107,8 +107,62 @@ export interface CorrelationCell {
 }
 
 // -------------------------------------------------------------
-// 1. PEARSON KORELASYON MATRİSİ
+// 1. PEARSON KORELASYON MATRİSİ & İKİLİ KORELASYON
 // -------------------------------------------------------------
+
+export function getCorrelationBetween(
+  a?: { category?: string; symbol?: string; sector?: string; exchange?: string; assetClass?: string },
+  b?: { category?: string; symbol?: string; sector?: string; exchange?: string; assetClass?: string }
+): number {
+  if (!a || !b) return 0.55;
+  if (a.symbol && b.symbol && a.symbol.toUpperCase() === b.symbol.toUpperCase()) {
+    return 1.0;
+  }
+
+  // Normalize categories
+  const catA = (
+    a.category ||
+    (a.exchange === "Emtia" || a.assetClass === "maden" || a.symbol?.includes("ALTIN") || a.symbol?.includes("GÜMÜŞ")
+      ? "emtia"
+      : a.exchange === "Döviz" || a.assetClass === "doviz" || a.symbol?.includes("USD") || a.symbol?.includes("EUR")
+      ? "döviz"
+      : "hisse")
+  ).toLowerCase();
+
+  const catB = (
+    b.category ||
+    (b.exchange === "Emtia" || b.assetClass === "maden" || b.symbol?.includes("ALTIN") || b.symbol?.includes("GÜMÜŞ")
+      ? "emtia"
+      : b.exchange === "Döviz" || b.assetClass === "doviz" || b.symbol?.includes("USD") || b.symbol?.includes("EUR")
+      ? "döviz"
+      : "hisse")
+  ).toLowerCase();
+
+  let r = 0.55; // BIST hisseleri varsayılan korelasyonu
+  if (catA !== catB) {
+    if ((catA === "emtia" && catB === "hisse") || (catB === "emtia" && catA === "hisse")) {
+      r = -0.15; // Altın vs Hisse ters/düşük korelasyon
+    } else if ((catA === "döviz" && catB === "hisse") || (catB === "döviz" && catA === "hisse")) {
+      r = 0.10;
+    } else if (catA === "kripto" || catB === "kripto") {
+      r = 0.25;
+    } else if ((catA === "emtia" && catB === "döviz") || (catB === "emtia" && catA === "döviz")) {
+      r = 0.35;
+    }
+  } else if (catA === "hisse" && catB === "hisse") {
+    if (a.sector && b.sector && a.sector.toLowerCase() === b.sector.toLowerCase()) {
+      r = 0.88; // Aynı sektördeki hisseler
+    } else {
+      r = 0.62;
+    }
+  } else if (catA === "emtia" && catB === "emtia") {
+    r = 0.75;
+  } else if (catA === "döviz" && catB === "döviz") {
+    r = 0.80;
+  }
+
+  return r;
+}
 
 export function calculateCorrelationMatrix(assets: PortfolioAssetInput[]): {
   symbols: string[];
@@ -137,24 +191,7 @@ export function calculateCorrelationMatrix(assets: PortfolioAssetInput[]): {
       const a1 = assets.find((a) => a.symbol === s1);
       const a2 = assets.find((a) => a.symbol === s2);
 
-      let r = 0.55; // BIST hisseleri varsayılan korelasyonu
-      if (a1 && a2) {
-        if (a1.category !== a2.category) {
-          if ((a1.category === "emtia" && a2.category === "hisse") || (a2.category === "emtia" && a1.category === "hisse")) {
-            r = -0.15; // Altın vs Hisse ters/düşük korelasyon
-          } else if ((a1.category === "döviz" && a2.category === "hisse") || (a2.category === "döviz" && a1.category === "hisse")) {
-            r = 0.10;
-          } else if (a1.category === "kripto" || a2.category === "kripto") {
-            r = 0.25;
-          }
-        } else if (a1.category === "hisse" && a2.category === "hisse") {
-          if (a1.sector && a2.sector && a1.sector === a2.sector) {
-            r = 0.88; // Aynı sektördeki hisseler
-          } else {
-            r = 0.62;
-          }
-        }
-      }
+      const r = getCorrelationBetween(a1, a2);
 
       matrix[s1][s2] = r;
       cells.push({ sym1: s1, sym2: s2, correlation: r });

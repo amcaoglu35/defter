@@ -162,6 +162,10 @@ export interface AiHistoryItem {
   targetPeriodDays?: number;
   provider?: string;
   model?: string;
+  strategyArchetype?: string;
+  persona?: string;
+  allocation?: Array<{ symbol: string; weight: number; price?: number }>;
+  realizedReturnPct?: number;
 }
 
 // Otonom AI Tarayıcı Analiz Kartı

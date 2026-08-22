@@ -660,5 +660,56 @@ describe("aiService Unit & Contract Tests", () => {
       const highVolItem = result.allocation.find((a) => a.symbol === "HIGHVOL");
       expect(highVolItem?.isLowVolume).toBeUndefined();
     });
+
+    it("avoids stacking highly correlated assets (> maxPairwiseCorrelation: 0.80) when alternatives exist", async () => {
+      const corrCompanies: CompanyAnalysisRequest[] = [
+        { symbol: "THYAO", name: "THY", price: 300, sector: "Havacılık", exchange: "BIST", dailyChange: 1.0, peRatio: 4.5 },
+        { symbol: "PGSUS", name: "Pegasus", price: 220, sector: "Havacılık", exchange: "BIST", dailyChange: 0.9, peRatio: 4.8 },
+        { symbol: "EREGL", name: "Erdemir", price: 50, sector: "Demir Çelik", exchange: "BIST", dailyChange: 0.2, peRatio: 8.0 },
+        { symbol: "TUPRS", name: "Tüpraş", price: 170, sector: "Enerji", exchange: "BIST", dailyChange: 0.5, peRatio: 6.0 },
+        { symbol: "BIMAS", name: "BİM", price: 500, sector: "Perakende", exchange: "BIST", dailyChange: 0.3, peRatio: 12.0 },
+      ];
+
+      const req: AiRecipeRequest = {
+        goal: "Dengeli Büyüme",
+        risk: "Orta",
+        universe: "BIST 30",
+        budget: 100000,
+        assetCount: 3,
+        maxPairwiseCorrelation: 0.80,
+      };
+
+      const result = await generateOrakulRecipe(req, corrCompanies, undefined);
+
+      const symbols = result.allocation.map((a) => a.symbol);
+      // THYAO and PGSUS are both Havacılık (r = 0.88 > 0.80), so both should NOT be in the same 3-asset basket
+      const hasBothAviation = symbols.includes("THYAO") && symbols.includes("PGSUS");
+      expect(hasBothAviation).toBe(false);
+      expect(result.allocation.length).toBe(3);
+    });
+
+    it("generates deterministic stressScenarios (USD shock, rate shock, market crash)", async () => {
+      const testCompanies: CompanyAnalysisRequest[] = [
+        { symbol: "THYAO", name: "THY", price: 300, sector: "Ulaştırma", exchange: "BIST", dailyChange: 1.0, peRatio: 5 },
+        { symbol: "ISCTR", name: "İş Bankası", price: 14, sector: "Banka", exchange: "BIST", dailyChange: 0.8, peRatio: 4 },
+        { symbol: "ALTIN/GR", name: "Gram Altın", price: 3000, sector: "Kıymetli Maden", exchange: "Emtia", dailyChange: 0.2 },
+      ];
+
+      const req: AiRecipeRequest = {
+        goal: "Dengeli",
+        risk: "Orta",
+        universe: "Karma",
+        budget: 100000,
+        assetCount: 3,
+      };
+
+      const result = await generateOrakulRecipe(req, testCompanies, undefined);
+
+      expect(result.stressScenarios).toBeDefined();
+      expect(result.stressScenarios?.usdShock10pct.estimatedImpactPct).toBeDefined();
+      expect(result.stressScenarios?.rateShock500bp.estimatedImpactPct).toBeDefined();
+      expect(result.stressScenarios?.marketCrash20pct.estimatedImpactPct).toBeDefined();
+      expect(result.stressScenarios?.marketCrash20pct.estimatedImpactPct).toBeLessThan(0);
+    });
   });
 });

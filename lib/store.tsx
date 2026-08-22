@@ -1014,7 +1014,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     setAiHistory((prev) =>
       prev.map((item) => {
-        if (!item.symbol || !item.priceAtVerdict || (item.outcomeCorrect !== null && item.outcomeCorrect !== undefined)) {
+        if (item.outcomeCorrect !== null && item.outcomeCorrect !== undefined) {
           return item;
         }
 
@@ -1029,6 +1029,50 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               return item; // Evaluation period has not passed yet
             }
           }
+        }
+
+        // 1. Basket / Recipe Outcome Evaluation
+        if (item.type === "Sepet Önerisi" && item.allocation && item.allocation.length > 0) {
+          let totalWeight = 0;
+          let weightedReturn = 0;
+
+          item.allocation.forEach((alloc) => {
+            const co = listToUse.find((c) => c.symbol.toUpperCase() === alloc.symbol.toUpperCase());
+            const startPrice = alloc.price || co?.price || 100;
+            const currentPrice = co?.price || startPrice;
+            const ret = startPrice > 0 ? ((currentPrice - startPrice) / startPrice) * 100 : 0;
+            weightedReturn += ret * (alloc.weight / 100);
+            totalWeight += alloc.weight;
+          });
+
+          const realizedReturnPct = totalWeight > 0 ? parseFloat(weightedReturn.toFixed(2)) : 0;
+          let benchmarkReturn = 0;
+          if (item.bist100AtVerdict && item.bist100AtVerdict > 0) {
+            benchmarkReturn = ((currentBist100 - item.bist100AtVerdict) / item.bist100AtVerdict) * 100;
+          }
+          const alpha = parseFloat((realizedReturnPct - benchmarkReturn).toFixed(2));
+          const isCorrect = item.bist100AtVerdict ? alpha >= 0 : realizedReturnPct >= 0;
+
+          syncOrWarn("evaluate_ai_outcome", {
+            id: item.id,
+            outcomeCorrect: isCorrect,
+            alpha,
+            realizedReturnPct,
+            outcomeCheckedAt: new Date().toISOString(),
+          }, "AI sepet reçetesi değerlendirmesi");
+
+          return {
+            ...item,
+            outcomeCorrect: isCorrect,
+            alpha,
+            realizedReturnPct,
+            outcomeCheckedAt: new Date().toISOString().split("T")[0],
+          };
+        }
+
+        // 2. Single Stock Recommendation Evaluation
+        if (!item.symbol || !item.priceAtVerdict) {
+          return item;
         }
 
         const co = listToUse.find((c) => c.symbol === item.symbol);

@@ -57,6 +57,15 @@ export const AiRecipeResponseSchema = z.object({
   usdTryRate: z.number().optional(),
   usedFallbackSeeds: z.boolean().optional(),
   metricsSource: z.string().optional(),
+  averageCorrelation: z.number().optional(),
+  isPseudoDiversified: z.boolean().optional(),
+  stressScenarios: z
+    .object({
+      usdShock10pct: z.object({ estimatedImpactPct: z.number() }),
+      rateShock500bp: z.object({ estimatedImpactPct: z.number() }),
+      marketCrash20pct: z.object({ estimatedImpactPct: z.number() }),
+    })
+    .optional(),
   committeeDebate: z
     .object({
       bullSummary: z.string().optional(),
@@ -232,6 +241,7 @@ export const OrakulRecipePayloadSchema = z.object({
   horizon: z.string().max(50).optional(),
   maxAssetWeight: z.number().min(5).max(100).optional(),
   maxSectorWeight: z.number().min(10).max(100).optional(),
+  maxPairwiseCorrelation: z.number().min(0).max(1).optional(),
   includeGoldBuffer: z.boolean().optional(),
   excludeOverbought: z.boolean().optional(),
   estimatedFeeRatePct: z.number().min(0).max(5).optional(),

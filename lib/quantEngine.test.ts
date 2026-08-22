@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   calculateCorrelationMatrix,
+  getCorrelationBetween,
   calculatePortfolioRiskMetrics,
   runMonteCarloSimulation,
   calculateMacroSensitivities,
@@ -324,6 +325,39 @@ describe("quantEngine Unit Tests", () => {
       expect(vol).toBeDefined();
       expect(vol).toBeGreaterThan(10);
       expect(vol).toBeLessThan(50);
+    });
+  });
+
+  // -------------------------------------------------------------
+  // 9. getCorrelationBetween
+  // -------------------------------------------------------------
+  describe("getCorrelationBetween", () => {
+    it("returns 1.0 for the exact same symbol", () => {
+      expect(getCorrelationBetween({ symbol: "THYAO" }, { symbol: "THYAO" })).toBe(1.0);
+    });
+
+    it("returns 0.88 for two equities in the exact same sector", () => {
+      const a = { symbol: "THYAO", category: "hisse", sector: "Havacılık" };
+      const b = { symbol: "PGSUS", category: "hisse", sector: "Havacılık" };
+      expect(getCorrelationBetween(a, b)).toBe(0.88);
+    });
+
+    it("returns 0.62 for two equities in different sectors", () => {
+      const a = { symbol: "THYAO", category: "hisse", sector: "Havacılık" };
+      const b = { symbol: "EREGL", category: "hisse", sector: "Demir Çelik" };
+      expect(getCorrelationBetween(a, b)).toBe(0.62);
+    });
+
+    it("returns -0.15 for Gold (commodity) vs Equity", () => {
+      const gold = { symbol: "ALTIN/GR", exchange: "Emtia" };
+      const stock = { symbol: "THYAO", category: "hisse" };
+      expect(getCorrelationBetween(gold, stock)).toBe(-0.15);
+    });
+
+    it("returns 0.10 for USD (currency) vs Equity", () => {
+      const usd = { symbol: "USD/TRY", exchange: "Döviz" };
+      const stock = { symbol: "ASELS", category: "hisse" };
+      expect(getCorrelationBetween(usd, stock)).toBe(0.10);
     });
   });
 });

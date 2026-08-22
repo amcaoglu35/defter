@@ -19,6 +19,7 @@ import {
   calculateMacroSensitivities,
   runMonteCarloSimulation,
   calculateCorrelationMatrix,
+  getCorrelationBetween,
   calculateHHI,
   calculateHistoricalVolatility,
   PortfolioAssetInput,
@@ -63,6 +64,7 @@ export interface AiRecipeRequest {
   horizon?: string;
   maxAssetWeight?: number;
   maxSectorWeight?: number;
+  maxPairwiseCorrelation?: number;
   includeGoldBuffer?: boolean;
   assetCount?: number;
   strategyArchetype?: "defensive_castle" | "garp" | "dividend_aristocrats" | "deep_value" | "global_hedge" | "momentum_leaders" | "custom";
@@ -971,6 +973,11 @@ export function enrichRecipeWithRealMetrics(
     inflationBeta: macroSensitivities.inflationBeta,
     famaFrench: macroSensitivities.famaFrench,
     blackLittermanSuggestedWeights: macroSensitivities.blackLittermanSuggestedWeights,
+    stressScenarios: {
+      usdShock10pct: { estimatedImpactPct: macroSensitivities.usdElasticityPct },
+      rateShock500bp: { estimatedImpactPct: macroSensitivities.interestRateSensitivityPct },
+      marketCrash20pct: { estimatedImpactPct: parseFloat((riskMetrics.portfolioBeta * -20).toFixed(1)) },
+    },
   };
 }
 
@@ -1163,9 +1170,10 @@ Kullanıcı Parametreleri:
 Hedef: ${req.goal}, Risk: ${req.risk}, Bütçe: ${budgetNum} TL (Net Yatırılabilir: ${investableBudget} TL, Tahmini Komisyon: ${estimatedFeeAmount} TL), Varlık Sayısı: ${targetAssetCount}, Maksimum Sektör Ağırlığı: %${maxSectorW}${existingExposurePrompt}
 Kritik Kısıtlar ve Talimatlar:
 1. Hiçbir sektörün toplam ağırlığı %${maxSectorW}'i geçmemelidir (sadece tek varlık ağırlığı değil, sektör toplamı da bu sınıra tabidir).
-2. Bir varlığın F/K veya PD/DD verisi eksikse bunu varsaymak yerine notlarında açıkça 'veri sınırlı' şeklinde belirt.
-3. BIST hisseleri için suggestedShares tam sayı (Math.floor), kıymetli maden/döviz/fon için ondalıklı olabilir.
-4. ABD borsası (exchange: 'ABD') varlıkları USD fiyatlıdır (1 USD = ${usdTryRate.toFixed(2)} TL). Lot hesabı TL bütçeye göre kur çevrimi yapılarak hesaplanır.
+2. Seçtiğin hiçbir iki varlık arasındaki ikili korelasyon %${Math.round((req.maxPairwiseCorrelation || 0.80) * 100)}'ü geçmemeli, sektörel ve ekonomik olarak çeşitlendirilmiş varlıklar seç.
+3. Bir varlığın F/K veya PD/DD verisi eksikse bunu varsaymak yerine notlarında açıkça 'veri sınırlı' şeklinde belirt.
+4. BIST hisseleri için suggestedShares tam sayı (Math.floor), kıymetli maden/döviz/fon için ondalıklı olabilir.
+5. ABD borsası (exchange: 'ABD') varlıkları USD fiyatlıdır (1 USD = ${usdTryRate.toFixed(2)} TL). Lot hesabı TL bütçeye göre kur çevrimi yapılarak hesaplanır.
 Adaylar (SEMBOL|SEKTÖR|FİYAT|FK|PD|TEM|HACIM):
 ${candidatesSample}`;
 
@@ -1437,7 +1445,8 @@ ${candidatesSample}`;
     return { ...c, calculatedScore: score };
   }).sort((a, b) => b.calculatedScore - a.calculatedScore);
 
-  // Pick targetCount diverse items respecting sector weight ceiling (maxSectorWeight)
+  // Pick targetCount diverse items respecting sector weight ceiling (maxSectorWeight) & pairwise correlation (maxPairwiseCorrelation)
+  const maxPairCorr = typeof req.maxPairwiseCorrelation === "number" ? req.maxPairwiseCorrelation : 0.80;
   const selectedItems: CompanyAnalysisRequest[] = [];
   const sectorWeights = new Map<string, number>();
   const approxWeightPerItem = Math.round(100 / targetCount);
@@ -1456,7 +1465,13 @@ ${candidatesSample}`;
     if (selectedItems.length >= targetCount) break;
     const sec = candidate.sector || "Genel";
     const currentSecWeight = sectorWeights.get(sec) || 0;
-    if (currentSecWeight + approxWeightPerItem <= maxSectorWeight || selectedItems.length >= targetCount - 1) {
+    const sectorAllowed = currentSecWeight + approxWeightPerItem <= maxSectorWeight || selectedItems.length >= targetCount - 1;
+
+    // Pairwise correlation check with already selected items
+    const hasHighCorr = selectedItems.some((s) => getCorrelationBetween(s, candidate) > maxPairCorr);
+    const corrAllowed = !hasHighCorr || selectedItems.length >= targetCount - 1;
+
+    if (sectorAllowed && corrAllowed) {
       if (!selectedItems.some((s) => s.symbol === candidate.symbol)) {
         selectedItems.push(candidate);
         sectorWeights.set(sec, currentSecWeight + approxWeightPerItem);
@@ -1464,7 +1479,7 @@ ${candidatesSample}`;
     }
   }
 
-  // Fallback to top ranked if sector constraint left us short
+  // Fallback to top ranked if sector / correlation constraints left us short
   if (selectedItems.length < targetCount) {
     for (const candidate of rankedCandidates) {
       if (selectedItems.length >= targetCount) break;
@@ -1777,12 +1792,17 @@ Format (JSON):
 
   // Algorithmic fallback pick
   if (!newItemCandidate) {
+    const otherItems = currentAllocation.filter((item) => item.symbol.toUpperCase() !== excludeSymbol.toUpperCase());
+    const maxPairCorr = typeof req.maxPairwiseCorrelation === "number" ? req.maxPairwiseCorrelation : 0.80;
+
     const scored = eligibleCandidates
       .map((c) => {
         let score = 50;
         if (req.strategyArchetype === "deep_value" && c.peRatio && c.peRatio < 8) score += 40;
         if (req.strategyArchetype === "dividend_aristocrats" && (c.dividendYield || 0) > 4) score += 40;
         if (c.dailyChange > 0) score += 10;
+        const hasHighCorr = otherItems.some((other) => getCorrelationBetween(other, c) > maxPairCorr);
+        if (hasHighCorr) score -= 35;
         return { ...c, score };
       })
       .sort((a, b) => b.score - a.score);

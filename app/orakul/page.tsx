@@ -336,6 +336,11 @@ interface OrakulRecipeResult {
   feeRatePct?: number;
   usdTryRate?: number;
   usedFallbackSeeds?: boolean;
+  stressScenarios?: {
+    usdShock10pct: { estimatedImpactPct: number };
+    rateShock500bp: { estimatedImpactPct: number };
+    marketCrash20pct: { estimatedImpactPct: number };
+  };
   rebalanceActions?: Array<{
     symbol: string;
     name?: string;
@@ -1664,6 +1669,46 @@ interface WeeklyLetterResult {
     return { top3, worst3 };
   }, [aiHistory]);
 
+  // 15. Strateji Arketipi Bazlı Başarı Karnesi (GÖREV 3 Geri Besleme)
+  const archetypeStats = useMemo(() => {
+    const evaluatedBaskets = aiHistory.filter(
+      (i) =>
+        i.type === "Sepet Önerisi" &&
+        i.outcomeCorrect !== null &&
+        i.outcomeCorrect !== undefined
+    );
+    if (evaluatedBaskets.length === 0) return null;
+
+    const archetypes = [
+      { id: "defensive_castle", label: "Defansif Kale", icon: "🛡️" },
+      { id: "dividend_aristocrats", label: "Temettü Aristokratları", icon: "👑" },
+      { id: "garp", label: "GARP (Makul Büyüme)", icon: "⚖️" },
+      { id: "deep_value", label: "Derin Değer", icon: "💎" },
+      { id: "global_hedge", label: "Küresel Korunma", icon: "🌐" },
+      { id: "momentum_leaders", label: "Momentum Liderleri", icon: "🚀" },
+    ];
+
+    return archetypes
+      .map((arch) => {
+        const items = evaluatedBaskets.filter((i) => {
+          const itemArch = i.strategyArchetype || (i.description?.includes(arch.id) ? arch.id : "");
+          return itemArch === arch.id || (i.title?.toLowerCase().includes(arch.label.toLowerCase()));
+        });
+        const total = items.length;
+        const correct = items.filter((i) => i.outcomeCorrect === true).length;
+        const rate = total > 0 ? Math.round((correct / total) * 100) : null;
+        const avgAlpha =
+          total > 0
+            ? parseFloat(
+                (items.reduce((acc, curr) => acc + (curr.alpha || 0), 0) / total).toFixed(1)
+              )
+            : null;
+
+        return { ...arch, total, correct, rate, avgAlpha };
+      })
+      .filter((a) => a.total > 0);
+  }, [aiHistory]);
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-10">
       {/* 1. Orakul Hero Section with Rings & Seal */}
@@ -2661,6 +2706,86 @@ interface WeeklyLetterResult {
                   </div>
                 )}
               </div>
+
+              {/* 🌪️ Üretim Anında Otomatik Stres Testi Önizlemesi (GÖREV 2) */}
+              {result.stressScenarios && (
+                <div className="p-4 bg-[var(--ink-2)] border border-[var(--line)] rounded-xl space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[var(--line)]/60 pb-2">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-amber-400" />
+                      <h4 className="font-serif font-bold text-xs text-[var(--paper)]">
+                        🌪️ Stres Testi &amp; Makro Şok Önizlemesi
+                      </h4>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                        ⚡ 3 Farklı Piyasa Şoku Simülasyonu
+                      </span>
+                      <Link
+                        href="/analiz"
+                        className="text-[9px] font-mono text-[var(--brass)] hover:underline flex items-center gap-1"
+                      >
+                        Detaylı Stres Testine Git →
+                      </Link>
+                    </div>
+                  </div>
+
+                  {/* Düşük Risk / Defansif Profil Kırılganlık Uyarısı */}
+                  {(risk.toLowerCase().includes("dusuk") || risk.toLowerCase().includes("defansif") || strategyArchetype === "defensive_castle") &&
+                    result.stressScenarios.marketCrash20pct.estimatedImpactPct <= -18 && (
+                      <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg text-xs text-amber-300 flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                        <span className="text-[11px] leading-relaxed">
+                          ⚠️ <strong>Kırılganlık Uyarısı:</strong> Bu sepet, seçtiğiniz düşük risk/defansif profil kısıtlarına göre genel piyasa çöküşü senaryosunda beklenenden daha yüksek (%{result.stressScenarios.marketCrash20pct.estimatedImpactPct}) bir değer kaybı riski barındırıyor.
+                        </span>
+                      </div>
+                    )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    {/* 1. Dolar Şoku */}
+                    <div className="p-3 bg-[var(--ink-3)] rounded-lg border border-[var(--line)] space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono text-[var(--mist)]">💵 Dolar Şoku (+%10)</span>
+                        <span className="text-[8px] font-mono bg-blue-500/15 text-blue-300 px-1 rounded">Döviz Duyarlılığı</span>
+                      </div>
+                      <span className={`font-mono text-base font-bold block ${result.stressScenarios.usdShock10pct.estimatedImpactPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                        {result.stressScenarios.usdShock10pct.estimatedImpactPct >= 0 ? `+${result.stressScenarios.usdShock10pct.estimatedImpactPct}%` : `${result.stressScenarios.usdShock10pct.estimatedImpactPct}%`}
+                      </span>
+                      <span className="text-[9px] text-[var(--mist)] block">
+                        {result.stressScenarios.usdShock10pct.estimatedImpactPct >= 3 ? "Güçlü Döviz Koruması" : "Sınırlı Döviz Esnekliği"}
+                      </span>
+                    </div>
+
+                    {/* 2. Faiz İndirimi / Şoku */}
+                    <div className="p-3 bg-[var(--ink-3)] rounded-lg border border-[var(--line)] space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono text-[var(--mist)]">📉 Faiz Şoku (-500bp)</span>
+                        <span className="text-[8px] font-mono bg-purple-500/15 text-purple-300 px-1 rounded">Banka &amp; GYO</span>
+                      </div>
+                      <span className={`font-mono text-base font-bold block ${result.stressScenarios.rateShock500bp.estimatedImpactPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                        {result.stressScenarios.rateShock500bp.estimatedImpactPct >= 0 ? `+${result.stressScenarios.rateShock500bp.estimatedImpactPct}%` : `${result.stressScenarios.rateShock500bp.estimatedImpactPct}%`}
+                      </span>
+                      <span className="text-[9px] text-[var(--mist)] block">
+                        {result.stressScenarios.rateShock500bp.estimatedImpactPct >= 3 ? "Faiz İndirimine Yüksek Duyarlı" : "Nötr Faiz Etkisi"}
+                      </span>
+                    </div>
+
+                    {/* 3. Piyasa Çöküşü */}
+                    <div className="p-3 bg-[var(--ink-3)] rounded-lg border border-[var(--line)] space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono text-[var(--mist)]">💥 Piyasa Çöküşü (-%20)</span>
+                        <span className="text-[8px] font-mono bg-rose-500/15 text-rose-300 px-1 rounded">Beta x -%20</span>
+                      </div>
+                      <span className="font-mono text-base font-bold text-rose-400 block">
+                        {result.stressScenarios.marketCrash20pct.estimatedImpactPct}%
+                      </span>
+                      <span className="text-[9px] text-[var(--mist)] block">
+                        {result.stressScenarios.marketCrash20pct.estimatedImpactPct > -15 ? "Defansif Dayanıklılık" : "Piyasayla Birlikte Düşüş"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Varlık Kartları & Tam Lot Dağılımı */}
               <div className="space-y-3">
@@ -5005,6 +5130,51 @@ interface WeeklyLetterResult {
               )}
             </div>
           </div>
+
+          {/* Strateji Arketipi Başarı Karnesi (GÖREV 3 Geri Besleme) */}
+          {archetypeStats && archetypeStats.length > 0 && (
+            <div className="p-4 bg-[var(--ink-3)] border border-[var(--line)] rounded-xl space-y-3">
+              <div className="flex items-center justify-between border-b border-[var(--line)] pb-2">
+                <span className="font-mono text-xs text-[var(--brass)] font-bold uppercase tracking-wider flex items-center gap-1.5">
+                  <Target className="w-3.5 h-3.5" />
+                  <span>Strateji Arketipi Geri Besleme &amp; Başarı Karnesi</span>
+                </span>
+                <span className="text-[10px] font-mono text-[var(--mist)]">Geçmiş Sepet Önerileri Performansı</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {archetypeStats.map((arch) => (
+                  <div
+                    key={arch.id}
+                    className="p-3 bg-[var(--ink-2)] border border-[var(--line)] rounded-lg space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 font-bold text-xs text-[var(--paper)]">
+                        <span>{arch.icon}</span>
+                        <span>{arch.label}</span>
+                      </div>
+                      <span className="font-mono text-[10px] text-[var(--mist)] bg-[var(--ink-3)] px-1.5 py-0.5 rounded border border-[var(--line)]">
+                        {arch.total} Reçete
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between font-mono text-xs">
+                      <span className="text-[var(--mist)]">Endeksi Geçme Oranı:</span>
+                      <strong className={arch.rate && arch.rate >= 50 ? "text-emerald-400" : "text-amber-400"}>
+                        %{arch.rate ?? 0}
+                      </strong>
+                    </div>
+                    {arch.avgAlpha !== null && (
+                      <div className="flex items-center justify-between font-mono text-xs border-t border-[var(--line)]/40 pt-1">
+                        <span className="text-[var(--mist)]">Ortalama Alfa:</span>
+                        <span className={`font-bold ${arch.avgAlpha >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                          {arch.avgAlpha >= 0 ? `+${arch.avgAlpha}%` : `${arch.avgAlpha}%`}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* 3. Öne Çıkan Kararlar: En İyi ve En Zayıf 3 Çağrı (Geliştirme Madde 5) */}
           {topAndWorstCalls && (topAndWorstCalls.top3.length > 0 || topAndWorstCalls.worst3.length > 0) && (
