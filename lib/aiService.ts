@@ -132,10 +132,30 @@ export interface CompanyAnalysisRequest {
   indexTag?: string;
   dividendYield?: number;
   marketCap?: string | number;
+  eps?: number;
+  bookValuePerShare?: number;
   revenueGrowth?: number;
   grossMargin?: number;
+  priorGrossMargin?: number;
   netMargin?: number;
+  assetTurnover?: number;
+  financialLeverage?: number;
   freeCashFlow?: number;
+  totalDebt?: number;
+  currentAssets?: number;
+  operatingIncome?: number;
+  interestExpense?: number;
+  operatingCashFlow?: number;
+  netIncome?: number | string;
+  roa?: number;
+  priorRoa?: number;
+  currentRatio?: number;
+  priorCurrentRatio?: number;
+  sharesOutstanding?: number | string;
+  priorSharesOutstanding?: number | string;
+  longTermDebtToAssets?: number;
+  priorLongTermDebtToAssets?: number;
+  prices?: number[];
   returnOnEquity?: number;
   athDiscountPct?: number;
   assetClass?: "hisse" | "maden" | "fon" | "doviz" | string;
@@ -281,15 +301,13 @@ export async function generateCompanyAnalysis(
 
   // 1. Hesaplanan Matematiksel Quant & Değerleme Çıktıları (Deterministik)
   const mathVal = calculateValuationFormulas({
+    ...company,
     symbol: symbol,
     sector: company.sector,
     price: price,
     peRatio: pe,
     pbRatio: pb,
     dividendYield: divYield,
-    revenueGrowth: company.revenueGrowth,
-    freeCashFlow: company.freeCashFlow,
-    marketCap: company.marketCap,
   });
 
   const calculatedFairValue = mathVal.dcfFairValue || mathVal.grahamNumber || undefined;
@@ -2141,6 +2159,7 @@ export async function generateEarningsFlash(
 
   // 1. Deterministik Bilanço & Sağlık Skoru (Stanford Piotroski F-Score)
   const mathVal = calculateValuationFormulas({
+    ...company,
     symbol: company.symbol,
     price: company.price,
     peRatio: pe,
@@ -2326,6 +2345,7 @@ export async function detectValueTraps(
 
   // 1. Deterministik Adli Finans ve Değerleme Hesaplamaları (Tekil Doğruluk Kaynağı: quantEngine)
   const mathVal = calculateValuationFormulas({
+    ...company,
     symbol: company.symbol,
     price,
     peRatio: pe,

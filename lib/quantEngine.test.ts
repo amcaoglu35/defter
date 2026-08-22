@@ -575,4 +575,55 @@ describe("quantEngine Unit Tests", () => {
       expect(getCorrelationBetween(usd, stock)).toBe(0.10);
     });
   });
+
+  // -------------------------------------------------------------
+  // 10. calculateValuationFormulas with Deep Financial Statements
+  // -------------------------------------------------------------
+  describe("calculateValuationFormulas with Deep Fundamentals", () => {
+    it("evaluates all 9 Piotroski criteria accurately when full financial statements are provided", () => {
+      const result = calculateValuationFormulas({
+        symbol: "THYAO",
+        sector: "Havacılık",
+        price: 300,
+        peRatio: 5,
+        pbRatio: 1.2,
+        marketCap: 414000000000,
+        roa: 8.5,
+        priorRoa: 6.2, // ΔROA > 0 (passed)
+        operatingCashFlow: 65000000000, // CFO > 0 (passed)
+        netIncome: 45000000000, // CFO > Net Income (passed)
+        freeCashFlow: 35000000000,
+        currentRatio: 1.25,
+        priorCurrentRatio: 1.10, // Current ratio improving (passed)
+        sharesOutstanding: 1380000000,
+        priorSharesOutstanding: 1380000000, // No dilution (passed)
+        longTermDebtToAssets: 0.35,
+        priorLongTermDebtToAssets: 0.42, // Leverage decreasing (passed)
+        grossMargin: 24.5,
+        priorGrossMargin: 21.0, // Gross margin improving (passed)
+        assetTurnover: 0.85, // Asset turnover healthy (passed)
+      });
+
+      expect(result.piotroskiEvaluatedCount).toBe(9);
+      expect(result.piotroskiFScore).toBe(9);
+      expect(result.piotroskiRank).toBe("Çok Güçlü / Elit");
+      expect(result.dcfFairValue).toBeGreaterThan(0);
+      expect(result.dcfDiscountPct).toBeDefined();
+    });
+
+    it("evaluates partial criteria when only some statement items are present without false 9/9 scoring", () => {
+      const result = calculateValuationFormulas({
+        symbol: "PARTIAL",
+        sector: "Sanayi",
+        price: 50,
+        peRatio: 8,
+        pbRatio: 1.5,
+        roa: 5.0,
+        // Missing priorRoa, priorCurrentRatio, etc.
+      });
+
+      expect(result.piotroskiEvaluatedCount).toBeLessThan(9);
+      expect(result.piotroskiSummary).toContain("Kriter Değerlendirildi");
+    });
+  });
 });

@@ -1296,6 +1296,60 @@ interface WeeklyLetterResult {
     }
   };
 
+async function fetchAndEnrichCompanyWithDeepData(co: Company): Promise<Record<string, unknown>> {
+  try {
+    const deepRes = await fetch(`/api/prices/deep?symbol=${encodeURIComponent(co.symbol)}`).catch(() => null);
+    if (deepRes && deepRes.ok) {
+      const deepJson = await deepRes.json();
+      const deepData = deepJson?.data;
+      if (deepData?.fundamentals) {
+        const fd = deepData.fundamentals;
+        const curBs = fd.currentPeriod;
+        const priBs = fd.priorPeriod;
+
+        const curLtDebt = curBs?.longTermDebt;
+        const curTotAssets = curBs?.totalAssets;
+        const priLtDebt = priBs?.longTermDebt;
+        const priTotAssets = priBs?.totalAssets;
+
+        const longTermDebtToAssets = curLtDebt && curTotAssets && curTotAssets > 0 ? curLtDebt / curTotAssets : undefined;
+        const priorLongTermDebtToAssets = priLtDebt && priTotAssets && priTotAssets > 0 ? priLtDebt / priTotAssets : undefined;
+
+        const curRatio = fd.currentRatio ?? (curBs?.totalCurrentAssets && curBs?.totalCurrentLiabilities && curBs.totalCurrentLiabilities > 0 ? curBs.totalCurrentAssets / curBs.totalCurrentLiabilities : undefined);
+        const priorCurrentRatio = priBs?.totalCurrentAssets && priBs?.totalCurrentLiabilities && priBs.totalCurrentLiabilities > 0 ? priBs.totalCurrentAssets / priBs.totalCurrentLiabilities : undefined;
+
+        const roa = fd.returnOnAssets;
+        const priorRoa = priBs?.netIncome && priBs?.totalAssets && priBs.totalAssets > 0 ? (priBs.netIncome / priBs.totalAssets) * 100 : undefined;
+
+        return {
+          ...co,
+          eps: co.peRatio && co.price ? co.price / co.peRatio : undefined,
+          bookValuePerShare: co.pbRatio && co.price ? co.price / co.pbRatio : undefined,
+          revenueGrowth: fd.revenueGrowth ?? co.revenueGrowth,
+          grossMargin: fd.grossMargins ?? (co as unknown as { grossMargin?: number }).grossMargin,
+          netMargin: fd.profitMargins ?? (co as unknown as { netMargin?: number }).netMargin,
+          freeCashFlow: fd.freeCashflow ?? co.freeCashFlow,
+          totalDebt: fd.totalDebt,
+          currentAssets: curBs?.totalCurrentAssets,
+          operatingCashFlow: fd.operatingCashflow,
+          roa,
+          priorRoa,
+          currentRatio: curRatio,
+          priorCurrentRatio,
+          sharesOutstanding: curBs?.commonStockSharesOutstanding,
+          priorSharesOutstanding: priBs?.commonStockSharesOutstanding,
+          longTermDebtToAssets,
+          priorLongTermDebtToAssets,
+          financialLeverage: fd.debtToEquity ? 1 + (fd.debtToEquity / 100) : undefined,
+        };
+      }
+    }
+  } catch (err) {
+    console.warn(`[Orakul] Deep data enrichment skipped for ${co.symbol}:`, err);
+  }
+  return { ...co };
+}
+
   const handleCompanyAnalyze = async () => {
     if (isCompareMode) {
       const co1 = companies.find((c) => c.symbol === selectedCoSymbol);
@@ -1307,9 +1361,14 @@ interface WeeklyLetterResult {
       setCompanyLoading(true);
       setCompanyAnalysis(null);
       setCompareAnalysis(null);
-      setAnalysisPhase(`1. ${co1.symbol} ve ${co2.symbol} verileri eş zamanlı taranıyor...`);
+      setAnalysisPhase(`1. ${co1.symbol} ve ${co2.symbol} derin bilanço verileri taranıyor...`);
 
       try {
+        const [enrichedCo1, enrichedCo2] = await Promise.all([
+          fetchAndEnrichCompanyWithDeepData(co1),
+          fetchAndEnrichCompanyWithDeepData(co2),
+        ]);
+
         setTimeout(() => setAnalysisPhase(`2. DCF, Piotroski ve DuPont modelleri karşılaştırmalı simüle ediliyor...`), 700);
 
         const [res1, res2] = await Promise.all([
@@ -1318,7 +1377,7 @@ interface WeeklyLetterResult {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               type: "company_analysis",
-              payload: co1,
+              payload: enrichedCo1,
               history: aiHistory,
               provider: aiProvider,
               model: geminiModel,
@@ -1330,7 +1389,7 @@ interface WeeklyLetterResult {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               type: "company_analysis",
-              payload: co2,
+              payload: enrichedCo2,
               history: aiHistory,
               provider: aiProvider,
               model: geminiModel,
@@ -1366,16 +1425,18 @@ interface WeeklyLetterResult {
     setCompanyLoading(true);
     setCompanyAnalysis(null);
     setCompareAnalysis(null);
-    setAnalysisPhase("1. Bilanço, Gelir Tablosu ve Çarpanlar Çekiliyor...");
+    setAnalysisPhase("1. Bilanço, Nakit Akışı ve Çarpanlar Çekiliyor...");
 
     try {
+      const enrichedCo = await fetchAndEnrichCompanyWithDeepData(co);
+
       const [res] = await Promise.all([
         fetch("/api/orakul", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             type: "company_analysis",
-            payload: co,
+            payload: enrichedCo,
             history: aiHistory,
             provider: aiProvider,
             model: geminiModel,

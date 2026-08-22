@@ -686,15 +686,15 @@ export function calculateValuationFormulas(company: {
   operatingIncome?: number;
   interestExpense?: number;
   operatingCashFlow?: number;
-  netIncome?: number;
+  netIncome?: number | string;
   roa?: number;
   priorRoa?: number;
   currentRatio?: number;
   priorCurrentRatio?: number;
   grossMargin?: number;
   priorGrossMargin?: number;
-  sharesOutstanding?: number;
-  priorSharesOutstanding?: number;
+  sharesOutstanding?: number | string;
+  priorSharesOutstanding?: number | string;
   longTermDebtToAssets?: number;
   priorLongTermDebtToAssets?: number;
   prices?: number[];
@@ -705,22 +705,25 @@ export function calculateValuationFormulas(company: {
   const eps = company.eps || (pe > 0 ? price / pe : 0);
   const bvps = company.bookValuePerShare || (pb > 0 ? price / pb : 0);
 
-  let numericMarketCap: number | undefined = undefined;
-  if (typeof company.marketCap === "number") {
-    numericMarketCap = company.marketCap;
-  } else if (typeof company.marketCap === "string") {
-    const raw = company.marketCap.replace(/[^0-9.,]/g, "").replace(",", ".");
-    const parsed = parseFloat(raw);
-    if (!isNaN(parsed)) {
-      if (company.marketCap.toLowerCase().includes("milyar") || company.marketCap.includes("B") || company.marketCap.includes("b")) {
-        numericMarketCap = parsed * 1_000_000_000;
-      } else if (company.marketCap.toLowerCase().includes("milyon") || company.marketCap.includes("M") || company.marketCap.includes("m")) {
-        numericMarketCap = parsed * 1_000_000;
-      } else {
-        numericMarketCap = parsed;
+  function parseNumeric(v: number | string | undefined): number | undefined {
+    if (typeof v === "number") return v;
+    if (typeof v === "string") {
+      const raw = v.replace(/[^0-9.,]/g, "").replace(",", ".");
+      const parsed = parseFloat(raw);
+      if (!isNaN(parsed)) {
+        if (v.toLowerCase().includes("milyar") || v.includes("B") || v.includes("b")) return parsed * 1_000_000_000;
+        if (v.toLowerCase().includes("milyon") || v.includes("M") || v.includes("m")) return parsed * 1_000_000;
+        return parsed;
       }
     }
+    return undefined;
   }
+
+  const numericNetIncome = parseNumeric(company.netIncome);
+  const numericSharesOutstanding = parseNumeric(company.sharesOutstanding);
+  const numericPriorSharesOutstanding = parseNumeric(company.priorSharesOutstanding);
+
+  let numericMarketCap: number | undefined = parseNumeric(company.marketCap);
 
   // 1. Graham Sayısı
   let grahamNumber: number | null = null;
@@ -744,8 +747,16 @@ export function calculateValuationFormulas(company: {
   // 3. DCF Adil Değeri (YALNIZCA gerçek Serbest Nakit Akışı verisi varsa hesaplanır)
   let dcfFairValue: number | null = null;
   let dcfDiscountPct: number | null = null;
-  if (company.freeCashFlow && company.freeCashFlow > 0 && numericMarketCap && numericMarketCap > 0 && price > 0) {
-    const fcfPerShare = company.freeCashFlow / (numericMarketCap / price);
+  let fcfPerShare: number | null = null;
+
+  if (company.freeCashFlow && numericMarketCap && numericMarketCap > 0 && price > 0) {
+    const totalShares = numericMarketCap / price;
+    if (totalShares > 0) {
+      fcfPerShare = company.freeCashFlow / totalShares;
+    }
+  }
+
+  if (fcfPerShare != null && fcfPerShare > 0) {
     const wacc = getWaccForSector(company.sector);
     const baseGrowth = company.revenueGrowth != null ? company.revenueGrowth / 100 : (growth > 0 ? growth / 100 : 0.08);
     const g = Math.max(0.02, Math.min(baseGrowth, wacc - 0.05)); // g < wacc matematiksel kısıtı
@@ -786,8 +797,8 @@ export function calculateValuationFormulas(company: {
   const isRoaGrowing = (company.roa != null && company.priorRoa != null) ? company.roa > company.priorRoa : null;
   
   let isAccrualHealthy: boolean | null = null;
-  if (company.operatingCashFlow != null && company.netIncome != null) {
-    isAccrualHealthy = company.operatingCashFlow > company.netIncome;
+  if (company.operatingCashFlow != null && numericNetIncome != null) {
+    isAccrualHealthy = company.operatingCashFlow > numericNetIncome;
   } else if (company.freeCashFlow != null && company.eps != null && company.price && company.peRatio && numericMarketCap) {
     isAccrualHealthy = company.freeCashFlow > (company.eps * (numericMarketCap / company.price));
   }
@@ -800,8 +811,8 @@ export function calculateValuationFormulas(company: {
     ? company.currentRatio > company.priorCurrentRatio
     : null;
 
-  const isNotDiluted = (company.sharesOutstanding != null && company.priorSharesOutstanding != null)
-    ? company.sharesOutstanding <= company.priorSharesOutstanding
+  const isNotDiluted = (numericSharesOutstanding != null && numericPriorSharesOutstanding != null)
+    ? numericSharesOutstanding <= numericPriorSharesOutstanding
     : null;
 
   const isGrossMarginImproving = (company.grossMargin != null && company.priorGrossMargin != null)

@@ -105,6 +105,37 @@ export interface DeepCompanyData {
       fiveYear?: number;
     };
   };
+  fundamentals?: {
+    totalCash?: number;
+    totalDebt?: number;
+    debtToEquity?: number;
+    currentRatio?: number;
+    quickRatio?: number;
+    returnOnAssets?: number;
+    returnOnEquity?: number;
+    grossMargins?: number;
+    operatingMargins?: number;
+    profitMargins?: number;
+    freeCashflow?: number;
+    operatingCashflow?: number;
+    revenueGrowth?: number;
+    earningsGrowth?: number;
+    priorPeriod?: {
+      totalAssets?: number;
+      totalCurrentAssets?: number;
+      totalCurrentLiabilities?: number;
+      longTermDebt?: number;
+      commonStockSharesOutstanding?: number;
+      netIncome?: number;
+    };
+    currentPeriod?: {
+      totalAssets?: number;
+      totalCurrentAssets?: number;
+      totalCurrentLiabilities?: number;
+      longTermDebt?: number;
+      commonStockSharesOutstanding?: number;
+    };
+  };
 }
 
 // In-memory cache for deep fundamental data (TTL: 30 minutes)
@@ -159,6 +190,9 @@ export async function GET(request: Request) {
         "topHoldings",
         "fundProfile",
         "fundPerformance",
+        "balanceSheetHistory",
+        "cashflowStatementHistory",
+        "financialData",
       ],
     }) as Record<string, unknown>;
 
@@ -364,7 +398,61 @@ export async function GET(request: Request) {
       };
     }
 
-    // 10. Enrich with Technical Indicators via borsats Ticker (RSI, MACD, Bollinger Bands)
+    // 10. Deep Fundamentals & Balance Sheet History (Piotroski, Merton, DCF & Altman Z)
+    const finDataRaw = rawSummary["financialData"];
+    const bsRaw = rawSummary["balanceSheetHistory"];
+    const cfRaw = rawSummary["cashflowStatementHistory"];
+
+    if (finDataRaw || bsRaw || cfRaw) {
+      const fd = asRecord(finDataRaw);
+      const bs = asRecord(bsRaw);
+      const bsStatements = asArray(bs["balanceSheetStatements"]).map(asRecord);
+      const curBs = bsStatements[0] || {};
+      const priBs = bsStatements[1] || {};
+
+      const cf = asRecord(cfRaw);
+      const cfStatements = asArray(cf["cashflowStatements"]).map(asRecord);
+      const priCf = cfStatements[1] || {};
+
+      // Prior net income from prior incomeStatement or prior cashflowStatement for ΔROA
+      const incStatements = asArray(asRecord(rawSummary["incomeStatementHistory"])["incomeStatementHistory"]).map(asRecord);
+      const priInc = incStatements[1] || {};
+      const priorNetIncome = priInc["netIncome"] != null ? Number(priInc["netIncome"]) : (priCf["netIncome"] != null ? Number(priCf["netIncome"]) : undefined);
+
+      payload.fundamentals = {
+        totalCash: fd["totalCash"] != null ? Number(fd["totalCash"]) : undefined,
+        totalDebt: fd["totalDebt"] != null ? Number(fd["totalDebt"]) : undefined,
+        debtToEquity: fd["debtToEquity"] != null ? Number(fd["debtToEquity"]) : undefined,
+        currentRatio: fd["currentRatio"] != null ? Number(fd["currentRatio"]) : undefined,
+        quickRatio: fd["quickRatio"] != null ? Number(fd["quickRatio"]) : undefined,
+        returnOnAssets: fd["returnOnAssets"] != null ? Number((Number(fd["returnOnAssets"]) * 100).toFixed(2)) : undefined,
+        returnOnEquity: fd["returnOnEquity"] != null ? Number((Number(fd["returnOnEquity"]) * 100).toFixed(2)) : undefined,
+        grossMargins: fd["grossMargins"] != null ? Number((Number(fd["grossMargins"]) * 100).toFixed(2)) : undefined,
+        operatingMargins: fd["operatingMargins"] != null ? Number((Number(fd["operatingMargins"]) * 100).toFixed(2)) : undefined,
+        profitMargins: fd["profitMargins"] != null ? Number((Number(fd["profitMargins"]) * 100).toFixed(2)) : undefined,
+        freeCashflow: fd["freeCashflow"] != null ? Number(fd["freeCashflow"]) : undefined,
+        operatingCashflow: fd["operatingCashflow"] != null ? Number(fd["operatingCashflow"]) : (cfStatements[0]?.["totalCashFromOperatingActivities"] != null ? Number(cfStatements[0]["totalCashFromOperatingActivities"]) : undefined),
+        revenueGrowth: fd["revenueGrowth"] != null ? Number((Number(fd["revenueGrowth"]) * 100).toFixed(2)) : undefined,
+        earningsGrowth: fd["earningsGrowth"] != null ? Number((Number(fd["earningsGrowth"]) * 100).toFixed(2)) : undefined,
+        currentPeriod: {
+          totalAssets: curBs["totalAssets"] != null ? Number(curBs["totalAssets"]) : undefined,
+          totalCurrentAssets: curBs["totalCurrentAssets"] != null ? Number(curBs["totalCurrentAssets"]) : undefined,
+          totalCurrentLiabilities: curBs["totalCurrentLiabilities"] != null ? Number(curBs["totalCurrentLiabilities"]) : undefined,
+          longTermDebt: curBs["longTermDebt"] != null ? Number(curBs["longTermDebt"]) : undefined,
+          commonStockSharesOutstanding: curBs["commonStockSharesOutstanding"] != null ? Number(curBs["commonStockSharesOutstanding"]) : (curBs["sharesOutstanding"] != null ? Number(curBs["sharesOutstanding"]) : undefined),
+        },
+        priorPeriod: {
+          totalAssets: priBs["totalAssets"] != null ? Number(priBs["totalAssets"]) : undefined,
+          totalCurrentAssets: priBs["totalCurrentAssets"] != null ? Number(priBs["totalCurrentAssets"]) : undefined,
+          totalCurrentLiabilities: priBs["totalCurrentLiabilities"] != null ? Number(priBs["totalCurrentLiabilities"]) : undefined,
+          longTermDebt: priBs["longTermDebt"] != null ? Number(priBs["longTermDebt"]) : undefined,
+          commonStockSharesOutstanding: priBs["commonStockSharesOutstanding"] != null ? Number(priBs["commonStockSharesOutstanding"]) : (priBs["sharesOutstanding"] != null ? Number(priBs["sharesOutstanding"]) : undefined),
+          netIncome: priorNetIncome,
+        },
+      };
+    }
+
+    // 11. Enrich with Technical Indicators via borsats Ticker (RSI, MACD, Bollinger Bands)
     const targetTicker = getSymbolTicker(cleanSymbol);
     try {
       if (!targetTicker.startsWith("TEFAS:") && !cleanSymbol.includes("/")) {

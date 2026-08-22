@@ -463,12 +463,52 @@ export default function SirketDetayPage() {
   const handleRunAiAnalysis = async () => {
     setAiLoading(true);
     try {
+      const fd = deepData?.fundamentals;
+      const curBs = fd?.currentPeriod;
+      const priBs = fd?.priorPeriod;
+
+      const curLtDebt = curBs?.longTermDebt;
+      const curTotAssets = curBs?.totalAssets;
+      const priLtDebt = priBs?.longTermDebt;
+      const priTotAssets = priBs?.totalAssets;
+
+      const longTermDebtToAssets = curLtDebt && curTotAssets && curTotAssets > 0 ? curLtDebt / curTotAssets : undefined;
+      const priorLongTermDebtToAssets = priLtDebt && priTotAssets && priTotAssets > 0 ? priLtDebt / priTotAssets : undefined;
+
+      const curRatio = fd?.currentRatio ?? (curBs?.totalCurrentAssets && curBs?.totalCurrentLiabilities && curBs.totalCurrentLiabilities > 0 ? curBs.totalCurrentAssets / curBs.totalCurrentLiabilities : undefined);
+      const priorCurrentRatio = priBs?.totalCurrentAssets && priBs?.totalCurrentLiabilities && priBs.totalCurrentLiabilities > 0 ? priBs.totalCurrentAssets / priBs.totalCurrentLiabilities : undefined;
+
+      const roa = fd?.returnOnAssets;
+      const priorRoa = priBs?.netIncome && priBs?.totalAssets && priBs.totalAssets > 0 ? (priBs.netIncome / priBs.totalAssets) * 100 : undefined;
+
+      const enrichedPayload = {
+        ...company,
+        eps: company.peRatio && company.price ? company.price / company.peRatio : undefined,
+        bookValuePerShare: company.pbRatio && company.price ? company.price / company.pbRatio : undefined,
+        revenueGrowth: fd?.revenueGrowth ?? company.revenueGrowth,
+        grossMargin: fd?.grossMargins ?? (company as unknown as { grossMargin?: number }).grossMargin,
+        netMargin: fd?.profitMargins ?? (company as unknown as { netMargin?: number }).netMargin,
+        freeCashFlow: fd?.freeCashflow ?? company.freeCashFlow,
+        totalDebt: fd?.totalDebt,
+        currentAssets: curBs?.totalCurrentAssets,
+        operatingCashFlow: fd?.operatingCashflow,
+        roa,
+        priorRoa,
+        currentRatio: curRatio,
+        priorCurrentRatio,
+        sharesOutstanding: curBs?.commonStockSharesOutstanding,
+        priorSharesOutstanding: priBs?.commonStockSharesOutstanding,
+        longTermDebtToAssets,
+        priorLongTermDebtToAssets,
+        financialLeverage: fd?.debtToEquity ? 1 + (fd.debtToEquity / 100) : undefined,
+      };
+
       const res = await fetch("/api/orakul", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "company_analysis",
-          payload: company,
+          payload: enrichedPayload,
           provider: aiProvider,
           model: geminiModel,
           apiKey: aiApiKey,
